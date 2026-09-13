@@ -334,7 +334,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <button onclick="showWelcome()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;margin-bottom:28px;padding:0;display:block">←</button>
     <div style="font-size:26px;font-weight:900;margin-bottom:4px">Bienvenido</div>
     <div style="font-size:13px;color:var(--muted2);margin-bottom:28px">Ingresá con tu cuenta</div>
-    <div class="field"><label>Usuario</label><input id="li-user" type="text" placeholder="@tu_usuario" autocorrect="off" autocapitalize="off" onkeydown="if(event.key==='Enter')document.getElementById('li-pass').focus()"/></div>
+    <div class="field"><label>Usuario</label><input id="li-user" type="text" placeholder="Tu usuario" autocorrect="off" autocapitalize="off" onkeydown="if(event.key==='Enter')document.getElementById('li-pass').focus()"/></div>
     <div class="field"><label>Contraseña</label><input id="li-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
     <div id="li-error" style="font-size:13px;color:#f472b6;margin-bottom:12px;min-height:18px"></div>
     <button onclick="doLogin()" class="btn btn-primary" style="border-radius:16px;font-size:16px;padding:17px">Entrar</button>
@@ -700,12 +700,17 @@ function showRecoverForm(){
 
 function doLogin(){
   loadUsers();
-  const userInput=document.getElementById('li-user')?.value.trim().toLowerCase().replace('@','');
+  const raw=document.getElementById('li-user')?.value.trim();
+  const userInput=raw.toLowerCase().replace('@','').replace(/ /g,'_');
   const passInput=document.getElementById('li-pass')?.value;
   const errEl=document.getElementById('li-error');
-  if(!userInput||!passInput){ errEl.textContent='Completá usuario y contraseña'; return; }
-  const u=allUsers.find(x=>(x.username||'').toLowerCase()===userInput||(x.name||'').toLowerCase()===userInput);
-  if(!u){ errEl.textContent='Usuario no encontrado'; return; }
+  if(!raw||!passInput){ errEl.textContent='Completá usuario y contraseña'; return; }
+  const u=allUsers.find(x=>{
+    const uname=(x.username||'').toLowerCase().replace(/ /g,'_');
+    const uname2=(x.name||'').toLowerCase().replace(/ /g,'_');
+    return uname===userInput||uname2===userInput||uname2===raw.toLowerCase();
+  });
+  if(!u){ errEl.textContent='Usuario no encontrado (probá con el usuario exacto que usaste al crear la cuenta)'; return; }
   if(u.password!==passInput){ errEl.textContent='Contraseña incorrecta'; return; }
   errEl.textContent='';
   loginAs(u.id);
@@ -727,7 +732,18 @@ function doRegister(){
   allUsers.push(newU);
   saveUsers();
   showToast('Cuenta creada ✓');
-  loginAs(newU.id);
+  // Enter directly without reloading from storage
+  profile={...newU};
+  if(newU.role==='admin'){ enterAdmin(); return; }
+  if(newU.role==='encargado'){ enterEncargado(); return; }
+  if(newU.role==='recepcionista'){ enterRecepcionista(); return; }
+  dineroData={turnos:[]}; yoData={ingresos:[],gastos:[],deudas:[]};
+  loadStoriesData(); loadPuntosData();
+  show('onboarding');
+  document.getElementById('nav').style.display='none';
+  const iw=document.querySelector('.ob-input-wrap');
+  if(iw) iw.style.display='flex';
+  iniciarOnboarding(newU);
 }
 
 async function loginAs(id){
@@ -2231,12 +2247,12 @@ function enterAdmin(){
 function renderAdmin(){
   const body=document.getElementById('admin-body');
   const adminTab = window.adminTab||'dashboard';
-  const tabs = `<div class="admin-tabs" style="overflow-x:auto;white-space:nowrap;display:flex;gap:4px">
-    <button class="at-tab ${adminTab==='dashboard'?'active':''}" onclick="switchAdminTab('dashboard')">📊 Dashboard</button>
-    <button class="at-tab ${adminTab==='equipo'?'active':''}" onclick="switchAdminTab('equipo')">👥 Equipo</button>
-    <button class="at-tab ${adminTab==='stories'?'active':''}" onclick="switchAdminTab('stories')">📱 Stories</button>
-    <button class="at-tab ${adminTab==='puntos'?'active':''}" onclick="switchAdminTab('puntos')">🏆 Puntos</button>
-    <button class="at-tab ${adminTab==='cumples'?'active':''}" onclick="switchAdminTab('cumples')">🎂 Cumples</button>
+  const tabs = `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:4px">
+    ${[['dashboard','📊','Dashboard'],['equipo','👥','Equipo'],['stories','📱','Stories'],['puntos','🏆','Puntos'],['cumples','🎂','Cumples']].map(([id,e,l])=>`
+    <button onclick="switchAdminTab('${id}')" style="padding:10px 4px;border-radius:12px;border:1.5px solid ${adminTab===id?'var(--accent)':'var(--border)'};background:${adminTab===id?'rgba(124,111,255,.15)':'var(--s1)'};cursor:pointer;font-family:var(--font);transition:all .15s">
+      <div style="font-size:18px;margin-bottom:3px">${e}</div>
+      <div style="font-size:9px;font-weight:700;color:${adminTab===id?'var(--accent)':'var(--muted2)'};letter-spacing:.02em">${l}</div>
+    </button>`).join('')}
   </div>`;
   if(adminTab==='dashboard'){ body.innerHTML=tabs; renderAdminDashboard(body); return; }
   if(adminTab==='stories'){ body.innerHTML=tabs; renderAdminStories(body); return; }
