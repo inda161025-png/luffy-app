@@ -1,0 +1,2722 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<meta http-equiv="Cache-Control" content="no-cache">
+<title>Luffy</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+:root{
+  --bg:#09090f;--s1:#111118;--s2:#17171f;--s3:#1f1f2a;
+  --text:#f0f0f8;--muted:#6b6b80;--muted2:#9090a8;
+  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
+  --accent:#7c6fff;--font:'Inter',sans-serif;
+}
+html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column;max-width:430px;margin:0 auto;position:relative}
+
+/* SCREENS */
+.screen{display:none;flex-direction:column;height:100%;overflow:hidden}
+.screen.active{display:flex}
+
+/* UTILS */
+.scroll{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 20px 100px}
+.scroll::-webkit-scrollbar{display:none}
+.inner-hdr{display:flex;align-items:center;gap:12px;padding:16px 20px;flex-shrink:0;border-bottom:1px solid var(--border)}
+.back{background:none;border:none;color:var(--muted2);font-size:20px;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px}
+.back:active{background:var(--s2)}
+.inner-hdr h2{font-size:16px;font-weight:700;flex:1}
+
+/* BTN */
+.btn{width:100%;padding:15px;border-radius:14px;border:none;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s}
+.btn:active{opacity:.85}
+.btn-primary{background:linear-gradient(135deg,#7c6fff,#a78bfa);color:#fff}
+.btn-ghost{background:var(--s2);border:1px solid var(--border2);color:var(--muted2)}
+
+/* CHIPS */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{padding:10px 16px;border-radius:20px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+.chip:active{transform:scale(.96)}
+.chip.sel{color:#fff;border-color:transparent}
+
+/* FIELD */
+.field{margin-bottom:16px}
+.field label{display:block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px}
+.field input,.field textarea{width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:13px 15px;color:var(--text);font-family:var(--font);font-size:15px;outline:none;transition:border-color .2s}
+.field input:focus,.field textarea:focus{border-color:var(--accent)}
+.field input::placeholder,.field textarea::placeholder{color:var(--muted)}
+.field textarea{min-height:80px;resize:none}
+
+/* CARD */
+.card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px}
+
+/* MODAL */
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
+.modal.open{opacity:1;pointer-events:all}
+.modal-box{background:var(--s1);border-radius:24px 24px 0 0;padding:24px 20px;width:100%;max-width:430px;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
+.modal.open .modal-box{transform:translateY(0)}
+.modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 20px}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:20px}
+.modal-close{position:absolute;top:20px;right:20px;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
+
+/* NAV */
+#nav{position:absolute;bottom:0;left:0;right:0;max-width:430px;margin:0 auto;background:var(--s1);border-top:1px solid var(--border);display:flex;padding:8px 0 max(8px,env(safe-area-inset-bottom));z-index:50}
+.nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--muted);font-family:var(--font);font-size:10px;font-weight:600;cursor:pointer;padding:6px 0;transition:color .15s}
+.nav-btn svg{width:22px;height:22px;stroke:currentColor;stroke-width:2;fill:none}
+.nav-btn.active{color:var(--accent)}
+.nav-center{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#7c6fff,#a78bfa);display:flex;align-items:center;justify-content:center;margin-top:-20px;box-shadow:0 4px 20px rgba(124,111,255,.4);cursor:pointer;flex-shrink:0;border:none;transition:transform .15s}
+.nav-center:active{transform:scale(.94)}
+.nav-center svg{width:26px;height:26px;stroke:#fff;stroke-width:2.5;fill:none}
+
+/* TOAST */
+#toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--s3);border:1px solid var(--border2);color:var(--text);padding:10px 20px;border-radius:20px;font-size:13px;font-weight:600;opacity:0;transition:all .3s;z-index:200;white-space:nowrap;pointer-events:none}
+#toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+/* ── LOGIN ── */
+#login{align-items:center;justify-content:center;padding:40px 24px;gap:0}
+.login-logo{font-size:52px;margin-bottom:8px}
+.login-app{font-size:32px;font-weight:900;letter-spacing:-.8px;margin-bottom:4px}
+.login-sub{font-size:13px;color:var(--muted2);margin-bottom:36px}
+.profile-card{background:var(--s1);border:1.5px solid var(--border2);border-radius:18px;padding:16px 20px;display:flex;align-items:center;gap:14px;cursor:pointer;transition:transform .15s;width:100%;max-width:340px}
+.profile-card:active{transform:scale(.97)}
+.profile-av{width:48px;height:48px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;border:2px solid transparent}
+.profile-info strong{display:block;font-size:15px;font-weight:700}
+.profile-info span{font-size:11px;color:var(--muted2)}
+.profile-role{margin-left:auto;font-size:10px;font-weight:700;padding:3px 10px;border-radius:20px}
+
+/* ── HUB ── */
+#hub{background:var(--bg)}
+.hub-hdr{padding:20px 20px 0;display:flex;align-items:center;gap:12px;flex-shrink:0}
+.hub-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid transparent;cursor:pointer;flex-shrink:0}
+.hub-greeting{font-size:12px;color:var(--muted2);font-weight:500}
+.hub-name{font-size:20px;font-weight:900;letter-spacing:-.4px}
+.hub-salir{margin-left:auto;background:none;border:none;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);letter-spacing:.05em}
+
+.tramo-banner{margin:16px 20px 0;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.tramo-banner .tb-emoji{font-size:24px;flex-shrink:0}
+.tramo-banner .tb-info strong{display:block;font-size:13px;font-weight:700}
+.tramo-banner .tb-info span{font-size:11px;opacity:.7}
+.tramo-banner .tb-pct{font-size:20px;font-weight:900;margin-left:auto;flex-shrink:0}
+
+.quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px 20px 0;flex-shrink:0}
+.qa-btn{border-radius:16px;padding:16px;border:none;cursor:pointer;transition:transform .15s;text-align:left;font-family:var(--font)}
+.qa-btn:active{transform:scale(.96)}
+.qa-btn .qa-icon{font-size:26px;margin-bottom:8px;display:block}
+.qa-btn .qa-title{font-size:14px;font-weight:800;display:block;margin-bottom:2px}
+.qa-btn .qa-sub{font-size:11px;opacity:.7}
+
+.hub-section{padding:20px 20px 0;flex-shrink:0}
+.hub-section-title{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px}
+
+.reel-item{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.reel-item .ri-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.reel-item .ri-info{flex:1;min-width:0}
+.reel-item .ri-info strong{font-size:13px;font-weight:600;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.reel-item .ri-info span{font-size:11px;color:var(--muted2)}
+.reel-item .ri-badge{font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;flex-shrink:0}
+
+/* ── REGISTRO RAPIDO ── */
+.registro-steps{display:flex;gap:6px;margin-bottom:20px}
+.reg-step{flex:1;height:3px;border-radius:2px;background:var(--border2)}
+.reg-step.done{background:var(--accent)}
+.monto-inp{width:100%;background:transparent;border:none;font-family:var(--font);font-size:48px;font-weight:900;color:var(--text);text-align:center;outline:none;padding:20px 0}
+.monto-inp::placeholder{color:var(--border2)}
+.monto-prefix{font-size:20px;font-weight:700;color:var(--muted);text-align:center;margin-bottom:-16px}
+
+/* ── GENERADOR ── */
+.gen-idea-card{background:var(--s1);border:1.5px solid var(--border2);border-radius:18px;padding:18px;cursor:pointer;transition:all .2s;margin-bottom:10px}
+.gen-idea-card:active{transform:scale(.97)}
+.gic-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.gic-emoji{width:38px;height:38px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0}
+.gic-est{font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em}
+.gic-titulo{font-size:15px;font-weight:800;line-height:1.3;margin-bottom:4px}
+.gic-desc{font-size:12px;color:var(--muted2);line-height:1.5}
+
+.pulir-card{background:var(--s1);border:1.5px solid var(--border2);border-radius:16px;padding:16px;margin-bottom:16px}
+.paso-num{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.1em;color:var(--muted);margin-bottom:6px}
+.paso-q{font-size:16px;font-weight:800;margin-bottom:14px;line-height:1.3}
+.paso-custom{display:flex;gap:8px;margin-top:10px}
+.paso-custom input{flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none}
+.paso-custom input:focus{border-color:var(--accent)}
+.paso-custom button{padding:0 16px;border-radius:10px;border:none;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;color:#fff}
+
+.guion-bloque{background:var(--s1);border:1.5px solid var(--border2);border-radius:14px;padding:14px;margin-bottom:10px}
+.gb-hdr{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.gb-icon{font-size:16px}
+.gb-label{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;flex:1}
+.gb-paso{font-size:10px;color:var(--muted);font-weight:600}
+.gb-opts{display:flex;flex-direction:column;gap:8px;margin-bottom:10px}
+.gb-opt{background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5;cursor:pointer;transition:all .15s;color:var(--text);text-align:left;font-family:var(--font)}
+.gb-opt:active{transform:scale(.98)}
+.gb-opt.sel{border-color:var(--accent)}
+.gb-loading{font-size:12px;color:var(--muted2);text-align:center;padding:16px 0;font-style:italic}
+.gb-custom{display:flex;gap:8px;margin-top:6px}
+.gb-custom input{flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none}
+.gb-custom input:focus{border-color:var(--accent)}
+.gb-custom button{padding:0 14px;border-radius:10px;border:none;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;color:#fff;height:40px}
+
+.mete-mano-btn{display:flex;align-items:center;gap:6px;padding:7px 12px;border-radius:20px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;margin-top:8px}
+.mete-mano-panel{background:var(--s2);border:1px solid var(--border2);border-radius:12px;padding:12px;margin-top:8px;display:none}
+.mete-mano-panel.open{display:block}
+.mm-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px}
+.mm-chip{padding:5px 10px;border-radius:14px;border:1px solid var(--border2);background:transparent;color:var(--muted2);font-size:11px;font-weight:600;cursor:pointer;font-family:var(--font)}
+.mm-row{display:flex;gap:8px}
+.mm-row input{flex:1;background:var(--s1);border:1.5px solid var(--border2);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none;height:40px}
+.mm-row input:focus{border-color:var(--accent)}
+.mm-row button{padding:0 14px;border-radius:10px;border:none;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;height:40px}
+.mm-opts{display:flex;flex-direction:column;gap:8px;margin-top:10px}
+.mm-opt{background:var(--s1);border:1.5px solid var(--border2);border-radius:10px;padding:11px 13px;font-size:13px;line-height:1.5;cursor:pointer;color:var(--text);font-family:var(--font);text-align:left}
+.mm-opt:active{transform:scale(.98)}
+
+/* ── DINERO ── */
+.dinero-tabs{display:flex;gap:6px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:4px;margin-bottom:16px}
+.dt-tab{flex:1;padding:9px;border-radius:10px;border:none;background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s}
+.dt-tab.active{background:var(--s3);color:var(--text)}
+
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
+.stat-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:14px}
+.stat-card .sc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
+.stat-card .sc-val{font-size:22px;font-weight:900;letter-spacing:-.5px}
+.stat-card .sc-sub{font-size:11px;color:var(--muted2);margin-top:2px}
+
+.progress-bar{height:6px;background:var(--border2);border-radius:3px;overflow:hidden;margin:10px 0}
+.progress-fill{height:100%;border-radius:3px;transition:width .5s}
+
+.turno-item{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px;cursor:pointer}
+.turno-item .ti-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0}
+.turno-item .ti-info{flex:1;min-width:0}
+.turno-item .ti-info strong{font-size:13px;font-weight:600;display:block}
+.turno-item .ti-info span{font-size:11px;color:var(--muted2)}
+.turno-item .ti-monto{font-size:14px;font-weight:800}
+.turno-item .ti-medio{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;margin-top:2px;display:block;text-align:right}
+
+.sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.sec-title{font-size:13px;font-weight:700}
+.sec-btn{padding:6px 14px;border-radius:20px;border:none;color:#fff;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer}
+
+/* ── ADMIN ── */
+.admin-tabs{display:flex;gap:6px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:4px;margin-bottom:16px}
+.at-tab{flex:1;padding:9px;border-radius:10px;border:none;background:transparent;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;text-align:center;transition:all .15s}
+.at-tab.active{background:var(--s3);color:var(--text)}
+
+.prof-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px}
+.pc-hdr{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.pc-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;flex-shrink:0;border:2px solid transparent}
+.pc-info strong{font-size:14px;font-weight:700;display:block}
+.pc-info span{font-size:11px;color:var(--muted2)}
+.pc-tramo{margin-left:auto;text-align:right}
+.pc-tramo .pct{font-size:20px;font-weight:900;line-height:1}
+.pc-tramo .lbl{font-size:10px;font-weight:700}
+.pc-nums{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px}
+.pc-num{background:var(--s2);border-radius:10px;padding:10px 8px;text-align:center}
+.pc-num .pn-val{font-size:13px;font-weight:800;display:block}
+.pc-num .pn-lbl{font-size:9px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);margin-top:2px}
+
+/* ── KANBAN ── */
+.kanban-scroll{display:flex;gap:12px;overflow-x:auto;padding:0 20px 20px;flex:1;scrollbar-width:none}
+.kanban-scroll::-webkit-scrollbar{display:none}
+.kanban-col{flex-shrink:0;width:200px;display:flex;flex-direction:column;gap:8px}
+.kanban-col-hdr{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.kanban-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px;cursor:pointer}
+.kanban-card .kc-titulo{font-size:13px;font-weight:600;margin-bottom:4px}
+.kanban-card .kc-sub{font-size:11px;color:var(--muted2)}
+
+/* REPUTACION */
+.rep-bar{height:10px;background:var(--border2);border-radius:5px;overflow:hidden;margin:8px 0}
+.rep-fill{height:100%;border-radius:5px;transition:width .5s}
+.rep-badge{font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;display:inline-block}
+
+/* ADMIN DASHBOARD */
+.dash-card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;flex:1}
+.dash-num{font-size:32px;font-weight:900;letter-spacing:-1px;line-height:1}
+.dash-lbl{font-size:11px;color:var(--muted2);font-weight:600;margin-top:4px}
+.semaforo{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.alert-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.alert-item:last-child{border-bottom:none}
+
+/* EMPTY */
+.empty{text-align:center;padding:40px 20px;color:var(--muted)}
+.empty .e-icon{font-size:36px;margin-bottom:10px}
+.empty p{font-size:13px;line-height:1.6}
+
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner{width:24px;height:24px;border:2px solid var(--border2);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite;margin:0 auto 12px}
+@keyframes float{0%,100%{transform:translateY(0)}50%{transform:translateY(-6px)}}
+
+/* STORIES */
+.story-card{background:var(--s1);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:8px;transition:border-color .2s}
+.story-card.done{border-color:rgba(52,211,153,.3);background:rgba(52,211,153,.03)}
+.story-top{display:flex;align-items:center;gap:10px;margin-bottom:8px}
+.story-num{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0}
+.story-tipo strong{display:block;font-size:13px;font-weight:700}
+.story-tipo span{font-size:11px;color:var(--muted2)}
+.story-check{width:28px;height:28px;border-radius:50%;border:2px solid var(--border2);display:flex;align-items:center;justify-content:center;cursor:pointer;margin-left:auto;flex-shrink:0;transition:all .2s;font-size:14px;background:transparent}
+.story-check.done{background:#34d399;border-color:#34d399}
+.story-texto{background:var(--s2);border-radius:10px;padding:10px 12px;font-size:12px;line-height:1.6;color:var(--text);position:relative;margin-bottom:6px}
+.story-copy{position:absolute;top:8px;right:8px;background:var(--s3);border:none;border-radius:6px;padding:3px 8px;font-size:10px;font-weight:700;color:var(--muted2);cursor:pointer;font-family:var(--font)}
+
+/* POINTS */
+.pts-hero{border-radius:20px;padding:24px 20px;text-align:center;margin-bottom:14px}
+.pts-num{font-size:52px;font-weight:900;letter-spacing:-2px;line-height:1}
+.pts-lbl{font-size:12px;opacity:.7;margin-top:4px}
+.pts-row{display:flex;justify-content:center;gap:24px;margin-top:16px;padding-top:16px;border-top:1px solid rgba(255,255,255,.1)}
+.pts-row .pr-item .pri-val{font-size:18px;font-weight:800;display:block}
+.pts-row .pr-item .pri-lbl{font-size:10px;opacity:.6}
+
+.ranking-item{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.ranking-pos{width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;flex-shrink:0}
+.ranking-av{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0;border:2px solid transparent}
+.ranking-info{flex:1}
+.ranking-info strong{font-size:13px;font-weight:700;display:block}
+.ranking-info span{font-size:11px;color:var(--muted2)}
+.ranking-pts{font-size:16px;font-weight:900}
+
+.canje-card{background:var(--s1);border:1.5px solid var(--border);border-radius:14px;padding:14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:all .15s}
+.canje-card:active{transform:scale(.97)}
+.canje-icon{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.canje-info{flex:1}
+.canje-info strong{font-size:13px;font-weight:700;display:block;margin-bottom:2px}
+.canje-info span{font-size:11px;color:var(--muted2)}
+.canje-pts{font-size:14px;font-weight:800;text-align:right;flex-shrink:0}
+
+.mov-item{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border)}
+.mov-item:last-child{border-bottom:none}
+.mov-icon{font-size:18px;flex-shrink:0}
+.mov-info{flex:1}
+.mov-info strong{font-size:12px;font-weight:600;display:block}
+.mov-info span{font-size:11px;color:var(--muted2)}
+.mov-pts{font-size:14px;font-weight:800}
+
+/* Admin neg points modal */
+.neg-btn{width:100%;padding:12px;border-radius:12px;background:rgba(244,114,182,.1);border:1.5px solid rgba(244,114,182,.2);color:#f472b6;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;margin-bottom:8px;text-align:left;display:flex;align-items:center;gap:10px}
+.neg-btn:active{opacity:.8}
+
+/* ONBOARDING CHAT */
+#onboarding{background:var(--bg)}
+.ob-chat{flex:1;overflow-y:auto;padding:20px;display:flex;flex-direction:column;gap:12px;scrollbar-width:none}
+.ob-chat::-webkit-scrollbar{display:none}
+.ob-msg{max-width:85%;line-height:1.6;font-size:14px;padding:12px 16px;border-radius:18px;animation:fadeUp .3s ease}
+.ob-msg.ia{background:var(--s2);color:var(--text);border-radius:18px 18px 18px 4px;align-self:flex-start}
+.ob-msg.user{background:var(--accent);color:#fff;border-radius:18px 18px 4px 18px;align-self:flex-end}
+.ob-msg.loading{background:var(--s2);align-self:flex-start;display:flex;gap:6px;align-items:center;padding:14px 18px}
+.ob-dot{width:7px;height:7px;border-radius:50%;background:var(--muted2);animation:pulse .9s ease infinite}
+.ob-dot:nth-child(2){animation-delay:.2s}
+.ob-dot:nth-child(3){animation-delay:.4s}
+@keyframes fadeUp{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1)}}
+.ob-input-wrap{flex-shrink:0;padding:12px 16px;background:var(--s1);border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-end}
+.ob-inp{flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:14px;padding:12px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;resize:none;min-height:44px;max-height:120px;line-height:1.5}
+.ob-inp:focus{border-color:var(--accent)}
+.ob-send{width:44px;height:44px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:opacity .15s}
+.ob-send:active{opacity:.8}
+.ob-result{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-top:8px;font-size:13px;line-height:1.7}
+.ob-result h3{font-size:14px;font-weight:800;color:var(--accent);margin-bottom:6px;margin-top:12px}
+.ob-result h3:first-child{margin-top:0}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- LOGIN -->
+<div id="login" class="screen active">
+  <div class="login-logo">🐟</div>
+  <div class="login-app">Luffy</div>
+  <div class="login-sub">Inda Studio</div>
+  <div id="login-grid" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px"></div>
+</div>
+
+<!-- HUB -->
+<div id="hub" class="screen" style="background:var(--bg)">
+  <!-- Header -->
+  <div class="hub-hdr" style="padding:20px 20px 16px">
+    <div class="hub-av" id="hub-av" onclick="goTo('perfil')" style="cursor:pointer"></div>
+    <div style="flex:1;min-width:0">
+      <div class="hub-greeting" id="hub-greeting" style="font-size:11px;color:var(--muted2);font-weight:600;letter-spacing:.03em"></div>
+      <div class="hub-name" id="hub-name" style="font-size:19px;font-weight:900;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
+    </div>
+    <button class="hub-salir" onclick="showLogin()" style="font-size:10px;letter-spacing:.08em;opacity:.5">SALIR</button>
+  </div>
+
+  <div style="flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;scrollbar-width:none;padding:0 16px 100px" id="hub-scroll">
+
+    <!-- Tramo banner -->
+    <div id="tramo-banner" onclick="goTo('dinero')" style="display:none;border-radius:16px;padding:14px 16px;margin-bottom:14px;cursor:pointer"></div>
+
+    <!-- Stories card -->
+    <div id="hub-stories-card" onclick="goTo('stories')" style="border-radius:18px;padding:16px;margin-bottom:12px;cursor:pointer;border:1.5px solid rgba(52,211,153,.2);background:rgba(52,211,153,.06)">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="width:44px;height:44px;border-radius:14px;background:rgba(52,211,153,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">📱</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:800;margin-bottom:2px">Stories del día</div>
+          <div style="font-size:11px;color:var(--muted2)" id="qa-stories-sub">0/4 publicadas hoy</div>
+        </div>
+        <div id="hub-stories-dots" style="display:flex;gap:4px;flex-shrink:0"></div>
+      </div>
+    </div>
+
+    <!-- Quick actions -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <button id="qa-gen" onclick="goTo('generador')" style="border-radius:16px;padding:16px;border:1.5px solid var(--border);background:var(--s1);cursor:pointer;text-align:left;transition:transform .15s;font-family:var(--font)" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(.96)'" ontouchend="this.style.transform=''">
+        <div style="font-size:26px;margin-bottom:8px">🌧️</div>
+        <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px">Generar idea</div>
+        <div style="font-size:10px;color:var(--muted2)">Lluvia con IA</div>
+      </button>
+      <button onclick="goTo('dinero')" style="border-radius:16px;padding:16px;border:1.5px solid var(--border);background:var(--s1);cursor:pointer;text-align:left;font-family:var(--font)" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">
+        <div style="font-size:26px;margin-bottom:8px">🐷</div>
+        <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px">Mi dinero</div>
+        <div style="font-size:10px;color:var(--muted2)" id="hub-tramo-sub">Tramos y comisiones</div>
+      </button>
+    </div>
+
+    <!-- Reels en progreso -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">En progreso</div>
+      <button onclick="goTo('kanban')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Ver tablero →</button>
+    </div>
+    <div id="hub-reels"></div>
+  </div>
+</div>
+
+<!-- GENERADOR -->
+<div id="generador" class="screen">
+  <div class="inner-hdr">
+    <button class="back" id="gen-back">←</button>
+    <h2 id="gen-title">Generador</h2>
+  </div>
+  <div class="scroll" id="gen-body"></div>
+</div>
+
+<!-- EDITOR REEL -->
+<div id="editor" class="screen">
+  <div class="inner-hdr">
+    <button class="back" onclick="goTo('generador')">←</button>
+    <h2 id="editor-title">Reel</h2>
+    <button onclick="guardarReel()" style="margin-left:auto;padding:7px 14px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Guardar</button>
+  </div>
+  <div class="scroll" id="editor-body"></div>
+</div>
+
+<!-- DINERO -->
+<div id="dinero" class="screen">
+  <div class="hub-hdr" style="padding-bottom:16px">
+    <div><div style="font-size:12px;color:var(--muted2);font-weight:500">Gestión</div><div style="font-size:20px;font-weight:900">Mi dinero 🐷</div></div>
+  </div>
+  <div class="scroll" id="dinero-body"></div>
+</div>
+
+<!-- RECEPCIONISTA -->
+<div id="recepcion" class="screen">
+  <div class="hub-hdr" style="padding-bottom:0;flex-shrink:0">
+    <div>
+      <div style="font-size:12px;color:var(--muted2)">Recepción</div>
+      <div style="font-size:20px;font-weight:900" id="rec-greeting">Buenos días 📞</div>
+    </div>
+    <button class="hub-salir" onclick="showLogin()">SALIR</button>
+  </div>
+  <div class="scroll" id="rec-body"></div>
+</div>
+
+<!-- KANBAN -->
+<div id="kanban" class="screen">
+  <div class="inner-hdr"><button class="back" onclick="goTo('hub')">←</button><h2>Tablero</h2></div>
+  <div class="kanban-scroll" id="kanban-body"></div>
+</div>
+
+<!-- ADMIN -->
+<div id="admin" class="screen">
+  <div class="hub-hdr" style="padding-bottom:16px">
+    <div><div style="font-size:12px;color:var(--muted2)">Panel de control</div><div style="font-size:20px;font-weight:900">Inda Studio 👑</div></div>
+    <button class="hub-salir" onclick="showLogin()">SALIR</button>
+  </div>
+  <div class="scroll" id="admin-body"></div>
+</div>
+
+<!-- STORIES -->
+<div id="stories" class="screen">
+  <div class="inner-hdr">
+    <button class="back" onclick="goTo('hub')">←</button>
+    <h2>Stories del día</h2>
+  </div>
+  <div class="scroll" id="stories-body"></div>
+</div>
+
+<!-- PUNTOS -->
+<div id="puntos" class="screen">
+  <div class="inner-hdr">
+    <button class="back" onclick="goTo('hub')">←</button>
+    <h2>Mis puntos 🏆</h2>
+  </div>
+  <div class="scroll" id="puntos-body"></div>
+</div>
+
+<!-- PERFIL -->
+<div id="perfil" class="screen">
+  <div class="inner-hdr"><button class="back" onclick="goTo('hub')">←</button><h2>Mi perfil</h2></div>
+  <div class="scroll" id="perfil-body"></div>
+</div>
+
+<!-- ONBOARDING -->
+<div id="onboarding" class="screen">
+  <div style="padding:14px 20px;flex-shrink:0;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
+    <div id="ob-av" style="width:36px;height:36px;border-radius:50%;background:var(--accent)33;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🐟</div>
+    <div style="flex:1"><div style="font-size:13px;font-weight:700">Luffy</div><div style="font-size:11px;color:var(--muted2)" id="ob-progreso">Estratega de contenido</div></div>
+    <button onclick="showLogin()" style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">Saltar</button>
+  </div>
+  <div class="ob-chat" id="ob-chat"></div>
+  <div class="ob-input-wrap">
+    <textarea class="ob-inp" id="ob-inp" placeholder="Escribí tu respuesta..." rows="1" onkeydown="if(event.key==='Enter'&&!event.shiftKey){event.preventDefault();obEnviar()}" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'"></textarea>
+    <button class="ob-send" onclick="obEnviar()">↑</button>
+  </div>
+</div>
+
+<!-- NAV -->
+<nav id="nav" style="display:none">
+  <button class="nav-btn active" id="n-hub" onclick="goTo('hub')">
+    <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
+    Inicio
+  </button>
+  <button class="nav-btn" id="n-gen" onclick="goTo('generador')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
+    Generar
+  </button>
+  <button class="nav-center" onclick="openRegistro()">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+  </button>
+  <button class="nav-btn" id="n-kanban" onclick="goTo('kanban')">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+    Tablero
+  </button>
+  <button class="nav-btn" id="n-dinero" onclick="goTo('dinero')">
+    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v2m0 8v2M9 9h4.5a1.5 1.5 0 010 3H10a1.5 1.5 0 000 3H15"/></svg>
+    Dinero
+  </button>
+  <button class="nav-btn" id="n-puntos" onclick="goTo('puntos')">
+    <svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
+    Puntos
+  </button>
+</nav>
+
+<!-- MODALS -->
+<div class="modal" id="modal-registro">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div id="registro-content"></div>
+  </div>
+</div>
+<div class="modal" id="modal-turno">
+  <div class="modal-box">
+    <div class="modal-handle"></div>
+    <div id="turno-content"></div>
+  </div>
+</div>
+
+<div id="toast"></div>
+</div>
+
+<script>
+// ============ STATE ============
+const PROFILES = [
+  {id:'admin',   name:'Ivan',      emoji:'👑', color:'#fbbf24', role:'admin'},
+  {id:'ivo',     name:'Ivo',       emoji:'✂️', color:'#7c6fff', role:'profesional', profesion:'Peluquero'},
+  {id:'rec',     name:'Recepción', emoji:'📞', color:'#60a5fa', role:'recepcionista'},
+  {id:'enc',     name:'Encargado', emoji:'📋', color:'#34d399', role:'encargado'},
+];
+const ROLES = {admin:'Administrador', profesional:'Profesional', recepcionista:'Recepcionista', encargado:'Encargado'};
+
+let profile = null;
+let DB = null;
+let reels = [];
+let dineroData = {turnos:[]};
+let yoData = {ingresos:[],gastos:[],deudas:[]};
+
+const TRAMOS = [
+  {min:0,       max:999999,   pct:45, label:'Base',  color:'#888896', emoji:'🌱'},
+  {min:1000000, max:1199999,  pct:50, label:'Bronce', color:'#fb923c', emoji:'🥉'},
+  {min:1200000, max:Infinity, pct:55, label:'Plata',  color:'#9090b0', emoji:'🥈'},
+];
+const TRAMO_ORO = {pct:60, label:'Oro', color:'#fbbf24', emoji:'🥇'};
+
+// Stories
+const STORY_TIPOS = [
+  {id:'buenos_dias',  emoji:'🌅', label:'Buenos días',    ref:'Mostrá que arrancaste el día'},
+  {id:'turnos_libres',emoji:'📅', label:'Turnos libres',  ref:'Foto del local o agenda con horarios'},
+  {id:'resultado',    emoji:'✂️', label:'Resultado',       ref:'Foto del trabajo realizado'},
+  {id:'cierre',       emoji:'🌙', label:'Cierre del día', ref:'Foto tuya o del local al cerrar'},
+];
+const STORY_TEXTOS = {
+  buenos_dias:   'Arrancamos el día ✂️ Ya estamos en el salón listos para atenderte. Reservá tu turno por DM 👇',
+  turnos_libres: 'Turnos disponibles para hoy:\n⏰ [HORA 1]\n⏰ [HORA 2]\n⏰ [HORA 3]\nEscribime y te reservo 🙌',
+  resultado:     '¿Les gusta el resultado? ✨ Este es el trabajo de hoy. Si querés algo así, reservá tu turno por DM 💈',
+  cierre:        'Cerramos el día por hoy 🙏 ¡Gracias a todos los que pasaron! Si querés reservar para mañana, escribime ahora 📩',
+};
+
+// Points
+const PUNTOS_CONFIG = [
+  {id:'story',      label:'Story subida',          pts:5,   emoji:'📱', auto:true},
+  {id:'story_week', label:'Semana completa stories',pts:25,  emoji:'🗓', auto:true},
+  {id:'reel',       label:'Reel publicado',         pts:50,  emoji:'🎬', auto:true},
+  {id:'tramo_oro',  label:'Tramo Oro en quincena',  pts:150, emoji:'🥇', auto:true},
+  {id:'cliente',    label:'Cliente nuevo traído',   pts:30,  emoji:'👤', auto:false},
+  {id:'quincena',   label:'Quincena sin faltas',    pts:40,  emoji:'⭐', auto:false},
+];
+const CANJES_DEFAULT = [
+  {id:'efectivo',   emoji:'💵', label:'$5.000 en efectivo',  pts:200},
+  {id:'libre',      emoji:'🏖️', label:'Día libre',           pts:300},
+  {id:'maquinas',   emoji:'✂️', label:'Hora en máquinas',    pts:100},
+  {id:'capacitacion',emoji:'🎓',label:'Capacitación',        pts:250},
+];
+
+let storiesData = {};
+let puntosData = {}; // {[profId]: {total, movimientos:[{fecha,tipo,pts,razon,ts}]}}
+let canjesData = []; // canjes disponibles (admin puede editar)
+let canjesSolicitudes = []; // solicitudes pendientes
+
+function loadStoriesData(){
+  try{storiesData=JSON.parse(localStorage.getItem('luffy_stories')||'{}');}catch(e){storiesData={};}
+}
+function saveStoriesData(){
+  try{localStorage.setItem('luffy_stories',JSON.stringify(storiesData));}catch(e){}
+  if(DB){try{DB.doc('luffy/stories').set(storiesData);}catch(e){}}
+}
+function loadPuntosData(){
+  try{puntosData=JSON.parse(localStorage.getItem('luffy_puntos')||'{}');}catch(e){puntosData={};}
+  try{canjesData=JSON.parse(localStorage.getItem('luffy_canjes')||JSON.stringify(CANJES_DEFAULT));}catch(e){canjesData=[...CANJES_DEFAULT];}
+  try{canjesSolicitudes=JSON.parse(localStorage.getItem('luffy_canjes_sol')||'[]');}catch(e){canjesSolicitudes=[];}
+}
+function savePuntosData(){
+  try{localStorage.setItem('luffy_puntos',JSON.stringify(puntosData));}catch(e){}
+  try{localStorage.setItem('luffy_canjes',JSON.stringify(canjesData));}catch(e){}
+  try{localStorage.setItem('luffy_canjes_sol',JSON.stringify(canjesSolicitudes));}catch(e){}
+  if(DB){try{DB.doc('luffy/puntos').set({puntos:puntosData,canjes:canjesData,solicitudes:canjesSolicitudes});}catch(e){}}
+}
+
+function getPuntos(profId){
+  if(!puntosData[profId]) puntosData[profId]={total:0,movimientos:[]};
+  return puntosData[profId];
+}
+function addPuntos(profId, tipo, pts, razon){
+  if(!puntosData[profId]) puntosData[profId]={total:0,movimientos:[]};
+  puntosData[profId].total = (puntosData[profId].total||0) + pts;
+  puntosData[profId].movimientos.unshift({tipo,pts,razon,ts:new Date().toISOString(),fecha:new Date().toISOString().split('T')[0]});
+  savePuntosData();
+}
+
+const STAGES = {
+  idea:      {l:'Idea',       c:'#7c6fff'},
+  guion:     {l:'Guión',     c:'#fbbf24'},
+  produccion:{l:'Producción', c:'#60a5fa'},
+  edicion:   {l:'Edición',   c:'#f472b6'},
+  publicado: {l:'Publicado', c:'#34d399'},
+};
+
+// ============ AUTH ============
+let allUsers = [];
+
+function loadUsers(){
+  try { allUsers=JSON.parse(localStorage.getItem('luffy_users')||'[]'); } catch(e){ allUsers=[]; }
+  if(!allUsers.find(u=>u.role==='admin')){
+    allUsers.unshift({id:'admin',name:'Ivan',username:'ivoadmin',password:'inda2024',role:'admin',color:'#fbbf24',emoji:'👑',profesion:'Administrador'});
+    saveUsers();
+  }
+}
+
+function saveUsers(){
+  try { localStorage.setItem('luffy_users',JSON.stringify(allUsers)); } catch(e){}
+  if(DB){ try{ DB.doc('luffy/users').set({list:allUsers}); }catch(e){} }
+}
+
+function showWelcome(){
+  ['login-welcome','login-form','register-form','recover-form'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=id==='login-welcome'?'block':'none';
+  });
+}
+function showLoginForm(){
+  ['login-welcome','login-form','register-form','recover-form'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=id==='login-form'?'block':'none';
+  });
+  setTimeout(()=>document.getElementById('li-user')?.focus(),100);
+}
+function showRegisterForm(){
+  ['login-welcome','login-form','register-form','recover-form'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=id==='register-form'?'block':'none';
+  });
+  setTimeout(()=>document.getElementById('reg-name')?.focus(),100);
+}
+function showRecoverForm(){
+  ['login-welcome','login-form','register-form','recover-form'].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.style.display=id==='recover-form'?'block':'none';
+  });
+}
+
+function doLogin(){
+  loadUsers();
+  const userInput=document.getElementById('li-user')?.value.trim().toLowerCase().replace('@','');
+  const passInput=document.getElementById('li-pass')?.value;
+  const errEl=document.getElementById('li-error');
+  if(!userInput||!passInput){ errEl.textContent='Completá usuario y contraseña'; return; }
+  const u=allUsers.find(x=>(x.username||'').toLowerCase()===userInput||(x.name||'').toLowerCase()===userInput);
+  if(!u){ errEl.textContent='Usuario no encontrado'; return; }
+  if(u.password!==passInput){ errEl.textContent='Contraseña incorrecta'; return; }
+  errEl.textContent='';
+  loginAs(u.id);
+}
+
+function doRegister(){
+  loadUsers();
+  const name=document.getElementById('reg-name')?.value.trim();
+  const username=document.getElementById('reg-user')?.value.trim().toLowerCase().replace('@','').replace(/ /g,'_');
+  const pass=document.getElementById('reg-pass')?.value;
+  const role=document.getElementById('reg-rol')?.value;
+  const errEl=document.getElementById('reg-error');
+  if(!name||!username||!pass){ errEl.textContent='Completá todos los campos'; return; }
+  if(pass.length<4){ errEl.textContent='Mínimo 4 caracteres'; return; }
+  if(allUsers.find(u=>u.username===username)){ errEl.textContent='Ese usuario ya existe'; return; }
+  const colors={profesional:'#7c6fff',recepcionista:'#60a5fa',encargado:'#34d399'};
+  const emojis={profesional:'✂️',recepcionista:'📞',encargado:'📋'};
+  const newU={id:Date.now().toString(),name,username,password:pass,role,color:colors[role]||'#7c6fff',emoji:emojis[role]||'✂️',profesion:ROLES[role]||role,onboardingDone:false};
+  allUsers.push(newU);
+  saveUsers();
+  showToast('Cuenta creada ✓');
+  loginAs(newU.id);
+}
+
+async function loginAs(id){
+  loadUsers();
+  const u=allUsers.find(x=>x.id===id);
+  if(!u) return;
+  profile={...u};
+  if(u.role==='admin'){ enterAdmin(); return; }
+  if(u.role==='encargado'){ enterEncargado(); return; }
+  if(u.role==='recepcionista'){ enterRecepcionista(); return; }
+  try { dineroData=JSON.parse(localStorage.getItem('luffy_dinero_'+id)||'{"turnos":[]}'); } catch(e){ dineroData={turnos:[]}; }
+  try { yoData=JSON.parse(localStorage.getItem('luffy_yo_'+id)||'{"ingresos":[],"gastos":[],"deudas":[]}'); } catch(e){ yoData={ingresos:[],gastos:[],deudas:[]}; }
+  loadStoriesData(); loadPuntosData();
+  try { const ep=JSON.parse(localStorage.getItem('luffy_perfil_'+id)||'null'); if(ep) Object.assign(profile,ep); } catch(e){}
+  if(!profile.onboardingDone){
+    show('onboarding');
+    document.getElementById('nav').style.display='none';
+    const iw=document.querySelector('.ob-input-wrap');
+    if(iw) iw.style.display='flex';
+    await iniciarOnboarding(profile);
+    return;
+  }
+  showHub();
+}
+
+function showLogin(){
+  profile=null;
+  show('login');
+  document.getElementById('nav').style.display='none';
+  showWelcome();
+}
+
+// ============ INIT ============
+async function init(){
+  try { reels=JSON.parse(localStorage.getItem('luffy_reels')||'[]'); } catch(e){}
+  loadUsers();
+  try { DB=await claude.use('db'); if(DB){ const r=await DB.doc('luffy/reels').get(); if(r&&r.list&&r.list.length){reels=r.list;localStorage.setItem('luffy_reels',JSON.stringify(reels));} } } catch(e){}
+  showLogin();
+}
+
+// ============ LOGIN ============
+function showLogin(){
+  profile = null;
+  show('login');
+  document.getElementById('nav').style.display='none';
+  const grid = document.getElementById('login-grid');
+  grid.innerHTML = PROFILES.map(p => {
+    const color = p.color;
+    return `<div class="profile-card" onclick="loginAs('${p.id}')">
+      <div class="profile-av" style="background:${color}33;border-color:${color}">${p.emoji}</div>
+      <div class="profile-info"><strong>${p.name}</strong><span>${ROLES[p.role]}</span></div>
+      <div class="profile-role" style="background:${color}22;color:${color}">${ROLES[p.role]}</div>
+    </div>`;
+  }).join('');
+}
+
+async function loginAs(id){
+  profile = PROFILES.find(p=>p.id===id);
+  if(!profile) return;
+  if(profile.role==='admin'){ enterAdmin(); return; }
+  if(profile.role==='recepcionista'){ enterRecepcionista(); return; }
+  if(profile.role==='encargado'){ enterEncargado(); return; }
+  // Profesional
+  try { dineroData = JSON.parse(localStorage.getItem('luffy_dinero_'+id)||'{"turnos":[]}'); } catch(e){ dineroData={turnos:[]}; }
+  try { yoData = JSON.parse(localStorage.getItem('luffy_yo_'+id)||'{"ingresos":[],"gastos":[],"deudas":[]}'); } catch(e){ yoData={ingresos:[],gastos:[],deudas:[]}; }
+  loadStoriesData();
+  loadPuntosData();
+  // Load extended profile
+  try { const ep=JSON.parse(localStorage.getItem('luffy_perfil_'+id)||'null'); if(ep) Object.assign(profile,ep); } catch(e){}
+  // Check onboarding
+  if(!profile.onboardingDone){
+    show('onboarding');
+    document.getElementById('nav').style.display='none';
+    const inputWrap=document.querySelector('.ob-input-wrap');
+    if(inputWrap) inputWrap.style.display='flex';
+    await iniciarOnboarding(profile);
+    return;
+  }
+  showHub();
+}
+
+// ============ HUB ============
+function showHub(){
+  show('hub');
+  document.getElementById('nav').style.display='flex';
+  setNav('n-hub');
+  renderHub();
+  setTimeout(prewarm, 1500);
+}
+
+function renderHub(){
+  const h = new Date().getHours();
+  const gr = h<12?'Buenos días,':h<20?'Buenas tardes,':'Buenas noches,';
+  document.getElementById('hub-greeting').textContent = gr;
+  document.getElementById('hub-name').textContent = profile.name + ' ' + profile.emoji;
+
+  // Avatar
+  const av = document.getElementById('hub-av');
+  if(av){
+    av.textContent = profile.emoji;
+    av.style.background = profile.color+'33';
+    av.style.borderColor = profile.color;
+    av.style.border = '2px solid '+profile.color;
+  }
+
+  // Gen button color
+  const qaGen = document.getElementById('qa-gen');
+  if(qaGen){
+    qaGen.style.background = `linear-gradient(145deg,${profile.color}18,var(--s1))`;
+    qaGen.style.borderColor = profile.color+'33';
+  }
+
+  // Tramo banner
+  renderTramoBanner();
+
+  // Stories dots
+  loadStoriesData();
+  const hoy = new Date().toISOString().split('T')[0];
+  const storiesDone = STORY_TIPOS.filter(t=>(storiesData?.[hoy]?.[profile.id]?.[t.id]?.done)).length;
+  const subStories = document.getElementById('qa-stories-sub');
+  if(subStories) subStories.textContent = storiesDone+'/'+STORY_TIPOS.length+' publicadas hoy';
+  const dots = document.getElementById('hub-stories-dots');
+  if(dots) dots.innerHTML = STORY_TIPOS.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i<storiesDone?'#34d399':'rgba(255,255,255,.15)'}"></div>`).join('');
+
+  // Tramo sub in dinero card
+  try {
+    const now=new Date(), q=now.getDate()<=15?1:2;
+    const turnos=(dineroData.turnos||[]).filter(t=>{if(!t.fecha)return false;const d=new Date(t.fecha+'T00:00:00');return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);});
+    const fact=turnos.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
+    const sub=document.getElementById('hub-tramo-sub');
+    if(sub&&fact>0) sub.textContent=fp(fact)+' esta quincena';
+  } catch(e){}
+
+  // Reels en progreso
+  const mis = reels.filter(r=>(!r.asignado||r.asignado===profile.name)&&r.stage!=='publicado');
+  const ul = document.getElementById('hub-reels');
+  if(!mis.length){
+    ul.innerHTML=`<div style="text-align:center;padding:28px 16px;background:var(--s1);border:1px solid var(--border);border-radius:16px">
+      <div style="font-size:32px;margin-bottom:10px">🎬</div>
+      <div style="font-size:14px;font-weight:700;margin-bottom:6px">Sin reels en progreso</div>
+      <div style="font-size:12px;color:var(--muted2);margin-bottom:16px">Generá una idea y empezá a crear contenido</div>
+      <button onclick="goTo('generador')" style="padding:10px 20px;border-radius:12px;border:none;background:${profile.color};color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Generar idea →</button>
+    </div>`;
+    return;
+  }
+  ul.innerHTML = mis.slice(0,5).map(r=>{
+    const st=STAGES[r.stage]||STAGES.idea;
+    const d=r.fecha?new Date(r.fecha+'T00:00:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'}):'';
+    return `<div class="reel-item" onclick="abrirEditor('${r.id}')" style="margin-bottom:8px">
+      <div class="ri-dot" style="background:${st.c};width:10px;height:10px;border-radius:50%;flex-shrink:0"></div>
+      <div class="ri-info" style="flex:1;min-width:0">
+        <strong style="font-size:13px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.emoji||''} ${r.titulo}</strong>
+        <span style="font-size:11px;color:var(--muted2)">${r.estructura||''}${d?' · '+d:''}</span>
+      </div>
+      <div class="ri-badge" style="background:${st.c}22;color:${st.c};font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;flex-shrink:0">${st.l}</div>
+    </div>`;
+  }).join('');
+}
+
+function renderTramoBanner(){
+  const banner = document.getElementById('tramo-banner');
+  try {
+    const now=new Date(), q=now.getDate()<=15?1:2;
+    const turnos=(dineroData.turnos||[]).filter(t=>{
+      if(!t.fecha) return false;
+      const d=new Date(t.fecha+'T00:00:00');
+      return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
+    });
+    const fact=turnos.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
+    const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&r.fecha&&(()=>{const d=new Date(r.fecha+'T00:00:00');const now2=new Date();return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);})()).length;
+    const {pct,esOro,tramo}=calcComision(fact,reelsQ);
+    const tr=esOro?TRAMO_ORO:tramo;
+    banner.style.display='flex';
+    banner.style.background=`${tr.color}15`;
+    banner.style.border=`1px solid ${tr.color}30`;
+    banner.innerHTML=`<div class="tb-emoji">${tr.emoji}</div><div class="tb-info"><strong style="color:${tr.color}">${tr.pct}% — Tramo ${tr.label}</strong><span>${fp(fact)} esta quincena</span></div><div class="tb-pct" style="color:${tr.color}">›</div>`;
+  } catch(e){ banner.style.display='none'; }
+}
+
+// ============ UTILS ============
+function show(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+function goTo(id){
+  show(id);
+  document.getElementById('nav').style.display=['hub','generador','editor','kanban','dinero','perfil','stories','puntos'].includes(id)?'flex':'none';
+  const navMap2={hub:'n-hub',generador:'n-gen',kanban:'n-kanban',dinero:'n-dinero',stories:'n-hub',puntos:'n-puntos',editor:'n-gen',perfil:'n-hub'};
+  if(navMap2[id]) setNav(navMap2[id]);
+  if(id==='hub') renderHub();
+  if(id==='generador') buildGenHome();
+  if(id==='dinero') renderDinero();
+  if(id==='kanban') renderKanban();
+  if(id==='perfil') renderPerfil();
+  if(id==='stories'){loadStoriesData();renderStories();}
+  if(id==='puntos'){loadPuntosData();renderPuntos();}
+}
+function setNav(id){
+  ['n-hub','n-gen','n-kanban','n-dinero','n-puntos'].forEach(n=>{const el=document.getElementById(n);if(el)el.classList.toggle('active',el.id===id);});
+}
+function showToast(msg){
+  const t=document.getElementById('toast');
+  t.textContent=msg; t.classList.add('show');
+  setTimeout(()=>t.classList.remove('show'),2200);
+}
+function fp(n){ return '$'+Math.round(n).toLocaleString('es-AR'); }
+function calcComision(fact,reelsQ){
+  let tramo=TRAMOS[0];
+  for(const t of TRAMOS) if(fact>=t.min) tramo=t;
+  const esOro=fact>=1200000&&reelsQ>=3;
+  return {comision:fact*(esOro?60:tramo.pct)/100, pct:esOro?60:tramo.pct, esOro, tramo};
+}
+function saveReels(){ try{localStorage.setItem('luffy_reels',JSON.stringify(reels));}catch(e){} if(DB){try{DB.doc('luffy/reels').set({list:reels});}catch(e){}} }
+function saveDinero(){ const pid=profile.id; try{localStorage.setItem('luffy_dinero_'+pid,JSON.stringify(dineroData));}catch(e){} if(DB){try{DB.doc('luffy/dinero_'+pid).set(dineroData);}catch(e){}} }
+async function prewarm(){ try{ const s=await claude.use('sample'); if(s) await s('ok',{modelTier:'quick'}); }catch(e){} }
+
+// ============ REGISTRO RAPIDO ============
+let regState={step:0,tipo:'',monto:0,medio:'',categoria:''};
+
+function openRegistro(){
+  regState={step:0,tipo:'',monto:0,medio:'',categoria:''};
+  renderRegistro();
+  openModal('modal-registro');
+}
+function openModal(id){ document.getElementById(id).classList.add('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+
+function renderRegistro(){
+  const c=document.getElementById('registro-content');
+  const color=profile.color;
+  const back = regState.step>0 ? `<button onclick="regBack()" style="background:var(--s2);border:none;color:var(--muted2);font-size:16px;width:32px;height:32px;border-radius:50%;cursor:pointer;flex-shrink:0">←</button>` : '';
+  if(regState.step===0){
+    c.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div class="modal-title" style="margin:0">¿Qué registrás?</div><button onclick="closeModal('modal-registro')" style="background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px">
+      ${[['💈','Turno','turno'],['💸','Gasto','gasto'],['💵','Ingreso','ingreso']].map(([e,l,v])=>`
+      <button onclick="regSelTipo('${v}')" style="padding:16px 8px;border-radius:14px;background:var(--s2);border:1.5px solid var(--border2);cursor:pointer;font-family:var(--font)">
+        <div style="font-size:24px;margin-bottom:6px">${e}</div>
+        <div style="font-size:13px;font-weight:700;color:var(--text)">${l}</div>
+      </button>`).join('')}
+    </div>`;
+  } else if(regState.step===1){
+    if(regState.tipo==='turno'){
+      // TURNO: nombre + monto + medio en una sola pantalla
+      c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">${back}<div class="modal-title" style="margin:0">Turno 💈</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+        <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" placeholder="Nombre del cliente..."/></div>
+        <div class="field"><label>Monto</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:20px;font-weight:700;color:var(--muted)">$</span>
+            <input id="turno-monto" type="number" placeholder="0" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:13px 15px;color:var(--text);font-family:var(--font);font-size:20px;font-weight:700;outline:none"/>
+          </div>
+        </div>
+        <div class="field"><label>Medio de pago</label>
+          <div style="display:flex;gap:8px">
+            ${[['💵','Efectivo','efectivo'],['📱','Mercado Pago','mp'],['💳','Tarjeta','tarjeta']].map(([e,l,v])=>`
+            <button id="tm-${v}" onclick="selTurnoMedio('${v}')" style="flex:1;padding:12px 6px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;color:var(--muted2);transition:all .15s">
+              <div style="font-size:20px;margin-bottom:4px">${e}</div>${l}
+            </button>`).join('')}
+          </div>
+        </div>
+        <button class="btn btn-primary" onclick="guardarTurnoRapido()" style="background:${color};margin-top:8px">Guardar turno</button>`;
+      setTimeout(()=>document.getElementById('turno-nombre')?.focus(),100);
+    } else {
+      c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="paso-num" style="margin:0">Monto</div></div>
+      <div class="monto-prefix">$</div>
+      <input class="monto-inp" id="reg-monto" type="number" placeholder="0" autofocus/>
+      <button class="btn btn-primary" onclick="regConfirmMonto()" style="margin-top:16px">Siguiente →</button>`;
+      setTimeout(()=>document.getElementById('reg-monto')?.focus(),100);
+    }
+  } else if(regState.step===2){
+    const medios=regState.tipo==='turno'?[['💵','Efectivo','efectivo'],['📱','Mercado Pago','mp']]:
+                 regState.tipo==='gasto'?[['💵','Efectivo','efectivo'],['📱','Mercado Pago','mp'],['💳','Tarjeta','tarjeta']]:
+                 [['💵','Efectivo','efectivo'],['📱','Mercado Pago','mp'],['🏦','Transferencia','transferencia']];
+    c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="paso-num" style="margin:0">Medio de pago</div></div>
+    <div style="font-size:22px;font-weight:900;text-align:center;margin-bottom:16px">${fp(regState.monto)}</div>
+    <div style="display:flex;flex-direction:column;gap:8px;margin-bottom:20px">
+      ${medios.map(([e,l,v])=>`<button onclick="regSelMedio('${v}')" style="padding:14px 16px;border-radius:14px;background:var(--s2);border:1.5px solid var(--border2);cursor:pointer;font-family:var(--font);display:flex;align-items:center;gap:12px;font-size:14px;font-weight:600;color:var(--text)"><span style="font-size:22px">${e}</span>${l}</button>`).join('')}
+    </div>`;
+  } else if(regState.step===3){
+    const cats=regState.tipo==='turno'?['Corte','Color','Mechas','Keratina','Tratamiento','Peinado','Otro']:
+               regState.tipo==='gasto'?['🏠 Alquiler','🛒 Comida','🚌 Transporte','💊 Salud','💡 Servicios','🎬 Entretenimiento','📦 Otro']:
+               ['💼 Quincena','💰 Extra','🎁 Regalo','📦 Otro'];
+    c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="paso-num" style="margin:0">Categoría</div></div>
+    <div style="font-size:22px;font-weight:900;text-align:center;margin-bottom:4px">${fp(regState.monto)}</div>
+    <div style="font-size:13px;color:var(--muted2);text-align:center;margin-bottom:16px">${regState.medio}</div>
+    <div class="chips" style="margin-bottom:20px">${cats.map(cat=>`<div class="chip" onclick="regSelCat('${cat}')">${cat}</div>`).join('')}</div>`;
+  } else if(regState.step===4){
+    const hoy=new Date().toISOString().split('T')[0];
+    c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="paso-num" style="margin:0">Confirmar</div></div>
+    <div class="card" style="margin-bottom:16px">
+      <div style="font-size:28px;font-weight:900;margin-bottom:4px">${fp(regState.monto)}</div>
+      <div style="font-size:13px;color:var(--muted2)">${regState.tipo} · ${regState.medio} · ${regState.categoria}</div>
+    </div>
+    <div class="field"><label>Fecha</label><input type="date" id="reg-fecha" value="${hoy}"/></div>
+    <div class="field"><label>Nota (opcional)</label><input type="text" id="reg-nota" placeholder="Ej: nombre del cliente..."/></div>
+    <button class="btn btn-primary" onclick="regGuardar()" style="background:${color}">Guardar ${regState.tipo}</button>`;
+  }
+}
+
+function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; renderRegistro(); }
+function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
+
+let turnoMedioSel = 'efectivo';
+function selTurnoMedio(medio){
+  turnoMedioSel = medio;
+  ['efectivo','mp','tarjeta'].forEach(m=>{
+    const btn=document.getElementById('tm-'+m);
+    if(!btn) return;
+    const color=profile.color;
+    if(m===medio){
+      btn.style.borderColor=color;
+      btn.style.background=color+'22';
+      btn.style.color=color;
+    } else {
+      btn.style.borderColor='var(--border2)';
+      btn.style.background='transparent';
+      btn.style.color='var(--muted2)';
+    }
+  });
+}
+
+function guardarTurnoRapido(){
+  const nombre=document.getElementById('turno-nombre')?.value.trim()||'';
+  const monto=parseFloat(document.getElementById('turno-monto')?.value)||0;
+  if(!monto){ showToast('Ingresá el monto'); return; }
+  const fecha=new Date().toISOString().split('T')[0];
+  if(!dineroData.turnos) dineroData.turnos=[];
+  dineroData.turnos.push({
+    id:Date.now().toString(),
+    cliente:nombre||'Cliente',
+    monto,
+    medio:turnoMedioSel,
+    fecha,
+    creadoEn:new Date().toISOString()
+  });
+  saveDinero();
+  closeModal('modal-registro');
+  showToast('Turno guardado ✓');
+  renderHub();
+  turnoMedioSel='efectivo';
+}
+function regConfirmMonto(){
+  const v=parseFloat(document.getElementById('reg-monto')?.value)||0;
+  if(!v){ showToast('Ingresá el monto'); return; }
+  regState.monto=v; regState.step=2; renderRegistro();
+}
+function regSelMedio(m){ regState.medio=m; regState.step=3; renderRegistro(); }
+function regSelCat(cat){ regState.categoria=cat; regState.step=4; renderRegistro(); }
+
+function regGuardar(){
+  const fecha=document.getElementById('reg-fecha')?.value||new Date().toISOString().split('T')[0];
+  const nota=document.getElementById('reg-nota')?.value.trim()||'';
+  const id=Date.now().toString();
+  if(regState.tipo==='turno'){
+    if(!dineroData.turnos) dineroData.turnos=[];
+    dineroData.turnos.push({id,cliente:nota,servicio:regState.categoria,monto:regState.monto,medio:regState.medio,fecha,creadoEn:new Date().toISOString()});
+    saveDinero();
+  } else if(regState.tipo==='gasto'){
+    if(!yoData.gastos) yoData.gastos=[];
+    yoData.gastos.push({id,desc:nota||regState.categoria,monto:regState.monto,medio:regState.medio,categoria:regState.categoria,fecha,tipo:'variable'});
+    try{localStorage.setItem('luffy_yo_'+profile.id,JSON.stringify(yoData));}catch(e){}
+  } else {
+    if(!yoData.ingresos) yoData.ingresos=[];
+    yoData.ingresos.push({id,desc:nota||regState.categoria,monto:regState.monto,categoria:regState.categoria,fecha});
+    try{localStorage.setItem('luffy_yo_'+profile.id,JSON.stringify(yoData));}catch(e){}
+  }
+  closeModal('modal-registro');
+  showToast(regState.tipo.charAt(0).toUpperCase()+regState.tipo.slice(1)+' guardado ✓');
+  renderHub();
+}
+
+// ============ GENERADOR ============
+let lluviaIdeas=[], ideaSel=null, pulirStep=0, pulirAnswers={}, guionStep=0, guionData={};
+const PULIR_QS=[
+  {id:'tono',q:'¿Cómo la encarás?',opts:['Con humor 😄','Educativo 📚','Emotivo 💜','Polémico 🔥']},
+  {id:'duracion',q:'¿Cuánto dura?',opts:['Corto 15-30s','Medio 30-60s','Largo +60s']},
+  {id:'sentimiento',q:'¿Qué querés que sienta?',opts:['Identificación','Sorpresa','Motivación','Curiosidad']},
+];
+const GUION_BLOQUES=[
+  {key:'hook',icon:'🎣',label:'Hook',sub:'Primeros 3 segundos'},
+  {key:'desarrollo',icon:'📹',label:'Desarrollo',sub:'El cuerpo del reel'},
+  {key:'cta',icon:'📣',label:'CTA',sub:'El cierre'},
+];
+
+function buildGenHome(){
+  setNav('n-gen');
+  document.getElementById('gen-back').onclick=()=>goTo('hub');
+  document.getElementById('gen-title').textContent='Generador';
+  const c=document.getElementById('gen-body');
+  const color=profile.color;
+  c.innerHTML=`<div style="padding-top:16px">
+    <div style="background:${color}15;border:1.5px solid ${color}33;border-radius:20px;padding:20px;margin-bottom:12px;cursor:pointer;display:flex;align-items:center;gap:16px" onclick="buildLluvia()">
+      <div style="width:52px;height:52px;border-radius:16px;background:${color}22;display:flex;align-items:center;justify-content:center;font-size:24px;flex-shrink:0">🌧️</div>
+      <div style="flex:1"><div style="font-size:16px;font-weight:800;margin-bottom:2px">Lluvia de ideas</div><div style="font-size:12px;color:var(--muted2)">La IA genera ideas basadas en tu perfil</div></div>
+      <div style="font-size:20px;color:var(--muted)">›</div>
+    </div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:8px;display:flex;align-items:center;gap:12px;cursor:pointer;opacity:.6">
+      <div style="font-size:20px">🖼️</div>
+      <div><div style="font-size:14px;font-weight:700">Carrusel</div><div style="font-size:12px;color:var(--muted2)">Próximamente</div></div>
+    </div>
+    <div style="background:rgba(99,255,99,.06);border:1px solid rgba(99,255,99,.15);border-radius:12px;padding:12px 14px;font-size:12px;color:var(--muted2);line-height:1.5">
+      💡 <strong style="color:var(--text)">Primera vez generando:</strong> Claude va a pedir permiso. Tocá <strong style="color:#a78bfa">Permitir</strong> y listo — no vuelve a pedir en la sesión.
+    </div>
+  </div>`;
+}
+
+async function buildLluvia(){
+  document.getElementById('gen-back').onclick=()=>buildGenHome();
+  document.getElementById('gen-title').textContent='Lluvia de ideas';
+  const c=document.getElementById('gen-body');
+  const color=profile.color;
+  c.innerHTML=`<div style="padding-top:16px">
+    <div style="margin-bottom:16px"><input class="field input" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:12px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none" id="lluvia-tema" placeholder="Tema específico... o dejá vacío"/></div>
+    <div id="lluvia-wrap"><div style="text-align:center;padding:32px 0"><div class="spinner"></div><div style="font-size:13px;color:var(--muted2)">Generando ideas...</div></div></div>
+  </div>`;
+  document.getElementById('lluvia-tema').addEventListener('keydown',e=>{if(e.key==='Enter')generarLluvia();});
+  await generarLluvia();
+}
+
+async function generarLluvia(){
+  const tema=document.getElementById('lluvia-tema')?.value.trim()||'';
+  const wrap=document.getElementById('lluvia-wrap');
+  wrap.innerHTML=`<div style="text-align:center;padding:32px 0"><div class="spinner"></div><div style="font-size:13px;color:var(--muted2)">Generando ideas...</div></div>`;
+  const prompt=`Generá 5 ideas de reels para ${profile.name}, ${profile.profesion||'profesional'}.${tema?' Tema: '+tema:''} 
+Devolvé SOLO JSON: {"ideas":[{"emoji":"...","estructura":"Lista|Tutorial|Mito vs Verdad|Storytelling|POV|Problema → Solución|Opinión polémica","titulo":"...","descripcion":"...","color":"uno de: #7c6fff|#f472b6|#34d399|#fbbf24|#60a5fa|#fb923c"}]}`;
+  try {
+    const s=await claude.use('sample');
+    const r=await s(prompt,{modelTier:'quick'});
+    const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
+    lluviaIdeas=d.ideas||[];
+    wrap.innerHTML=`<div style="margin-bottom:8px">${lluviaIdeas.map((idea,i)=>`
+      <div class="gen-idea-card" onclick="selIdea(${i})">
+        <div class="gic-top">
+          <div class="gic-emoji" style="background:${idea.color}22">${idea.emoji}</div>
+          <div class="gic-est" style="color:${idea.color}">${idea.estructura}</div>
+        </div>
+        <div class="gic-titulo">${idea.titulo}</div>
+        <div class="gic-desc">${idea.descripcion}</div>
+      </div>`).join('')}
+      <button onclick="generarLluvia()" style="width:100%;padding:10px;border-radius:12px;background:transparent;border:1.5px solid var(--border2);color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">🔄 Generar otras</button>
+    </div>`;
+  } catch(e){ wrap.innerHTML=`<div style="text-align:center;padding:32px 0;color:var(--muted2)">Error generando. <button onclick="generarLluvia()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:13px;font-weight:700">Reintentar</button></div>`; }
+}
+
+function selIdea(i){
+  ideaSel={...lluviaIdeas[i]};
+  pulirStep=0; pulirAnswers={};
+  buildPulir();
+}
+
+function buildPulir(){
+  document.getElementById('gen-back').onclick=()=>buildLluvia();
+  document.getElementById('gen-title').textContent='Pulir idea';
+  const c=document.getElementById('gen-body');
+  const color=ideaSel.color||profile.color;
+  let answeredHtml='';
+  for(let i=0;i<pulirStep;i++){
+    const q=PULIR_QS[i];
+    answeredHtml+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px 12px;background:var(--s2);border-radius:10px;opacity:.7">
+      <span style="font-size:12px;color:var(--muted2);flex:1">${q.q}</span>
+      <span style="font-size:12px;font-weight:700;color:${color};background:${color}22;padding:3px 10px;border-radius:20px">${pulirAnswers[q.id]}</span>
+    </div>`;
+  }
+  let currentHtml='';
+  if(pulirStep<PULIR_QS.length){
+    const q=PULIR_QS[pulirStep];
+    currentHtml=`<div class="card">
+      <div class="paso-num">${pulirStep+1} de ${PULIR_QS.length}</div>
+      <div class="paso-q">${q.q}</div>
+      <div class="chips">${q.opts.map(o=>`<div class="chip" onclick="selPulir('${q.id}','${o}')" style="">${o}</div>`).join('')}</div>
+      <div class="paso-custom">
+        <input id="pulir-custom" placeholder="O escribí lo tuyo..."/>
+        <button onclick="selPulirCustom('${q.id}')" style="background:${color};color:#fff">→</button>
+      </div>
+    </div>`;
+  } else {
+    currentHtml=`<button class="btn btn-primary" onclick="irAGuion()" style="background:${color}">Me gusta así → Guionar 📝</button>`;
+  }
+  c.innerHTML=`<div style="padding-top:16px">
+    <div class="card" style="border-color:${color}33;background:${color}08;margin-bottom:16px">
+      <div style="font-size:24px;margin-bottom:6px">${ideaSel.emoji}</div>
+      <div style="font-size:17px;font-weight:800;margin-bottom:4px">${ideaSel.titulo}</div>
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${color}">${ideaSel.estructura}</div>
+    </div>
+    ${answeredHtml}${currentHtml}
+  </div>`;
+}
+
+function selPulir(key,val){ pulirAnswers[key]=val; pulirStep++; buildPulir(); }
+function selPulirCustom(key){ const v=document.getElementById('pulir-custom')?.value.trim(); if(!v){showToast('Escribí tu respuesta');return;} pulirAnswers[key]=v; pulirStep++; buildPulir(); }
+
+async function irAGuion(){
+  guionStep=0; guionData={};
+  ideaSel.tono=pulirAnswers.tono||'';
+  ideaSel.duracion=pulirAnswers.duracion||'';
+  ideaSel.sentimiento=pulirAnswers.sentimiento||'';
+  // Evaluate difficulty
+  try{
+    const s=await claude.use('sample');
+    const r=await s(`Evaluá dificultad de producción del reel "${ideaSel.titulo}" con estructura ${ideaSel.estructura}. Respondé SOLO JSON: {"dificultad":1,"label":"Fácil"}`,{modelTier:'quick'});
+    const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
+    ideaSel.dificultad=d.dificultad||2; ideaSel.dificultadLabel=d.label||'Media';
+  }catch(e){ ideaSel.dificultad=2; ideaSel.dificultadLabel='Media'; }
+  buildGuionStep();
+}
+
+let guionCache={};
+
+async function buildGuionStep(){
+  const bloque=GUION_BLOQUES[guionStep];
+  if(!bloque){ buildGuionFinal(); return; }
+  document.getElementById('gen-back').onclick=()=>{ if(guionStep>0){guionStep--;buildGuionStep();}else buildPulir(); };
+  document.getElementById('gen-title').textContent='Guión';
+  const color=ideaSel.color||profile.color;
+  const c=document.getElementById('gen-body');
+  let prev='';
+  for(let i=0;i<guionStep;i++){
+    const b=GUION_BLOQUES[i];
+    prev+=`<div style="background:var(--s2);border-radius:12px;padding:12px 14px;margin-bottom:8px"><div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:${color};margin-bottom:4px">${b.icon} ${b.label}</div><div style="font-size:13px;line-height:1.5">${guionData[b.key]||''}</div><button onclick="volverGuion(${i})" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;font-family:var(--font);margin-top:4px">Cambiar</button></div>`;
+  }
+  c.innerHTML=`<div style="padding-top:12px">${prev}<div class="guion-bloque" style="border-color:${color}33"><div class="gb-hdr"><span class="gb-icon">${bloque.icon}</span><span class="gb-label" style="color:${color}">${bloque.label}</span><span class="gb-paso">${guionStep+1}/3</span></div><div style="font-size:11px;color:var(--muted2);margin-bottom:10px">${bloque.sub}</div><div id="gb-opts"><div class="gb-loading"><div class="spinner" style="width:20px;height:20px;margin-bottom:6px"></div>Generando opciones...</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">No te convence ninguna</div><div style="display:flex;gap:8px"><input id="gb-feedback" placeholder="¿Qué no te gustó?" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:9px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none"/><button onclick="regenGuion('${bloque.key}','${color}')" style="padding:0 14px;border-radius:10px;border:none;background:var(--s3);color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;height:38px">🔄 Nuevas</button></div></div><div style="margin-top:10px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">O escribí la tuya</div><div class="gb-custom"><input id="gb-custom-inp" placeholder="Tu versión..."/><button onclick="selGuionCustom('${bloque.key}')" style="background:${color}">→</button></div></div></div></div>`;
+  await genGuionOpts(bloque.key, color);
+}
+
+async function genGuionOpts(key, color, feedback){
+  const bloque=GUION_BLOQUES.find(b=>b.key===key);
+  const ctxParts=[]; if(key!=='hook'){ctxParts.push('Hook: '+guionData.hook);} if(key==='cta'){ctxParts.push('Desarrollo: '+guionData.desarrollo);}
+  const ctx=ctxParts.join('. ');
+  const instr={hook:'Primeros 2-3 seg para el scroll sin presentacion.',desarrollo:'Cuerpo que fluye del hook sin tecnicismos.',cta:'Cierre breve y accionable.'};
+  const parts=['Genera 4 opciones de '+bloque.label+' para reel de '+profile.name+' ('+(profile.profesion||'profesional')+'). Idea: '+ideaSel.titulo+'. Estructura: '+ideaSel.estructura+'. Tono: '+ideaSel.tono+'. Duracion: '+ideaSel.duracion+'.',ctx?'Contexto: '+ctx+'.':'','Instruccion: '+instr[key]+'.',feedback?'FEEDBACK del creador: '+feedback+'. Genera opciones MUY distintas.':'','Devuelve SOLO JSON: {"opciones":["...","...","...","..."]}'];
+  const prompt=parts.filter(Boolean).join(' ');
+  // Reset feedback and custom inputs
+  const fbInp=document.getElementById('gb-feedback');
+  const custInp=document.getElementById('gb-custom-inp');
+  if(fbInp) fbInp.value='';
+  if(custInp) custInp.value='';
+  try{
+    const s=await claude.use('sample');
+    const r=await s(prompt,{modelTier:'quick'});
+    const d=JSON.parse(r.text.replace(/```json|```/g,'').trim());
+    const opts=d.opciones||[];
+    guionCache[key]=opts;
+    const wrap=document.getElementById('gb-opts');
+    if(wrap) wrap.innerHTML=opts.map((o,i)=>`<button class="gb-opt" onclick="seleccionarOpt('${key}',${i})" style="text-align:left">${o}</button>`).join('');
+    if(!document.getElementById('gb-feedback')) renderGuionInputs(key,color);
+  }catch(e){
+    const wrap=document.getElementById('gb-opts');
+    if(wrap) wrap.innerHTML='<div style="font-size:12px;color:#f472b6;text-align:center;padding:8px">Error al generar. Reintentá.</div>';
+    if(!document.getElementById('gb-feedback')) renderGuionInputs(key,color);
+  }
+}
+
+async function regenGuion(key,color){
+  const feedback=document.getElementById('gb-feedback')?.value.trim()||'variaciones distintas';
+  // Show loading — keep area stable
+  const optsWrap=document.getElementById('gb-opts');
+  if(optsWrap) optsWrap.innerHTML='<div class="gb-loading"><div class="spinner" style="width:20px;height:20px;margin-bottom:6px"></div>Generando nuevas ideas...</div>';
+  // Clear feedback input
+  const fbInp=document.getElementById('gb-feedback');
+  if(fbInp) fbInp.value='';
+  await genGuionOpts(key,color,feedback);
+}
+
+function renderGuionInputs(key,color){
+  const area=document.getElementById('gb-area');
+  if(!area) return;
+  // Add inputs below opts if not already there
+  if(!document.getElementById('gb-feedback')){
+    const div=document.createElement('div');
+    div.innerHTML='<div style="margin-top:14px"><div style="font-size:11px;color:var(--muted2);margin-bottom:8px;text-align:center">¿No te convence ninguna?</div><div style="display:flex;gap:8px"><input id="gb-feedback" placeholder="Decí qué no te gustó..." style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:9px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none"/><button id="gb-regen-btn" style="padding:0 14px;border-radius:10px;border:none;background:var(--s3);color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;height:40px">🔄 Nuevas</button></div></div><div style="margin-top:10px;display:flex;gap:8px"><input id="gb-custom-inp" placeholder="O escribí la tuya..." style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:9px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none"/><button id="gb-custom-btn" style="padding:0 14px;border-radius:10px;border:none;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;height:40px;background:'+color+'">→</button></div>';
+    area.appendChild(div);
+    document.getElementById('gb-regen-btn').onclick=()=>regenGuion(key,color);
+    document.getElementById('gb-custom-btn').onclick=()=>selGuionCustom(key);
+  }
+}
+
+function seleccionarOpt(key,idx){
+  const opts=guionCache[key]||[];
+  const texto=opts[idx]||'';
+  if(!texto) return;
+  const color=ideaSel.color||profile.color;
+  // Replace entire area with edit view — clean, no stale inputs
+  const area=document.getElementById('gb-area');
+  if(!area) return;
+  area.innerHTML=`
+    <div style="background:${color}10;border:1.5px solid ${color}33;border-radius:12px;padding:14px;margin-bottom:10px">
+      <div style="font-size:10px;font-weight:700;color:${color};margin-bottom:8px;text-transform:uppercase;letter-spacing:.08em">✓ Elegiste — editá si querés</div>
+      <textarea id="gb-edit" style="width:100%;background:transparent;border:none;color:var(--text);font-family:var(--font);font-size:13px;line-height:1.6;outline:none;resize:none;min-height:60px" oninput="this.style.height='auto';this.style.height=this.scrollHeight+'px'">${texto}</textarea>
+    </div>
+    <div style="display:flex;gap:8px">
+      <button onclick="volverAOpciones('${key}','${color}')" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">← Ver opciones</button>
+      <button onclick="confirmarOpt('${key}')" style="flex:1;padding:12px;border-radius:10px;border:none;background:${color};color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Usar este →</button>
+    </div>`;
+  setTimeout(()=>{const ta=document.getElementById('gb-edit');if(ta){ta.style.height='auto';ta.style.height=ta.scrollHeight+'px';}},50);
+}
+
+function volverAOpciones(key,color){
+  const area=document.getElementById('gb-area');
+  if(!area) return;
+  const opts=guionCache[key]||[];
+  // Rebuild opts div
+  const optsDiv=document.createElement('div');
+  optsDiv.id='gb-opts';
+  opts.forEach((o,i)=>{
+    const btn=document.createElement('button');
+    btn.className='gb-opt';
+    btn.style.textAlign='left';
+    btn.textContent=o;
+    btn.onclick=()=>seleccionarOpt(key,i);
+    optsDiv.appendChild(btn);
+  });
+  area.innerHTML='';
+  area.appendChild(optsDiv);
+  renderGuionInputs(key,color);
+}
+
+function confirmarOpt(key){
+  const val=document.getElementById('gb-edit')?.value.trim();
+  if(!val){showToast('No puede estar vacío');return;}
+  selGuion(key,val);
+}
+
+function selGuionCustom(key){
+  const val=document.getElementById('gb-custom-inp')?.value.trim();
+  selGuion(key,val);
+}
+
+function selGuion(key,val){ if(!val?.trim()){showToast('Escribí o elegí una opción');return;} guionData[key]=val.trim(); guionStep++; buildGuionStep(); }
+function volverGuion(step){ guionStep=step; for(let i=step;i<GUION_BLOQUES.length;i++) delete guionData[GUION_BLOQUES[i].key]; buildGuionStep(); }
+
+function buildGuionFinal(){
+  document.getElementById('gen-title').textContent='Guión listo';
+  document.getElementById('gen-back').onclick=()=>{ guionStep=2; buildGuionStep(); };
+  const color=ideaSel.color||profile.color;
+  const c=document.getElementById('gen-body');
+  const stars='⭐'.repeat(ideaSel.dificultad||2)+'☆'.repeat(3-(ideaSel.dificultad||2));
+  c.innerHTML=`<div style="padding-top:12px">
+    ${GUION_BLOQUES.map(b=>`
+    <div class="guion-bloque">
+      <div class="gb-hdr"><span class="gb-icon">${b.icon}</span><span class="gb-label" style="color:${color}">${b.label}</span></div>
+      <div style="font-size:13px;line-height:1.6;margin-bottom:8px" id="gf-${b.key}">${guionData[b.key]||''}</div>
+      <button class="mete-mano-btn" onclick="toggleMM('${b.key}')" style="border-color:${color}44">👋 Mete mano</button>
+      <div class="mete-mano-panel" id="mm-${b.key}">
+        <div class="mm-chips">${['Más corto','Más directo','Más cercano','Más impacto','Diferente'].map(m=>`<button class="mm-chip" onclick="document.getElementById('mm-inp-${b.key}').value='${m}'">${m}</button>`).join('')}</div>
+        <div class="mm-row">
+          <input id="mm-inp-${b.key}" placeholder="Ej: más agresivo, con humor..."/>
+          <button onclick="ejecutarMM('${b.key}')" style="background:${color}">→</button>
+        </div>
+        <div class="mm-opts" id="mm-opts-${b.key}"></div>
+      </div>
+    </div>`).join('')}
+    <div class="card" style="text-align:center;margin-bottom:12px">
+      <div style="font-size:13px;color:var(--muted2);margin-bottom:4px">Dificultad</div>
+      <div style="font-size:20px">${stars} ${ideaSel.dificultadLabel||'Media'}</div>
+    </div>
+    <button class="btn btn-primary" onclick="crearReel()" style="background:${color};margin-bottom:8px">Guardar y editar reel →</button>
+    <button class="btn btn-ghost" onclick="buildGenHome()">Volver al inicio</button>
+  </div>`;
+}
+
+function toggleMM(key){ const p=document.getElementById('mm-'+key); p.classList.toggle('open'); }
+
+async function ejecutarMM(key){
+  const inp=document.getElementById('mm-inp-'+key);
+  const instruccion=inp?.value.trim();
+  if(!instruccion){showToast('Escribí qué querés cambiar');return;}
+  const opts=document.getElementById('mm-opts-'+key);
+  opts.innerHTML=`<div class="gb-loading">Generando opciones...</div>`;
+  const textoActual=document.getElementById('gf-'+key)?.textContent||guionData[key]||'';
+  const bloque=GUION_BLOQUES.find(b=>b.key===key);
+  const prompt=`Reescribí este ${bloque.label} según la instrucción. Contexto: reel de ${profile.name} sobre "${ideaSel.titulo}".
+Texto actual: "${textoActual}"
+Instrucción: "${instruccion}"
+Guión completo: Hook: ${guionData.hook||''} / Desarrollo: ${guionData.desarrollo||''} / CTA: ${guionData.cta||''}
+Devolvé SOLO JSON: {"opciones":["...","...","...","..."]}`;
+  try{
+    const s=await claude.use('sample');
+    const r=await s(prompt,{modelTier:'quick'});
+    const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
+    opts.innerHTML=(d.opciones||[]).map(o=>`<div class="mm-opt" onclick="aplicarMM('${key}',this)">${o}</div>`).join('');
+  }catch(e){ opts.innerHTML=`<div style="font-size:12px;color:#f472b6;padding:8px">Error. Intentá de nuevo.</div>`; }
+}
+
+function aplicarMM(key,el){
+  const val=el.textContent;
+  guionData[key]=val;
+  const disp=document.getElementById('gf-'+key);
+  if(disp) disp.textContent=val;
+  document.getElementById('mm-'+key).classList.remove('open');
+  document.getElementById('mm-opts-'+key).innerHTML='';
+  document.getElementById('mm-inp-'+key).value='';
+  showToast('Aplicado ✓');
+}
+
+function crearReel(){
+  const reel={
+    id:Date.now().toString(),
+    titulo:ideaSel.titulo,
+    emoji:ideaSel.emoji,
+    estructura:ideaSel.estructura,
+    color:ideaSel.color,
+    descripcion:ideaSel.descripcion,
+    tono:ideaSel.tono,
+    duracionIdea:ideaSel.duracion,
+    sentimiento:ideaSel.sentimiento,
+    dificultad:ideaSel.dificultad,
+    dificultadLabel:ideaSel.dificultadLabel,
+    hook:guionData.hook,
+    desarrollo:guionData.desarrollo,
+    cta:guionData.cta,
+    stage:'guion',
+    asignado:profile.name,
+    tomas:[],
+    creado:new Date().toISOString(),
+  };
+  reels.unshift(reel);
+  saveReels();
+  abrirEditor(reel.id);
+  showToast('Reel creado ✓');
+}
+
+// ============ EDITOR ============
+let editReel=null;
+const ETAPAS=[
+  {key:'guion',     label:'Guión',      color:'#fbbf24'},
+  {key:'produccion',label:'Producción', color:'#60a5fa'},
+  {key:'edicion',   label:'Edición',    color:'#f472b6'},
+  {key:'publicado', label:'Publicado',  color:'#34d399'},
+];
+
+function abrirEditor(id){
+  editReel=reels.find(r=>r.id===id);
+  if(!editReel) return;
+  show('editor');
+  document.getElementById('nav').style.display='flex';
+  document.getElementById('editor-title').textContent=editReel.titulo||'Reel';
+  renderEditor();
+}
+
+function renderEditor(){
+  const r=editReel;
+  const color=r.color||profile.color;
+  const etapaIdx=ETAPAS.findIndex(e=>e.key===r.stage);
+  const body=document.getElementById('editor-body');
+
+  // Tabs
+  const tabs=ETAPAS.map((e,i)=>`<button onclick="cambiarEtapa('${e.key}')" style="flex:1;padding:8px 4px;border-radius:10px;border:none;background:${r.stage===e.key?e.color+'33':'transparent'};color:${r.stage===e.key?e.color:'var(--muted2)'};font-family:var(--font);font-size:10px;font-weight:700;cursor:pointer;white-space:nowrap">${e.label}</button>`).join('');
+
+  let content='';
+  if(r.stage==='guion'){
+    content=`
+      <div class="card" style="border-color:${color}33;background:${color}08;margin-bottom:16px;text-align:center">
+        <div style="font-size:32px;margin-bottom:8px">${r.emoji||'🎬'}</div>
+        <div style="font-size:17px;font-weight:800;margin-bottom:4px">${r.titulo}</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${color};margin-bottom:8px">${r.estructura||''}</div>
+        <div style="font-size:13px;color:var(--muted2)">${'⭐'.repeat(r.dificultad||2)}${'☆'.repeat(3-(r.dificultad||2))} ${r.dificultadLabel||''}</div>
+      </div>
+      ${[{k:'hook',i:'🎣',l:'Hook'},{k:'desarrollo',i:'📹',l:'Desarrollo'},{k:'cta',i:'📣',l:'CTA'}].map(b=>`
+      <div class="card" style="margin-bottom:10px">
+        <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:${color};margin-bottom:6px">${b.i} ${b.l}</div>
+        <div style="font-size:13px;line-height:1.6;color:var(--text)">${r[b.k]||'—'}</div>
+      </div>`).join('')}
+      <button class="btn btn-primary" onclick="cambiarEtapa('produccion')" style="background:${color};margin-top:4px">Listo → Producción 🎬</button>`;
+  } else if(r.stage==='produccion'){
+    const tomas=r.tomas||[];
+    content=`
+      <div class="sec-hdr"><span class="sec-title">Tomas (${tomas.length})</span><button class="sec-btn" onclick="agregarToma()" style="background:${color}">+ Toma</button></div>
+      ${!tomas.length?`<div class="empty"><div class="e-icon">🎬</div><p>Sin tomas.<br>Tocá "+ Toma" o generalas con IA.</p></div><button class="btn btn-ghost" onclick="generarTomas()" style="margin-bottom:12px">✨ Generar con IA</button>`
+      :tomas.map((t,i)=>`<div class="card" style="margin-bottom:8px;display:flex;align-items:flex-start;gap:10px">
+        <div style="width:28px;height:28px;border-radius:50%;background:${color};display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800;color:#fff;flex-shrink:0">${i+1}</div>
+        <div style="flex:1"><div style="font-size:12px;font-weight:700;margin-bottom:2px">${t.angulo||'Sin ángulo'} · <span style="color:${color}">${t.tipo==='camara'?'🎥 Cámara':t.tipo==='off'?'🎙 Off':'🤫 Silencio'}</span></div>
+        <div style="font-size:12px;color:var(--muted2)">${t.desc||''}</div>
+        ${t.dialogo?`<div style="font-size:11px;color:var(--muted);margin-top:4px;font-style:italic">"${t.dialogo}"</div>`:''}
+        </div></div>`).join('')}
+      ${tomas.length?`<button class="btn btn-primary" onclick="cambiarEtapa('edicion')" style="background:${color};margin-top:8px">Grabado → Edición ✂️</button>`:''}`;
+  } else if(r.stage==='edicion'){
+    const items=['Cortar silencios','Agregar subtítulos','Música/sonido','Transiciones','Texto en pantalla','Formato 9:16'];
+    const checks=r.checklist||{};
+    content=`
+      <div class="sec-title" style="margin-bottom:12px">Checklist de edición</div>
+      ${items.map((item,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
+        <input type="checkbox" id="ck-${i}" ${checks[i]?'checked':''} onchange="saveCheck(${i},this.checked)" style="width:18px;height:18px;accent-color:${color};cursor:pointer"/>
+        <label for="ck-${i}" style="font-size:13px;cursor:pointer">${item}</label>
+      </div>`).join('')}
+      <div class="field" style="margin-top:16px"><label>Caption / descripción</label><textarea id="ed-caption" placeholder="Texto para la publicación, hashtags...">${r.caption||''}</textarea></div>
+      <button class="btn btn-primary" onclick="marcarPublicado()" style="background:#34d399;margin-top:4px">Publicado ✅</button>`;
+  } else if(r.stage==='publicado'){
+    content=`<div style="text-align:center;padding:40px 20px">
+      <div style="font-size:56px;margin-bottom:16px">🎉</div>
+      <div style="font-size:22px;font-weight:900;margin-bottom:8px">${r.titulo}</div>
+      <div style="font-size:13px;color:var(--muted2);margin-bottom:24px">${r.asignado||''}</div>
+      <div style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.2);border-radius:16px;padding:16px;font-size:13px;color:#34d399">✅ Publicado — cuenta para el tramo de comisión</div>
+    </div>`;
+  }
+
+  body.innerHTML=`<div style="display:flex;gap:4px;background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:4px;margin-bottom:16px">${tabs}</div>${content}`;
+}
+
+function cambiarEtapa(stage){
+  if(!editReel) return;
+  // Save caption if in edicion
+  const cap=document.getElementById('ed-caption');
+  if(cap) editReel.caption=cap.value;
+  editReel.stage=stage;
+  const idx=reels.findIndex(r=>r.id===editReel.id);
+  if(idx>-1) reels[idx]=editReel;
+  saveReels();
+  renderEditor();
+}
+
+function saveCheck(idx,val){
+  if(!editReel.checklist) editReel.checklist={};
+  editReel.checklist[idx]=val;
+  const i=reels.findIndex(r=>r.id===editReel.id);
+  if(i>-1) reels[i]=editReel;
+  saveReels();
+}
+
+function marcarPublicado(){
+  editReel.stage='publicado';
+  editReel.fechaPublicado=new Date().toISOString();
+  const i=reels.findIndex(r=>r.id===editReel.id);
+  if(i>-1) reels[i]=editReel;
+  saveReels();
+  // Award points
+  loadPuntosData();
+  addPuntos(profile.id,'reel',50,'Reel publicado: '+editReel.titulo);
+  renderEditor();
+  showToast('¡Publicado! 🎉 +50 puntos ⭐');
+}
+
+function guardarReel(){
+  if(!editReel) return;
+  const i=reels.findIndex(r=>r.id===editReel.id);
+  if(i>-1) reels[i]=editReel;
+  saveReels();
+  showToast('Guardado ✓');
+}
+
+async function generarTomas(){
+  if(!editReel) return;
+  const body=document.getElementById('editor-body');
+  const colorActual=editReel.color||profile.color;
+  body.innerHTML=`<div style="text-align:center;padding:40px 20px"><div class="spinner"></div><div style="font-size:13px;color:var(--muted2)">Generando tomas...</div></div>`;
+  const prompt=`Generá desglose de tomas para este reel:
+Hook: "${editReel.hook}" / Desarrollo: "${editReel.desarrollo}" / CTA: "${editReel.cta}"
+Creador: ${profile.name} (${profile.profesion||'profesional'})
+Máximo 5 tomas. Devolvé SOLO JSON: {"tomas":[{"angulo":"Plano general|Primer plano|Plano medio|Plano detalle|Cenital|Selfie","tipo":"camara|off|silencio","desc":"...","dialogo":"..."}]}`;
+  try{
+    const s=await claude.use('sample');
+    const r=await s(prompt,{modelTier:'quick'});
+    const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
+    editReel.tomas=d.tomas||[];
+    const i=reels.findIndex(r=>r.id===editReel.id);
+    if(i>-1) reels[i]=editReel;
+    saveReels();
+    renderEditor();
+  }catch(e){ renderEditor(); showToast('Error generando tomas'); }
+}
+
+function agregarToma(){
+  if(!editReel.tomas) editReel.tomas=[];
+  editReel.tomas.push({angulo:'Plano general',tipo:'camara',desc:'',dialogo:''});
+  const i=reels.findIndex(r=>r.id===editReel.id);
+  if(i>-1) reels[i]=editReel;
+  saveReels();
+  renderEditor();
+}
+
+// ============ DINERO ============
+let dineroTab='trabajo';
+let dineroQ=1;
+
+function renderDinero(){
+  const body=document.getElementById('dinero-body');
+  const color=profile.color;
+  const q=dineroQ;
+  const now=new Date();
+  const r2=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+  const r2end=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
+  body.innerHTML=`
+    <div class="dinero-tabs">
+      <button class="dt-tab ${dineroTab==='trabajo'?'active':''}" onclick="switchDineroTab('trabajo')">💼 Trabajo</button>
+      <button class="dt-tab ${dineroTab==='yo'?'active':''}" onclick="switchDineroTab('yo')">👤 Yo</button>
+    </div>
+    <div id="dinero-content"></div>`;
+  renderDineroContent();
+}
+
+function switchDineroTab(tab){ dineroTab=tab; renderDinero(); }
+
+function renderDineroContent(){
+  const wrap=document.getElementById('dinero-content');
+  if(dineroTab==='trabajo') renderTrabajo(wrap);
+  else renderYo(wrap);
+}
+
+function renderTrabajo(wrap){
+  const now=new Date();
+  const q=now.getDate()<=15?1:2;
+  dineroQ=q;
+  const color=profile.color;
+  const turnos=(dineroData.turnos||[]).filter(t=>{
+    if(!t.fecha) return false;
+    const d=new Date(t.fecha+'T00:00:00');
+    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
+  });
+  const fact=turnos.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
+  const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&r.fecha&&(()=>{
+    const d=new Date(r.fecha+'T00:00:00');
+    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
+  })()).length;
+  const {comision,pct,esOro,tramo}=calcComision(fact,reelsQ);
+  const tr=esOro?TRAMO_ORO:tramo;
+  const nextT=!esOro&&tramo.max!==Infinity?TRAMOS[TRAMOS.indexOf(tramo)+1]:null;
+  const progressPct=nextT?Math.min(100,(fact/nextT.min)*100):fact>=1200000?Math.min(100,(reelsQ/3)*100):100;
+
+  const efect=turnos.filter(t=>t.medio==='efectivo').reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
+  const mp=turnos.filter(t=>t.medio==='mp').reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
+  const tarjeta=turnos.filter(t=>t.medio==='tarjeta').reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
+
+  const sorted=[...turnos].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+
+  wrap.innerHTML=`
+    <div class="dinero-tabs" style="margin-bottom:14px">
+      <button class="dt-tab ${q===1?'active':''}" onclick="switchQ(1)">1 al 15</button>
+      <button class="dt-tab ${q===2?'active':''}" onclick="switchQ(2)">16 al fin</button>
+    </div>
+    <div style="background:${tr.color}15;border:1.5px solid ${tr.color}30;border-radius:18px;padding:18px;margin-bottom:14px;display:flex;align-items:center;gap:14px">
+      <div style="font-size:40px">${tr.emoji}</div>
+      <div style="flex:1">
+        <div style="font-size:28px;font-weight:900;line-height:1;color:${tr.color}">${tr.pct}%</div>
+        <div style="font-size:12px;font-weight:700;color:${tr.color}">Tramo ${tr.label}</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:2px">${nextT?'Faltan '+fp(nextT.min-fact)+' para '+nextT.pct+'%':esOro?'🏆 Tramo máximo':reelsQ<3?'Publicá '+(3-reelsQ)+' reels más para el 60%':''}</div>
+      </div>
+    </div>
+    <div class="progress-bar"><div class="progress-fill" style="width:${progressPct.toFixed(1)}%;background:${tr.color}"></div></div>
+    <div class="stat-grid">
+      <div class="stat-card"><div class="sc-lbl">Facturación</div><div class="sc-val">${fp(fact)}</div><div class="sc-sub">${turnos.length} turnos</div></div>
+      <div class="stat-card"><div class="sc-lbl">Tu comisión</div><div class="sc-val" style="color:${tr.color}">${fp(comision)}</div><div class="sc-sub">${pct}%</div></div>
+      ${efect?`<div class="stat-card"><div class="sc-lbl">💵 Efectivo</div><div class="sc-val" style="font-size:16px">${fp(efect)}</div></div>`:''}
+      ${mp?`<div class="stat-card"><div class="sc-lbl">📱 Mercado Pago</div><div class="sc-val" style="font-size:16px">${fp(mp)}</div></div>`:''}
+      ${tarjeta?`<div class="stat-card"><div class="sc-lbl">💳 Tarjeta</div><div class="sc-val" style="font-size:16px">${fp(tarjeta)}</div></div>`:''}
+    </div>
+    <div class="sec-hdr">
+      <span class="sec-title">Turnos (${sorted.length})</span>
+      <button class="sec-btn" onclick="openRegistro()" style="background:${color}">+ Turno</button>
+    </div>
+    ${!sorted.length?'<div class="empty"><div class="e-icon">📅</div><p>Sin turnos este período.</p></div>':
+    sorted.map(t=>{
+      const medioColor={efectivo:'#34d399',mp:'#009ee3',tarjeta:'#7c6fff'}[t.medio]||'#888';
+      const medioLabel={efectivo:'EFE',mp:'MP',tarjeta:'TAR'}[t.medio]||t.medio;
+      const d=t.fecha?new Date(t.fecha+'T00:00:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'}):'';
+      return `<div class="turno-item" onclick="editarTurno('${t.id}')">
+        <div class="ti-dot" style="background:${medioColor}"></div>
+        <div class="ti-info"><strong>${t.cliente||'Cliente'}</strong><span>${t.servicio||''}${d?' · '+d:''}</span></div>
+        <div style="text-align:right"><div class="ti-monto">${fp(parseFloat(t.monto)||0)}</div><div class="ti-medio" style="background:${medioColor}22;color:${medioColor}">${medioLabel}</div></div>
+      </div>`;
+    }).join('')}`;
+}
+
+function switchQ(q){ dineroQ=q; renderDineroContent(); }
+
+function editarTurno(id){
+  const turno=(dineroData.turnos||[]).find(t=>t.id===id);
+  if(!turno) return;
+  // Simple edit — open registro in edit mode
+  showToast('Tap en el monto para editar (próximamente)');
+}
+
+function renderYo(wrap){
+  const gastos=yoData.gastos||[];
+  const ingresos=yoData.ingresos||[];
+  const now=new Date();
+  const mes=now.getMonth(), year=now.getFullYear();
+  const ingMes=ingresos.filter(i=>{const d=new Date(i.fecha);return d.getMonth()===mes&&d.getFullYear()===year;}).reduce((s,i)=>s+(parseFloat(i.monto)||0),0);
+  const gasMes=gastos.filter(g=>{const d=new Date(g.fecha);return d.getMonth()===mes&&d.getFullYear()===year;}).reduce((s,g)=>s+(parseFloat(g.monto)||0),0);
+  const balance=ingMes-gasMes;
+  const balColor=balance>=0?'#34d399':'#f472b6';
+
+  wrap.innerHTML=`
+    <div style="background:${balColor}15;border:1px solid ${balColor}30;border-radius:18px;padding:20px;text-align:center;margin-bottom:14px">
+      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;opacity:.7;margin-bottom:6px">Balance del mes</div>
+      <div style="font-size:40px;font-weight:900;color:${balColor};letter-spacing:-1px">${fp(balance)}</div>
+      <div style="display:flex;justify-content:center;gap:24px;margin-top:14px;padding-top:14px;border-top:1px solid rgba(255,255,255,.1)">
+        <div style="text-align:center"><div style="font-size:15px;font-weight:800;color:#34d399">${fp(ingMes)}</div><div style="font-size:10px;opacity:.6;margin-top:2px">Ingresos</div></div>
+        <div style="text-align:center"><div style="font-size:15px;font-weight:800;color:#f472b6">${fp(gasMes)}</div><div style="font-size:10px;opacity:.6;margin-top:2px">Gastos</div></div>
+      </div>
+    </div>
+    <div class="sec-hdr"><span class="sec-title">Ingresos</span><button class="sec-btn" onclick="openRegistro()" style="background:#34d399">+ Ingreso</button></div>
+    ${!ingresos.length?'<div class="empty"><div class="e-icon">💵</div><p>Sin ingresos registrados.</p></div>':
+    ingresos.slice(-5).reverse().map(i=>`<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px">
+      <div style="width:36px;height:36px;border-radius:10px;background:rgba(52,211,153,.15);display:flex;align-items:center;justify-content:center;font-size:16px">💵</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${i.desc||i.categoria||'Ingreso'}</div><div style="font-size:11px;color:var(--muted2)">${i.fecha||''}</div></div>
+      <div style="font-size:14px;font-weight:800;color:#34d399">+${fp(parseFloat(i.monto)||0)}</div>
+    </div>`).join('')}
+    <div class="sec-hdr" style="margin-top:8px"><span class="sec-title">Gastos</span><button class="sec-btn" onclick="openRegistro()" style="background:#f472b6">+ Gasto</button></div>
+    ${!gastos.length?'<div class="empty"><div class="e-icon">🧾</div><p>Sin gastos registrados.</p></div>':
+    gastos.slice(-5).reverse().map(g=>`<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px">
+      <div style="width:36px;height:36px;border-radius:10px;background:rgba(244,114,182,.12);display:flex;align-items:center;justify-content:center;font-size:16px">${g.categoria?.split(' ')[0]||'📦'}</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${g.desc||g.categoria||'Gasto'}</div><div style="font-size:11px;color:var(--muted2)">${g.tipo==='fijo'?'Fijo':'Variable'} · ${g.fecha||''}</div></div>
+      <div style="font-size:14px;font-weight:800;color:#f472b6">-${fp(parseFloat(g.monto)||0)}</div>
+    </div>`).join('')}`;
+}
+
+
+// ============ ONBOARDING CHAT ============
+let obMessages = []; // {role:'ia'|'user', text:''}
+let obStep = 0; // 0-9 preguntas, 10 = procesando resultado
+let obRespuestas = [];
+let obPerfil = {};
+
+const SISTEMA_ESTRATEGA = `Sos un estratega de contenido extremadamente exigente para profesionales de servicios (barbería/estética/salud/bienestar). Tu trabajo es sacarle un NICHO y PILARES que VENDAN, no frases lindas.
+
+REGLAS OBLIGATORIAS:
+1) Cero teoría. Todo accionable.
+2) No aceptes nichos genéricos. Bajá a: tipo de cliente + problema + resultado + diferencial.
+3) Si la respuesta es vaga, repreguntá y obligá a elegir entre opciones concretas.
+4) Sé directo y exigente, pero amigable. Usá español rioplatense informal.
+5) UNA PREGUNTA POR VEZ. Esperá la respuesta antes de la siguiente.
+
+Vas a hacer exactamente 10 preguntas para construir el perfil de creador de contenido.
+
+Las preguntas deben cubrir:
+Q1) Profesión exacta y 3 servicios principales
+Q2) Tipo de cliente ideal (quién, qué edad, qué problema tiene)
+Q3) Resultado concreto que logran después de trabajar con vos
+Q4) Qué te diferencia de otros que hacen lo mismo
+Q5) Mayor miedo o inseguridad de tu cliente antes de reservar
+Q6) Por qué alguien te elegiría a vos y no a otro más barato
+Q7) Qué querés lograr con las redes (turnos, marca personal, escalar)
+Q8) Tu estilo de comunicación (serio, con humor, educativo, cercano)
+Q9) Zona y modalidad (local fijo, a domicilio, online)
+Q10) Una historia real de transformación de un cliente
+
+Después de las 10 respuestas, generás el resultado completo con este formato exacto:
+
+===RESULTADO===
+NICHO: "Soy [profesión] y ayudo a [tipo de cliente] a lograr [resultado] resolviendo [problema] con [servicio/método], en [zona], sin [objeción típica]."
+
+PILARES:
+- Pilar 1: [nombre] (TOFU) | Subpilares: a) b) c)
+- Pilar 2: [nombre] (MOFU) | Subpilares: a) b) c)  
+- Pilar 3: [nombre] (BOFU) | Subpilares: a) b) c)
+
+BANCO DE REELS:
+1) Hook: | Body: | CTA:
+[hasta 9]
+
+VOZ: [3 palabras que describen cómo habla este creador]
+PALABRAS_SI: [5 palabras/frases que usa]
+PALABRAS_NO: [5 palabras/frases que evita]
+===FIN===`;
+
+async function iniciarOnboarding(perfilBase){
+  obMessages = [];
+  obRespuestas = [];
+  obStep = 0;
+  obPerfil = perfilBase || {};
+  
+  const chat = document.getElementById('ob-chat');
+  if(chat) chat.innerHTML = '';
+  
+  // Update avatar
+  const av = document.getElementById('ob-av');
+  if(av && obPerfil.emoji){ av.textContent=obPerfil.emoji; av.style.background=obPerfil.color+'33'; av.style.borderColor=obPerfil.color; }
+  
+  // First message from IA
+  await obMensajeIA('¡Hola! Soy tu estratega de contenido. Vamos a construir tu perfil de creador juntos — te voy a hacer 10 preguntas, una por una. Necesito que seas específico, sin vueltas. ¿Empezamos?\n\n**Q1) ¿Cuál es tu profesión exacta y cuáles son los 3 servicios que más hacés?**');
+}
+
+function obMensajeIA(texto){
+  obMessages.push({role:'ia', text:texto});
+  renderObChat();
+  return new Promise(r=>setTimeout(r,100));
+}
+
+function renderObChat(){
+  const chat = document.getElementById('ob-chat');
+  if(!chat) return;
+  chat.innerHTML = obMessages.map(m=>`
+    <div class="ob-msg ${m.role}" ${m.role==='ia'?'style="max-width:90%"':''}>
+      ${m.text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>').replace(/\n/g,'<br>')}
+    </div>`).join('');
+  setTimeout(()=>chat.scrollTop=chat.scrollHeight, 50);
+}
+
+function mostrarCargando(){
+  const chat = document.getElementById('ob-chat');
+  if(!chat) return;
+  const loading = document.createElement('div');
+  loading.className = 'ob-msg loading';
+  loading.id = 'ob-loading';
+  loading.innerHTML = '<div class="ob-dot"></div><div class="ob-dot"></div><div class="ob-dot"></div>';
+  chat.appendChild(loading);
+  chat.scrollTop = chat.scrollHeight;
+}
+
+function quitarCargando(){
+  document.getElementById('ob-loading')?.remove();
+}
+
+async function obEnviar(){
+  const inp = document.getElementById('ob-inp');
+  const texto = inp?.value.trim();
+  if(!texto) return;
+  inp.value = '';
+  inp.style.height = 'auto';
+
+  // Add user message
+  obMessages.push({role:'user', text:texto});
+  obRespuestas.push(texto);
+  obStep++;
+  renderObChat();
+
+  // Update progress
+  const prog = document.getElementById('ob-progreso');
+  if(prog) prog.textContent = `Pregunta ${Math.min(obStep,10)} de 10`;
+
+  mostrarCargando();
+
+  try {
+    const s = await claude.use('sample');
+    if(!s) throw new Error('no sample');
+
+    // Always continue conversation — let IA decide when to generate result
+    const historial = obMessages.map(m=>`${m.role==='ia'?'Estratega':'Profesional'}: ${m.text}`).join('\n');
+    let prompt;
+    if(obStep >= 10){
+      prompt = `${SISTEMA_ESTRATEGA}\n\nConversación completa:\n${historial}\n\nYa tenés las 10 respuestas. Si aún necesitás aclarar algo, hacelo. Cuando tengas todo lo necesario, generá el resultado con el formato ===RESULTADO===...===FIN===.`;
+    } else {
+      prompt = `${SISTEMA_ESTRATEGA}\n\nConversación hasta ahora:\n${historial}\n\nLlevás ${obStep} respuestas. Si la última fue vaga, repreguntá. Si fue clara, avanzá a la siguiente pregunta.`;
+    }
+    
+    const res = await s(prompt, {modelTier:'quick'});
+    quitarCargando();
+    
+    // Check if result is included
+    if(res.text.includes('===RESULTADO===')){
+      procesarResultado(res.text);
+    } else {
+      await obMensajeIA(res.text);
+    }
+  } catch(e) {
+    quitarCargando();
+    await obMensajeIA('Hubo un error. ¿Podés repetir tu respuesta?');
+  }
+}
+
+function procesarResultado(texto){
+  // Extract structured data
+  let nicho='', pilares=[], reels=[], voz='', palabrasSi='', palabrasNo='';
+  
+  try {
+    const nichoMatch = texto.match(/NICHO[:\s]+"?([^"\n]+)"?/i);
+    if(nichoMatch) nicho = nichoMatch[1].trim();
+    
+    const vozMatch = texto.match(/VOZ[:\s]+([^\n]+)/i);
+    if(vozMatch) voz = vozMatch[1].trim();
+    
+    const psiMatch = texto.match(/PALABRAS_SI[:\s]+([^\n]+)/i);
+    if(psiMatch) palabrasSi = psiMatch[1].trim();
+    
+    const pnoMatch = texto.match(/PALABRAS_NO[:\s]+([^\n]+)/i);
+    if(pnoMatch) palabrasNo = pnoMatch[1].trim();
+  } catch(e){}
+
+  // Save to profile
+  const pid = obPerfil.id || profile?.id || 'ivo';
+  const perfilCompleto = {
+    ...obPerfil,
+    nicho, voz, palabrasSi, palabrasNo,
+    onboardingDone: true,
+    onboardingFecha: new Date().toISOString(),
+    onboardingRaw: texto,
+    respuestas: obRespuestas,
+  };
+  
+  // Save to localStorage
+  try { localStorage.setItem('luffy_perfil_'+pid, JSON.stringify(perfilCompleto)); } catch(e){}
+  if(DB){ try{ DB.doc('luffy/perfil_'+pid).set(perfilCompleto); }catch(e){} }
+
+  // Update profile in PROFILES array
+  const idx = PROFILES.findIndex(p=>p.id===pid);
+  if(idx>-1) Object.assign(PROFILES[idx], perfilCompleto);
+
+  // Show result in chat
+  const resultHtml = texto
+    .replace(/===RESULTADO===/g,'')
+    .replace(/===FIN===/g,'')
+    .replace(/NICHO:/g,'<h3>🎯 Tu nicho</h3>')
+    .replace(/PILARES:/g,'<h3>🏗️ Tus pilares</h3>')
+    .replace(/BANCO DE REELS:/g,'<h3>🎬 Banco de reels</h3>')
+    .replace(/VOZ:/g,'<h3>🎙️ Tu voz</h3>')
+    .replace(/PALABRAS_SI:/g,'<strong>Usás:</strong> ')
+    .replace(/PALABRAS_NO:/g,'<strong>Evitás:</strong> ')
+    .trim();
+
+  obMessages.push({role:'ia', text:'¡Perfil armado! 🎉 Esto es lo tuyo:'});
+  renderObChat();
+
+  setTimeout(()=>{
+    const chat = document.getElementById('ob-chat');
+    if(!chat) return;
+    const resultDiv = document.createElement('div');
+    resultDiv.className = 'ob-result';
+    resultDiv.innerHTML = resultHtml;
+    chat.appendChild(resultDiv);
+
+    const btnDiv = document.createElement('div');
+    btnDiv.style.cssText = 'display:flex;flex-direction:column;gap:8px;margin-top:12px';
+    btnDiv.innerHTML = `
+      <button onclick="terminarOnboarding()" style="width:100%;padding:14px;border-radius:14px;border:none;background:linear-gradient(135deg,var(--accent),#a78bfa);color:#fff;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer">¡Empezar a crear contenido! →</button>`;
+    chat.appendChild(btnDiv);
+    chat.scrollTop = chat.scrollHeight;
+
+    // Hide input
+    const inputWrap = document.querySelector('.ob-input-wrap');
+    if(inputWrap) inputWrap.style.display='none';
+  }, 300);
+}
+
+function terminarOnboarding(){
+  const pid = obPerfil.id || profile?.id;
+  if(pid){
+    profile = PROFILES.find(p=>p.id===pid) || profile;
+    try{ dineroData=JSON.parse(localStorage.getItem('luffy_dinero_'+pid)||'{"turnos":[]}');}catch(e){dineroData={turnos:[]};}
+    loadStoriesData();
+    loadPuntosData();
+  }
+  // Show input again for next time
+  const inputWrap = document.querySelector('.ob-input-wrap');
+  if(inputWrap) inputWrap.style.display='flex';
+  showHub();
+}
+
+// ============ REPUTACION ============
+function getReputacion(userId){
+  const data=getPuntos(userId);
+  const movs=data.movimientos||[];
+  // Base 100, suma pos de reputacion, resta neg de incidentes
+  let rep=100;
+  movs.forEach(m=>{
+    if(m.tipo==='incidente') rep+=m.pts; // pts is negative
+    if(m.tipo==='reputacion') rep+=m.pts;
+  });
+  return Math.max(0,Math.min(100,rep));
+}
+
+function getRepColor(rep){
+  if(rep>=80) return '#34d399';
+  if(rep>=60) return '#fbbf24';
+  if(rep>=40) return '#fb923c';
+  return '#f472b6';
+}
+
+function getRepLabel(rep){
+  if(rep>=80) return {label:'Excelente',emoji:'🟢'};
+  if(rep>=60) return {label:'Buena',emoji:'🟡'};
+  if(rep>=40) return {label:'En riesgo',emoji:'🟠'};
+  return {label:'Crítica',emoji:'🔴'};
+}
+
+// ============ KANBAN ============
+function renderKanban(){
+  const body=document.getElementById('kanban-body');
+  const etapas=Object.entries(STAGES);
+  body.innerHTML=etapas.map(([key,s])=>{
+    const cols=reels.filter(r=>r.stage===key);
+    return `<div class="kanban-col">
+      <div class="kanban-col-hdr"><div style="width:8px;height:8px;border-radius:50%;background:${s.c}"></div>${s.l} <span style="color:var(--muted)">${cols.length}</span></div>
+      ${cols.map(r=>`<div class="kanban-card" onclick="abrirEditor('${r.id}')">
+        <div class="kc-titulo">${r.emoji||''} ${r.titulo}</div>
+        <div class="kc-sub">${r.asignado||''}</div>
+      </div>`).join('')}
+    </div>`;
+  }).join('');
+}
+
+// ============ PERFIL ============
+function renderPerfil(){
+  const body=document.getElementById('perfil-body');
+  const color=profile.color;
+  const rep=getReputacion(profile.id);
+  const repColor=getRepColor(rep);
+  const repInfo=getRepLabel(rep);
+  body.innerHTML=`<div style="text-align:center;padding:24px 0">
+    <div style="width:80px;height:80px;border-radius:50%;background:${color}33;border:3px solid ${color};display:flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 12px">${profile.emoji}</div>
+    <div style="font-size:22px;font-weight:900;margin-bottom:4px">${profile.name}</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:4px">${profile.profesion||ROLES[profile.role]}</div>
+    <div style="font-size:11px;font-weight:700;padding:4px 12px;border-radius:20px;background:${color}22;color:${color};display:inline-block">${ROLES[profile.role]}</div>
+  </div>
+  <div class="card" style="margin-bottom:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div style="font-size:13px;font-weight:700">Reputación</div>
+      <div style="font-size:13px;font-weight:800;color:${repColor}">${repInfo.emoji} ${repInfo.label} · ${rep}%</div>
+    </div>
+    <div class="rep-bar"><div class="rep-fill" style="width:${rep}%;background:${repColor}"></div></div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:6px">Arranca en 100 — baja por incidentes</div>
+  </div>
+  <div class="card" style="margin-bottom:10px">
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;font-weight:600">ESTADÍSTICAS</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;text-align:center">
+      <div><div style="font-size:22px;font-weight:900">${reels.filter(r=>r.asignado===profile.name).length}</div><div style="font-size:11px;color:var(--muted2)">Reels</div></div>
+      <div><div style="font-size:22px;font-weight:900">${reels.filter(r=>r.asignado===profile.name&&r.stage==='publicado').length}</div><div style="font-size:11px;color:var(--muted2)">Publicados</div></div>
+      <div><div style="font-size:22px;font-weight:900">${(dineroData.turnos||[]).length}</div><div style="font-size:11px;color:var(--muted2)">Turnos</div></div>
+    </div>
+  </div>
+  <div onclick="goTo('puntos')" style="background:linear-gradient(135deg,rgba(251,191,36,.15),rgba(251,191,36,.05));border:1px solid rgba(251,191,36,.2);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:10px;cursor:pointer">
+    <span style="font-size:24px">🏆</span>
+    <div style="flex:1"><div style="font-size:14px;font-weight:700">Mis puntos</div><div style="font-size:11px;color:var(--muted2)">Ver ranking y canjear</div></div>
+    <div style="font-size:18px;font-weight:900;color:#fbbf24">⭐${getPuntos(profile.id).total||0}</div>
+  </div>`;
+}
+
+// ============ STORIES ============
+function renderStories(){
+  loadStoriesData();
+  const body = document.getElementById('stories-body');
+  const color = profile.color;
+  const today = new Date();
+  const dias = Array.from({length:4},(_,i)=>{const d=new Date(today);d.setDate(today.getDate()+i);return d;});
+  const diasSemana = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+
+  body.innerHTML = dias.map(d => {
+    const dateStr = d.toISOString().split('T')[0];
+    const esHoy = dateStr === today.toISOString().split('T')[0];
+    const dLabel = esHoy ? 'HOY' : diasSemana[d.getDay()]+' '+d.getDate()+'/'+String(d.getMonth()+1).padStart(2,'0');
+    const doneDia = STORY_TIPOS.filter(t=>storiesData?.[dateStr]?.[profile.id]?.[t.id]?.done).length;
+
+    return `<div style="margin-bottom:20px">
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:${esHoy?color:'var(--muted)'};margin-bottom:10px;display:flex;align-items:center;gap:8px">
+        ${dLabel} · ${doneDia}/${STORY_TIPOS.length}
+        ${esHoy?`<div style="display:flex;gap:3px">${STORY_TIPOS.map((_,i)=>`<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:${i<doneDia?'#34d399':'var(--border2)'}"></span>`).join('')}</div>`:''}
+      </div>
+      ${STORY_TIPOS.map((tipo,i) => {
+        const check = storiesData?.[dateStr]?.[profile.id]?.[tipo.id] || {done:false};
+        const texto = check.customText || STORY_TEXTOS[tipo.id] || '';
+        return `<div class="story-card ${check.done?'done':''}" id="sc-${dateStr}-${tipo.id}">
+          <div class="story-top">
+            <div class="story-num" style="background:${color}">${i+1}</div>
+            <div class="story-tipo"><strong>${tipo.emoji} ${tipo.label}</strong><span>${tipo.ref}</span></div>
+            <div class="story-check ${check.done?'done':''}" onclick="toggleStory('${dateStr}','${tipo.id}','${esHoy}')">
+              ${check.done?'✓':''}
+            </div>
+          </div>
+          <div class="story-texto">${texto.replace(/\n/g,'<br>')}
+            <button class="story-copy" onclick="copyText(\`${texto.replace(/`/g,'\`')}\`)">Copiar</button>
+          </div>
+        </div>`;
+      }).join('')}
+    </div>`;
+  }).join('');
+}
+
+function toggleStory(dateStr, tipoId, esHoy){
+  if(!storiesData[dateStr]) storiesData[dateStr]={};
+  if(!storiesData[dateStr][profile.id]) storiesData[dateStr][profile.id]={};
+  const current = storiesData[dateStr][profile.id][tipoId]||{done:false};
+  const nuevoDone = !current.done;
+  storiesData[dateStr][profile.id][tipoId] = {
+    done: nuevoDone,
+    ts: new Date().toISOString(),
+    customText: current.customText||'',
+  };
+  saveStoriesData();
+
+  // Award points if done and today
+  if(nuevoDone && esHoy==='true'){
+    addPuntos(profile.id,'story',5,'Story: '+STORY_TIPOS.find(t=>t.id===tipoId)?.label);
+    showToast('+5 puntos ⭐');
+    // Check if all 4 done today → bonus week check happens server-side
+  }
+  renderStories();
+}
+
+function copyText(txt){
+  navigator.clipboard?.writeText(txt).then(()=>showToast('Copiado ✓')).catch(()=>{
+    const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('Copiado ✓');
+  });
+}
+
+// ============ PUNTOS ============
+function renderPuntos(){
+  loadPuntosData();
+  const body = document.getElementById('puntos-body');
+  const myData = getPuntos(profile.id);
+  const total = myData.total||0;
+  const color = profile.color;
+  const ganados = (myData.movimientos||[]).filter(m=>m.pts>0).reduce((s,m)=>s+m.pts,0);
+  const canjeados = (myData.movimientos||[]).filter(m=>m.pts<0).reduce((s,m)=>s+Math.abs(m.pts),0);
+  const pending = canjesSolicitudes.filter(s=>s.profId===profile.id&&s.estado==='pendiente').length;
+
+  // Ranking
+  const ranking = allUsers.filter(p=>p.role==='profesional'||p.role==='encargado').map(p=>({
+    ...p, pts: getPuntos(p.id).total||0
+  })).sort((a,b)=>b.pts-a.pts);
+  const myRank = ranking.findIndex(r=>r.id===profile.id)+1;
+  const medals = ['🥇','🥈','🥉'];
+
+  // Next canje they can afford
+  const canjeables = canjesData.filter(c=>total>=c.pts);
+  const proxCanje = canjesData.filter(c=>total<c.pts).sort((a,b)=>a.pts-b.pts)[0];
+
+  body.innerHTML = `
+    <!-- HERO -->
+    <div style="background:linear-gradient(135deg,${color}25,${color}08);border:1.5px solid ${color}33;border-radius:24px;padding:28px 20px;text-align:center;margin-bottom:16px;position:relative;overflow:hidden">
+      <div style="position:absolute;top:-20px;right:-20px;font-size:80px;opacity:.08">⭐</div>
+      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:${color};opacity:.8;margin-bottom:8px">Mis puntos</div>
+      <div style="font-size:64px;font-weight:900;letter-spacing:-3px;line-height:1;color:${color}">${total.toLocaleString('es-AR')}</div>
+      <div style="font-size:13px;color:var(--muted2);margin-top:6px">Puesto ${myRank}° del equipo ${medals[myRank-1]||''}</div>
+      <div style="display:flex;justify-content:center;gap:20px;margin-top:16px;padding-top:16px;border-top:1px solid ${color}22">
+        <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:#34d399">+${ganados}</div><div style="font-size:10px;color:var(--muted2);margin-top:2px">Ganados</div></div>
+        <div style="width:1px;background:${color}22"></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:#f472b6">-${canjeados}</div><div style="font-size:10px;color:var(--muted2);margin-top:2px">Canjeados</div></div>
+        <div style="width:1px;background:${color}22"></div>
+        <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:var(--muted2)">${(myData.movimientos||[]).length}</div><div style="font-size:10px;color:var(--muted2);margin-top:2px">Acciones</div></div>
+      </div>
+    </div>
+
+    <!-- PROXIMO CANJE -->
+    ${proxCanje?`<div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:16px">
+      <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Próximo canje disponible</div>
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="font-size:24px">${proxCanje.emoji}</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${proxCanje.label}</div><div style="font-size:11px;color:var(--muted2)">Te faltan ${proxCanje.pts-total} puntos</div></div>
+        <div style="text-align:right"><div style="font-size:13px;font-weight:800;color:${color}">⭐${proxCanje.pts}</div></div>
+      </div>
+      <div style="height:4px;background:var(--border2);border-radius:2px;margin-top:10px;overflow:hidden"><div style="height:100%;width:${Math.min(100,Math.round((total/proxCanje.pts)*100))}%;background:${color};border-radius:2px"></div></div>
+      <div style="font-size:10px;color:var(--muted2);text-align:right;margin-top:4px">${Math.min(100,Math.round((total/proxCanje.pts)*100))}%</div>
+    </div>`:''}
+
+    <!-- MERCADO -->
+    <div class="sec-hdr" style="margin-bottom:12px">
+      <span class="sec-title" style="font-size:15px">🛍️ Mercado de canjes</span>
+      ${pending?`<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(251,191,36,.2);color:#fbbf24">${pending} pendiente${pending>1?'s':''}</span>`:''}
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
+      ${canjesData.map(c=>{
+        const puedo = total >= c.pts;
+        return `<div onclick="${puedo?`pedirCanje('${c.id}')`:''}" style="background:${puedo?color+'15':'var(--s1)'};border:1.5px solid ${puedo?color+'33':'var(--border)'};border-radius:18px;padding:16px;cursor:${puedo?'pointer':'default'};transition:all .15s;position:relative;overflow:hidden">
+          ${puedo?'':'<div style="position:absolute;inset:0;background:rgba(0,0,0,.3);border-radius:16px;display:flex;align-items:center;justify-content:center"><span style="font-size:18px">🔒</span></div>'}
+          <div style="font-size:28px;margin-bottom:8px">${c.emoji}</div>
+          <div style="font-size:13px;font-weight:800;margin-bottom:4px;line-height:1.2">${c.label}</div>
+          <div style="font-size:14px;font-weight:900;color:${puedo?color:'var(--muted)'}">⭐ ${c.pts}</div>
+          ${puedo?`<div style="font-size:10px;font-weight:700;color:${color};margin-top:4px">Tocá para canjear →</div>`:''}
+        </div>`;
+      }).join('')}
+    </div>
+
+    <!-- RANKING -->
+    <div class="sec-hdr" style="margin-bottom:12px"><span class="sec-title">🏆 Ranking del equipo</span></div>
+    ${ranking.map((p,i)=>`<div class="ranking-item" style="${p.id===profile.id?'border-color:'+color+';background:'+color+'08':''}">
+      <div class="ranking-pos" style="background:${i<3?'rgba(251,191,36,.2)':'var(--s2)'};color:${i<3?'#fbbf24':'var(--muted2)'};font-size:${i<3?'18':'13'}px">${medals[i]||i+1}</div>
+      <div class="ranking-av" style="background:${p.color}33;border-color:${p.color}">${p.emoji}</div>
+      <div class="ranking-info"><strong>${p.name}${p.id===profile.id?' (vos)':''}</strong><span>${(getPuntos(p.id).movimientos||[]).filter(m=>m.pts>0).length} acciones</span></div>
+      <div class="ranking-pts" style="color:${p.color}">⭐ ${p.pts.toLocaleString('es-AR')}</div>
+    </div>`).join('')}
+
+    <!-- HISTORIAL -->
+    <div class="sec-hdr" style="margin:16px 0 12px"><span class="sec-title">📋 Historial</span></div>
+    <div class="card">
+      ${!(myData.movimientos||[]).length?
+        '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">Sin movimientos todavía.<br>¡Subí stories o publicá un reel!</div>':
+        (myData.movimientos||[]).slice(0,20).map(m=>`<div class="mov-item">
+          <div class="mov-icon">${m.pts>0?'⬆️':'⬇️'}</div>
+          <div class="mov-info"><strong>${m.razon}</strong><span>${m.fecha?new Date(m.fecha+'T00:00:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'}):''}</span></div>
+          <div class="mov-pts" style="color:${m.pts>0?'#34d399':'#f472b6'};font-weight:800">${m.pts>0?'+':''}${m.pts} pts</div>
+        </div>`).join('')
+      }
+    </div>`;
+}
+
+function pedirCanje(canjeId){
+  const canje = canjesData.find(c=>c.id===canjeId);
+  if(!canje) return;
+  const myPts = getPuntos(profile.id).total||0;
+  if(myPts < canje.pts){ showToast('No tenés suficientes puntos'); return; }
+  canjesSolicitudes.push({
+    id:Date.now().toString(),
+    profId:profile.id,
+    profName:profile.name,
+    canjeId:canje.id,
+    canjeLabel:canje.label,
+    pts:canje.pts,
+    estado:'pendiente',
+    ts:new Date().toISOString(),
+  });
+  savePuntosData();
+  showToast('Solicitud enviada al admin ✓');
+}
+
+// ============ ADMIN ============
+function enterAdmin(){
+  loadStoriesData();
+  loadPuntosData();
+  show('admin');
+  document.getElementById('nav').style.display='none';
+  renderAdmin();
+}
+
+function renderAdmin(){
+  const body=document.getElementById('admin-body');
+  const adminTab = window.adminTab||'dashboard';
+  const tabs = `<div class="admin-tabs" style="overflow-x:auto;white-space:nowrap;display:flex;gap:4px">
+    <button class="at-tab ${adminTab==='dashboard'?'active':''}" onclick="switchAdminTab('dashboard')">📊 Dashboard</button>
+    <button class="at-tab ${adminTab==='equipo'?'active':''}" onclick="switchAdminTab('equipo')">👥 Equipo</button>
+    <button class="at-tab ${adminTab==='stories'?'active':''}" onclick="switchAdminTab('stories')">📱 Stories</button>
+    <button class="at-tab ${adminTab==='puntos'?'active':''}" onclick="switchAdminTab('puntos')">🏆 Puntos</button>
+    <button class="at-tab ${adminTab==='cumples'?'active':''}" onclick="switchAdminTab('cumples')">🎂 Cumples</button>
+  </div>`;
+  if(adminTab==='dashboard'){ body.innerHTML=tabs; renderAdminDashboard(body); return; }
+  if(adminTab==='stories'){ body.innerHTML=tabs; renderAdminStories(body); return; }
+  if(adminTab==='puntos'){ body.innerHTML=tabs; renderAdminPuntos(body); return; }
+  if(adminTab==='cumples'){ body.innerHTML=tabs; renderAdminCumpleanos(); return; }
+  const profesionales=allUsers.filter(p=>p.role==='profesional'||p.role==='encargado');
+  const now=new Date();
+  const q=now.getDate()<=15?1:2;
+  let totalFact=0, totalCom=0;
+
+  const cards=profesionales.map(p=>{
+    let dd={turnos:[]};
+    try{dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{"turnos":[]}');}catch(e){}
+    const turnos=(dd.turnos||[]).filter(t=>{
+      if(!t.fecha) return false;
+      const d=new Date(t.fecha+'T00:00:00');
+      return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
+    });
+    const fact=turnos.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
+    const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===p.name&&r.fecha&&(()=>{const d=new Date(r.fecha+'T00:00:00');return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);})()).length;
+    const {comision,pct,esOro,tramo}=calcComision(fact,reelsQ);
+    const tr=esOro?TRAMO_ORO:tramo;
+    totalFact+=fact; totalCom+=comision;
+    return `<div class="prof-card">
+      <div class="pc-hdr">
+        <div class="pc-av" style="background:${p.color}33;border-color:${p.color}">${p.emoji}</div>
+        <div class="pc-info"><strong>${p.name}</strong><span>${p.profesion||'Profesional'} · ${turnos.length} turnos</span></div>
+        <div class="pc-tramo"><div class="pct" style="color:${tr.color}">${tr.pct}%</div><div class="lbl" style="color:${tr.color}">${tr.emoji} ${tr.label}</div></div>
+      </div>
+      <div class="pc-nums">
+        <div class="pc-num"><span class="pn-val">${fp(fact)}</span><span class="pn-lbl">Facturó</span></div>
+        <div class="pc-num"><span class="pn-val" style="color:#f472b6">${fp(comision)}</span><span class="pn-lbl">Comisión</span></div>
+        <div class="pc-num"><span class="pn-val" style="color:#34d399">${fp(fact-comision)}</span><span class="pn-lbl">Al local</span></div>
+      </div>
+    </div>`;
+  }).join('');
+
+  body.innerHTML=tabs+`
+    <div class="stat-grid" style="margin-bottom:16px">
+      <div class="stat-card"><div class="sc-lbl">Total facturado</div><div class="sc-val" style="font-size:18px">${fp(totalFact)}</div><div class="sc-sub">Todo el equipo</div></div>
+      <div class="stat-card"><div class="sc-lbl">Comisiones</div><div class="sc-val" style="font-size:18px;color:#f472b6">${fp(totalCom)}</div><div class="sc-sub">A pagar</div></div>
+      <div class="stat-card"><div class="sc-lbl">Al local</div><div class="sc-val" style="font-size:18px;color:#34d399">${fp(totalFact-totalCom)}</div><div class="sc-sub">Antes de gastos</div></div>
+    </div>
+    <div class="sec-title" style="margin-bottom:12px">Equipo — ${profesionales.length} profesionales</div>
+    ${cards||'<div class="empty"><div class="e-icon">👥</div><p>Sin profesionales.</p></div>'}
+    <button onclick="showLogin()" class="btn btn-ghost" style="margin-top:12px">← Salir del panel</button>`;
+}
+
+function renderAdminIncidentes(){
+  const incs=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]').filter(i=>!i.procesado).slice(0,5);
+  if(!incs.length) return '';
+  return `<div class="sec-title" style="margin:16px 0 10px">⚠️ Incidentes pendientes (${incs.length})</div>`+
+    incs.map(i=>`<div class="card" style="margin-bottom:8px;border-color:rgba(244,114,182,.2)">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+        <div style="font-size:18px">⚠️</div>
+        <div style="flex:1"><div style="font-size:13px;font-weight:700">${i.profName}</div><div style="font-size:11px;color:var(--muted2)">${i.razon} · Reportó: ${i.reportadoPor}</div></div>
+      </div>
+      <div style="display:flex;gap:6px">
+        <button onclick="procesarIncidente('${i.id}',true)" style="flex:1;padding:8px;border-radius:10px;border:none;background:rgba(244,114,182,.15);color:#f472b6;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Restar puntos</button>
+        <button onclick="procesarIncidente('${i.id}',false)" style="flex:1;padding:8px;border-radius:10px;border:none;background:var(--s2);color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Ignorar</button>
+      </div>
+    </div>`).join('');
+}
+
+function procesarIncidente(id, restarPuntos){
+  const incs=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]');
+  const inc=incs.find(i=>i.id===id);
+  if(!inc) return;
+  if(restarPuntos){
+    const pts=prompt('¿Cuántos puntos restar a '+inc.profName+'?','10');
+    if(pts) addPuntos(inc.profId,'incidente',-parseInt(pts),inc.razon);
+  }
+  inc.procesado=true;
+  localStorage.setItem('luffy_incidentes',JSON.stringify(incs));
+  savePuntosData();
+  renderAdmin();
+  showToast('Incidente procesado ✓');
+}
+
+function switchAdminTab(tab){
+  window.adminTab=tab;
+  renderAdmin();
+}
+
+function renderAdminDashboard(body){
+  const now=new Date();
+  const hoy=now.toISOString().split('T')[0];
+  const q=now.getDate()<=15?1:2;
+  const profesionales=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+
+  // Total facturado hoy
+  let factHoy=0;
+  profesionales.forEach(p=>{
+    try {
+      const dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{"turnos":[]}');
+      (dd.turnos||[]).filter(t=>t.fecha===hoy).forEach(t=>factHoy+=parseFloat(t.monto)||0);
+    } catch(e){}
+  });
+
+  // Reagendamientos hoy
+  let reagHoy=0;
+  allUsers.filter(u=>u.role==='recepcionista').forEach(u=>{
+    try { const rd=JSON.parse(localStorage.getItem('luffy_rec_'+u.id)||'{}'); reagHoy+=rd.reagendamientos||0; } catch(e){}
+  });
+
+  // Stories hoy
+  const storiesToday=profesionales.map(p=>({
+    ...p,
+    done:STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[p.id]?.[t.id]?.done).length
+  }));
+
+  // Reels quincena
+  const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.fecha&&(()=>{
+    const d=new Date(r.fecha+'T00:00:00');
+    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
+  })()).length;
+
+  // Incidentes pendientes
+  const incsPend=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]').filter(i=>!i.procesado);
+
+  // Canjes pendientes
+  const canjesPend=canjesSolicitudes.filter(s=>s.estado==='pendiente');
+
+  body.innerHTML+=`
+    <!-- KPIs -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
+      <div class="dash-card">
+        <div class="dash-num" style="color:#34d399">${fp(factHoy)}</div>
+        <div class="dash-lbl">Facturación hoy</div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-num" style="color:#60a5fa">${reagHoy}<span style="font-size:16px;font-weight:600">/10</span></div>
+        <div class="dash-lbl">Reagendamientos</div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-num" style="color:#fbbf24">${reelsQ}</div>
+        <div class="dash-lbl">Reels esta quincena</div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-num" style="color:${incsPend.length>0?'#f472b6':'#34d399'}">${incsPend.length}</div>
+        <div class="dash-lbl">Incidentes pendientes</div>
+      </div>
+    </div>
+
+    <!-- Semaforo equipo -->
+    <div class="sec-title" style="margin-bottom:10px">Estado del equipo</div>
+    ${profesionales.map(p=>{
+      const storiesDone=storiesToday.find(s=>s.id===p.id)?.done||0;
+      const rep=getReputacion(p.id);
+      const repInfo=getRepLabel(rep);
+      const repColor=getRepColor(rep);
+      const pts=getPuntos(p.id).total||0;
+      let status='green';
+      if(storiesDone<STORY_TIPOS.length||rep<60) status='yellow';
+      if(rep<40) status='red';
+      const statusColor={green:'#34d399',yellow:'#fbbf24',red:'#f472b6'}[status];
+      return `<div class="card" style="margin-bottom:8px;border-color:${statusColor}22">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+          <div class="semaforo" style="background:${statusColor}"></div>
+          <div style="width:36px;height:36px;border-radius:50%;background:${p.color}33;display:flex;align-items:center;justify-content:center;font-size:16px">${p.emoji||'✂️'}</div>
+          <div style="flex:1"><strong style="font-size:13px">${p.name}</strong><div style="font-size:11px;color:var(--muted2)">${storiesDone}/${STORY_TIPOS.length} stories · ⭐${pts}</div></div>
+          <div style="text-align:right"><div style="font-size:11px;font-weight:700;color:${repColor}">${repInfo.emoji} ${repInfo.label}</div><div style="font-size:10px;color:var(--muted2)">Rep: ${rep}%</div></div>
+        </div>
+        <div class="rep-bar"><div class="rep-fill" style="width:${rep}%;background:${repColor}"></div></div>
+      </div>`;
+    }).join('')}
+
+    <!-- Alertas -->
+    ${incsPend.length||canjesPend.length?`
+    <div class="sec-title" style="margin:14px 0 10px">⚠️ Alertas</div>
+    <div class="card">
+      ${incsPend.map(i=>`<div class="alert-item"><span style="font-size:16px">⚠️</span><div style="flex:1;font-size:12px"><strong>${i.profName}</strong> — ${i.razon}</div><button onclick="window.adminTab='equipo';procesarIncidente('${i.id}',true)" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(244,114,182,.15);color:#f472b6;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">Ver</button></div>`).join('')}
+      ${canjesPend.map(s=>`<div class="alert-item"><span style="font-size:16px">🎁</span><div style="flex:1;font-size:12px"><strong>${s.profName}</strong> quiere canjear ${s.canjeLabel}</div><button onclick="window.adminTab='puntos';switchAdminTab('puntos')" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(124,111,255,.15);color:#7c6fff;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">Ver</button></div>`).join('')}
+    </div>`:''}
+  `;
+}
+
+function renderAdminStories(body){
+  const hoy = new Date().toISOString().split('T')[0];
+  const profesionales = PROFILES.filter(p=>p.role==='profesional');
+  const html = profesionales.map(p=>{
+    const done = STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[p.id]?.[t.id]?.done).length;
+    const color = p.color;
+    const movs = STORY_TIPOS.map(t=>{
+      const check = storiesData?.[hoy]?.[p.id]?.[t.id];
+      const hora = check?.ts ? new Date(check.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="font-size:16px">${t.emoji}</div>
+        <div style="flex:1;font-size:12px">${t.label}</div>
+        ${check?.done?`<div style="font-size:11px;color:#34d399;font-weight:700">✓ ${hora}</div>`:
+        `<div style="font-size:11px;color:var(--muted)">Pendiente</div>`}
+      </div>`;
+    }).join('');
+    return `<div class="prof-card" style="margin-bottom:10px">
+      <div class="pc-hdr">
+        <div class="pc-av" style="background:${color}33;border-color:${color}">${p.emoji}</div>
+        <div class="pc-info"><strong>${p.name}</strong><span>${done}/${STORY_TIPOS.length} stories hoy</span></div>
+        <div style="margin-left:auto;display:flex;gap:3px">${STORY_TIPOS.map((_,i)=>`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${i<done?'#34d399':'var(--border2)'}"></span>`).join('')}</div>
+      </div>
+      <div style="height:4px;background:var(--border2);border-radius:2px;margin-bottom:12px;overflow:hidden"><div style="height:100%;width:${Math.round((done/STORY_TIPOS.length)*100)}%;background:#34d399"></div></div>
+      ${movs}
+    </div>`;
+  }).join('');
+  body.innerHTML += `<div class="sec-title" style="margin-bottom:12px">Stories de hoy</div>${html}`;
+}
+
+function renderAdminCumpleanos(){
+  // Admin can load cumpleanos for recepcionista
+  const recUsers=allUsers.filter(u=>u.role==='recepcionista');
+  if(!recUsers.length) return;
+  const recId=recUsers[0].id;
+  let recD={reagendamientos:0,cumpleanos:[],incidentes:[]};
+  try { recD=JSON.parse(localStorage.getItem('luffy_rec_'+recId)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){}
+
+  const body=document.getElementById('admin-body');
+  body.innerHTML+=`
+    <div class="sec-title" style="margin:16px 0 10px">🎂 Gestión de cumpleaños</div>
+    <button onclick="agregarCumple('${recId}')" class="sec-btn" style="background:var(--accent);margin-bottom:12px;padding:10px 16px;border-radius:12px;border:none;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;width:100%">+ Agregar cumpleaños</button>
+    ${(recD.cumpleanos||[]).map(c=>`<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:10px">
+      <div style="font-size:20px">🎂</div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:700">${c.nombre}</div><div style="font-size:11px;color:var(--muted2)">${c.fecha} · ${c.telefono||''}</div></div>
+      <button onclick="borrarCumple('${recId}','${c.id}')" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(244,114,182,.15);color:#f472b6;font-family:var(--font);font-size:11px;cursor:pointer">×</button>
+    </div>`).join('')||'<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px">Sin cumpleaños cargados</div>'}`;
+}
+
+function agregarCumple(recId){
+  const nombre=prompt('Nombre del cliente:');
+  if(!nombre) return;
+  const fecha=prompt('Fecha (MM-DD):','01-15');
+  if(!fecha) return;
+  const telefono=prompt('Teléfono (opcional):');
+  let recD={reagendamientos:0,cumpleanos:[],incidentes:[]};
+  try { recD=JSON.parse(localStorage.getItem('luffy_rec_'+recId)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){}
+  if(!recD.cumpleanos) recD.cumpleanos=[];
+  recD.cumpleanos.push({id:Date.now().toString(),nombre,fecha,telefono:telefono||'',contactado:false});
+  localStorage.setItem('luffy_rec_'+recId,JSON.stringify(recD));
+  showToast('Cumpleaños agregado ✓');
+  renderAdmin();
+}
+
+function borrarCumple(recId,id){
+  let recD={reagendamientos:0,cumpleanos:[],incidentes:[]};
+  try { recD=JSON.parse(localStorage.getItem('luffy_rec_'+recId)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){}
+  recD.cumpleanos=(recD.cumpleanos||[]).filter(c=>c.id!==id);
+  localStorage.setItem('luffy_rec_'+recId,JSON.stringify(recD));
+  showToast('Eliminado ✓');
+  renderAdmin();
+}
+
+function renderAdminPuntos(body){
+  const profesionales = PROFILES.filter(p=>p.role==='profesional');
+  const ranking = profesionales.map(p=>({...p,pts:getPuntos(p.id).total||0})).sort((a,b)=>b.pts-a.pts);
+  const medals = ['🥇','🥈','🥉'];
+  const pendientes = canjesSolicitudes.filter(s=>s.estado==='pendiente');
+
+  const rankHtml = ranking.map((p,i)=>`<div class="ranking-item">
+    <div class="ranking-pos" style="background:${i<3?'rgba(251,191,36,.2)':'var(--s2)'};color:${i<3?'#fbbf24':'var(--muted2)'}">${medals[i]||i+1}</div>
+    <div class="ranking-av" style="background:${p.color}33;border-color:${p.color}">${p.emoji}</div>
+    <div class="ranking-info"><strong>${p.name}</strong><span>${(getPuntos(p.id).movimientos||[]).length} movimientos</span></div>
+    <div class="ranking-pts" style="color:${p.color}">⭐${p.pts}</div>
+  </div>`).join('');
+
+  const solHtml = pendientes.map(s=>`<div class="card" style="margin-bottom:8px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div><strong style="font-size:13px">${s.profName}</strong><div style="font-size:11px;color:var(--muted2)">${s.canjeLabel} · ⭐${s.pts}</div></div>
+      <div style="display:flex;gap:6px">
+        <button onclick="aprobarCanje('${s.id}')" style="padding:6px 12px;border-radius:8px;border:none;background:#34d399;color:#fff;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Aprobar</button>
+        <button onclick="rechazarCanje('${s.id}')" style="padding:6px 12px;border-radius:8px;border:none;background:rgba(244,114,182,.2);color:#f472b6;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Rechazar</button>
+      </div>
+    </div>
+  </div>`).join('');
+
+  body.innerHTML += `
+    <div class="sec-title" style="margin-bottom:12px">🏆 Ranking</div>
+    ${rankHtml}
+    <div class="sec-hdr" style="margin:16px 0 12px"><span class="sec-title">Dar/quitar puntos</span></div>
+    ${profesionales.map(p=>`<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+        <div style="width:36px;height:36px;border-radius:50%;background:${p.color}33;display:flex;align-items:center;justify-content:center;font-size:16px">${p.emoji}</div>
+        <div style="flex:1"><strong style="font-size:13px">${p.name}</strong><div style="font-size:11px;color:var(--muted2)">⭐${getPuntos(p.id).total||0} puntos</div></div>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        ${PUNTOS_CONFIG.filter(c=>!c.auto).map(c=>`<button onclick="adminDarPuntos('${p.id}','${c.id}',${c.pts},'${c.label}')" style="padding:6px 10px;border-radius:8px;border:1.5px solid rgba(52,211,153,.3);background:rgba(52,211,153,.1);color:#34d399;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">${c.emoji}+${c.pts}</button>`).join('')}
+        <button onclick="adminPuntosNegativos('${p.id}')" style="padding:6px 10px;border-radius:8px;border:1.5px solid rgba(244,114,182,.3);background:rgba(244,114,182,.1);color:#f472b6;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">⚠️ Neg</button>
+      </div>
+    </div>`).join('')}
+    ${pendientes.length?`<div class="sec-hdr" style="margin:16px 0 12px"><span class="sec-title">Solicitudes de canje (${pendientes.length})</span></div>${solHtml}`:''}`;
+}
+
+function adminDarPuntos(profId, tipo, pts, razon){
+  addPuntos(profId, tipo, pts, razon);
+  const p = PROFILES.find(x=>x.id===profId);
+  showToast(`+${pts} pts a ${p?.name} ✓`);
+  renderAdmin();
+}
+
+function adminPuntosNegativos(profId){
+  const p = PROFILES.find(x=>x.id===profId);
+  const razon = prompt(`Razón para quitar puntos a ${p?.name}:`);
+  if(!razon) return;
+  const ptStr = prompt('¿Cuántos puntos quitar? (número positivo):');
+  const pts = parseInt(ptStr)||0;
+  if(!pts) return;
+  addPuntos(profId, 'negativo', -pts, razon);
+  showToast(`-${pts} pts a ${p?.name}`);
+  renderAdmin();
+}
+
+function aprobarCanje(solId){
+  const sol = canjesSolicitudes.find(s=>s.id===solId);
+  if(!sol) return;
+  sol.estado = 'aprobado';
+  addPuntos(sol.profId, 'canje', -sol.pts, 'Canje: '+sol.canjeLabel);
+  savePuntosData();
+  showToast('Canje aprobado ✓');
+  renderAdmin();
+}
+
+function rechazarCanje(solId){
+  const sol = canjesSolicitudes.find(s=>s.id===solId);
+  if(!sol) return;
+  sol.estado = 'rechazado';
+  savePuntosData();
+  showToast('Canje rechazado');
+  renderAdmin();
+}
+
+// ============ RECEPCIONISTA ============
+let recData = {reagendamientos:0, cumpleanos:[], incidentes:[]};
+
+function enterRecepcionista(){
+  loadStoriesData(); loadPuntosData();
+  try { recData=JSON.parse(localStorage.getItem('luffy_rec_'+profile.id)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){ recData={reagendamientos:0,cumpleanos:[],incidentes:[]}; }
+  show('recepcion');
+  document.getElementById('nav').style.display='none';
+  renderRecepcion();
+}
+
+function saveRecData(){
+  try { localStorage.setItem('luffy_rec_'+profile.id,JSON.stringify(recData)); } catch(e){}
+  if(DB){ try{ DB.doc('luffy/rec_'+profile.id).set(recData); }catch(e){} }
+}
+
+function renderRecepcion(){
+  const h=new Date().getHours();
+  const gr=h<12?'Buenos días 📞':h<20?'Buenas tardes 📞':'Buenas noches 📞';
+  document.getElementById('rec-greeting').textContent=gr;
+
+  const hoy=new Date().toISOString().split('T')[0];
+  const storiesDone=STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[profile.id]?.[t.id]?.done).length;
+  const meta=10;
+  const reag=recData.reagendamientos||0;
+
+  // Próximos cumpleaños (3 días)
+  const today=new Date();
+  const proxCumples=(recData.cumpleanos||[]).filter(c=>{
+    if(!c.fecha) return false;
+    const [mes,dia]=c.fecha.split('-').map(Number);
+    for(let i=0;i<3;i++){
+      const d=new Date(today); d.setDate(today.getDate()+i);
+      if(d.getMonth()+1===mes&&d.getDate()===dia) return true;
+    }
+    return false;
+  });
+
+  const body=document.getElementById('rec-body');
+  body.innerHTML=`
+    <!-- Stories -->
+    <div class="card" style="margin-top:16px;cursor:pointer" onclick="goToRec('stories')">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px">📱</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700">Stories del día</div>
+          <div style="font-size:12px;color:var(--muted2)">${storiesDone}/${STORY_TIPOS.length} publicadas</div>
+        </div>
+        <div style="display:flex;gap:4px">${STORY_TIPOS.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i<storiesDone?'#34d399':'var(--border2)'}"></div>`).join('')}</div>
+      </div>
+      <div style="height:4px;background:var(--border2);border-radius:2px;margin-top:10px;overflow:hidden">
+        <div style="height:100%;width:${Math.round((storiesDone/STORY_TIPOS.length)*100)}%;background:#34d399;border-radius:2px"></div>
+      </div>
+    </div>
+
+    <!-- Reagendamientos -->
+    <div class="card" style="margin-bottom:10px">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
+        <div style="font-size:28px">📞</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700">Reagendamientos</div>
+          <div style="font-size:12px;color:var(--muted2)">Meta diaria: ${meta}</div>
+        </div>
+        <div style="font-size:36px;font-weight:900;color:${reag>=meta?'#34d399':reag>=meta/2?'#fbbf24':'var(--text)'}">${reag}</div>
+      </div>
+      <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;margin-bottom:12px">
+        <div style="height:100%;width:${Math.min(100,Math.round((reag/meta)*100))}%;background:${reag>=meta?'#34d399':reag>=meta/2?'#fbbf24':'#60a5fa'};border-radius:3px;transition:width .3s"></div>
+      </div>
+      <div style="display:flex;gap:8px">
+        <button onclick="reagendar()" style="flex:1;padding:14px;border-radius:12px;border:none;background:#34d399;color:#fff;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer">+ Reagendé uno</button>
+        ${reag>0?`<button onclick="desreagen()" style="padding:14px 16px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer">−</button>`:''}
+      </div>
+    </div>
+
+    <!-- Cumpleaños -->
+    <div class="sec-hdr" style="margin-bottom:10px">
+      <span class="sec-title">🎂 Cumpleaños próximos</span>
+      ${profile.id===allUsers.find(u=>u.role==='admin')?.id||true?'':''}
+    </div>
+    ${!proxCumples.length?
+      `<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Sin cumpleaños en los próximos 3 días 🎉</div>`:
+      proxCumples.map(c=>`<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px">🎂</div>
+        <div style="flex:1">
+          <div style="font-size:13px;font-weight:700">${c.nombre}</div>
+          <div style="font-size:11px;color:var(--muted2)">${c.fecha} · ${c.telefono||'Sin teléfono'}</div>
+        </div>
+        <button onclick="marcarCumple('${c.id}')" style="padding:8px 14px;border-radius:10px;border:none;background:${c.contactado?'rgba(52,211,153,.15)':'var(--s2)'};color:${c.contactado?'#34d399':'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${c.contactado?'✓ Listo':'Contactar'}</button>
+      </div>`).join('')
+    }
+
+    <!-- Incidentes -->
+    <div class="sec-hdr" style="margin:16px 0 10px">
+      <span class="sec-title">⚠️ Reportar incidente</span>
+    </div>
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:8px">
+        ${allUsers.filter(u=>u.role==='profesional'||u.role==='encargado').map(u=>`
+        <button onclick="reportarIncidente('${u.id}','${u.name}')" style="padding:12px 16px;border-radius:12px;border:1.5px solid rgba(244,114,182,.2);background:rgba(244,114,182,.05);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer;text-align:left;display:flex;align-items:center;gap:10px">
+          <span style="font-size:18px">${u.emoji||'✂️'}</span>
+          <span>${u.name}</span>
+          <span style="margin-left:auto;font-size:11px;color:var(--muted)">Reportar →</span>
+        </button>`).join('')}
+      </div>
+    </div>
+
+    <button onclick="showLogin()" class="btn btn-ghost" style="margin-top:16px">Salir</button>
+  `;
+}
+
+function goToRec(dest){
+  if(dest==='stories'){
+    loadStoriesData();
+    renderStories();
+    document.getElementById('stories-back').onclick=()=>{
+      show('recepcion');
+      document.getElementById('nav').style.display='none';
+      renderRecepcion();
+    };
+    show('stories');
+  }
+}
+
+function reagendar(){
+  recData.reagendamientos=(recData.reagendamientos||0)+1;
+  saveRecData();
+  addPuntos(profile.id,'reagendamiento',30,'Reagendamiento exitoso');
+  renderRecepcion();
+  showToast('+30 puntos ⭐');
+}
+
+function desreagen(){
+  if(recData.reagendamientos>0){
+    recData.reagendamientos--;
+    saveRecData();
+    renderRecepcion();
+  }
+}
+
+function marcarCumple(id){
+  const c=(recData.cumpleanos||[]).find(x=>x.id===id);
+  if(!c) return;
+  c.contactado=!c.contactado;
+  if(c.contactado) addPuntos(profile.id,'cumple',20,'Cumpleaños contactado');
+  saveRecData();
+  renderRecepcion();
+  if(c.contactado) showToast('+20 puntos ⭐');
+}
+
+function reportarIncidente(profId, profName){
+  const razon=prompt('¿Qué pasó con '+profName+'?');
+  if(!razon) return;
+  if(!recData.incidentes) recData.incidentes=[];
+  recData.incidentes.push({profId,profName,razon,fecha:new Date().toISOString(),reportadoPor:profile.name});
+  saveRecData();
+  // Save to shared incidents
+  try {
+    const incs=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]');
+    incs.unshift({id:Date.now().toString(),profId,profName,razon,fecha:new Date().toISOString(),reportadoPor:profile.name,procesado:false});
+    localStorage.setItem('luffy_incidentes',JSON.stringify(incs));
+  } catch(e){}
+  showToast('Incidente reportado ✓');
+}
+
+// ============ ENCARGADO ============
+function enterEncargado(){
+  loadStoriesData(); loadPuntosData();
+  try { dineroData=JSON.parse(localStorage.getItem('luffy_dinero_'+profile.id)||'{"turnos":[]}'); } catch(e){ dineroData={turnos:[]}; }
+  try { yoData=JSON.parse(localStorage.getItem('luffy_yo_'+profile.id)||'{"ingresos":[],"gastos":[],"deudas":[]}'); } catch(e){ yoData={ingresos:[],gastos:[],deudas:[]}; }
+  // Encargado uses hub but with extra team view in nav
+  showHub();
+  // Add team view button to hub
+  setTimeout(()=>{
+    const hubReels=document.getElementById('hub-reels');
+    if(hubReels){
+      const btn=document.createElement('button');
+      btn.className='btn btn-ghost';
+      btn.style.marginTop='12px';
+      btn.textContent='👥 Ver estado del equipo';
+      btn.onclick=()=>goTo('admin'); // Encargado sees team view
+      hubReels.after(btn);
+    }
+  },200);
+}
+
+// ============ ROLES ESPECIALES ============
+function enterRecepcionista(){
+  showToast('Panel de recepcionista — próximamente');
+  showLogin();
+}
+function enterEncargado(){
+  showToast('Panel de encargado — próximamente');
+  showLogin();
+}
+
+// ============ START ============
+init();
+</script>
+</body>
+</html>
