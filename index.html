@@ -320,11 +320,55 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div id="app">
 
 <!-- LOGIN -->
-<div id="login" class="screen active">
-  <div class="login-logo">🐟</div>
-  <div class="login-app">Luffy</div>
-  <div class="login-sub">Inda Studio</div>
-  <div id="login-grid" style="display:flex;flex-direction:column;gap:10px;width:100%;max-width:340px"></div>
+<div id="login" class="screen active" style="justify-content:center;align-items:center;padding:40px 24px;gap:0">
+  <div id="login-welcome" style="width:100%;max-width:340px;text-align:center">
+    <div style="font-size:80px;font-weight:900;letter-spacing:-4px;background:linear-gradient(135deg,#fff,#666);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:2px;line-height:1">INDA</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:52px;letter-spacing:.15em;text-transform:uppercase">Studio · Luffy</div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
+      <button onclick="showLoginForm()" class="btn btn-primary" style="font-size:16px;padding:17px;border-radius:16px">Iniciar sesión</button>
+      <button onclick="showRegisterForm()" style="width:100%;padding:17px;border-radius:16px;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer">Crear cuenta</button>
+    </div>
+    <button onclick="showRecoverForm()" style="background:none;border:none;color:var(--muted);font-family:var(--font);font-size:13px;cursor:pointer;padding:8px">Olvidé mi contraseña</button>
+  </div>
+  <div id="login-form" style="display:none;width:100%;max-width:340px">
+    <button onclick="showWelcome()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;margin-bottom:28px;padding:0;display:block">←</button>
+    <div style="font-size:26px;font-weight:900;margin-bottom:4px">Bienvenido</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:28px">Ingresá con tu cuenta</div>
+    <div class="field"><label>Usuario</label><input id="li-user" type="text" placeholder="@tu_usuario" autocorrect="off" autocapitalize="off" onkeydown="if(event.key==='Enter')document.getElementById('li-pass').focus()"/></div>
+    <div class="field"><label>Contraseña</label><input id="li-pass" type="password" placeholder="••••••••" onkeydown="if(event.key==='Enter')doLogin()"/></div>
+    <div id="li-error" style="font-size:13px;color:#f472b6;margin-bottom:12px;min-height:18px"></div>
+    <button onclick="doLogin()" class="btn btn-primary" style="border-radius:16px;font-size:16px;padding:17px">Entrar</button>
+    <div style="margin-top:16px;text-align:center">
+      <button onclick="showRegisterForm()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:13px;cursor:pointer">¿No tenés cuenta? Crear una</button>
+    </div>
+  </div>
+  <div id="register-form" style="display:none;width:100%;max-width:340px">
+    <button onclick="showWelcome()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;margin-bottom:28px;padding:0;display:block">←</button>
+    <div style="font-size:26px;font-weight:900;margin-bottom:4px">Crear cuenta</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:28px">Completá tus datos</div>
+    <div class="field"><label>Nombre</label><input id="reg-name" type="text" placeholder="Tu nombre"/></div>
+    <div class="field"><label>Usuario</label><input id="reg-user" type="text" placeholder="@sin_espacios" autocorrect="off" autocapitalize="off"/></div>
+    <div class="field"><label>Contraseña</label><input id="reg-pass" type="password" placeholder="Mínimo 4 caracteres"/></div>
+    <div class="field"><label>Rol</label>
+      <select id="reg-rol" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:13px 15px;color:var(--text);font-family:var(--font);font-size:15px;outline:none">
+        <option value="profesional">Profesional</option>
+        <option value="recepcionista">Recepcionista</option>
+        <option value="encargado">Encargado</option>
+      </select>
+    </div>
+    <div id="reg-error" style="font-size:13px;color:#f472b6;margin-bottom:12px;min-height:18px"></div>
+    <button onclick="doRegister()" class="btn btn-primary" style="border-radius:16px;font-size:16px;padding:17px">Crear cuenta</button>
+    <div style="margin-top:16px;text-align:center">
+      <button onclick="showLoginForm()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:13px;cursor:pointer">¿Ya tenés cuenta? Iniciá sesión</button>
+    </div>
+  </div>
+  <div id="recover-form" style="display:none;width:100%;max-width:340px">
+    <button onclick="showWelcome()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;margin-bottom:28px;padding:0;display:block">←</button>
+    <div style="font-size:26px;font-weight:900;margin-bottom:4px">Recuperar cuenta</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:20px">Pedile el acceso al admin</div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;font-size:13px;color:var(--muted2);line-height:1.6">El acceso lo gestiona el administrador del salón. Escribile a Ivan para que te resetee la contraseña.</div>
+    <button onclick="showWelcome()" class="btn btn-ghost" style="margin-top:16px">Volver</button>
+  </div>
 </div>
 
 <!-- HUB -->
