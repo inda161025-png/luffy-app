@@ -778,6 +778,14 @@ function doRegister(){
   iniciarOnboarding(newU);
 }
 
+const PERFIL_PRUEBA = {
+  onboardingDone: true,
+  nicho: 'Soy barbero y ayudo a hombres de 20-35 años en Ezeiza a verse y sentirse bien con cortes modernos y barba prolija, sin perder tiempo ni plata.',
+  voz: 'Directo, cercano, con humor porteño',
+  palabrasSi: 'resultados, reservá, te queda, transformación, antes/después',
+  palabrasNo: 'coaching, LinkedIn, emprender, mindset, sinergia',
+};
+
 async function loginAs(id){
   loadUsers();
   const u=allUsers.find(x=>x.id===id);
@@ -790,13 +798,10 @@ async function loginAs(id){
   try { yoData=JSON.parse(localStorage.getItem('luffy_yo_'+id)||'{"ingresos":[],"gastos":[],"deudas":[]}'); } catch(e){ yoData={ingresos:[],gastos:[],deudas:[]}; }
   loadStoriesData(); loadPuntosData();
   try { const ep=JSON.parse(localStorage.getItem('luffy_perfil_'+id)||'null'); if(ep) Object.assign(profile,ep); } catch(e){}
+  // Si no tiene perfil, usar perfil de prueba para poder probar el generador
   if(!profile.onboardingDone){
-    show('onboarding');
-    document.getElementById('nav').style.display='none';
-    const iw=document.querySelector('.ob-input-wrap');
-    if(iw) iw.style.display='flex';
-    await iniciarOnboarding(profile);
-    return;
+    Object.assign(profile, PERFIL_PRUEBA);
+    try { localStorage.setItem('luffy_perfil_'+id, JSON.stringify({...PERFIL_PRUEBA, id})); } catch(e){}
   }
   showHub();
 }
