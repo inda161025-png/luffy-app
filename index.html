@@ -506,7 +506,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div id="onboarding" class="screen">
   <div style="padding:14px 20px;flex-shrink:0;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
     <div id="ob-av" style="width:36px;height:36px;border-radius:50%;background:var(--accent)33;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🐟</div>
-    <div style="flex:1"><div style="font-size:13px;font-weight:700">Luffy</div><div style="font-size:11px;color:var(--muted2)" id="ob-progreso">Estratega de contenido</div></div>
+    <div style="flex:1"><div style="font-size:13px;font-weight:700">Luffy</div><div style="font-size:11px;color:var(--muted2)" id="ob-progreso">Estratega de contenido · Inda Studio</div></div>
     <button onclick="showLogin()" style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">Saltar</button>
   </div>
   <div class="ob-chat" id="ob-chat"></div>
@@ -1198,80 +1198,22 @@ async function generarLluvia(){
   const tema=document.getElementById('lluvia-tema')?.value.trim()||'';
   const wrap=document.getElementById('lluvia-wrap');
   wrap.innerHTML=`<div style="text-align:center;padding:32px 0"><div class="spinner"></div><div style="font-size:13px;color:var(--muted2)">Generando ideas...</div></div>`;
-  const prompt=`Generá 5 ideas de reels para ${profile.name}, ${profile.profesion||'profesional'}.${tema?' Tema: '+tema:''} 
-Devolvé SOLO JSON: {"ideas":[{"emoji":"...","estructura":"Lista|Tutorial|Mito vs Verdad|Storytelling|POV|Problema → Solución|Opinión polémica","titulo":"...","descripcion":"...","color":"uno de: #7c6fff|#f472b6|#34d399|#fbbf24|#60a5fa|#fb923c"}]}`;
+  
+  // Load onboarding profile for context
+  let perfilCtx = '';
   try {
-    const s=await claudeAPI.use('sample');
-    const r=await s(prompt,{modelTier:'quick'});
-    const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
-    lluviaIdeas=d.ideas||[];
-    wrap.innerHTML=`<div style="margin-bottom:8px">${lluviaIdeas.map((idea,i)=>`
-      <div class="gen-idea-card" onclick="selIdea(${i})">
-        <div class="gic-top">
-          <div class="gic-emoji" style="background:${idea.color}22">${idea.emoji}</div>
-          <div class="gic-est" style="color:${idea.color}">${idea.estructura}</div>
-        </div>
-        <div class="gic-titulo">${idea.titulo}</div>
-        <div class="gic-desc">${idea.descripcion}</div>
-      </div>`).join('')}
-      <button onclick="generarLluvia()" style="width:100%;padding:10px;border-radius:12px;background:transparent;border:1.5px solid var(--border2);color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">🔄 Generar otras</button>
-    </div>`;
-  } catch(e){ wrap.innerHTML=`<div style="text-align:center;padding:32px 0;color:var(--muted2)">Error generando. <button onclick="generarLluvia()" style="background:none;border:none;color:var(--accent);cursor:pointer;font-family:var(--font);font-size:13px;font-weight:700">Reintentar</button></div>`; }
-}
+    const ep = JSON.parse(localStorage.getItem('luffy_perfil_'+profile.id)||'null');
+    if(ep) {
+      if(ep.nicho) perfilCtx += 'NICHO: '+ep.nicho+'. ';
+      if(ep.voz) perfilCtx += 'VOZ: '+ep.voz+'. ';
+      if(ep.palabrasSi) perfilCtx += 'USA: '+ep.palabrasSi+'. ';
+      if(ep.palabrasNo) perfilCtx += 'EVITA: '+ep.palabrasNo+'. ';
+    }
+  } catch(e){}
 
-function selIdea(i){
-  ideaSel={...lluviaIdeas[i]};
-  pulirStep=0; pulirAnswers={};
-  buildPulir();
-}
-
-function buildPulir(){
-  document.getElementById('gen-back').onclick=()=>buildLluvia();
-  document.getElementById('gen-title').textContent='Pulir idea';
-  const c=document.getElementById('gen-body');
-  const color=ideaSel.color||profile.color;
-  let answeredHtml='';
-  for(let i=0;i<pulirStep;i++){
-    const q=PULIR_QS[i];
-    answeredHtml+=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;padding:10px 12px;background:var(--s2);border-radius:10px;opacity:.7">
-      <span style="font-size:12px;color:var(--muted2);flex:1">${q.q}</span>
-      <span style="font-size:12px;font-weight:700;color:${color};background:${color}22;padding:3px 10px;border-radius:20px">${pulirAnswers[q.id]}</span>
-    </div>`;
-  }
-  let currentHtml='';
-  if(pulirStep<PULIR_QS.length){
-    const q=PULIR_QS[pulirStep];
-    currentHtml=`<div class="card">
-      <div class="paso-num">${pulirStep+1} de ${PULIR_QS.length}</div>
-      <div class="paso-q">${q.q}</div>
-      <div class="chips">${q.opts.map(o=>`<div class="chip" onclick="selPulir('${q.id}','${o}')" style="">${o}</div>`).join('')}</div>
-      <div class="paso-custom">
-        <input id="pulir-custom" placeholder="O escribí lo tuyo..."/>
-        <button onclick="selPulirCustom('${q.id}')" style="background:${color};color:#fff">→</button>
-      </div>
-    </div>`;
-  } else {
-    currentHtml=`<button class="btn btn-primary" onclick="irAGuion()" style="background:${color}">Me gusta así → Guionar 📝</button>`;
-  }
-  c.innerHTML=`<div style="padding-top:16px">
-    <div class="card" style="border-color:${color}33;background:${color}08;margin-bottom:16px">
-      <div style="font-size:24px;margin-bottom:6px">${ideaSel.emoji}</div>
-      <div style="font-size:17px;font-weight:800;margin-bottom:4px">${ideaSel.titulo}</div>
-      <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${color}">${ideaSel.estructura}</div>
-    </div>
-    ${answeredHtml}${currentHtml}
-  </div>`;
-}
-
-function selPulir(key,val){ pulirAnswers[key]=val; pulirStep++; buildPulir(); }
-function selPulirCustom(key){ const v=document.getElementById('pulir-custom')?.value.trim(); if(!v){showToast('Escribí tu respuesta');return;} pulirAnswers[key]=v; pulirStep++; buildPulir(); }
-
-async function irAGuion(){
-  guionStep=0; guionData={};
-  ideaSel.tono=pulirAnswers.tono||'';
-  ideaSel.duracion=pulirAnswers.duracion||'';
-  ideaSel.sentimiento=pulirAnswers.sentimiento||'';
-  // Evaluate difficulty
+  const perfilInfo = perfilCtx ? 'PERFIL: '+perfilCtx : '';
+  const temaInfo = tema ? 'TEMA: '+tema : '';
+  const prompt = 'Genera 5 ideas de reels para '+profile.name+' ('+( profile.profesion||'barbero')+') de barberia/estetica en Argentina. '+perfilInfo+temaInfo+' IMPORTANTE: Solo barberia/estetica, nada de linkedin ni coaching. Devuelve SOLO JSON: {"ideas":[{"emoji":"...","estructura":"Lista|Tutorial|Mito vs Verdad|Storytelling|POV|Problema a Solucion|Opinion polemica","titulo":"...","descripcion":"...","color":"uno de: #7c6fff|#f472b6|#34d399|#fbbf24|#60a5fa|#fb923c"}]}';
   try{
     const s=await claudeAPI.use('sample');
     const r=await s(`Evaluá dificultad de producción del reel "${ideaSel.titulo}" con estructura ${ideaSel.estructura}. Respondé SOLO JSON: {"dificultad":1,"label":"Fácil"}`,{modelTier:'quick'});
@@ -1318,7 +1260,17 @@ async function genGuionOpts(key, color, feedback){
     const opts=d.opciones||[];
     guionCache[key]=opts;
     const wrap=document.getElementById('gb-opts');
-    if(wrap) wrap.innerHTML=opts.map((o,i)=>`<button class="gb-opt" onclick="seleccionarOpt('${key}',${i})" style="text-align:left">${o}</button>`).join('');
+    if(wrap){
+      wrap.innerHTML='';
+      opts.forEach((o,i)=>{
+        const btn=document.createElement('button');
+        btn.className='gb-opt';
+        btn.style.textAlign='left';
+        btn.textContent=o;
+        btn.addEventListener('click',()=>seleccionarOpt(key,i));
+        wrap.appendChild(btn);
+      });
+    }
     if(!document.getElementById('gb-feedback')) renderGuionInputs(key,color);
   }catch(e){
     const wrap=document.getElementById('gb-opts');
@@ -1890,9 +1842,7 @@ async function obEnviar(){
   obStep++;
   renderObChat();
 
-  // Update progress
-  const prog = document.getElementById('ob-progreso');
-  if(prog) prog.textContent = `Pregunta ${Math.min(obStep,10)} de 10`;
+  // No counter shown - IA decides when it has enough info
 
   mostrarCargando();
 
@@ -2087,7 +2037,31 @@ function renderPerfil(){
     <span style="font-size:24px">🏆</span>
     <div style="flex:1"><div style="font-size:14px;font-weight:700">Mis puntos</div><div style="font-size:11px;color:var(--muted2)">Ver ranking y canjear</div></div>
     <div style="font-size:18px;font-weight:900;color:#fbbf24">⭐${getPuntos(profile.id).total||0}</div>
-  </div>`;
+    <div style="font-size:18px;font-weight:900;color:#fbbf24">⭐${getPuntos(profile.id).total||0}</div>
+  </div>
+  ${getPerfilCreadorHTML(color)}`;
+}
+
+function getPerfilCreadorHTML(color){
+  try {
+    const ep=JSON.parse(localStorage.getItem('luffy_perfil_'+profile.id)||'null');
+    if(!ep||!ep.onboardingDone) return '<div onclick="reHacerOnboarding()" style="background:var(--s1);border:1.5px dashed var(--border2);border-radius:14px;padding:16px;display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:10px"><span style="font-size:24px">🎯</span><div style="flex:1"><div style="font-size:14px;font-weight:700">Perfil de creador</div><div style="font-size:11px;color:var(--muted2)">Sin perfil — ideas genéricas</div></div></div>';
+    return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:10px">'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:13px;font-weight:700">🎯 Perfil de creador</div><button onclick="reHacerOnboarding()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Actualizar →</button></div>'
+      +(ep.nicho?'<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;color:'+color+'">NICHO</div><div style="font-size:12px">'+ep.nicho+'</div></div>':'')
+      +(ep.voz?'<div style="margin-bottom:4px"><div style="font-size:10px;font-weight:700;color:'+color+'">VOZ</div><div style="font-size:11px;color:var(--muted2)">'+ep.voz+'</div></div>':'')
+      +(ep.palabrasSi?'<div style="margin-bottom:4px"><div style="font-size:10px;font-weight:700;color:#34d399">Usás</div><div style="font-size:11px;color:var(--muted2)">'+ep.palabrasSi+'</div></div>':'')
+      +(ep.palabrasNo?'<div><div style="font-size:10px;font-weight:700;color:#f472b6">Evitás</div><div style="font-size:11px;color:var(--muted2)">'+ep.palabrasNo+'</div></div>':'')
+      +'</div>';
+  } catch(e){ return ''; }
+}
+
+function reHacerOnboarding(){
+  show('onboarding');
+  document.getElementById('nav').style.display='none';
+  const iw=document.querySelector('.ob-input-wrap');
+  if(iw) iw.style.display='flex';
+  iniciarOnboarding(profile);
 }
 
 // ============ STORIES ============
