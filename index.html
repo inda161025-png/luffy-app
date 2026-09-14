@@ -560,6 +560,49 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 </div>
 
 <script>
+// ============ ANTHROPIC API ============
+const ANTHROPIC_KEY = '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';
+
+async function callClaude(prompt, system='') {
+  const messages = [{role:'user', content:prompt}];
+  const body = {
+    model: 'claude-haiku-4-5-20251001',
+    max_tokens: 1500,
+    messages,
+  };
+  if(system) body.system = system;
+  
+  const r = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_KEY,
+      'anthropic-version': '2023-06-01',
+      'anthropic-dangerous-direct-browser-access': 'true',
+    },
+    body: JSON.stringify(body)
+  });
+  const d = await r.json();
+  if(d.error) throw new Error(d.error.message);
+  return d.content?.[0]?.text || '';
+}
+
+// Override claude.use('sample') with direct API call
+const claudeOverride = {
+  use: async (type) => {
+    if(type === 'sample') {
+      return async (prompt, opts) => {
+        const text = await callClaude(prompt);
+        return {text};
+      };
+    }
+    return null;
+  }
+};
+
+// Use override when claude is not available (Vercel)
+const claudeAPI = typeof claude !== 'undefined' ? claude : claudeOverride;
+
 // ============ STATE ============
 const PROFILES = [
   {id:'admin',   name:'Ivan',      emoji:'👑', color:'#fbbf24', role:'admin'},
@@ -780,7 +823,7 @@ function showLogin(){
 async function init(){
   try { reels=JSON.parse(localStorage.getItem('luffy_reels')||'[]'); } catch(e){}
   loadUsers();
-  try { DB=await claude.use('db'); if(DB){ const r=await DB.doc('luffy/reels').get(); if(r&&r.list&&r.list.length){reels=r.list;localStorage.setItem('luffy_reels',JSON.stringify(reels));} } } catch(e){}
+  try { if(typeof claude!=='undefined'){ DB=await claude.use('db'); if(DB){ const r=await DB.doc('luffy/reels').get(); if(r&&r.list&&r.list.length){reels=r.list;localStorage.setItem('luffy_reels',JSON.stringify(reels));} } } } catch(e){}
   showLogin();
 }
 
@@ -958,7 +1001,7 @@ function calcComision(fact,reelsQ){
 }
 function saveReels(){ try{localStorage.setItem('luffy_reels',JSON.stringify(reels));}catch(e){} if(DB){try{DB.doc('luffy/reels').set({list:reels});}catch(e){}} }
 function saveDinero(){ const pid=profile.id; try{localStorage.setItem('luffy_dinero_'+pid,JSON.stringify(dineroData));}catch(e){} if(DB){try{DB.doc('luffy/dinero_'+pid).set(dineroData);}catch(e){}} }
-async function prewarm(){ try{ const s=await claude.use('sample'); if(s) await s('ok',{modelTier:'quick'}); }catch(e){} }
+async function prewarm(){ try{ const s=await claudeAPI.use('sample'); if(s) await s('ok',{modelTier:'quick'}); }catch(e){} }
 
 // ============ REGISTRO RAPIDO ============
 let regState={step:0,tipo:'',monto:0,medio:'',categoria:''};
@@ -1169,7 +1212,7 @@ async function generarLluvia(){
   const prompt=`Generá 5 ideas de reels para ${profile.name}, ${profile.profesion||'profesional'}.${tema?' Tema: '+tema:''} 
 Devolvé SOLO JSON: {"ideas":[{"emoji":"...","estructura":"Lista|Tutorial|Mito vs Verdad|Storytelling|POV|Problema → Solución|Opinión polémica","titulo":"...","descripcion":"...","color":"uno de: #7c6fff|#f472b6|#34d399|#fbbf24|#60a5fa|#fb923c"}]}`;
   try {
-    const s=await claude.use('sample');
+    const s=await claudeAPI.use('sample');
     const r=await s(prompt,{modelTier:'quick'});
     const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
     lluviaIdeas=d.ideas||[];
@@ -1241,7 +1284,7 @@ async function irAGuion(){
   ideaSel.sentimiento=pulirAnswers.sentimiento||'';
   // Evaluate difficulty
   try{
-    const s=await claude.use('sample');
+    const s=await claudeAPI.use('sample');
     const r=await s(`Evaluá dificultad de producción del reel "${ideaSel.titulo}" con estructura ${ideaSel.estructura}. Respondé SOLO JSON: {"dificultad":1,"label":"Fácil"}`,{modelTier:'quick'});
     const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
     ideaSel.dificultad=d.dificultad||2; ideaSel.dificultadLabel=d.label||'Media';
@@ -1280,7 +1323,7 @@ async function genGuionOpts(key, color, feedback){
   if(fbInp) fbInp.value='';
   if(custInp) custInp.value='';
   try{
-    const s=await claude.use('sample');
+    const s=await claudeAPI.use('sample');
     const r=await s(prompt,{modelTier:'quick'});
     const d=JSON.parse(r.text.replace(/```json|```/g,'').trim());
     const opts=d.opciones||[];
@@ -1419,7 +1462,7 @@ Instrucción: "${instruccion}"
 Guión completo: Hook: ${guionData.hook||''} / Desarrollo: ${guionData.desarrollo||''} / CTA: ${guionData.cta||''}
 Devolvé SOLO JSON: {"opciones":["...","...","...","..."]}`;
   try{
-    const s=await claude.use('sample');
+    const s=await claudeAPI.use('sample');
     const r=await s(prompt,{modelTier:'quick'});
     const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
     opts.innerHTML=(d.opciones||[]).map(o=>`<div class="mm-opt" onclick="aplicarMM('${key}',this)">${o}</div>`).join('');
@@ -1592,7 +1635,7 @@ Hook: "${editReel.hook}" / Desarrollo: "${editReel.desarrollo}" / CTA: "${editRe
 Creador: ${profile.name} (${profile.profesion||'profesional'})
 Máximo 5 tomas. Devolvé SOLO JSON: {"tomas":[{"angulo":"Plano general|Primer plano|Plano medio|Plano detalle|Cenital|Selfie","tipo":"camara|off|silencio","desc":"...","dialogo":"..."}]}`;
   try{
-    const s=await claude.use('sample');
+    const s=await claudeAPI.use('sample');
     const r=await s(prompt,{modelTier:'quick'});
     const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
     editReel.tomas=d.tomas||[];
@@ -1865,7 +1908,7 @@ async function obEnviar(){
   mostrarCargando();
 
   try {
-    const s = await claude.use('sample');
+    const s = await claudeAPI.use('sample');
     if(!s) throw new Error('no sample');
 
     // Always continue conversation — let IA decide when to generate result
