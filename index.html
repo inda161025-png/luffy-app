@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache">
+  <meta name="ak" content="PLACEHOLDER">
 <title>Luffy</title>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
@@ -563,17 +564,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 // ============ ANTHROPIC API ============
 async function callClaude(prompt, system='') {
   const messages = [{role:'user', content:prompt}];
-  const body = {
-    model: 'claude-haiku-4-5-20251001',
-    max_tokens: 1500,
-    messages,
-  };
+  const body = {model:'claude-haiku-4-5-20251001', max_tokens:1500, messages};
   if(system) body.system = system;
-  
   const r = await fetch('/api/chat', {
-    method: 'POST',
-    headers: {'Content-Type': 'application/json'},
-    body: JSON.stringify(body)
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify(body)
   });
   const d = await r.json();
   if(d.error) throw new Error(d.error.message);
