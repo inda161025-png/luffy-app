@@ -593,12 +593,6 @@ const claudeOverride = {
 const claudeAPI = typeof claude !== 'undefined' ? claude : claudeOverride;
 
 // ============ STATE ============
-const PROFILES = [
-  {id:'admin',   name:'Ivan',      emoji:'👑', color:'#fbbf24', role:'admin'},
-  {id:'ivo',     name:'Ivo',       emoji:'✂️', color:'#7c6fff', role:'profesional', profesion:'Peluquero'},
-  {id:'rec',     name:'Recepción', emoji:'📞', color:'#60a5fa', role:'recepcionista'},
-  {id:'enc',     name:'Encargado', emoji:'📋', color:'#34d399', role:'encargado'},
-];
 const ROLES = {admin:'Administrador', profesional:'Profesional', recepcionista:'Recepcionista', encargado:'Encargado'};
 
 let profile = null;
@@ -1871,9 +1865,8 @@ function procesarResultado(texto){
   try { localStorage.setItem('luffy_perfil_'+pid, JSON.stringify(perfilCompleto)); } catch(e){}
   if(DB){ try{ DB.doc('luffy/perfil_'+pid).set(perfilCompleto); }catch(e){} }
 
-  // Update profile in PROFILES array
-  const idx = PROFILES.findIndex(p=>p.id===pid);
-  if(idx>-1) Object.assign(PROFILES[idx], perfilCompleto);
+  // Update in-memory profile so the hub reflects the new creator profile immediately
+  if(profile && profile.id===pid) Object.assign(profile, perfilCompleto);
 
   // Show result in chat
   const resultHtml = texto
@@ -1914,7 +1907,6 @@ function procesarResultado(texto){
 function terminarOnboarding(){
   const pid = obPerfil.id || profile?.id;
   if(pid){
-    profile = PROFILES.find(p=>p.id===pid) || profile;
     try{ dineroData=JSON.parse(localStorage.getItem('luffy_dinero_'+pid)||'{"turnos":[]}');}catch(e){dineroData={turnos:[]};}
     loadStoriesData();
     loadPuntosData();
@@ -2402,7 +2394,7 @@ function renderAdminDashboard(body){
 
 function renderAdminStories(body){
   const hoy = new Date().toISOString().split('T')[0];
-  const profesionales = PROFILES.filter(p=>p.role==='profesional');
+  const profesionales = allUsers.filter(p=>p.role==='profesional');
   const html = profesionales.map(p=>{
     const done = STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[p.id]?.[t.id]?.done).length;
     const color = p.color;
@@ -2473,7 +2465,7 @@ function borrarCumple(recId,id){
 }
 
 function renderAdminPuntos(body){
-  const profesionales = PROFILES.filter(p=>p.role==='profesional');
+  const profesionales = allUsers.filter(p=>p.role==='profesional');
   const ranking = profesionales.map(p=>({...p,pts:getPuntos(p.id).total||0})).sort((a,b)=>b.pts-a.pts);
   const medals = ['🥇','🥈','🥉'];
   const pendientes = canjesSolicitudes.filter(s=>s.estado==='pendiente');
@@ -2514,13 +2506,13 @@ function renderAdminPuntos(body){
 
 function adminDarPuntos(profId, tipo, pts, razon){
   addPuntos(profId, tipo, pts, razon);
-  const p = PROFILES.find(x=>x.id===profId);
+  const p = allUsers.find(x=>x.id===profId);
   showToast(`+${pts} pts a ${p?.name} ✓`);
   renderAdmin();
 }
 
 function adminPuntosNegativos(profId){
-  const p = PROFILES.find(x=>x.id===profId);
+  const p = allUsers.find(x=>x.id===profId);
   const razon = prompt(`Razón para quitar puntos a ${p?.name}:`);
   if(!razon) return;
   const ptStr = prompt('¿Cuántos puntos quitar? (número positivo):');
@@ -2627,7 +2619,6 @@ function renderRecepcion(){
     <!-- Cumpleaños -->
     <div class="sec-hdr" style="margin-bottom:10px">
       <span class="sec-title">🎂 Cumpleaños próximos</span>
-      ${profile.id===allUsers.find(u=>u.role==='admin')?.id||true?'':''}
     </div>
     ${!proxCumples.length?
       `<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Sin cumpleaños en los próximos 3 días 🎉</div>`:
