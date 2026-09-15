@@ -821,47 +821,6 @@ async function init(){
   showLogin();
 }
 
-// ============ LOGIN ============
-function showLogin(){
-  profile = null;
-  show('login');
-  document.getElementById('nav').style.display='none';
-  const grid = document.getElementById('login-grid');
-  grid.innerHTML = PROFILES.map(p => {
-    const color = p.color;
-    return `<div class="profile-card" onclick="loginAs('${p.id}')">
-      <div class="profile-av" style="background:${color}33;border-color:${color}">${p.emoji}</div>
-      <div class="profile-info"><strong>${p.name}</strong><span>${ROLES[p.role]}</span></div>
-      <div class="profile-role" style="background:${color}22;color:${color}">${ROLES[p.role]}</div>
-    </div>`;
-  }).join('');
-}
-
-async function loginAs(id){
-  profile = PROFILES.find(p=>p.id===id);
-  if(!profile) return;
-  if(profile.role==='admin'){ enterAdmin(); return; }
-  if(profile.role==='recepcionista'){ enterRecepcionista(); return; }
-  if(profile.role==='encargado'){ enterEncargado(); return; }
-  // Profesional
-  try { dineroData = JSON.parse(localStorage.getItem('luffy_dinero_'+id)||'{"turnos":[]}'); } catch(e){ dineroData={turnos:[]}; }
-  try { yoData = JSON.parse(localStorage.getItem('luffy_yo_'+id)||'{"ingresos":[],"gastos":[],"deudas":[]}'); } catch(e){ yoData={ingresos:[],gastos:[],deudas:[]}; }
-  loadStoriesData();
-  loadPuntosData();
-  // Load extended profile
-  try { const ep=JSON.parse(localStorage.getItem('luffy_perfil_'+id)||'null'); if(ep) Object.assign(profile,ep); } catch(e){}
-  // Check onboarding
-  if(!profile.onboardingDone){
-    show('onboarding');
-    document.getElementById('nav').style.display='none';
-    const inputWrap=document.querySelector('.ob-input-wrap');
-    if(inputWrap) inputWrap.style.display='flex';
-    await iniciarOnboarding(profile);
-    return;
-  }
-  showHub();
-}
-
 // ============ HUB ============
 function showHub(){
   show('hub');
@@ -1242,7 +1201,7 @@ async function buildGuionStep(){
     const b=GUION_BLOQUES[i];
     prev+=`<div style="background:var(--s2);border-radius:12px;padding:12px 14px;margin-bottom:8px"><div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:${color};margin-bottom:4px">${b.icon} ${b.label}</div><div style="font-size:13px;line-height:1.5">${guionData[b.key]||''}</div><button onclick="volverGuion(${i})" style="background:none;border:none;color:var(--muted);font-size:11px;cursor:pointer;font-family:var(--font);margin-top:4px">Cambiar</button></div>`;
   }
-  c.innerHTML=`<div style="padding-top:12px">${prev}<div class="guion-bloque" style="border-color:${color}33"><div class="gb-hdr"><span class="gb-icon">${bloque.icon}</span><span class="gb-label" style="color:${color}">${bloque.label}</span><span class="gb-paso">${guionStep+1}/3</span></div><div style="font-size:11px;color:var(--muted2);margin-bottom:10px">${bloque.sub}</div><div id="gb-opts"><div class="gb-loading"><div class="spinner" style="width:20px;height:20px;margin-bottom:6px"></div>Generando opciones...</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">No te convence ninguna</div><div style="display:flex;gap:8px"><input id="gb-feedback" placeholder="¿Qué no te gustó?" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:9px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none"/><button onclick="regenGuion('${bloque.key}','${color}')" style="padding:0 14px;border-radius:10px;border:none;background:var(--s3);color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;height:38px">🔄 Nuevas</button></div></div><div style="margin-top:10px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">O escribí la tuya</div><div class="gb-custom"><input id="gb-custom-inp" placeholder="Tu versión..."/><button onclick="selGuionCustom('${bloque.key}')" style="background:${color}">→</button></div></div></div></div>`;
+  c.innerHTML=`<div style="padding-top:12px">${prev}<div class="guion-bloque" style="border-color:${color}33"><div class="gb-hdr"><span class="gb-icon">${bloque.icon}</span><span class="gb-label" style="color:${color}">${bloque.label}</span><span class="gb-paso">${guionStep+1}/3</span></div><div style="font-size:11px;color:var(--muted2);margin-bottom:10px">${bloque.sub}</div><div id="gb-area"><div id="gb-opts"><div class="gb-loading"><div class="spinner" style="width:20px;height:20px;margin-bottom:6px"></div>Generando opciones...</div></div><div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">No te convence ninguna</div><div style="display:flex;gap:8px"><input id="gb-feedback" placeholder="¿Qué no te gustó?" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:9px 12px;color:var(--text);font-family:var(--font);font-size:13px;outline:none"/><button onclick="regenGuion('${bloque.key}','${color}')" style="padding:0 14px;border-radius:10px;border:none;background:var(--s3);color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;height:38px">🔄 Nuevas</button></div></div><div style="margin-top:10px"><div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">O escribí la tuya</div><div class="gb-custom"><input id="gb-custom-inp" placeholder="Tu versión..."/><button onclick="selGuionCustom('${bloque.key}')" style="background:${color}">→</button></div></div></div></div></div>`;
   await genGuionOpts(bloque.key, color);
 }
 
@@ -2774,16 +2733,6 @@ function enterEncargado(){
       hubReels.after(btn);
     }
   },200);
-}
-
-// ============ ROLES ESPECIALES ============
-function enterRecepcionista(){
-  showToast('Panel de recepcionista — próximamente');
-  showLogin();
-}
-function enterEncargado(){
-  showToast('Panel de encargado — próximamente');
-  showLogin();
 }
 
 // ============ START ============
