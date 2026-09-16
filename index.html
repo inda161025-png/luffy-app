@@ -664,6 +664,11 @@ function refreshCurrentView(){
 const ROLES = {admin:'Administrador', profesional:'Profesional', recepcionista:'Recepcionista', encargado:'Encargado'};
 
 let profile = null;
+// Bumped on every logout/new login attempt so an in-flight loginAs() from a
+// rapid double-tap (or one superseded by a later logout) can tell it's
+// stale and stop before navigating anywhere — without this, a slow
+// pending login could "resurrect" the session right after SALIR.
+let sessionToken = 0;
 let DB = null;
 let reels = [];
 let dineroData = {turnos:[]};
@@ -854,13 +859,17 @@ function showRecoverForm(){
   });
 }
 
+let __doLoginBusy = false;
 async function doLogin(){
+  if(__doLoginBusy) return; // ignore rapid double-taps on Entrar
   const raw=document.getElementById('li-user')?.value.trim();
   const passInput=document.getElementById('li-pass')?.value;
   const errEl=document.getElementById('li-error');
   if(!raw||!passInput){ errEl.textContent='Completá usuario y contraseña'; return; }
   const userInput=raw.toLowerCase().replace('@','').replace(/ /g,'_');
   errEl.textContent='Verificando...';
+  __doLoginBusy = true;
+  try{
   await loadUsers();
   const u=allUsers.find(x=>{
     const uname=(x.username||'').toLowerCase().replace(/ /g,'_');
@@ -871,9 +880,12 @@ async function doLogin(){
   if(u.password!==passInput){ errEl.textContent='Contraseña incorrecta'; return; }
   errEl.textContent='';
   loginAs(u.id);
+  }finally{ __doLoginBusy = false; }
 }
 
+let __doRegisterBusy = false;
 async function doRegister(){
+  if(__doRegisterBusy) return; // ignore rapid double-taps
   const name=document.getElementById('reg-name')?.value.trim();
   const username=document.getElementById('reg-user')?.value.trim().toLowerCase().replace('@','').replace(/ /g,'_');
   const pass=document.getElementById('reg-pass')?.value;
@@ -882,6 +894,8 @@ async function doRegister(){
   if(!name||!username||!pass){ errEl.textContent='Completá todos los campos'; return; }
   if(pass.length<4){ errEl.textContent='Mínimo 4 caracteres'; return; }
   errEl.textContent='Verificando...';
+  __doRegisterBusy = true;
+  try{
   await loadUsers();
   if(allUsers.find(u=>u.username===username)){ errEl.textContent='Ese usuario ya existe'; return; }
   errEl.textContent='';
@@ -892,7 +906,9 @@ async function doRegister(){
   saveUsers();
   showToast('Cuenta creada ✓');
   // Enter directly without reloading from storage
+  sessionToken++;
   profile={...newU};
+  try{ localStorage.setItem('luffy_session_id', newU.id); }catch(e){}
   if(newU.role==='admin'){ enterAdmin(); return; }
   if(newU.role==='encargado'){ enterEncargado(); return; }
   if(newU.role==='recepcionista'){ enterRecepcionista(); return; }
@@ -903,6 +919,7 @@ async function doRegister(){
   const iw=document.querySelector('.ob-input-wrap');
   if(iw) iw.style.display='flex';
   iniciarOnboarding(newU);
+  }finally{ __doRegisterBusy = false; }
 }
 
 const PERFIL_PRUEBA = {
@@ -914,7 +931,9 @@ const PERFIL_PRUEBA = {
 };
 
 async function loginAs(id){
+  const myToken = ++sessionToken;
   await loadUsers();
+  if(myToken!==sessionToken) return; // superseded by a newer login/logout while we awaited
   const u=allUsers.find(x=>x.id===id);
   if(!u) return;
   profile={...u};
@@ -935,6 +954,7 @@ async function loginAs(id){
       DB.doc('luffy/horario_'+id).get().catch(()=>null),
       DB.doc('luffy/perfil_'+id).get().catch(()=>null),
     ]);
+    if(myToken!==sessionToken) return; // logged out / a newer login won while we were fetching
     if(d){ dineroData=d; try{localStorage.setItem('luffy_dinero_'+id,JSON.stringify(dineroData));}catch(e){} }
     if(y){ yoData=y; try{localStorage.setItem('luffy_yo_'+id,JSON.stringify(yoData));}catch(e){} }
     if(ho){ horarioData=ho; try{localStorage.setItem('luffy_horario_'+id,JSON.stringify(horarioData));}catch(e){} }
@@ -949,6 +969,7 @@ async function loginAs(id){
 }
 
 function showLogin(){
+  sessionToken++; // invalidate any loginAs() still in flight so it can't resurrect this session
   profile=null;
   try{ localStorage.removeItem('luffy_session_id'); }catch(e){}
   show('login');
