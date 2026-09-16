@@ -1303,10 +1303,70 @@ async function generarLluvia(){
   const prompt = 'Genera 5 ideas de reels para '+profile.name+' ('+( profile.profesion||'barbero')+') de barberia/estetica en Argentina. '+perfilInfo+temaInfo+' IMPORTANTE: Solo barberia/estetica, nada de linkedin ni coaching. Devuelve SOLO JSON: {"ideas":[{"emoji":"...","estructura":"Lista|Tutorial|Mito vs Verdad|Storytelling|POV|Problema a Solucion|Opinion polemica","titulo":"...","descripcion":"...","color":"uno de: #7c6fff|#f472b6|#34d399|#fbbf24|#60a5fa|#fb923c"}]}';
   try{
     const s=await claudeAPI.use('sample');
+    const r=await s(prompt,{modelTier:'quick'});
+    const d=JSON.parse(r.text.replace(/```json|```/g,'').trim());
+    lluviaIdeas = d.ideas||[];
+    wrap.innerHTML = lluviaIdeas.length ? lluviaIdeas.map((idea,i)=>`
+      <div class="prof-card" style="cursor:pointer" onclick="seleccionarIdea(${i})">
+        <div style="display:flex;align-items:flex-start;gap:12px">
+          <div style="font-size:24px">${idea.emoji||'💡'}</div>
+          <div style="flex:1">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:${idea.color||profile.color};margin-bottom:4px">${idea.estructura||''}</div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:4px">${idea.titulo||''}</div>
+            <div style="font-size:12px;color:var(--muted2)">${idea.descripcion||''}</div>
+          </div>
+        </div>
+      </div>`).join('') : '<div style="text-align:center;color:var(--muted);font-size:13px;padding:24px">No se pudieron generar ideas. Reintentá.</div>';
+  }catch(e){
+    wrap.innerHTML = '<div style="text-align:center;color:#f472b6;font-size:13px;padding:24px">Error al generar. Reintentá.</div>';
+  }
+}
+
+function seleccionarIdea(idx){
+  ideaSel = {...lluviaIdeas[idx]};
+  pulirStep=0; pulirAnswers={};
+  buildPulir();
+}
+
+function buildPulir(){
+  const q=PULIR_QS[pulirStep];
+  if(!q){ finalizarPulir(); return; }
+  document.getElementById('gen-back').onclick=()=>{ if(pulirStep>0){pulirStep--;buildPulir();}else buildLluvia(); };
+  document.getElementById('gen-title').textContent='Afinar idea';
+  const color=ideaSel.color||profile.color;
+  const c=document.getElementById('gen-body');
+  c.innerHTML=`<div style="padding-top:16px">
+    <div style="background:${color}15;border:1.5px solid ${color}33;border-radius:16px;padding:14px;margin-bottom:20px">
+      <div style="font-size:11px;font-weight:700;color:${color};margin-bottom:4px">${ideaSel.emoji||''} TU IDEA</div>
+      <div style="font-size:14px;font-weight:700">${ideaSel.titulo||''}</div>
+    </div>
+    <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px">Paso ${pulirStep+1}/${PULIR_QS.length}</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:16px">${q.q}</div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      ${q.opts.map(o=>`<button class="gb-opt" onclick="responderPulir('${q.id}','${o.replace(/'/g,"\\'")}')">${o}</button>`).join('')}
+    </div>
+  </div>`;
+}
+
+function responderPulir(id,val){
+  pulirAnswers[id]=val;
+  pulirStep++;
+  buildPulir();
+}
+
+async function finalizarPulir(){
+  ideaSel.tono=pulirAnswers.tono||'';
+  ideaSel.duracion=pulirAnswers.duracion||'';
+  ideaSel.sentimiento=pulirAnswers.sentimiento||'';
+  document.getElementById('gen-title').textContent='Guión';
+  document.getElementById('gen-body').innerHTML=`<div style="text-align:center;padding:32px 0"><div class="spinner"></div><div style="font-size:13px;color:var(--muted2)">Evaluando la idea...</div></div>`;
+  try{
+    const s=await claudeAPI.use('sample');
     const r=await s(`Evaluá dificultad de producción del reel "${ideaSel.titulo}" con estructura ${ideaSel.estructura}. Respondé SOLO JSON: {"dificultad":1,"label":"Fácil"}`,{modelTier:'quick'});
-    const d=JSON.parse(r.text.replace(/\`\`\`json|\`\`\`/g,'').trim());
+    const d=JSON.parse(r.text.replace(/```json|```/g,'').trim());
     ideaSel.dificultad=d.dificultad||2; ideaSel.dificultadLabel=d.label||'Media';
   }catch(e){ ideaSel.dificultad=2; ideaSel.dificultadLabel='Media'; }
+  guionStep=0; guionData={};
   buildGuionStep();
 }
 
