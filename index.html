@@ -917,6 +917,7 @@ async function loginAs(id){
   const u=allUsers.find(x=>x.id===id);
   if(!u) return;
   profile={...u};
+  try{ localStorage.setItem('luffy_session_id', id); }catch(e){}
   if(u.role==='admin'){ enterAdmin(); return; }
   if(u.role==='encargado'){ enterEncargado(); return; }
   if(u.role==='recepcionista'){ enterRecepcionista(); return; }
@@ -948,6 +949,7 @@ async function loginAs(id){
 
 function showLogin(){
   profile=null;
+  try{ localStorage.removeItem('luffy_session_id'); }catch(e){}
   show('login');
   document.getElementById('nav').style.display='none';
   showWelcome();
@@ -984,7 +986,15 @@ async function init(){
   await loadUsers();
   loadStoryHorarios();
   try { if(DB){ const r=await DB.doc('luffy/reels').get(); if(r&&r.list&&r.list.length){reels=r.list;localStorage.setItem('luffy_reels',JSON.stringify(reels));} } } catch(e){}
-  showLogin();
+  // Keep the session across reloads/app switches — without this, iOS
+  // backgrounding the tab (or any reload) forces a fresh login every time.
+  let sessionId=null;
+  try{ sessionId=localStorage.getItem('luffy_session_id'); }catch(e){}
+  if(sessionId && allUsers.find(u=>u.id===sessionId)){
+    await loginAs(sessionId);
+  } else {
+    showLogin();
+  }
 }
 
 // ============ HUB ============
