@@ -389,8 +389,11 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <!-- Tramo banner -->
     <div id="tramo-banner" onclick="goTo('dinero')" style="display:none;border-radius:16px;padding:14px 16px;margin-bottom:14px;cursor:pointer"></div>
 
+    <!-- HOY: panel del día -->
+    <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px">Hoy</div>
+
     <!-- Stories card -->
-    <div id="hub-stories-card" onclick="goTo('stories')" style="border-radius:18px;padding:16px;margin-bottom:12px;cursor:pointer;border:1.5px solid rgba(52,211,153,.2);background:rgba(52,211,153,.06)">
+    <div id="hub-stories-card" onclick="goTo('stories')" style="border-radius:18px;padding:16px;margin-bottom:10px;cursor:pointer;border:1.5px solid rgba(52,211,153,.2);background:rgba(52,211,153,.06)">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="width:44px;height:44px;border-radius:14px;background:rgba(52,211,153,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">📱</div>
         <div style="flex:1">
@@ -401,7 +404,26 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       </div>
     </div>
 
-    <!-- Quick actions -->
+    <!-- Turnos de hoy -->
+    <div id="hub-turnos-card" style="border-radius:18px;padding:16px;margin-bottom:10px;border:1.5px solid rgba(124,111,255,.2);background:rgba(124,111,255,.06)">
+      <div style="display:flex;align-items:center;gap:12px;cursor:pointer" onclick="goTo('dinero')">
+        <div style="width:44px;height:44px;border-radius:14px;background:rgba(124,111,255,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">💈</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:800;margin-bottom:2px">Turnos de hoy</div>
+          <div style="font-size:11px;color:var(--muted2)" id="hub-turnos-sub">$0 · 0 turnos</div>
+        </div>
+      </div>
+      <button onclick="abrirRegistroTurno()" style="width:100%;margin-top:12px;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">+ Registrar turno</button>
+    </div>
+
+    <!-- Puntos: franja chica -->
+    <div id="hub-puntos-strip" onclick="goTo('puntos')" style="display:flex;align-items:center;gap:10px;border-radius:14px;padding:12px 14px;margin-bottom:16px;cursor:pointer;border:1px solid var(--border);background:var(--s1)">
+      <span style="font-size:18px">⭐</span>
+      <div id="hub-puntos-txt" style="flex:1;font-size:12px;color:var(--muted2)">Cargando puntos...</div>
+      <span style="font-size:16px;color:var(--muted)">›</span>
+    </div>
+
+    <!-- Otras acciones -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <button id="qa-gen" onclick="goTo('generador')" style="border-radius:16px;padding:16px;border:1.5px solid var(--border);background:var(--s1);cursor:pointer;text-align:left;transition:transform .15s;font-family:var(--font)" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(.96)'" ontouchend="this.style.transform=''">
         <div style="font-size:26px;margin-bottom:8px">🌧️</div>
@@ -981,10 +1003,35 @@ function renderHub(){
   loadStoriesData();
   const hoy = new Date().toISOString().split('T')[0];
   const storiesDone = STORY_TIPOS.filter(t=>(storiesData?.[hoy]?.[profile.id]?.[t.id]?.done)).length;
+  const proximaStory = STORY_TIPOS.find(t=>!(storiesData?.[hoy]?.[profile.id]?.[t.id]?.done));
   const subStories = document.getElementById('qa-stories-sub');
-  if(subStories) subStories.textContent = storiesDone+'/'+STORY_TIPOS.length+' publicadas hoy';
+  if(subStories){
+    subStories.textContent = !proximaStory
+      ? storiesDone+'/'+STORY_TIPOS.length+' — ¡Completo hoy! 🎉'
+      : storiesDone+'/'+STORY_TIPOS.length+' · Próxima: '+proximaStory.label+(storyHorarios[proximaStory.id]?' ('+storyHorarios[proximaStory.id]+'hs)':'');
+  }
   const dots = document.getElementById('hub-stories-dots');
   if(dots) dots.innerHTML = STORY_TIPOS.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i<storiesDone?'#34d399':'rgba(255,255,255,.15)'}"></div>`).join('');
+
+  // Turnos de hoy
+  try {
+    const turnosHoy=(dineroData.turnos||[]).filter(t=>t.fecha===hoy);
+    const factHoy=turnosHoy.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
+    const subTurnos=document.getElementById('hub-turnos-sub');
+    if(subTurnos) subTurnos.textContent = fp(factHoy)+' · '+turnosHoy.length+(turnosHoy.length===1?' turno':' turnos');
+  } catch(e){}
+
+  // Puntos: franja chica motivacional
+  try {
+    loadPuntosData();
+    const misPuntos=getPuntos(profile.id);
+    const ganadosHoy=(misPuntos.movimientos||[]).filter(m=>m.fecha===hoy&&m.pts>0).reduce((s,m)=>s+m.pts,0);
+    const proxCanje=canjesData.filter(c=>(misPuntos.total||0)<c.pts).sort((a,b)=>a.pts-b.pts)[0];
+    const puntosTxt=document.getElementById('hub-puntos-txt');
+    if(puntosTxt){
+      puntosTxt.textContent = (ganadosHoy>0?'+'+ganadosHoy+' hoy · ':'')+(misPuntos.total||0)+' puntos'+(proxCanje?' · faltan '+(proxCanje.pts-(misPuntos.total||0))+' para '+proxCanje.label:'');
+    }
+  } catch(e){}
 
   // Tramo sub in dinero card
   try {
@@ -1114,6 +1161,11 @@ let regState={step:0,tipo:'',monto:0,medio:'',categoria:''};
 
 function openRegistro(){
   regState={step:0,tipo:'',monto:0,medio:'',categoria:''};
+  renderRegistro();
+  openModal('modal-registro');
+}
+function abrirRegistroTurno(){
+  regState={step:1,tipo:'turno',monto:0,medio:'',categoria:''};
   renderRegistro();
   openModal('modal-registro');
 }
