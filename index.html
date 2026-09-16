@@ -953,6 +953,19 @@ function showLogin(){
   showWelcome();
 }
 
+// Chrome for iOS implements its own "pull to refresh" gesture at the
+// browser-chrome level, independent of page CSS (overscroll-behavior /
+// position:fixed body do NOT stop it). It competes with normal taps: a
+// touch that starts outside a real scroll container gets captured as a
+// possible refresh gesture and the tap never completes as a click. Kill
+// it by blocking touchmove everywhere except inside elements that are
+// actually meant to scroll.
+document.addEventListener('touchmove', function(e){
+  if(!e.target.closest('.scroll, #hub-scroll, .kanban-scroll, .modal-box, .ob-chat')){
+    e.preventDefault();
+  }
+}, {passive:false});
+
 // ============ INIT ============
 async function init(){
   try { reels=JSON.parse(localStorage.getItem('luffy_reels')||'[]'); } catch(e){}
