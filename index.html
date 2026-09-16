@@ -898,15 +898,20 @@ async function loginAs(id){
   try { dineroData=JSON.parse(localStorage.getItem('luffy_dinero_'+id)||'{"turnos":[]}'); } catch(e){ dineroData={turnos:[]}; }
   try { yoData=JSON.parse(localStorage.getItem('luffy_yo_'+id)||'{"ingresos":[],"gastos":[],"deudas":[]}'); } catch(e){ yoData={ingresos:[],gastos:[],deudas:[]}; }
   try { horarioData=JSON.parse(localStorage.getItem('luffy_horario_'+id)||'null')||defaultHorario(); } catch(e){ horarioData=defaultHorario(); }
-  if(DB){
-    try{ const d=await DB.doc('luffy/dinero_'+id).get(); if(d){ dineroData=d; localStorage.setItem('luffy_dinero_'+id,JSON.stringify(dineroData)); } }catch(e){}
-    try{ const y=await DB.doc('luffy/yo_'+id).get(); if(y){ yoData=y; localStorage.setItem('luffy_yo_'+id,JSON.stringify(yoData)); } }catch(e){}
-    try{ const ho=await DB.doc('luffy/horario_'+id).get(); if(ho){ horarioData=ho; localStorage.setItem('luffy_horario_'+id,JSON.stringify(horarioData)); } }catch(e){}
-  }
-  loadStoriesData(); loadPuntosData();
   try { const ep=JSON.parse(localStorage.getItem('luffy_perfil_'+id)||'null'); if(ep) Object.assign(profile,ep); } catch(e){}
+  loadStoriesData(); loadPuntosData();
   if(DB){
-    try{ const cp=await DB.doc('luffy/perfil_'+id).get(); if(cp){ Object.assign(profile,cp); localStorage.setItem('luffy_perfil_'+id,JSON.stringify(cp)); } }catch(e){}
+    // Fetch everything in parallel — sequential awaits here made login take several seconds
+    const [d,y,ho,cp] = await Promise.all([
+      DB.doc('luffy/dinero_'+id).get().catch(()=>null),
+      DB.doc('luffy/yo_'+id).get().catch(()=>null),
+      DB.doc('luffy/horario_'+id).get().catch(()=>null),
+      DB.doc('luffy/perfil_'+id).get().catch(()=>null),
+    ]);
+    if(d){ dineroData=d; try{localStorage.setItem('luffy_dinero_'+id,JSON.stringify(dineroData));}catch(e){} }
+    if(y){ yoData=y; try{localStorage.setItem('luffy_yo_'+id,JSON.stringify(yoData));}catch(e){} }
+    if(ho){ horarioData=ho; try{localStorage.setItem('luffy_horario_'+id,JSON.stringify(horarioData));}catch(e){} }
+    if(cp){ Object.assign(profile,cp); try{localStorage.setItem('luffy_perfil_'+id,JSON.stringify(cp));}catch(e){} }
   }
   // Si no tiene perfil, usar perfil de prueba para poder probar el generador
   if(!profile.onboardingDone){
