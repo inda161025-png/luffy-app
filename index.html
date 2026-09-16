@@ -415,9 +415,15 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
       </button>
     </div>
 
+    <!-- Banco de reels disponibles -->
+    <div id="hub-banco-wrap" style="display:none">
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px">📝 Banco de reels</div>
+      <div id="hub-banco" style="margin-bottom:20px"></div>
+    </div>
+
     <!-- Reels en progreso -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">En progreso</div>
+      <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">Tus reels en progreso</div>
       <button onclick="goTo('kanban')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Ver tablero →</button>
     </div>
     <div id="hub-reels"></div>
@@ -522,16 +528,12 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
     <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
     Inicio
   </button>
-  <button class="nav-btn" id="n-gen" onclick="goTo('generador')">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/></svg>
-    Generar
-  </button>
-  <button class="nav-center" onclick="openRegistro()">
-    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-  </button>
   <button class="nav-btn" id="n-kanban" onclick="goTo('kanban')">
     <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
     Tablero
+  </button>
+  <button class="nav-center" onclick="openRegistro()">
+    <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
   <button class="nav-btn" id="n-dinero" onclick="goTo('dinero')">
     <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v2m0 8v2M9 9h4.5a1.5 1.5 0 010 3H10a1.5 1.5 0 000 3H15"/></svg>
@@ -993,8 +995,27 @@ function renderHub(){
     if(sub&&fact>0) sub.textContent=fp(fact)+' esta quincena';
   } catch(e){}
 
-  // Reels en progreso
-  const mis = reels.filter(r=>(!r.asignado||r.asignado===profile.name)&&r.stage!=='publicado');
+  // Banco de reels disponibles (precargados por el admin, sin asignar todavía)
+  const banco = reels.filter(r=>!r.asignado);
+  const bancoWrap = document.getElementById('hub-banco-wrap');
+  const bancoUl = document.getElementById('hub-banco');
+  if(banco.length){
+    bancoWrap.style.display='block';
+    bancoUl.innerHTML = banco.slice(0,5).map(r=>`
+      <div class="reel-item" style="margin-bottom:8px">
+        <div class="ri-info" style="flex:1;min-width:0">
+          <strong style="font-size:13px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.emoji||'🎬'} ${r.titulo}</strong>
+          <span style="font-size:11px;color:var(--muted2)">${r.estructura||''}</span>
+        </div>
+        <button onclick="tomarReel('${r.id}')" style="background:${profile.color};color:#fff;border:none;border-radius:10px;padding:7px 14px;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0">Tomar</button>
+      </div>`).join('');
+  } else {
+    bancoWrap.style.display='none';
+    bancoUl.innerHTML='';
+  }
+
+  // Reels propios en progreso
+  const mis = reels.filter(r=>r.asignado===profile.name&&r.stage!=='publicado');
   const ul = document.getElementById('hub-reels');
   if(!mis.length){
     ul.innerHTML=`<div style="text-align:center;padding:28px 16px;background:var(--s1);border:1px solid var(--border);border-radius:16px">
@@ -1017,6 +1038,15 @@ function renderHub(){
       <div class="ri-badge" style="background:${st.c}22;color:${st.c};font-size:10px;font-weight:700;padding:3px 8px;border-radius:10px;flex-shrink:0">${st.l}</div>
     </div>`;
   }).join('');
+}
+
+function tomarReel(id){
+  const r = reels.find(x=>x.id===id);
+  if(!r) return;
+  r.asignado = profile.name;
+  saveReels();
+  showToast('Reel tomado ✓');
+  abrirEditor(id);
 }
 
 function renderTramoBanner(){
@@ -1234,6 +1264,7 @@ function regGuardar(){
 }
 
 // ============ GENERADOR ============
+const ESTRUCTURAS_REEL=['Lista','Tutorial','Mito vs Verdad','Storytelling','POV','Problema a Solucion','Opinion polemica'];
 let lluviaIdeas=[], ideaSel=null, pulirStep=0, pulirAnswers={}, guionStep=0, guionData={};
 const PULIR_QS=[
   {id:'tono',q:'¿Cómo la encarás?',opts:['Con humor 😄','Educativo 📚','Emotivo 💜','Polémico 🔥']},
@@ -1354,18 +1385,10 @@ function responderPulir(id,val){
   buildPulir();
 }
 
-async function finalizarPulir(){
+function finalizarPulir(){
   ideaSel.tono=pulirAnswers.tono||'';
   ideaSel.duracion=pulirAnswers.duracion||'';
   ideaSel.sentimiento=pulirAnswers.sentimiento||'';
-  document.getElementById('gen-title').textContent='Guión';
-  document.getElementById('gen-body').innerHTML=`<div style="text-align:center;padding:32px 0"><div class="spinner"></div><div style="font-size:13px;color:var(--muted2)">Evaluando la idea...</div></div>`;
-  try{
-    const s=await claudeAPI.use('sample');
-    const r=await s(`Evaluá dificultad de producción del reel "${ideaSel.titulo}" con estructura ${ideaSel.estructura}. Respondé SOLO JSON: {"dificultad":1,"label":"Fácil"}`,{modelTier:'quick'});
-    const d=JSON.parse(r.text.replace(/```json|```/g,'').trim());
-    ideaSel.dificultad=d.dificultad||2; ideaSel.dificultadLabel=d.label||'Media';
-  }catch(e){ ideaSel.dificultad=2; ideaSel.dificultadLabel='Media'; }
   guionStep=0; guionData={};
   buildGuionStep();
 }
@@ -1509,7 +1532,6 @@ function buildGuionFinal(){
   document.getElementById('gen-back').onclick=()=>{ guionStep=2; buildGuionStep(); };
   const color=ideaSel.color||profile.color;
   const c=document.getElementById('gen-body');
-  const stars='⭐'.repeat(ideaSel.dificultad||2)+'☆'.repeat(3-(ideaSel.dificultad||2));
   c.innerHTML=`<div style="padding-top:12px">
     ${GUION_BLOQUES.map(b=>`
     <div class="guion-bloque">
@@ -1525,10 +1547,6 @@ function buildGuionFinal(){
         <div class="mm-opts" id="mm-opts-${b.key}"></div>
       </div>
     </div>`).join('')}
-    <div class="card" style="text-align:center;margin-bottom:12px">
-      <div style="font-size:13px;color:var(--muted2);margin-bottom:4px">Dificultad</div>
-      <div style="font-size:20px">${stars} ${ideaSel.dificultadLabel||'Media'}</div>
-    </div>
     <button class="btn btn-primary" onclick="crearReel()" style="background:${color};margin-bottom:8px">Guardar y editar reel →</button>
     <button class="btn btn-ghost" onclick="buildGenHome()">Volver al inicio</button>
   </div>`;
@@ -1579,8 +1597,6 @@ function crearReel(){
     tono:ideaSel.tono,
     duracionIdea:ideaSel.duracion,
     sentimiento:ideaSel.sentimiento,
-    dificultad:ideaSel.dificultad,
-    dificultadLabel:ideaSel.dificultadLabel,
     hook:guionData.hook,
     desarrollo:guionData.desarrollo,
     cta:guionData.cta,
@@ -1607,6 +1623,10 @@ const ETAPAS=[
 function abrirEditor(id){
   editReel=reels.find(r=>r.id===id);
   if(!editReel) return;
+  if(!editReel.asignado && profile.role==='profesional'){
+    editReel.asignado=profile.name;
+    saveReels();
+  }
   show('editor');
   document.getElementById('nav').style.display='flex';
   document.getElementById('editor-title').textContent=editReel.titulo||'Reel';
@@ -1628,8 +1648,7 @@ function renderEditor(){
       <div class="card" style="border-color:${color}33;background:${color}08;margin-bottom:16px;text-align:center">
         <div style="font-size:32px;margin-bottom:8px">${r.emoji||'🎬'}</div>
         <div style="font-size:17px;font-weight:800;margin-bottom:4px">${r.titulo}</div>
-        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${color};margin-bottom:8px">${r.estructura||''}</div>
-        <div style="font-size:13px;color:var(--muted2)">${'⭐'.repeat(r.dificultad||2)}${'☆'.repeat(3-(r.dificultad||2))} ${r.dificultadLabel||''}</div>
+        <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:${color}">${r.estructura||''}</div>
       </div>
       ${[{k:'hook',i:'🎣',l:'Hook'},{k:'desarrollo',i:'📹',l:'Desarrollo'},{k:'cta',i:'📣',l:'CTA'}].map(b=>`
       <div class="card" style="margin-bottom:10px">
@@ -1650,16 +1669,10 @@ function renderEditor(){
         </div></div>`).join('')}
       ${tomas.length?`<button class="btn btn-primary" onclick="cambiarEtapa('edicion')" style="background:${color};margin-top:8px">Grabado → Edición ✂️</button>`:''}`;
   } else if(r.stage==='edicion'){
-    const items=['Cortar silencios','Agregar subtítulos','Música/sonido','Transiciones','Texto en pantalla','Formato 9:16'];
-    const checks=r.checklist||{};
     content=`
-      <div class="sec-title" style="margin-bottom:12px">Checklist de edición</div>
-      ${items.map((item,i)=>`<div style="display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:1px solid var(--border)">
-        <input type="checkbox" id="ck-${i}" ${checks[i]?'checked':''} onchange="saveCheck(${i},this.checked)" style="width:18px;height:18px;accent-color:${color};cursor:pointer"/>
-        <label for="ck-${i}" style="font-size:13px;cursor:pointer">${item}</label>
-      </div>`).join('')}
-      <div class="field" style="margin-top:16px"><label>Caption / descripción</label><textarea id="ed-caption" placeholder="Texto para la publicación, hashtags...">${r.caption||''}</textarea></div>
-      <button class="btn btn-primary" onclick="marcarPublicado()" style="background:#34d399;margin-top:4px">Publicado ✅</button>`;
+      <div class="sec-title" style="margin-bottom:12px">Último paso</div>
+      <div class="field"><label>Caption / descripción</label><textarea id="ed-caption" placeholder="Texto para la publicación, hashtags...">${r.caption||''}</textarea></div>
+      <button class="btn btn-primary" onclick="marcarPublicado()" style="background:#34d399;margin-top:12px">Publicado ✅</button>`;
   } else if(r.stage==='publicado'){
     content=`<div style="text-align:center;padding:40px 20px">
       <div style="font-size:56px;margin-bottom:16px">🎉</div>
@@ -1682,14 +1695,6 @@ function cambiarEtapa(stage){
   if(idx>-1) reels[idx]=editReel;
   saveReels();
   renderEditor();
-}
-
-function saveCheck(idx,val){
-  if(!editReel.checklist) editReel.checklist={};
-  editReel.checklist[idx]=val;
-  const i=reels.findIndex(r=>r.id===editReel.id);
-  if(i>-1) reels[i]=editReel;
-  saveReels();
 }
 
 function marcarPublicado(){
@@ -2516,8 +2521,8 @@ function prefetchAdminTeamData(){
 function renderAdmin(){
   const body=document.getElementById('admin-body');
   const adminTab = window.adminTab||'dashboard';
-  const tabs = `<div style="display:grid;grid-template-columns:repeat(5,1fr);gap:6px;margin-bottom:4px">
-    ${[['dashboard','📊','Dashboard'],['equipo','👥','Equipo'],['stories','📱','Stories'],['puntos','🏆','Puntos'],['cumples','🎂','Cumples']].map(([id,e,l])=>`
+  const tabs = `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:4px">
+    ${[['dashboard','📊','Dashboard'],['equipo','👥','Equipo'],['stories','📱','Stories'],['banco','📝','Banco'],['puntos','🏆','Puntos'],['cumples','🎂','Cumples']].map(([id,e,l])=>`
     <button onclick="switchAdminTab('${id}')" style="padding:10px 4px;border-radius:12px;border:1.5px solid ${adminTab===id?'var(--accent)':'var(--border)'};background:${adminTab===id?'rgba(124,111,255,.15)':'var(--s1)'};cursor:pointer;font-family:var(--font);transition:all .15s">
       <div style="font-size:18px;margin-bottom:3px">${e}</div>
       <div style="font-size:9px;font-weight:700;color:${adminTab===id?'var(--accent)':'var(--muted2)'};letter-spacing:.02em">${l}</div>
@@ -2525,6 +2530,7 @@ function renderAdmin(){
   </div>`;
   if(adminTab==='dashboard'){ body.innerHTML=tabs; renderAdminDashboard(body); return; }
   if(adminTab==='stories'){ body.innerHTML=tabs; renderAdminStories(body); return; }
+  if(adminTab==='banco'){ body.innerHTML=tabs; renderAdminBanco(body); return; }
   if(adminTab==='puntos'){ body.innerHTML=tabs; renderAdminPuntos(body); return; }
   if(adminTab==='cumples'){ body.innerHTML=tabs; renderAdminCumpleanos(); return; }
   const profesionales=allUsers.filter(p=>p.role==='profesional'||p.role==='encargado');
@@ -2735,6 +2741,79 @@ function renderAdminStories(body){
     </div>`;
   }).join('');
   body.innerHTML += `<div class="sec-hdr" style="margin-bottom:12px"><span class="sec-title">Stories de hoy</span><button onclick="editarHorariosStories()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">⏰ Horarios sugeridos</button></div>${html}`;
+}
+
+function renderAdminBanco(body){
+  const banco = reels.filter(r=>!r.asignado);
+  body.innerHTML += `
+    <div class="sec-title" style="margin-bottom:12px">📝 Banco de reels</div>
+    <button onclick="mostrarFormBanco()" class="btn btn-primary" style="margin-bottom:14px;width:100%">+ Escribir reel nuevo</button>
+    <div id="banco-form-wrap"></div>
+    <div class="sec-hdr" style="margin:10px 0"><span class="sec-title">Disponibles (${banco.length})</span></div>
+    ${banco.length ? banco.map(r=>`
+      <div class="prof-card" style="margin-bottom:10px">
+        <div style="display:flex;align-items:flex-start;gap:10px">
+          <div style="font-size:24px">${r.emoji||'🎬'}</div>
+          <div style="flex:1">
+            <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.06em;color:${r.color||'var(--accent)'};margin-bottom:4px">${r.estructura||''}</div>
+            <div style="font-size:14px;font-weight:700;margin-bottom:6px">${r.titulo}</div>
+            <div style="font-size:12px;color:var(--muted2);line-height:1.5">${r.hook||''}</div>
+          </div>
+          <button onclick="borrarReelBanco('${r.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;flex-shrink:0">×</button>
+        </div>
+      </div>`).join('') : '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Sin reels cargados todavía</div>'}
+  `;
+}
+
+function mostrarFormBanco(){
+  const wrap=document.getElementById('banco-form-wrap');
+  wrap.innerHTML=`<div class="card" style="margin-bottom:14px">
+    <div class="field"><label>Título</label><input id="bk-titulo" placeholder="Título del reel"/></div>
+    <div class="field" style="margin-top:8px"><label>Estructura</label>
+      <select id="bk-estructura" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--font);font-size:13px">
+        ${ESTRUCTURAS_REEL.map(o=>`<option value="${o}">${o}</option>`).join('')}
+      </select>
+    </div>
+    <div class="field" style="margin-top:8px"><label>Hook (primeros 3 seg)</label><textarea id="bk-hook" rows="2" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--font);font-size:13px"></textarea></div>
+    <div class="field" style="margin-top:8px"><label>Desarrollo</label><textarea id="bk-desarrollo" rows="3" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--font);font-size:13px"></textarea></div>
+    <div class="field" style="margin-top:8px"><label>CTA</label><textarea id="bk-cta" rows="2" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px 12px;color:var(--text);font-family:var(--font);font-size:13px"></textarea></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="document.getElementById('banco-form-wrap').innerHTML=''" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+      <button onclick="guardarReelBanco()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
+    </div>
+  </div>`;
+  document.getElementById('bk-titulo')?.focus();
+}
+
+function guardarReelBanco(){
+  const titulo=document.getElementById('bk-titulo')?.value.trim();
+  if(!titulo){ showToast('Falta el título'); return; }
+  const estructura=document.getElementById('bk-estructura')?.value||'';
+  const hook=document.getElementById('bk-hook')?.value.trim()||'';
+  const desarrollo=document.getElementById('bk-desarrollo')?.value.trim()||'';
+  const cta=document.getElementById('bk-cta')?.value.trim()||'';
+  const colores=['#7c6fff','#f472b6','#34d399','#fbbf24','#60a5fa','#fb923c'];
+  const reel={
+    id:Date.now().toString(),
+    titulo, estructura, hook, desarrollo, cta,
+    emoji:'🎬',
+    color:colores[Math.floor(Math.random()*colores.length)],
+    stage:'guion',
+    asignado:null,
+    tomas:[],
+    creado:new Date().toISOString(),
+  };
+  reels.unshift(reel);
+  saveReels();
+  showToast('Reel agregado al banco ✓');
+  renderAdmin();
+}
+
+function borrarReelBanco(id){
+  if(!confirm('¿Borrar este reel del banco?')) return;
+  reels = reels.filter(r=>r.id!==id);
+  saveReels();
+  renderAdmin();
 }
 
 function renderAdminCumpleanos(){
