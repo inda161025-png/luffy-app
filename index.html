@@ -955,16 +955,24 @@ function showLogin(){
 
 // Chrome for iOS implements its own "pull to refresh" gesture at the
 // browser-chrome level, independent of page CSS (overscroll-behavior /
-// position:fixed body do NOT stop it). It competes with normal taps: a
-// touch that starts outside a real scroll container gets captured as a
-// possible refresh gesture and the tap never completes as a click. Kill
-// it by blocking touchmove everywhere except inside elements that are
-// actually meant to scroll.
+// position:fixed body do NOT stop it). Only intervene on a genuine
+// downward drag (a real finger tap always has a few px of jitter, so
+// blocking every touchmove — as a first attempt here did — also breaks
+// plain taps on the header, the bottom nav, and inputs). This only
+// prevents the browser's refresh gesture from engaging when the drag
+// starts on page chrome that isn't meant to scroll at all.
+let __touchStartY = null;
+document.addEventListener('touchstart', function(e){
+  __touchStartY = e.touches[0].clientY;
+}, {passive:true});
 document.addEventListener('touchmove', function(e){
-  if(!e.target.closest('.scroll, #hub-scroll, .kanban-scroll, .modal-box, .ob-chat')){
+  if(__touchStartY===null) return;
+  const dy = e.touches[0].clientY - __touchStartY;
+  if(dy > 10 && !e.target.closest('.scroll, #hub-scroll, .kanban-scroll, .modal-box, .ob-chat')){
     e.preventDefault();
   }
 }, {passive:false});
+document.addEventListener('touchend', function(){ __touchStartY = null; }, {passive:true});
 
 // ============ INIT ============
 async function init(){
