@@ -481,7 +481,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <!-- STORIES -->
 <div id="stories" class="screen">
   <div class="inner-hdr">
-    <button class="back" onclick="goTo('hub')">←</button>
+    <button class="back" id="stories-back" onclick="goTo('hub')">←</button>
     <h2>Stories del día</h2>
   </div>
   <div class="scroll" id="stories-body"></div>
@@ -560,6 +560,7 @@ html,body{height:100%;background:var(--bg);color:var(--text);font-family:var(--f
 <div id="toast"></div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
 <script>
 // ============ ANTHROPIC API ============
 async function callClaude(prompt, system='') {
@@ -591,6 +592,47 @@ const claudeOverride = {
 
 // Use override when claude is not available (Vercel)
 const claudeAPI = typeof claude !== 'undefined' ? claude : claudeOverride;
+
+// ============ CLOUD DB (Supabase) ============
+// Backs the same DB.doc(path).get()/.set() interface used throughout the app.
+const SUPABASE_URL = 'https://bdwpojszkyugqmuwcrqy.supabase.co';
+const SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJkd3BvanN6a3l1Z3FtdXdjcnF5Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODk1MDcwNDQsImV4cCI6MjEwNTA4MzA0NH0.c_Ty8indxncDqkQTYtB_FyYfvsAsKl7z1OrImiiQjUA';
+const supaClient = (typeof window!=='undefined' && window.supabase && window.supabase.createClient)
+  ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  : null;
+
+function makeSupabaseDB(client){
+  return {
+    doc(path){
+      return {
+        async get(){
+          try{
+            const { data, error } = await client.from('luffy_data').select('value').eq('key', path).maybeSingle();
+            if(error) throw error;
+            return data ? data.value : null;
+          }catch(e){ return null; }
+        },
+        async set(value){
+          try{
+            const { error } = await client.from('luffy_data').upsert({ key: path, value, updated_at: new Date().toISOString() });
+            if(error) throw error;
+            return true;
+          }catch(e){ return false; }
+        }
+      };
+    }
+  };
+}
+
+// Which screen is currently visible — used to refresh the view in place once
+// cloud data arrives after the initial (local-cache) render.
+let currentScreenId = null;
+function refreshCurrentView(){
+  try{
+    if(!profile) return;
+    ({hub:renderHub, admin:renderAdmin, stories:renderStories, puntos:renderPuntos, recepcion:renderRecepcion, perfil:renderPerfil}[currentScreenId]||(()=>{}))();
+  }catch(e){}
+}
 
 // ============ STATE ============
 const ROLES = {admin:'Administrador', profesional:'Profesional', recepcionista:'Recepcionista', encargado:'Encargado'};
@@ -643,8 +685,50 @@ let puntosData = {}; // {[profId]: {total, movimientos:[{fecha,tipo,pts,razon,ts
 let canjesData = []; // canjes disponibles (admin puede editar)
 let canjesSolicitudes = []; // solicitudes pendientes
 
+// ============ HORARIOS ============
+const DIAS_SEMANA = [
+  {key:'lun',label:'Lunes'}, {key:'mar',label:'Martes'}, {key:'mie',label:'Miércoles'},
+  {key:'jue',label:'Jueves'}, {key:'vie',label:'Viernes'}, {key:'sab',label:'Sábado'}, {key:'dom',label:'Domingo'},
+];
+function defaultHorario(){
+  const h={}; DIAS_SEMANA.forEach(d=>{ h[d.key]={activo: d.key!=='dom', inicio:'10:00', fin:'20:00'}; }); return h;
+}
+let horarioData = defaultHorario(); // horario laboral del profesional logueado
+let horarioEditando = false;
+
+// Horario sugerido para publicar cada tipo de story — un solo horario global, igual para todo el equipo
+const STORY_HORARIOS_DEFAULT = {buenos_dias:'09:00', turnos_libres:'11:00', resultado:'16:00', cierre:'20:00'};
+let storyHorarios = {...STORY_HORARIOS_DEFAULT};
+
+function loadStoryHorarios(){
+  try{ storyHorarios={...STORY_HORARIOS_DEFAULT, ...JSON.parse(localStorage.getItem('luffy_story_horarios')||'{}')}; }catch(e){}
+  if(DB){
+    DB.doc('luffy/story_horarios').get().then(r=>{
+      if(r){ storyHorarios={...STORY_HORARIOS_DEFAULT, ...r}; try{localStorage.setItem('luffy_story_horarios',JSON.stringify(storyHorarios));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveStoryHorarios(){
+  try{localStorage.setItem('luffy_story_horarios',JSON.stringify(storyHorarios));}catch(e){}
+  if(DB){try{DB.doc('luffy/story_horarios').set(storyHorarios);}catch(e){}}
+}
+function editarHorariosStories(){
+  STORY_TIPOS.forEach(t=>{
+    const nuevo=prompt('Horario sugerido para "'+t.label+'" (HH:MM):', storyHorarios[t.id]||'');
+    if(nuevo && /^\d{1,2}:\d{2}$/.test(nuevo.trim())) storyHorarios[t.id]=nuevo.trim();
+  });
+  saveStoryHorarios();
+  showToast('Horarios de stories actualizados ✓');
+  refreshCurrentView();
+}
+
 function loadStoriesData(){
   try{storiesData=JSON.parse(localStorage.getItem('luffy_stories')||'{}');}catch(e){storiesData={};}
+  if(DB){
+    DB.doc('luffy/stories').get().then(r=>{
+      if(r){ storiesData=r; try{localStorage.setItem('luffy_stories',JSON.stringify(storiesData));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
 }
 function saveStoriesData(){
   try{localStorage.setItem('luffy_stories',JSON.stringify(storiesData));}catch(e){}
@@ -654,6 +738,20 @@ function loadPuntosData(){
   try{puntosData=JSON.parse(localStorage.getItem('luffy_puntos')||'{}');}catch(e){puntosData={};}
   try{canjesData=JSON.parse(localStorage.getItem('luffy_canjes')||JSON.stringify(CANJES_DEFAULT));}catch(e){canjesData=[...CANJES_DEFAULT];}
   try{canjesSolicitudes=JSON.parse(localStorage.getItem('luffy_canjes_sol')||'[]');}catch(e){canjesSolicitudes=[];}
+  if(DB){
+    DB.doc('luffy/puntos').get().then(r=>{
+      if(!r) return;
+      if(r.puntos) puntosData=r.puntos;
+      if(r.canjes) canjesData=r.canjes;
+      if(r.solicitudes) canjesSolicitudes=r.solicitudes;
+      try{
+        localStorage.setItem('luffy_puntos',JSON.stringify(puntosData));
+        localStorage.setItem('luffy_canjes',JSON.stringify(canjesData));
+        localStorage.setItem('luffy_canjes_sol',JSON.stringify(canjesSolicitudes));
+      }catch(e){}
+      refreshCurrentView();
+    }).catch(()=>{});
+  }
 }
 function savePuntosData(){
   try{localStorage.setItem('luffy_puntos',JSON.stringify(puntosData));}catch(e){}
@@ -684,8 +782,14 @@ const STAGES = {
 // ============ AUTH ============
 let allUsers = [];
 
-function loadUsers(){
+async function loadUsers(){
   try { allUsers=JSON.parse(localStorage.getItem('luffy_users')||'[]'); } catch(e){ allUsers=[]; }
+  if(DB){
+    try{
+      const r = await DB.doc('luffy/users').get();
+      if(r && Array.isArray(r.list)){ allUsers=r.list; try{ localStorage.setItem('luffy_users', JSON.stringify(allUsers)); }catch(e){} }
+    }catch(e){}
+  }
   if(!allUsers.find(u=>u.role==='admin')){
     allUsers.unshift({id:'admin',name:'Ivan',username:'ivoadmin',password:'inda2024',role:'admin',color:'#fbbf24',emoji:'👑',profesion:'Administrador'});
     saveUsers();
@@ -724,13 +828,14 @@ function showRecoverForm(){
   });
 }
 
-function doLogin(){
-  loadUsers();
+async function doLogin(){
   const raw=document.getElementById('li-user')?.value.trim();
-  const userInput=raw.toLowerCase().replace('@','').replace(/ /g,'_');
   const passInput=document.getElementById('li-pass')?.value;
   const errEl=document.getElementById('li-error');
   if(!raw||!passInput){ errEl.textContent='Completá usuario y contraseña'; return; }
+  const userInput=raw.toLowerCase().replace('@','').replace(/ /g,'_');
+  errEl.textContent='Verificando...';
+  await loadUsers();
   const u=allUsers.find(x=>{
     const uname=(x.username||'').toLowerCase().replace(/ /g,'_');
     const uname2=(x.name||'').toLowerCase().replace(/ /g,'_');
@@ -742,8 +847,7 @@ function doLogin(){
   loginAs(u.id);
 }
 
-function doRegister(){
-  loadUsers();
+async function doRegister(){
   const name=document.getElementById('reg-name')?.value.trim();
   const username=document.getElementById('reg-user')?.value.trim().toLowerCase().replace('@','').replace(/ /g,'_');
   const pass=document.getElementById('reg-pass')?.value;
@@ -751,7 +855,10 @@ function doRegister(){
   const errEl=document.getElementById('reg-error');
   if(!name||!username||!pass){ errEl.textContent='Completá todos los campos'; return; }
   if(pass.length<4){ errEl.textContent='Mínimo 4 caracteres'; return; }
+  errEl.textContent='Verificando...';
+  await loadUsers();
   if(allUsers.find(u=>u.username===username)){ errEl.textContent='Ese usuario ya existe'; return; }
+  errEl.textContent='';
   const colors={profesional:'#7c6fff',recepcionista:'#60a5fa',encargado:'#34d399'};
   const emojis={profesional:'✂️',recepcionista:'📞',encargado:'📋'};
   const newU={id:Date.now().toString(),name,username,password:pass,role,color:colors[role]||'#7c6fff',emoji:emojis[role]||'✂️',profesion:ROLES[role]||role,onboardingDone:false};
@@ -781,7 +888,7 @@ const PERFIL_PRUEBA = {
 };
 
 async function loginAs(id){
-  loadUsers();
+  await loadUsers();
   const u=allUsers.find(x=>x.id===id);
   if(!u) return;
   profile={...u};
@@ -790,8 +897,17 @@ async function loginAs(id){
   if(u.role==='recepcionista'){ enterRecepcionista(); return; }
   try { dineroData=JSON.parse(localStorage.getItem('luffy_dinero_'+id)||'{"turnos":[]}'); } catch(e){ dineroData={turnos:[]}; }
   try { yoData=JSON.parse(localStorage.getItem('luffy_yo_'+id)||'{"ingresos":[],"gastos":[],"deudas":[]}'); } catch(e){ yoData={ingresos:[],gastos:[],deudas:[]}; }
+  try { horarioData=JSON.parse(localStorage.getItem('luffy_horario_'+id)||'null')||defaultHorario(); } catch(e){ horarioData=defaultHorario(); }
+  if(DB){
+    try{ const d=await DB.doc('luffy/dinero_'+id).get(); if(d){ dineroData=d; localStorage.setItem('luffy_dinero_'+id,JSON.stringify(dineroData)); } }catch(e){}
+    try{ const y=await DB.doc('luffy/yo_'+id).get(); if(y){ yoData=y; localStorage.setItem('luffy_yo_'+id,JSON.stringify(yoData)); } }catch(e){}
+    try{ const ho=await DB.doc('luffy/horario_'+id).get(); if(ho){ horarioData=ho; localStorage.setItem('luffy_horario_'+id,JSON.stringify(horarioData)); } }catch(e){}
+  }
   loadStoriesData(); loadPuntosData();
   try { const ep=JSON.parse(localStorage.getItem('luffy_perfil_'+id)||'null'); if(ep) Object.assign(profile,ep); } catch(e){}
+  if(DB){
+    try{ const cp=await DB.doc('luffy/perfil_'+id).get(); if(cp){ Object.assign(profile,cp); localStorage.setItem('luffy_perfil_'+id,JSON.stringify(cp)); } }catch(e){}
+  }
   // Si no tiene perfil, usar perfil de prueba para poder probar el generador
   if(!profile.onboardingDone){
     Object.assign(profile, PERFIL_PRUEBA);
@@ -810,8 +926,13 @@ function showLogin(){
 // ============ INIT ============
 async function init(){
   try { reels=JSON.parse(localStorage.getItem('luffy_reels')||'[]'); } catch(e){}
-  loadUsers();
-  try { if(typeof claude!=='undefined'){ DB=await claude.use('db'); if(DB){ const r=await DB.doc('luffy/reels').get(); if(r&&r.list&&r.list.length){reels=r.list;localStorage.setItem('luffy_reels',JSON.stringify(reels));} } } } catch(e){}
+  try {
+    if(typeof claude!=='undefined'){ DB=await claude.use('db'); }
+    else if(supaClient){ DB=makeSupabaseDB(supaClient); }
+  } catch(e){}
+  await loadUsers();
+  loadStoryHorarios();
+  try { if(DB){ const r=await DB.doc('luffy/reels').get(); if(r&&r.list&&r.list.length){reels=r.list;localStorage.setItem('luffy_reels',JSON.stringify(reels));} } } catch(e){}
   showLogin();
 }
 
@@ -915,6 +1036,7 @@ function renderTramoBanner(){
 
 // ============ UTILS ============
 function show(id){
+  currentScreenId = id;
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
@@ -948,6 +1070,8 @@ function calcComision(fact,reelsQ){
 }
 function saveReels(){ try{localStorage.setItem('luffy_reels',JSON.stringify(reels));}catch(e){} if(DB){try{DB.doc('luffy/reels').set({list:reels});}catch(e){}} }
 function saveDinero(){ const pid=profile.id; try{localStorage.setItem('luffy_dinero_'+pid,JSON.stringify(dineroData));}catch(e){} if(DB){try{DB.doc('luffy/dinero_'+pid).set(dineroData);}catch(e){}} }
+function saveYo(){ const pid=profile.id; try{localStorage.setItem('luffy_yo_'+pid,JSON.stringify(yoData));}catch(e){} if(DB){try{DB.doc('luffy/yo_'+pid).set(yoData);}catch(e){}} }
+function saveHorario(){ const pid=profile.id; try{localStorage.setItem('luffy_horario_'+pid,JSON.stringify(horarioData));}catch(e){} if(DB){try{DB.doc('luffy/horario_'+pid).set(horarioData);}catch(e){}} }
 async function prewarm(){ try{ const s=await claudeAPI.use('sample'); if(s) await s('ok',{modelTier:'quick'}); }catch(e){} }
 
 // ============ REGISTRO RAPIDO ============
@@ -1093,11 +1217,11 @@ function regGuardar(){
   } else if(regState.tipo==='gasto'){
     if(!yoData.gastos) yoData.gastos=[];
     yoData.gastos.push({id,desc:nota||regState.categoria,monto:regState.monto,medio:regState.medio,categoria:regState.categoria,fecha,tipo:'variable'});
-    try{localStorage.setItem('luffy_yo_'+profile.id,JSON.stringify(yoData));}catch(e){}
+    saveYo();
   } else {
     if(!yoData.ingresos) yoData.ingresos=[];
     yoData.ingresos.push({id,desc:nota||regState.categoria,monto:regState.monto,categoria:regState.categoria,fecha});
-    try{localStorage.setItem('luffy_yo_'+profile.id,JSON.stringify(yoData));}catch(e){}
+    saveYo();
   }
   closeModal('modal-registro');
   showToast(regState.tipo.charAt(0).toUpperCase()+regState.tipo.slice(1)+' guardado ✓');
@@ -1993,23 +2117,115 @@ function renderPerfil(){
     <span style="font-size:24px">🏆</span>
     <div style="flex:1"><div style="font-size:14px;font-weight:700">Mis puntos</div><div style="font-size:11px;color:var(--muted2)">Ver ranking y canjear</div></div>
     <div style="font-size:18px;font-weight:900;color:#fbbf24">⭐${getPuntos(profile.id).total||0}</div>
-    <div style="font-size:18px;font-weight:900;color:#fbbf24">⭐${getPuntos(profile.id).total||0}</div>
   </div>
-  ${getPerfilCreadorHTML(color)}`;
+  ${getPerfilCreadorHTML(color)}
+  ${getHorarioHTML(color)}`;
 }
+
+let perfilCreadorEditando = false;
+
+function taCss(){ return 'width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px;line-height:1.5;resize:vertical;outline:none'; }
 
 function getPerfilCreadorHTML(color){
   try {
     const ep=JSON.parse(localStorage.getItem('luffy_perfil_'+profile.id)||'null');
+    if(perfilCreadorEditando){
+      const b=ep||{};
+      return `<div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:10px">
+        <div style="font-size:13px;font-weight:700;margin-bottom:12px">🎯 Editar perfil de creador</div>
+        <div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:${color};margin-bottom:4px">NICHO</div><textarea id="pc-nicho" rows="3" style="${taCss()}">${b.nicho||''}</textarea></div>
+        <div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:${color};margin-bottom:4px">VOZ</div><textarea id="pc-voz" rows="2" style="${taCss()}">${b.voz||''}</textarea></div>
+        <div style="margin-bottom:10px"><div style="font-size:10px;font-weight:700;color:#34d399;margin-bottom:4px">USÁS</div><textarea id="pc-si" rows="2" style="${taCss()}">${b.palabrasSi||''}</textarea></div>
+        <div style="margin-bottom:12px"><div style="font-size:10px;font-weight:700;color:#f472b6;margin-bottom:4px">EVITÁS</div><textarea id="pc-no" rows="2" style="${taCss()}">${b.palabrasNo||''}</textarea></div>
+        <div style="display:flex;gap:8px">
+          <button onclick="cancelarEdicionPerfil()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+          <button onclick="guardarPerfilCreadorManual()" style="flex:1;padding:12px;border-radius:10px;border:none;background:${color};color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
+        </div>
+      </div>`;
+    }
     if(!ep||!ep.onboardingDone) return '<div onclick="reHacerOnboarding()" style="background:var(--s1);border:1.5px dashed var(--border2);border-radius:14px;padding:16px;display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:10px"><span style="font-size:24px">🎯</span><div style="flex:1"><div style="font-size:14px;font-weight:700">Perfil de creador</div><div style="font-size:11px;color:var(--muted2)">Sin perfil — ideas genéricas</div></div></div>';
     return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:10px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:13px;font-weight:700">🎯 Perfil de creador</div><button onclick="reHacerOnboarding()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Actualizar →</button></div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:13px;font-weight:700">🎯 Perfil de creador</div><div style="display:flex;gap:12px"><button onclick="empezarEdicionPerfil()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar</button><button onclick="reHacerOnboarding()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Rehacer con IA →</button></div></div>'
       +(ep.nicho?'<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;color:'+color+'">NICHO</div><div style="font-size:12px">'+ep.nicho+'</div></div>':'')
       +(ep.voz?'<div style="margin-bottom:4px"><div style="font-size:10px;font-weight:700;color:'+color+'">VOZ</div><div style="font-size:11px;color:var(--muted2)">'+ep.voz+'</div></div>':'')
       +(ep.palabrasSi?'<div style="margin-bottom:4px"><div style="font-size:10px;font-weight:700;color:#34d399">Usás</div><div style="font-size:11px;color:var(--muted2)">'+ep.palabrasSi+'</div></div>':'')
       +(ep.palabrasNo?'<div><div style="font-size:10px;font-weight:700;color:#f472b6">Evitás</div><div style="font-size:11px;color:var(--muted2)">'+ep.palabrasNo+'</div></div>':'')
       +'</div>';
   } catch(e){ return ''; }
+}
+
+function empezarEdicionPerfil(){ perfilCreadorEditando=true; renderPerfil(); }
+function cancelarEdicionPerfil(){ perfilCreadorEditando=false; renderPerfil(); }
+
+function guardarPerfilCreadorManual(){
+  const nicho=document.getElementById('pc-nicho')?.value.trim()||'';
+  const voz=document.getElementById('pc-voz')?.value.trim()||'';
+  const palabrasSi=document.getElementById('pc-si')?.value.trim()||'';
+  const palabrasNo=document.getElementById('pc-no')?.value.trim()||'';
+  let ep={};
+  try{ ep=JSON.parse(localStorage.getItem('luffy_perfil_'+profile.id)||'null')||{}; }catch(e){}
+  const actualizado={...ep, id:profile.id, nicho, voz, palabrasSi, palabrasNo, onboardingDone:true};
+  try{ localStorage.setItem('luffy_perfil_'+profile.id, JSON.stringify(actualizado)); }catch(e){}
+  if(DB){ try{ DB.doc('luffy/perfil_'+profile.id).set(actualizado); }catch(e){} }
+  Object.assign(profile, actualizado);
+  perfilCreadorEditando=false;
+  showToast('Perfil actualizado ✓');
+  renderPerfil();
+}
+
+function getHorarioHTML(color){
+  if(profile.role!=='profesional') return '';
+  if(horarioEditando){
+    return `<div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:10px">
+      <div style="font-size:13px;font-weight:700;margin-bottom:12px">🕒 Editar mi horario</div>
+      ${DIAS_SEMANA.map(d=>{
+        const h=horarioData[d.key]||{activo:false,inicio:'10:00',fin:'20:00'};
+        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+          <label style="display:flex;align-items:center;gap:6px;width:92px;font-size:12px;font-weight:600;flex-shrink:0">
+            <input type="checkbox" id="h-activo-${d.key}" ${h.activo?'checked':''} onchange="toggleHorarioDia('${d.key}')"/> ${d.label}
+          </label>
+          <input type="time" id="h-inicio-${d.key}" value="${h.inicio}" ${h.activo?'':'disabled'} style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
+          <span style="font-size:11px;color:var(--muted2)">a</span>
+          <input type="time" id="h-fin-${d.key}" value="${h.fin}" ${h.activo?'':'disabled'} style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
+        </div>`;
+      }).join('')}
+      <div style="display:flex;gap:8px;margin-top:14px">
+        <button onclick="cancelarEdicionHorario()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+        <button onclick="guardarHorarioManual()" style="flex:1;padding:12px;border-radius:10px;border:none;background:${color};color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
+      </div>
+    </div>`;
+  }
+  const activos=DIAS_SEMANA.filter(d=>horarioData[d.key]?.activo);
+  return `<div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:10px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:13px;font-weight:700">🕒 Mi horario laboral</div><button onclick="empezarEdicionHorario()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar</button></div>
+    ${activos.length?activos.map(d=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span>${d.label}</span><span style="color:var(--muted2)">${horarioData[d.key].inicio} – ${horarioData[d.key].fin}</span></div>`).join(''):'<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">Sin días cargados</div>'}
+  </div>`;
+}
+
+function toggleHorarioDia(key){
+  const chk=document.getElementById('h-activo-'+key);
+  const ini=document.getElementById('h-inicio-'+key);
+  const fin=document.getElementById('h-fin-'+key);
+  if(ini) ini.disabled=!chk.checked;
+  if(fin) fin.disabled=!chk.checked;
+}
+
+function empezarEdicionHorario(){ horarioEditando=true; renderPerfil(); }
+function cancelarEdicionHorario(){ horarioEditando=false; renderPerfil(); }
+
+function guardarHorarioManual(){
+  const nuevo={};
+  DIAS_SEMANA.forEach(d=>{
+    const activo=document.getElementById('h-activo-'+d.key)?.checked||false;
+    const inicio=document.getElementById('h-inicio-'+d.key)?.value||'10:00';
+    const fin=document.getElementById('h-fin-'+d.key)?.value||'20:00';
+    nuevo[d.key]={activo,inicio,fin};
+  });
+  horarioData=nuevo;
+  saveHorario();
+  horarioEditando=false;
+  showToast('Horario guardado ✓');
+  renderPerfil();
 }
 
 function reHacerOnboarding(){
@@ -2046,7 +2262,7 @@ function renderStories(){
         return `<div class="story-card ${check.done?'done':''}" id="sc-${dateStr}-${tipo.id}">
           <div class="story-top">
             <div class="story-num" style="background:${color}">${i+1}</div>
-            <div class="story-tipo"><strong>${tipo.emoji} ${tipo.label}</strong><span>${tipo.ref}</span></div>
+            <div class="story-tipo"><strong>${tipo.emoji} ${tipo.label}</strong><span>${tipo.ref}${storyHorarios[tipo.id]?' · Sugerido '+storyHorarios[tipo.id]+'hs':''}</span></div>
             <div class="story-check ${check.done?'done':''}" onclick="toggleStory('${dateStr}','${tipo.id}','${esHoy}')">
               ${check.done?'✓':''}
             </div>
@@ -2201,9 +2417,35 @@ function pedirCanje(canjeId){
 function enterAdmin(){
   loadStoriesData();
   loadPuntosData();
+  prefetchAdminTeamData();
   show('admin');
   document.getElementById('nav').style.display='none';
   renderAdmin();
+}
+
+// Pulls every team member's cloud doc the Admin dashboard reads from
+// localStorage (dinero por profesional, reagendamientos por recepcionista,
+// incidentes globales), so the dashboard reflects data entered on OTHER
+// devices, not just whatever happens to be cached on this one.
+function prefetchAdminTeamData(){
+  if(!DB) return;
+  const targets = allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista');
+  const jobs = targets.map(u=>{
+    const cloudKey = u.role==='recepcionista' ? 'luffy/rec_'+u.id : 'luffy/dinero_'+u.id;
+    const localKey = u.role==='recepcionista' ? 'luffy_rec_'+u.id : 'luffy_dinero_'+u.id;
+    return DB.doc(cloudKey).get().then(r=>{
+      if(r){ try{localStorage.setItem(localKey, JSON.stringify(r));}catch(e){} }
+    }).catch(()=>{});
+  });
+  allUsers.filter(u=>u.role==='profesional').forEach(u=>{
+    jobs.push(DB.doc('luffy/horario_'+u.id).get().then(r=>{
+      if(r){ try{localStorage.setItem('luffy_horario_'+u.id, JSON.stringify(r));}catch(e){} }
+    }).catch(()=>{}));
+  });
+  jobs.push(DB.doc('luffy/incidentes').get().then(r=>{
+    if(r && Array.isArray(r.list)){ try{localStorage.setItem('luffy_incidentes', JSON.stringify(r.list));}catch(e){} }
+  }).catch(()=>{}));
+  Promise.all(jobs).then(refreshCurrentView).catch(()=>{});
 }
 
 function renderAdmin(){
@@ -2279,6 +2521,11 @@ function renderAdminIncidentes(){
     </div>`).join('');
 }
 
+function saveIncidentes(incs){
+  try{localStorage.setItem('luffy_incidentes',JSON.stringify(incs));}catch(e){}
+  if(DB){try{DB.doc('luffy/incidentes').set({list:incs});}catch(e){}}
+}
+
 function procesarIncidente(id, restarPuntos){
   const incs=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]');
   const inc=incs.find(i=>i.id===id);
@@ -2288,7 +2535,7 @@ function procesarIncidente(id, restarPuntos){
     if(pts) addPuntos(inc.profId,'incidente',-parseInt(pts),inc.razon);
   }
   inc.procesado=true;
-  localStorage.setItem('luffy_incidentes',JSON.stringify(incs));
+  saveIncidentes(incs);
   savePuntosData();
   renderAdmin();
   showToast('Incidente procesado ✓');
@@ -2394,10 +2641,14 @@ function renderAdminDashboard(body){
 
 function renderAdminStories(body){
   const hoy = new Date().toISOString().split('T')[0];
+  const diaKeys=['dom','lun','mar','mie','jue','vie','sab'];
+  const hoyKey=diaKeys[new Date().getDay()];
   const profesionales = allUsers.filter(p=>p.role==='profesional');
   const html = profesionales.map(p=>{
     const done = STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[p.id]?.[t.id]?.done).length;
     const color = p.color;
+    let horarioHoy=null;
+    try{ const h=JSON.parse(localStorage.getItem('luffy_horario_'+p.id)||'null'); if(h && h[hoyKey]?.activo) horarioHoy=h[hoyKey]; }catch(e){}
     const movs = STORY_TIPOS.map(t=>{
       const check = storiesData?.[hoy]?.[p.id]?.[t.id];
       const hora = check?.ts ? new Date(check.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}) : '';
@@ -2411,14 +2662,14 @@ function renderAdminStories(body){
     return `<div class="prof-card" style="margin-bottom:10px">
       <div class="pc-hdr">
         <div class="pc-av" style="background:${color}33;border-color:${color}">${p.emoji}</div>
-        <div class="pc-info"><strong>${p.name}</strong><span>${done}/${STORY_TIPOS.length} stories hoy</span></div>
+        <div class="pc-info"><strong>${p.name}</strong><span>${done}/${STORY_TIPOS.length} stories hoy · ${horarioHoy?'trabaja '+horarioHoy.inicio+'–'+horarioHoy.fin:'no trabaja hoy'}</span></div>
         <div style="margin-left:auto;display:flex;gap:3px">${STORY_TIPOS.map((_,i)=>`<span style="display:inline-block;width:9px;height:9px;border-radius:50%;background:${i<done?'#34d399':'var(--border2)'}"></span>`).join('')}</div>
       </div>
       <div style="height:4px;background:var(--border2);border-radius:2px;margin-bottom:12px;overflow:hidden"><div style="height:100%;width:${Math.round((done/STORY_TIPOS.length)*100)}%;background:#34d399"></div></div>
       ${movs}
     </div>`;
   }).join('');
-  body.innerHTML += `<div class="sec-title" style="margin-bottom:12px">Stories de hoy</div>${html}`;
+  body.innerHTML += `<div class="sec-hdr" style="margin-bottom:12px"><span class="sec-title">Stories de hoy</span><button onclick="editarHorariosStories()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">⏰ Horarios sugeridos</button></div>${html}`;
 }
 
 function renderAdminCumpleanos(){
@@ -2548,6 +2799,11 @@ let recData = {reagendamientos:0, cumpleanos:[], incidentes:[]};
 function enterRecepcionista(){
   loadStoriesData(); loadPuntosData();
   try { recData=JSON.parse(localStorage.getItem('luffy_rec_'+profile.id)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){ recData={reagendamientos:0,cumpleanos:[],incidentes:[]}; }
+  if(DB){
+    DB.doc('luffy/rec_'+profile.id).get().then(r=>{
+      if(r){ recData=r; try{localStorage.setItem('luffy_rec_'+profile.id,JSON.stringify(recData));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
   show('recepcion');
   document.getElementById('nav').style.display='none';
   renderRecepcion();
@@ -2564,7 +2820,10 @@ function renderRecepcion(){
   document.getElementById('rec-greeting').textContent=gr;
 
   const hoy=new Date().toISOString().split('T')[0];
-  const storiesDone=STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[profile.id]?.[t.id]?.done).length;
+  const mananaDate=new Date(); mananaDate.setDate(mananaDate.getDate()+1);
+  const manana=mananaDate.toISOString().split('T')[0];
+  const storiesDoneHoy=STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[profile.id]?.[t.id]?.done).length;
+  const storiesDoneManana=STORY_TIPOS.filter(t=>storiesData?.[manana]?.[profile.id]?.[t.id]?.done).length;
   const meta=10;
   const reag=recData.reagendamientos||0;
 
@@ -2582,18 +2841,31 @@ function renderRecepcion(){
 
   const body=document.getElementById('rec-body');
   body.innerHTML=`
-    <!-- Stories -->
+    <!-- Stories: hoy y mañana -->
     <div class="card" style="margin-top:16px;cursor:pointer" onclick="goToRec('stories')">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="font-size:28px">📱</div>
         <div style="flex:1">
-          <div style="font-size:14px;font-weight:700">Stories del día</div>
-          <div style="font-size:12px;color:var(--muted2)">${storiesDone}/${STORY_TIPOS.length} publicadas</div>
+          <div style="font-size:14px;font-weight:700">Historias de hoy</div>
+          <div style="font-size:12px;color:var(--muted2)">${storiesDoneHoy}/${STORY_TIPOS.length} publicadas</div>
         </div>
-        <div style="display:flex;gap:4px">${STORY_TIPOS.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i<storiesDone?'#34d399':'var(--border2)'}"></div>`).join('')}</div>
+        <div style="display:flex;gap:4px">${STORY_TIPOS.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i<storiesDoneHoy?'#34d399':'var(--border2)'}"></div>`).join('')}</div>
       </div>
       <div style="height:4px;background:var(--border2);border-radius:2px;margin-top:10px;overflow:hidden">
-        <div style="height:100%;width:${Math.round((storiesDone/STORY_TIPOS.length)*100)}%;background:#34d399;border-radius:2px"></div>
+        <div style="height:100%;width:${Math.round((storiesDoneHoy/STORY_TIPOS.length)*100)}%;background:#34d399;border-radius:2px"></div>
+      </div>
+    </div>
+    <div class="card" style="margin-top:10px;cursor:pointer" onclick="goToRec('stories')">
+      <div style="display:flex;align-items:center;gap:12px">
+        <div style="font-size:28px">🌙</div>
+        <div style="flex:1">
+          <div style="font-size:14px;font-weight:700">Historias de mañana</div>
+          <div style="font-size:12px;color:var(--muted2)">${storiesDoneManana}/${STORY_TIPOS.length} preparadas</div>
+        </div>
+        <div style="display:flex;gap:4px">${STORY_TIPOS.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i<storiesDoneManana?'#60a5fa':'var(--border2)'}"></div>`).join('')}</div>
+      </div>
+      <div style="height:4px;background:var(--border2);border-radius:2px;margin-top:10px;overflow:hidden">
+        <div style="height:100%;width:${Math.round((storiesDoneManana/STORY_TIPOS.length)*100)}%;background:#60a5fa;border-radius:2px"></div>
       </div>
     </div>
 
@@ -2700,7 +2972,7 @@ function reportarIncidente(profId, profName){
   try {
     const incs=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]');
     incs.unshift({id:Date.now().toString(),profId,profName,razon,fecha:new Date().toISOString(),reportadoPor:profile.name,procesado:false});
-    localStorage.setItem('luffy_incidentes',JSON.stringify(incs));
+    saveIncidentes(incs);
   } catch(e){}
   showToast('Incidente reportado ✓');
 }
