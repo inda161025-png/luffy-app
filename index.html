@@ -413,6 +413,7 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
         <div style="flex:1">
           <div style="font-size:14px;font-weight:800;margin-bottom:2px">Turnos de hoy</div>
           <div style="font-size:11px;color:var(--muted2)" id="hub-turnos-sub">$0 · 0 turnos</div>
+          <div style="font-size:11px;color:#7c6fff;margin-top:1px" id="hub-ventas-sub"></div>
         </div>
       </div>
       <button onclick="abrirRegistroTurno()" style="width:100%;margin-top:12px;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">+ Registrar turno</button>
@@ -491,6 +492,18 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
     <button class="hub-salir" onclick="showLogin()">SALIR</button>
   </div>
   <div class="scroll" id="rec-body"></div>
+</div>
+
+<!-- ENCARGADO -->
+<div id="encargado" class="screen">
+  <div class="hub-hdr" style="padding-bottom:0;flex-shrink:0">
+    <div>
+      <div style="font-size:12px;color:var(--muted2)">Encargado</div>
+      <div style="font-size:20px;font-weight:900">📦 Control de stock</div>
+    </div>
+    <button class="hub-salir" onclick="showLogin()">SALIR</button>
+  </div>
+  <div class="scroll" id="encargado-body"></div>
 </div>
 
 <!-- KANBAN -->
@@ -656,7 +669,7 @@ let currentScreenId = null;
 function refreshCurrentView(){
   try{
     if(!profile) return;
-    ({hub:renderHub, admin:renderAdmin, stories:renderStories, puntos:renderPuntos, recepcion:renderRecepcion, perfil:renderPerfil}[currentScreenId]||(()=>{}))();
+    ({hub:renderHub, admin:renderAdmin, stories:renderStories, puntos:renderPuntos, recepcion:renderRecepcion, perfil:renderPerfil, encargado:renderEncargado, dinero:renderDineroContent}[currentScreenId]||(()=>{}))();
   }catch(e){}
 }
 
@@ -671,8 +684,63 @@ let profile = null;
 let sessionToken = 0;
 let DB = null;
 let reels = [];
-let dineroData = {turnos:[]};
+// turnos: cortes (lo de siempre). ventas: venta de productos — se cuenta
+// aparte de los cortes en toda la app, por pedido explicito. deudores:
+// clientes que no pagaron — no suman a la facturacion de la quincena.
+let dineroData = {turnos:[], ventas:[], deudores:[]};
 let yoData = {ingresos:[],gastos:[],deudas:[]};
+
+// ============ PRODUCTOS ============
+let productos = []; // {id, nombre, costo, precioVenta, comisionPct, stock, alertaStock, creado}
+
+function loadProductos(){
+  try{ productos=JSON.parse(localStorage.getItem('luffy_productos')||'[]'); }catch(e){ productos=[]; }
+  if(DB){
+    DB.doc('luffy/productos').get().then(r=>{
+      if(r&&r.list){ productos=r.list; try{localStorage.setItem('luffy_productos',JSON.stringify(productos));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveProductos(){
+  try{localStorage.setItem('luffy_productos',JSON.stringify(productos));}catch(e){}
+  if(DB){try{DB.doc('luffy/productos').set({list:productos});}catch(e){}}
+}
+
+// ============ TAREAS DE RECEPCION ============
+const TAREAS_RECEPCION_DEFAULT = [
+  {id:'t1', emoji:'🧹', label:'Limpiar piso'},
+  {id:'t2', emoji:'🪟', label:'Limpiar vidrios'},
+  {id:'t3', emoji:'🚽', label:'Limpiar baño'},
+  {id:'t4', emoji:'💰', label:'Hacer caja'},
+  {id:'t5', emoji:'🚽', label:'Limpiar baño'},
+];
+let tareasRecepcion = [...TAREAS_RECEPCION_DEFAULT]; // admin-editable
+let tareasData = {}; // {[fecha]: {[tareaId]: {done, ts}}}
+
+function loadTareasRecepcion(){
+  try{ const t=JSON.parse(localStorage.getItem('luffy_tareas_recepcion')||'null'); if(t) tareasRecepcion=t; }catch(e){}
+  if(DB){
+    DB.doc('luffy/tareas_recepcion').get().then(r=>{
+      if(r&&r.list){ tareasRecepcion=r.list; try{localStorage.setItem('luffy_tareas_recepcion',JSON.stringify(tareasRecepcion));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveTareasRecepcion(){
+  try{localStorage.setItem('luffy_tareas_recepcion',JSON.stringify(tareasRecepcion));}catch(e){}
+  if(DB){try{DB.doc('luffy/tareas_recepcion').set({list:tareasRecepcion});}catch(e){}}
+}
+function loadTareasData(){
+  try{tareasData=JSON.parse(localStorage.getItem('luffy_tareas_data')||'{}');}catch(e){tareasData={};}
+  if(DB){
+    DB.doc('luffy/tareas_data').get().then(r=>{
+      if(r){ tareasData=r; try{localStorage.setItem('luffy_tareas_data',JSON.stringify(tareasData));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveTareasData(){
+  try{localStorage.setItem('luffy_tareas_data',JSON.stringify(tareasData));}catch(e){}
+  if(DB){try{DB.doc('luffy/tareas_data').set(tareasData);}catch(e){}}
+}
 
 const TRAMOS = [
   {min:0,       max:999999,   pct:45, label:'Base',  color:'#888896', emoji:'🌱'},
@@ -1007,6 +1075,8 @@ async function init(){
   } catch(e){}
   await loadUsers();
   loadStoryHorarios();
+  loadProductos();
+  loadTareasRecepcion();
   try { if(DB){ const r=await DB.doc('luffy/reels').get(); if(r&&r.list&&r.list.length){reels=r.list;localStorage.setItem('luffy_reels',JSON.stringify(reels));} } } catch(e){}
   // Keep the session across reloads/app switches — without this, iOS
   // backgrounding the tab (or any reload) forces a fresh login every time.
@@ -1067,12 +1137,15 @@ function renderHub(){
   const dots = document.getElementById('hub-stories-dots');
   if(dots) dots.innerHTML = STORY_TIPOS.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i<storiesDone?'#34d399':'rgba(255,255,255,.15)'}"></div>`).join('');
 
-  // Turnos de hoy
+  // Turnos de hoy (cortes) y ventas de productos — aparte, no se suman
   try {
     const turnosHoy=(dineroData.turnos||[]).filter(t=>t.fecha===hoy);
     const factHoy=turnosHoy.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
     const subTurnos=document.getElementById('hub-turnos-sub');
     if(subTurnos) subTurnos.textContent = fp(factHoy)+' · '+turnosHoy.length+(turnosHoy.length===1?' turno':' turnos');
+    const ventasHoy=(dineroData.ventas||[]).filter(v=>v.fecha===hoy);
+    const subVentas=document.getElementById('hub-ventas-sub');
+    if(subVentas) subVentas.textContent = ventasHoy.length? '📦 '+fp(ventasHoy.reduce((s,v)=>s+(v.total||0),0))+' en productos' : '';
   } catch(e){}
 
   // Puntos: franja chica motivacional
@@ -1233,7 +1306,7 @@ function renderRegistro(){
   if(regState.step===0){
     c.innerHTML=`<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px"><div class="modal-title" style="margin:0">¿Qué registrás?</div><button onclick="closeModal('modal-registro')" style="background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:20px">
-      ${[['💈','Turno','turno'],['💸','Gasto','gasto'],['💵','Ingreso','ingreso']].map(([e,l,v])=>`
+      ${[['💈','Turno','turno'],['📦','Producto','producto'],['🚫','No pagó','deudor'],['💸','Gasto','gasto'],['💵','Ingreso','ingreso']].map(([e,l,v])=>`
       <button onclick="regSelTipo('${v}')" style="padding:16px 8px;border-radius:14px;background:var(--s2);border:1.5px solid var(--border2);cursor:pointer;font-family:var(--font)">
         <div style="font-size:24px;margin-bottom:6px">${e}</div>
         <div style="font-size:13px;font-weight:700;color:var(--text)">${l}</div>
@@ -1260,6 +1333,28 @@ function renderRegistro(){
         </div>
         <button class="btn btn-primary" onclick="guardarTurnoRapido()" style="background:${color};margin-top:8px">Guardar turno</button>`;
       setTimeout(()=>document.getElementById('turno-nombre')?.focus(),100);
+    } else if(regState.tipo==='producto'){
+      c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">${back}<div class="modal-title" style="margin:0">Venta de producto 📦</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+        ${!productos.length?'<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px 0">Todavía no hay productos cargados. Pedile al admin que cargue el catálogo.</div>':`
+        <div class="field"><label>Producto</label>
+          <select id="prod-sel" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:12px;color:var(--text);font-family:var(--font);font-size:14px">
+            ${productos.map(p=>`<option value="${p.id}">${p.nombre} — ${fp(p.precioVenta)} (quedan ${p.stock})</option>`).join('')}
+          </select>
+        </div>
+        <div class="field" style="margin-top:10px"><label>Cantidad</label><input id="prod-cant" type="number" value="1" min="1" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:13px 15px;color:var(--text);font-family:var(--font);font-size:20px;font-weight:700;outline:none"/></div>
+        <button class="btn btn-primary" onclick="guardarVentaProducto()" style="background:${color};margin-top:12px">Guardar venta</button>`}`;
+    } else if(regState.tipo==='deudor'){
+      c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">${back}<div class="modal-title" style="margin:0">Cliente no pagó 🚫</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+        <div class="field"><label>Cliente</label><input id="deu-nombre" type="text" placeholder="Nombre del cliente..."/></div>
+        <div class="field"><label>Monto que debe</label>
+          <div style="display:flex;align-items:center;gap:8px">
+            <span style="font-size:20px;font-weight:700;color:var(--muted)">$</span>
+            <input id="deu-monto" type="number" placeholder="0" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:13px 15px;color:var(--text);font-family:var(--font);font-size:20px;font-weight:700;outline:none"/>
+          </div>
+        </div>
+        <div class="field"><label>Motivo (opcional)</label><input id="deu-motivo" type="text" placeholder="Ej: pagó la próxima..."/></div>
+        <button class="btn btn-primary" onclick="guardarDeudor()" style="background:#f472b6;margin-top:8px">Guardar</button>`;
+      setTimeout(()=>document.getElementById('deu-nombre')?.focus(),100);
     } else {
       c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="paso-num" style="margin:0">Monto</div></div>
       <div class="monto-prefix">$</div>
@@ -1339,6 +1434,56 @@ function guardarTurnoRapido(){
   renderHub();
   turnoMedioSel='efectivo';
 }
+
+function guardarVentaProducto(){
+  const prodId=document.getElementById('prod-sel')?.value;
+  const cantidad=parseInt(document.getElementById('prod-cant')?.value)||0;
+  const producto=productos.find(p=>p.id===prodId);
+  if(!producto||!cantidad){ showToast('Elegí un producto y una cantidad'); return; }
+  if(cantidad>producto.stock){ showToast('No hay stock suficiente (quedan '+producto.stock+')'); return; }
+  const fecha=new Date().toISOString().split('T')[0];
+  const total=producto.precioVenta*cantidad;
+  const comision=Math.round(total*(producto.comisionPct/100));
+  if(!dineroData.ventas) dineroData.ventas=[];
+  dineroData.ventas.push({
+    id:Date.now().toString(),
+    productoId:producto.id,
+    productoNombre:producto.nombre,
+    cantidad, precioUnitario:producto.precioVenta, total, comision,
+    fecha, creadoEn:new Date().toISOString()
+  });
+  saveDinero();
+  producto.stock -= cantidad;
+  saveProductos();
+  closeModal('modal-registro');
+  showToast('Venta registrada ✓ +'+fp(comision)+' de comisión');
+  renderHub();
+  if(currentScreenId==='dinero') renderDineroContent();
+}
+
+function guardarDeudor(){
+  const cliente=document.getElementById('deu-nombre')?.value.trim();
+  const monto=parseFloat(document.getElementById('deu-monto')?.value)||0;
+  const motivo=document.getElementById('deu-motivo')?.value.trim()||'';
+  if(!cliente||!monto){ showToast('Completá cliente y monto'); return; }
+  const fecha=new Date().toISOString().split('T')[0];
+  if(!dineroData.deudores) dineroData.deudores=[];
+  dineroData.deudores.push({id:Date.now().toString(), cliente, monto, motivo, fecha, creadoEn:new Date().toISOString(), saldado:false});
+  saveDinero();
+  closeModal('modal-registro');
+  showToast('Anotado en rojo — no suma a la quincena');
+  if(currentScreenId==='dinero') renderDineroContent();
+}
+
+function marcarDeudorSaldado(id){
+  const d=(dineroData.deudores||[]).find(x=>x.id===id);
+  if(!d) return;
+  d.saldado=true;
+  saveDinero();
+  showToast('Marcado como cobrado ✓');
+  renderDineroContent();
+}
+
 function regConfirmMonto(){
   const v=parseFloat(document.getElementById('reg-monto')?.value)||0;
   if(!v){ showToast('Ingresá el monto'); return; }
@@ -1856,7 +2001,8 @@ function agregarToma(){
 
 // ============ DINERO ============
 let dineroTab='trabajo';
-let dineroQ=1;
+let dineroQ=null; // se inicializa a la quincena actual la primera vez que se renderiza
+let dineroMesOffset=0; // 0 = mes actual, -1 = mes anterior, etc.
 
 function renderDinero(){
   const body=document.getElementById('dinero-body');
@@ -1883,20 +2029,19 @@ function renderDineroContent(){
 }
 
 function renderTrabajo(wrap){
-  const now=new Date();
-  const q=now.getDate()<=15?1:2;
-  dineroQ=q;
+  const today=new Date();
+  if(dineroQ===null) dineroQ = today.getDate()<=15?1:2;
+  const q=dineroQ;
+  const viewDate=new Date(today.getFullYear(), today.getMonth()+dineroMesOffset, 1);
   const color=profile.color;
-  const turnos=(dineroData.turnos||[]).filter(t=>{
-    if(!t.fecha) return false;
-    const d=new Date(t.fecha+'T00:00:00');
-    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
-  });
+  const enElMes = (fechaStr)=>{
+    if(!fechaStr) return false;
+    const d=new Date(fechaStr+'T00:00:00');
+    return d.getMonth()===viewDate.getMonth()&&d.getFullYear()===viewDate.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
+  };
+  const turnos=(dineroData.turnos||[]).filter(t=>enElMes(t.fecha));
   const fact=turnos.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
-  const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&r.fecha&&(()=>{
-    const d=new Date(r.fecha+'T00:00:00');
-    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
-  })()).length;
+  const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&r.fecha&&enElMes(r.fecha)).length;
   const {comision,pct,esOro,tramo}=calcComision(fact,reelsQ);
   const tr=esOro?TRAMO_ORO:tramo;
   const nextT=!esOro&&tramo.max!==Infinity?TRAMOS[TRAMOS.indexOf(tramo)+1]:null;
@@ -1908,10 +2053,31 @@ function renderTrabajo(wrap){
 
   const sorted=[...turnos].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
 
+  // Ventas de productos — aparte de los cortes, con su propia comision
+  const ventas=(dineroData.ventas||[]).filter(v=>enElMes(v.fecha));
+  const totalVentas=ventas.reduce((s,v)=>s+(v.total||0),0);
+  const comisionVentas=ventas.reduce((s,v)=>s+(v.comision||0),0);
+  const sortedVentas=[...ventas].sort((a,b)=>new Date(b.fecha)-new Date(a.fecha));
+
+  // Deudores del periodo — no suman a la facturacion
+  const deudoresPeriodo=(dineroData.deudores||[]).filter(d=>enElMes(d.fecha)&&!d.saldado);
+  const totalDeuda=deudoresPeriodo.reduce((s,d)=>s+(parseFloat(d.monto)||0),0);
+
+  const today0=new Date();
+  const currentQ=today0.getDate()<=15?1:2;
+  const esActual = dineroMesOffset===0 && q===currentQ;
+  const mesLabel=viewDate.toLocaleDateString('es-AR',{month:'long',year:'numeric'});
+  const mesLabelCap=mesLabel.charAt(0).toUpperCase()+mesLabel.slice(1);
+  const finMes=new Date(viewDate.getFullYear(),viewDate.getMonth()+1,0).getDate();
+
   wrap.innerHTML=`
-    <div class="dinero-tabs" style="margin-bottom:14px">
-      <button class="dt-tab ${q===1?'active':''}" onclick="switchQ(1)">1 al 15</button>
-      <button class="dt-tab ${q===2?'active':''}" onclick="switchQ(2)">16 al fin</button>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
+      <button onclick="cambiarQuincena(-1)" style="background:var(--s2);border:none;color:var(--text);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;flex-shrink:0">‹</button>
+      <div style="text-align:center">
+        <div style="font-size:13px;font-weight:800">${q===1?'1 al 15':'16 al '+finMes} de ${mesLabelCap}</div>
+        ${esActual?'<div style="font-size:10px;color:var(--muted2)">Quincena actual</div>':'<div style="font-size:10px;color:var(--muted2)">Histórico</div>'}
+      </div>
+      <button onclick="cambiarQuincena(1)" ${esActual?'disabled':''} style="background:var(--s2);border:none;color:${esActual?'var(--muted)':'var(--text)'};width:36px;height:36px;border-radius:50%;cursor:${esActual?'default':'pointer'};font-size:16px;opacity:${esActual?'.4':'1'};flex-shrink:0">›</button>
     </div>
     <div style="background:${tr.color}15;border:1.5px solid ${tr.color}30;border-radius:18px;padding:18px;margin-bottom:14px;display:flex;align-items:center;gap:14px">
       <div style="font-size:40px">${tr.emoji}</div>
@@ -1923,7 +2089,7 @@ function renderTrabajo(wrap){
     </div>
     <div class="progress-bar"><div class="progress-fill" style="width:${progressPct.toFixed(1)}%;background:${tr.color}"></div></div>
     <div class="stat-grid">
-      <div class="stat-card"><div class="sc-lbl">Facturación</div><div class="sc-val">${fp(fact)}</div><div class="sc-sub">${turnos.length} turnos</div></div>
+      <div class="stat-card"><div class="sc-lbl">Facturación cortes</div><div class="sc-val">${fp(fact)}</div><div class="sc-sub">${turnos.length} turnos</div></div>
       <div class="stat-card"><div class="sc-lbl">Tu comisión</div><div class="sc-val" style="color:${tr.color}">${fp(comision)}</div><div class="sc-sub">${pct}%</div></div>
       ${efect?`<div class="stat-card"><div class="sc-lbl">💵 Efectivo</div><div class="sc-val" style="font-size:16px">${fp(efect)}</div></div>`:''}
       ${mp?`<div class="stat-card"><div class="sc-lbl">📱 Mercado Pago</div><div class="sc-val" style="font-size:16px">${fp(mp)}</div></div>`:''}
@@ -1943,10 +2109,56 @@ function renderTrabajo(wrap){
         <div class="ti-info"><strong>${t.cliente||'Cliente'}</strong><span>${t.servicio||''}${d?' · '+d:''}</span></div>
         <div style="text-align:right"><div class="ti-monto">${fp(parseFloat(t.monto)||0)}</div><div class="ti-medio" style="background:${medioColor}22;color:${medioColor}">${medioLabel}</div></div>
       </div>`;
+    }).join('')}
+
+    <div class="sec-hdr" style="margin-top:20px">
+      <span class="sec-title">📦 Ventas de productos (${sortedVentas.length})</span>
+      <button class="sec-btn" onclick="openRegistro()" style="background:#7c6fff">+ Venta</button>
+    </div>
+    ${sortedVentas.length?`<div class="stat-grid" style="margin-bottom:10px">
+      <div class="stat-card"><div class="sc-lbl">Vendido</div><div class="sc-val" style="font-size:16px">${fp(totalVentas)}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Tu comisión</div><div class="sc-val" style="font-size:16px;color:#7c6fff">${fp(comisionVentas)}</div></div>
+    </div>`:''}
+    ${!sortedVentas.length?'<div class="empty"><div class="e-icon">📦</div><p>Sin ventas de productos este período.</p></div>':
+    sortedVentas.map(v=>{
+      const d=v.fecha?new Date(v.fecha+'T00:00:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'}):'';
+      return `<div class="turno-item">
+        <div class="ti-dot" style="background:#7c6fff"></div>
+        <div class="ti-info"><strong>${v.productoNombre}</strong><span>x${v.cantidad}${d?' · '+d:''}</span></div>
+        <div style="text-align:right"><div class="ti-monto">${fp(v.total)}</div><div class="ti-medio" style="background:#7c6fff22;color:#7c6fff">+${fp(v.comision)}</div></div>
+      </div>`;
+    }).join('')}
+
+    <div class="sec-hdr" style="margin-top:20px">
+      <span class="sec-title">🚫 En rojo — no pagaron (${deudoresPeriodo.length})</span>
+      <button class="sec-btn" onclick="openRegistro()" style="background:#f472b6">+ Anotar</button>
+    </div>
+    ${deudoresPeriodo.length?`<div class="stat-card" style="margin-bottom:10px;border-color:rgba(244,114,182,.3)"><div class="sc-lbl">Total adeudado</div><div class="sc-val" style="color:#f472b6">${fp(totalDeuda)}</div><div class="sc-sub">No suma a tu facturación</div></div>`:''}
+    ${!deudoresPeriodo.length?'<div class="empty"><div class="e-icon">✅</div><p>Nadie te debe nada este período.</p></div>':
+    deudoresPeriodo.map(d=>{
+      const dd=d.fecha?new Date(d.fecha+'T00:00:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'}):'';
+      return `<div class="turno-item" style="border-color:rgba(244,114,182,.25)">
+        <div class="ti-dot" style="background:#f472b6"></div>
+        <div class="ti-info"><strong>${d.cliente}</strong><span>${d.motivo||''}${dd?' · '+dd:''}</span></div>
+        <div style="text-align:right"><div class="ti-monto" style="color:#f472b6">${fp(d.monto)}</div><button onclick="marcarDeudorSaldado('${d.id}')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:10px;font-weight:700;cursor:pointer;text-decoration:underline">Ya pagó</button></div>
+      </div>`;
     }).join('')}`;
 }
 
-function switchQ(q){ dineroQ=q; renderDineroContent(); }
+function cambiarQuincena(dir){
+  if(dir<0){
+    if(dineroQ===1){ dineroQ=2; dineroMesOffset--; }
+    else { dineroQ=1; }
+  } else {
+    if(dineroQ===2){ dineroQ=1; dineroMesOffset++; }
+    else { dineroQ=2; }
+  }
+  const today=new Date();
+  const currentQ=today.getDate()<=15?1:2;
+  const esFuturo = dineroMesOffset>0 || (dineroMesOffset===0 && dineroQ>currentQ);
+  if(esFuturo){ dineroMesOffset=0; dineroQ=currentQ; return; }
+  renderDineroContent();
+}
 
 function editarTurno(id){
   const turno=(dineroData.turnos||[]).find(t=>t.id===id);
@@ -2473,6 +2685,15 @@ function toggleStory(dateStr, tipoId, esHoy){
   renderStories();
 }
 
+function toggleTarea(tareaId){
+  const hoy=new Date().toISOString().split('T')[0];
+  if(!tareasData[hoy]) tareasData[hoy]={};
+  const current=tareasData[hoy][tareaId]||{done:false};
+  tareasData[hoy][tareaId]={done:!current.done, ts:new Date().toISOString()};
+  saveTareasData();
+  renderRecepcion();
+}
+
 function copyText(txt){
   navigator.clipboard?.writeText(txt).then(()=>showToast('Copiado ✓')).catch(()=>{
     const ta=document.createElement('textarea');ta.value=txt;document.body.appendChild(ta);ta.select();document.execCommand('copy');document.body.removeChild(ta);showToast('Copiado ✓');
@@ -2627,8 +2848,8 @@ function prefetchAdminTeamData(){
 function renderAdmin(){
   const body=document.getElementById('admin-body');
   const adminTab = window.adminTab||'dashboard';
-  const tabs = `<div style="display:grid;grid-template-columns:repeat(6,1fr);gap:6px;margin-bottom:4px">
-    ${[['dashboard','📊','Dashboard'],['equipo','👥','Equipo'],['stories','📱','Stories'],['banco','📝','Banco'],['puntos','🏆','Puntos'],['cumples','🎂','Cumples']].map(([id,e,l])=>`
+  const tabs = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:4px">
+    ${[['dashboard','📊','Dashboard'],['equipo','👥','Equipo'],['stories','📱','Stories'],['banco','📝','Banco'],['productos','📦','Productos'],['puntos','🏆','Puntos'],['cumples','🎂','Cumples']].map(([id,e,l])=>`
     <button onclick="switchAdminTab('${id}')" style="padding:10px 4px;border-radius:12px;border:1.5px solid ${adminTab===id?'var(--accent)':'var(--border)'};background:${adminTab===id?'rgba(124,111,255,.15)':'var(--s1)'};cursor:pointer;font-family:var(--font);transition:all .15s">
       <div style="font-size:18px;margin-bottom:3px">${e}</div>
       <div style="font-size:9px;font-weight:700;color:${adminTab===id?'var(--accent)':'var(--muted2)'};letter-spacing:.02em">${l}</div>
@@ -2637,6 +2858,7 @@ function renderAdmin(){
   if(adminTab==='dashboard'){ body.innerHTML=tabs; renderAdminDashboard(body); return; }
   if(adminTab==='stories'){ body.innerHTML=tabs; renderAdminStories(body); return; }
   if(adminTab==='banco'){ body.innerHTML=tabs; renderAdminBanco(body); return; }
+  if(adminTab==='productos'){ body.innerHTML=tabs; renderAdminProductos(body); return; }
   if(adminTab==='puntos'){ body.innerHTML=tabs; renderAdminPuntos(body); return; }
   if(adminTab==='cumples'){ body.innerHTML=tabs; renderAdminCumpleanos(); return; }
   const profesionales=allUsers.filter(p=>p.role==='profesional'||p.role==='encargado');
@@ -2729,12 +2951,13 @@ function renderAdminDashboard(body){
   const q=now.getDate()<=15?1:2;
   const profesionales=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
 
-  // Total facturado hoy
-  let factHoy=0;
+  // Total facturado hoy (cortes) y ventas de productos hoy — separado a proposito
+  let factHoy=0, ventasHoy=0;
   profesionales.forEach(p=>{
     try {
       const dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{"turnos":[]}');
       (dd.turnos||[]).filter(t=>t.fecha===hoy).forEach(t=>factHoy+=parseFloat(t.monto)||0);
+      (dd.ventas||[]).filter(v=>v.fecha===hoy).forEach(v=>ventasHoy+=v.total||0);
     } catch(e){}
   });
 
@@ -2767,7 +2990,11 @@ function renderAdminDashboard(body){
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
       <div class="dash-card">
         <div class="dash-num" style="color:#34d399">${fp(factHoy)}</div>
-        <div class="dash-lbl">Facturación hoy</div>
+        <div class="dash-lbl">Facturación cortes hoy</div>
+      </div>
+      <div class="dash-card">
+        <div class="dash-num" style="color:#7c6fff">${fp(ventasHoy)}</div>
+        <div class="dash-lbl">Ventas productos hoy</div>
       </div>
       <div class="dash-card">
         <div class="dash-num" style="color:#60a5fa">${reagHoy}<span style="font-size:16px;font-weight:600">/10</span></div>
@@ -2922,7 +3149,74 @@ function borrarReelBanco(id){
   renderAdmin();
 }
 
+function renderAdminProductos(body){
+  body.innerHTML += `
+    <div class="sec-title" style="margin-bottom:12px">📦 Productos</div>
+    <button onclick="mostrarFormProducto()" class="btn btn-primary" style="margin-bottom:14px;width:100%">+ Cargar producto</button>
+    <div id="producto-form-wrap"></div>
+    ${productos.length ? productos.map(p=>{
+      const bajo = p.stock<=p.alertaStock;
+      return `<div class="prof-card" style="margin-bottom:10px;${bajo?'border-color:#f472b6':''}">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:24px">📦</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700">${p.nombre}</div>
+            <div style="font-size:11px;color:var(--muted2)">Costo ${fp(p.costo)} · Venta ${fp(p.precioVenta)} · Comisión ${p.comisionPct}%</div>
+            <div style="font-size:11px;font-weight:700;margin-top:2px;color:${bajo?'#f472b6':'var(--muted2)'}">Stock: ${p.stock}${bajo?' ⚠️ queda poco':''}</div>
+          </div>
+          <button onclick="borrarProducto('${p.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;flex-shrink:0">×</button>
+        </div>
+      </div>`;
+    }).join('') : '<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Sin productos cargados todavía</div>'}
+  `;
+}
+
+function mostrarFormProducto(){
+  const wrap=document.getElementById('producto-form-wrap');
+  wrap.innerHTML=`<div class="card" style="margin-bottom:14px">
+    <div class="field"><label>Nombre</label><input id="pr-nombre" placeholder="Ej: Cera para pelo"/></div>
+    <div class="field" style="margin-top:8px"><label>Costo (lo que te sale a vos)</label><input id="pr-costo" type="number" placeholder="0"/></div>
+    <div class="field" style="margin-top:8px"><label>Precio de venta</label><input id="pr-precio" type="number" placeholder="0"/></div>
+    <div class="field" style="margin-top:8px"><label>Comisión del profesional (%)</label><input id="pr-comision" type="number" placeholder="10"/></div>
+    <div class="field" style="margin-top:8px"><label>Stock inicial</label><input id="pr-stock" type="number" placeholder="0"/></div>
+    <div class="field" style="margin-top:8px"><label>Avisar al encargado cuando queden (unidades)</label><input id="pr-alerta" type="number" placeholder="5"/></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="document.getElementById('producto-form-wrap').innerHTML=''" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+      <button onclick="guardarProducto()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
+    </div>
+  </div>`;
+  document.getElementById('pr-nombre')?.focus();
+}
+
+function guardarProducto(){
+  const nombre=document.getElementById('pr-nombre')?.value.trim();
+  if(!nombre){ showToast('Falta el nombre'); return; }
+  const costo=parseFloat(document.getElementById('pr-costo')?.value)||0;
+  const precioVenta=parseFloat(document.getElementById('pr-precio')?.value)||0;
+  const comisionPct=parseFloat(document.getElementById('pr-comision')?.value)||0;
+  const stock=parseInt(document.getElementById('pr-stock')?.value)||0;
+  const alertaStock=parseInt(document.getElementById('pr-alerta')?.value)||5;
+  productos.push({id:Date.now().toString(), nombre, costo, precioVenta, comisionPct, stock, alertaStock, creado:new Date().toISOString()});
+  saveProductos();
+  showToast('Producto agregado ✓');
+  renderAdmin();
+}
+
+function borrarProducto(id){
+  if(!confirm('¿Borrar este producto del catálogo?')) return;
+  productos = productos.filter(p=>p.id!==id);
+  saveProductos();
+  renderAdmin();
+}
+
 function renderAdminCumpleanos(){
+  const body=document.getElementById('admin-body');
+  body.innerHTML+=`
+    <div class="sec-hdr" style="margin:16px 0 10px"><span class="sec-title">📋 Tareas del día (recepción)</span><button onclick="editarTareasRecepcion()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar →</button></div>
+    <div class="card" style="margin-bottom:8px">
+      ${tareasRecepcion.map(t=>`<div style="font-size:12px;padding:4px 0">${t.emoji} ${t.label}</div>`).join('')}
+    </div>
+  `;
   // Admin can load cumpleanos for recepcionista
   const recUsers=allUsers.filter(u=>u.role==='recepcionista');
   if(!recUsers.length) return;
@@ -2930,7 +3224,6 @@ function renderAdminCumpleanos(){
   let recD={reagendamientos:0,cumpleanos:[],incidentes:[]};
   try { recD=JSON.parse(localStorage.getItem('luffy_rec_'+recId)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){}
 
-  const body=document.getElementById('admin-body');
   body.innerHTML+=`
     <div class="sec-title" style="margin:16px 0 10px">🎂 Gestión de cumpleaños</div>
     <button onclick="agregarCumple('${recId}')" class="sec-btn" style="background:var(--accent);margin-bottom:12px;padding:10px 16px;border-radius:12px;border:none;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;width:100%">+ Agregar cumpleaños</button>
@@ -2939,6 +3232,18 @@ function renderAdminCumpleanos(){
       <div style="flex:1"><div style="font-size:13px;font-weight:700">${c.nombre}</div><div style="font-size:11px;color:var(--muted2)">${c.fecha} · ${c.telefono||''}</div></div>
       <button onclick="borrarCumple('${recId}','${c.id}')" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(244,114,182,.15);color:#f472b6;font-family:var(--font);font-size:11px;cursor:pointer">×</button>
     </div>`).join('')||'<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px">Sin cumpleaños cargados</div>'}`;
+}
+
+function editarTareasRecepcion(){
+  const actuales = tareasRecepcion.map(t=>t.label).join('\n');
+  const nuevo = prompt('Una tarea por línea:', actuales);
+  if(nuevo===null) return;
+  const labels = nuevo.split('\n').map(l=>l.trim()).filter(Boolean);
+  if(!labels.length){ showToast('Necesitás al menos una tarea'); return; }
+  tareasRecepcion = labels.map((label,i)=>({id:'t'+i, emoji:'✅', label}));
+  saveTareasRecepcion();
+  showToast('Tareas actualizadas ✓');
+  renderAdmin();
 }
 
 function agregarCumple(recId){
@@ -3047,7 +3352,7 @@ function rechazarCanje(solId){
 let recData = {reagendamientos:0, cumpleanos:[], incidentes:[]};
 
 function enterRecepcionista(){
-  loadStoriesData(); loadPuntosData();
+  loadStoriesData(); loadPuntosData(); loadTareasData();
   try { recData=JSON.parse(localStorage.getItem('luffy_rec_'+profile.id)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){ recData={reagendamientos:0,cumpleanos:[],incidentes:[]}; }
   if(DB){
     DB.doc('luffy/rec_'+profile.id).get().then(r=>{
@@ -3089,10 +3394,26 @@ function renderRecepcion(){
     return false;
   });
 
+  const tareasHoy=tareasRecepcion.filter(t=>tareasData?.[hoy]?.[t.id]?.done).length;
+
   const body=document.getElementById('rec-body');
   body.innerHTML=`
+    <!-- Tareas del día -->
+    <div class="sec-hdr" style="margin-top:16px;margin-bottom:8px">
+      <span class="sec-title">📋 Tareas de hoy (${tareasHoy}/${tareasRecepcion.length})</span>
+    </div>
+    <div class="card" style="margin-bottom:10px">
+      ${tareasRecepcion.map(t=>{
+        const done=!!tareasData?.[hoy]?.[t.id]?.done;
+        return `<div onclick="toggleTarea('${t.id}')" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+          <div style="width:22px;height:22px;border-radius:7px;border:2px solid ${done?'#34d399':'var(--border2)'};background:${done?'#34d399':'transparent'};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">${done?'✓':''}</div>
+          <div style="flex:1;font-size:13px;${done?'color:var(--muted2);text-decoration:line-through':''}">${t.emoji} ${t.label}</div>
+        </div>`;
+      }).join('')}
+    </div>
+
     <!-- Stories: hoy y mañana -->
-    <div class="card" style="margin-top:16px;cursor:pointer" onclick="goToRec('stories')">
+    <div class="card" style="cursor:pointer" onclick="goToRec('stories')">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="font-size:28px">📱</div>
         <div style="flex:1">
@@ -3229,23 +3550,46 @@ function reportarIncidente(profId, profName){
 
 // ============ ENCARGADO ============
 function enterEncargado(){
-  loadStoriesData(); loadPuntosData();
-  try { dineroData=JSON.parse(localStorage.getItem('luffy_dinero_'+profile.id)||'{"turnos":[]}'); } catch(e){ dineroData={turnos:[]}; }
-  try { yoData=JSON.parse(localStorage.getItem('luffy_yo_'+profile.id)||'{"ingresos":[],"gastos":[],"deudas":[]}'); } catch(e){ yoData={ingresos:[],gastos:[],deudas:[]}; }
-  // Encargado uses hub but with extra team view in nav
-  showHub();
-  // Add team view button to hub
-  setTimeout(()=>{
-    const hubReels=document.getElementById('hub-reels');
-    if(hubReels){
-      const btn=document.createElement('button');
-      btn.className='btn btn-ghost';
-      btn.style.marginTop='12px';
-      btn.textContent='👥 Ver estado del equipo';
-      btn.onclick=()=>goTo('admin'); // Encargado sees team view
-      hubReels.after(btn);
-    }
-  },200);
+  loadProductos();
+  show('encargado');
+  document.getElementById('nav').style.display='none';
+  renderEncargado();
+}
+
+function renderEncargado(){
+  const body=document.getElementById('encargado-body');
+  if(!body) return;
+  body.innerHTML=`
+    <div class="sec-title" style="margin:16px 0 12px">Stock actual</div>
+    ${!productos.length?'<div class="empty"><div class="e-icon">📦</div><p>Todavía no hay productos cargados por el admin.</p></div>':
+    productos.map(p=>{
+      const bajo = p.stock<=p.alertaStock;
+      return `<div class="prof-card" style="margin-bottom:10px;${bajo?'border-color:#f472b6':''}">
+        <div style="display:flex;align-items:center;gap:12px">
+          <div style="font-size:26px">📦</div>
+          <div style="flex:1">
+            <div style="font-size:14px;font-weight:700">${p.nombre}</div>
+            <div style="font-size:${bajo?'20px':'18px'};font-weight:900;color:${bajo?'#f472b6':'var(--text)'}">${p.stock} <span style="font-size:11px;font-weight:600;color:var(--muted2)">unidades</span></div>
+            ${bajo?`<div style="font-size:11px;font-weight:700;color:#f472b6;margin-top:2px">⚠️ Queda poco — avisá para reponer (umbral: ${p.alertaStock})</div>`:''}
+          </div>
+          <button onclick="reponerStock('${p.id}')" style="padding:10px 14px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;flex-shrink:0">+ Reponer</button>
+        </div>
+      </div>`;
+    }).join('')}
+  `;
+}
+
+function reponerStock(id){
+  const p=productos.find(x=>x.id===id);
+  if(!p) return;
+  const cantStr=prompt('¿Cuántas unidades de "'+p.nombre+'" repusiste?','10');
+  if(!cantStr) return;
+  const cant=parseInt(cantStr)||0;
+  if(!cant||cant<0){ showToast('Ingresá un número válido'); return; }
+  p.stock += cant;
+  saveProductos();
+  showToast('Stock actualizado ✓');
+  renderEncargado();
 }
 
 // ============ START ============
