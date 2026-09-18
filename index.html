@@ -1046,6 +1046,7 @@ async function loginAs(id){
 function showLogin(){
   sessionToken++; // invalidate any loginAs() still in flight so it can't resurrect this session
   profile=null;
+  if(recepcionPollTimer){ clearInterval(recepcionPollTimer); recepcionPollTimer=null; }
   try{ localStorage.removeItem('luffy_session_id'); }catch(e){}
   show('login');
   document.getElementById('nav').style.display='none';
@@ -3399,6 +3400,7 @@ function rechazarCanje(solId){
 // ============ RECEPCIONISTA ============
 let recData = {reagendamientos:0, cumpleanos:[], incidentes:[]};
 let avisosLeidos = [];
+let recepcionPollTimer = null;
 
 function enterRecepcionista(){
   loadStoriesData(); loadPuntosData(); loadTareasData();
@@ -3410,6 +3412,10 @@ function enterRecepcionista(){
   }
   loadAvisosLeidos();
   prefetchRecepcionTeamData();
+  // Recepción no tiene nav (es pantalla única), así que sin este poll el feed
+  // de "para cobrar" quedaba congelado en lo que había al momento del login.
+  if(recepcionPollTimer) clearInterval(recepcionPollTimer);
+  recepcionPollTimer=setInterval(()=>{ if(currentScreenId==='recepcion') prefetchRecepcionTeamData(); }, 15000);
   show('recepcion');
   document.getElementById('nav').style.display='none';
   renderRecepcion();
