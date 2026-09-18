@@ -1300,6 +1300,7 @@ function openRegistro(){
 }
 function abrirRegistroTurno(){
   regState={step:1,tipo:'turno',monto:0,medio:'',categoria:''};
+  turnoServicioSel=''; turnoMedioSel='efectivo';
   renderRegistro();
   openModal('modal-registro');
 }
@@ -1324,6 +1325,12 @@ function renderRegistro(){
       // TURNO: nombre + monto + medio en una sola pantalla
       c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">${back}<div class="modal-title" style="margin:0">Turno 💈</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
         <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" placeholder="Nombre del cliente..."/></div>
+        <div class="field"><label>¿Qué le hiciste?</label>
+          <div style="display:flex;flex-wrap:wrap;gap:6px">
+            ${SERVICIOS_TURNO.map((s,i)=>`<button id="sv-${i}" onclick="selTurnoServicio(${i})" style="padding:9px 14px;border-radius:20px;border:1.5px solid var(--border2);background:transparent;cursor:pointer;font-family:var(--font);font-size:12.5px;font-weight:600;color:var(--muted2);transition:all .15s">${s}</button>`).join('')}
+            <button id="sv-otro" onclick="selTurnoServicioOtro()" style="padding:9px 14px;border-radius:20px;border:1.5px solid var(--border2);background:transparent;cursor:pointer;font-family:var(--font);font-size:12.5px;font-weight:600;color:var(--muted2);transition:all .15s">✏️ Otro</button>
+          </div>
+        </div>
         <div class="field"><label>Monto</label>
           <div style="display:flex;align-items:center;gap:8px">
             <span style="font-size:20px;font-weight:700;color:var(--muted)">$</span>
@@ -1343,6 +1350,7 @@ function renderRegistro(){
     } else if(regState.tipo==='producto'){
       c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">${back}<div class="modal-title" style="margin:0">Venta de producto 📦</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
         ${!productos.length?'<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px 0">Todavía no hay productos cargados. Pedile al admin que cargue el catálogo.</div>':`
+        <div class="field"><label>Cliente (opcional)</label><input id="prod-cliente" type="text" placeholder="Si es del mismo turno, poné el nombre..."/></div>
         <div class="field"><label>Producto</label>
           <select id="prod-sel" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:12px;color:var(--text);font-family:var(--font);font-size:14px">
             ${productos.map(p=>`<option value="${p.id}">${p.nombre} — ${fp(p.precioVenta)} (quedan ${p.stock})</option>`).join('')}
@@ -1399,8 +1407,36 @@ function renderRegistro(){
   }
 }
 
-function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; renderRegistro(); }
+function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; if(tipo==='turno'){ turnoServicioSel=''; turnoMedioSel='efectivo'; } renderRegistro(); }
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
+
+const SERVICIOS_TURNO=['Corte','Corte + Barba','Color','Mechas','Keratina','Peinado'];
+let turnoServicioSel = '';
+function selTurnoServicio(i){
+  turnoServicioSel = SERVICIOS_TURNO[i];
+  SERVICIOS_TURNO.forEach((_,idx)=>{
+    const btn=document.getElementById('sv-'+idx);
+    if(!btn) return;
+    const color=profile.color;
+    if(idx===i){ btn.style.borderColor=color; btn.style.background=color+'22'; btn.style.color=color; }
+    else { btn.style.borderColor='var(--border2)'; btn.style.background='transparent'; btn.style.color='var(--muted2)'; }
+  });
+  const otroBtn=document.getElementById('sv-otro');
+  if(otroBtn){ otroBtn.style.borderColor='var(--border2)'; otroBtn.style.background='transparent'; otroBtn.style.color='var(--muted2)'; }
+}
+function selTurnoServicioOtro(){
+  const v=prompt('¿Qué le hiciste?','');
+  if(!v||!v.trim()) return;
+  turnoServicioSel=v.trim();
+  SERVICIOS_TURNO.forEach((_,idx)=>{
+    const btn=document.getElementById('sv-'+idx);
+    if(!btn) return;
+    btn.style.borderColor='var(--border2)'; btn.style.background='transparent'; btn.style.color='var(--muted2)';
+  });
+  const color=profile.color;
+  const otroBtn=document.getElementById('sv-otro');
+  if(otroBtn){ otroBtn.textContent='✏️ '+turnoServicioSel; otroBtn.style.borderColor=color; otroBtn.style.background=color+'22'; otroBtn.style.color=color; }
+}
 
 let turnoMedioSel = 'efectivo';
 function selTurnoMedio(medio){
@@ -1424,12 +1460,14 @@ function selTurnoMedio(medio){
 function guardarTurnoRapido(){
   const nombre=document.getElementById('turno-nombre')?.value.trim()||'';
   const monto=parseFloat(document.getElementById('turno-monto')?.value)||0;
+  if(!turnoServicioSel){ showToast('Elegí qué le hiciste'); return; }
   if(!monto){ showToast('Ingresá el monto'); return; }
   const fecha=new Date().toISOString().split('T')[0];
   if(!dineroData.turnos) dineroData.turnos=[];
   dineroData.turnos.push({
     id:Date.now().toString(),
     cliente:nombre||'Cliente',
+    servicio:turnoServicioSel,
     monto,
     medio:turnoMedioSel,
     fecha,
@@ -1437,12 +1475,14 @@ function guardarTurnoRapido(){
   });
   saveDinero();
   closeModal('modal-registro');
-  showToast('Turno guardado ✓');
+  showToast('Turno guardado — recepción ya lo puede ver ✓');
   renderHub();
   turnoMedioSel='efectivo';
+  turnoServicioSel='';
 }
 
 function guardarVentaProducto(){
+  const cliente=document.getElementById('prod-cliente')?.value.trim()||'';
   const prodId=document.getElementById('prod-sel')?.value;
   const cantidad=parseInt(document.getElementById('prod-cant')?.value)||0;
   const producto=productos.find(p=>p.id===prodId);
@@ -1454,6 +1494,7 @@ function guardarVentaProducto(){
   if(!dineroData.ventas) dineroData.ventas=[];
   dineroData.ventas.push({
     id:Date.now().toString(),
+    cliente,
     productoId:producto.id,
     productoNombre:producto.nombre,
     cantidad, precioUnitario:producto.precioVenta, total, comision,
@@ -3357,6 +3398,7 @@ function rechazarCanje(solId){
 
 // ============ RECEPCIONISTA ============
 let recData = {reagendamientos:0, cumpleanos:[], incidentes:[]};
+let avisosLeidos = [];
 
 function enterRecepcionista(){
   loadStoriesData(); loadPuntosData(); loadTareasData();
@@ -3366,6 +3408,8 @@ function enterRecepcionista(){
       if(r&&JSON.stringify(r)!==JSON.stringify(recData)){ recData=r; try{localStorage.setItem('luffy_rec_'+profile.id,JSON.stringify(recData));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
+  loadAvisosLeidos();
+  prefetchRecepcionTeamData();
   show('recepcion');
   document.getElementById('nav').style.display='none';
   renderRecepcion();
@@ -3374,6 +3418,80 @@ function enterRecepcionista(){
 function saveRecData(){
   try { localStorage.setItem('luffy_rec_'+profile.id,JSON.stringify(recData)); } catch(e){}
   if(DB){ try{ DB.doc('luffy/rec_'+profile.id).set(recData); }catch(e){} }
+}
+
+// ---- Avisos de cobro: cuando un profesional cierra un turno/venta, recepción
+// lo ve al instante acá (detalle de qué cobrar y por qué), sin hablar.
+// Es un doc global (no por usuario) para que lo vea cualquier recepcionista.
+function loadAvisosLeidos(){
+  try { avisosLeidos=JSON.parse(localStorage.getItem('luffy_avisos_leidos')||'[]'); } catch(e){ avisosLeidos=[]; }
+  if(DB){
+    DB.doc('luffy/avisos_leidos').get().then(r=>{
+      if(r && Array.isArray(r.list) && JSON.stringify(r.list)!==JSON.stringify(avisosLeidos)){
+        avisosLeidos=r.list;
+        try{localStorage.setItem('luffy_avisos_leidos',JSON.stringify(avisosLeidos));}catch(e){}
+        refreshCurrentView();
+      }
+    }).catch(()=>{});
+  }
+}
+function saveAvisosLeidos(){
+  try { localStorage.setItem('luffy_avisos_leidos',JSON.stringify(avisosLeidos)); } catch(e){}
+  if(DB){ try{ DB.doc('luffy/avisos_leidos').set({list:avisosLeidos}); }catch(e){} }
+}
+function marcarAvisoVisto(key){
+  if(!avisosLeidos.includes(key)) avisosLeidos.push(key);
+  saveAvisosLeidos();
+  showToast('Marcado como cobrado ✓');
+  renderRecepcion();
+}
+// Trae el dinero_<id> de cada profesional/encargado a localStorage, igual que
+// hace el dashboard de admin, para poder armar el feed de avisos.
+function prefetchRecepcionTeamData(){
+  if(!DB) return Promise.resolve();
+  const targets=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+  const jobs=targets.map(u=>DB.doc('luffy/dinero_'+u.id).get().then(r=>{
+    if(r){ try{localStorage.setItem('luffy_dinero_'+u.id, JSON.stringify(r));}catch(e){} }
+  }).catch(()=>{}));
+  return Promise.all(jobs).then(refreshCurrentView).catch(()=>{});
+}
+function getAvisosPendientes(){
+  const hoy=new Date().toISOString().split('T')[0];
+  const profesionales=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+  const items=[];
+  profesionales.forEach(p=>{
+    let dd={turnos:[],ventas:[]};
+    try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{"turnos":[]}'); }catch(e){}
+    const turnosHoy=(dd.turnos||[]).filter(t=>t.fecha===hoy);
+    const ventasHoy=(dd.ventas||[]).filter(v=>v.fecha===hoy);
+    const ventasUsadas=new Set();
+    turnosHoy.forEach(t=>{
+      const key='t:'+p.id+':'+t.id;
+      const extras=ventasHoy.filter(v=>{
+        if(ventasUsadas.has(v.id)) return false;
+        if(!v.cliente||!t.cliente) return false;
+        if(v.cliente.trim().toLowerCase()!==t.cliente.trim().toLowerCase()) return false;
+        return Math.abs(new Date(v.creadoEn)-new Date(t.creadoEn))<45*60*1000;
+      });
+      extras.forEach(v=>ventasUsadas.add(v.id));
+      items.push({key, prof:p, tipo:'turno', turno:t, extras, leido:avisosLeidos.includes(key)});
+    });
+    ventasHoy.filter(v=>!ventasUsadas.has(v.id)).forEach(v=>{
+      const key='v:'+p.id+':'+v.id;
+      items.push({key, prof:p, tipo:'venta', venta:v, leido:avisosLeidos.includes(key)});
+    });
+  });
+  items.sort((a,b)=>{
+    const da=new Date((a.turno||a.venta).creadoEn), db=new Date((b.turno||b.venta).creadoEn);
+    return db-da;
+  });
+  return items;
+}
+function minutosDesde(iso){
+  const min=Math.round((Date.now()-new Date(iso).getTime())/60000);
+  if(min<1) return 'recién';
+  if(min<60) return 'hace '+min+' min';
+  return 'hace '+Math.round(min/60)+'h';
 }
 
 function renderRecepcion(){
@@ -3403,8 +3521,38 @@ function renderRecepcion(){
 
   const tareasHoy=tareasRecepcion.filter(t=>tareasData?.[hoy]?.[t.id]?.done).length;
 
+  const avisos=getAvisosPendientes().filter(a=>!a.leido);
   const body=document.getElementById('rec-body');
   body.innerHTML=`
+    <!-- Avisos de cobro -->
+    ${avisos.length?`
+    <div class="sec-hdr" style="margin-top:16px;margin-bottom:8px">
+      <span class="sec-title">🔔 Para cobrar (${avisos.length})</span>
+    </div>
+    ${avisos.map(a=>{
+      const t=a.tipo==='turno'?a.turno:null;
+      const v=a.tipo==='venta'?a.venta:null;
+      const cliente=t?(t.cliente||'Cliente'):(v.cliente||'Venta mostrador');
+      const linea1=t?`${t.servicio||'Servicio'} · ${fp(t.monto)}`:`${v.productoNombre} x${v.cantidad} · ${fp(v.total)}`;
+      const extrasTotal=(a.extras||[]).reduce((s,e)=>s+(e.total||0),0);
+      const total=(t?t.monto:v.total)+extrasTotal;
+      const medio=t?({efectivo:'💵 Efectivo',mp:'📱 MP',tarjeta:'💳 Tarjeta'}[t.medio]||t.medio):'';
+      return `<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.06)">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
+          <div style="width:34px;height:34px;border-radius:50%;background:${a.prof.color}33;border:1.5px solid ${a.prof.color};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${a.prof.emoji||'✂️'}</div>
+          <div style="flex:1">
+            <div style="font-size:13px;font-weight:800">${cliente}</div>
+            <div style="font-size:11px;color:var(--muted2)">${a.prof.name} · ${minutosDesde((t||v).creadoEn)}</div>
+          </div>
+        </div>
+        <div style="font-size:13px;margin-bottom:2px">${linea1}${medio?' · '+medio:''}</div>
+        ${(a.extras||[]).map(e=>`<div style="font-size:13px;color:var(--muted2)">+ ${e.productoNombre} x${e.cantidad} · ${fp(e.total)}</div>`).join('')}
+        ${a.extras&&a.extras.length?`<div style="font-size:15px;font-weight:900;margin-top:6px">Total: ${fp(total)}</div>`:''}
+        <button onclick="marcarAvisoVisto('${a.key}')" style="width:100%;margin-top:10px;padding:11px;border-radius:12px;border:none;background:#fbbf24;color:#1a1a1a;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">✓ Ya cobrado</button>
+      </div>`;
+    }).join('')}
+    `:''}
+
     <!-- Tareas del día -->
     <div class="sec-hdr" style="margin-top:16px;margin-bottom:8px">
       <span class="sec-title">📋 Tareas de hoy (${tareasHoy}/${tareasRecepcion.length})</span>
