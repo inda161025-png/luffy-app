@@ -697,7 +697,7 @@ function loadProductos(){
   try{ productos=JSON.parse(localStorage.getItem('luffy_productos')||'[]'); }catch(e){ productos=[]; }
   if(DB){
     DB.doc('luffy/productos').get().then(r=>{
-      if(r&&r.list){ productos=r.list; try{localStorage.setItem('luffy_productos',JSON.stringify(productos));}catch(e){} refreshCurrentView(); }
+      if(r&&r.list&&JSON.stringify(r.list)!==JSON.stringify(productos)){ productos=r.list; try{localStorage.setItem('luffy_productos',JSON.stringify(productos));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
 }
@@ -721,7 +721,7 @@ function loadTareasRecepcion(){
   try{ const t=JSON.parse(localStorage.getItem('luffy_tareas_recepcion')||'null'); if(t) tareasRecepcion=t; }catch(e){}
   if(DB){
     DB.doc('luffy/tareas_recepcion').get().then(r=>{
-      if(r&&r.list){ tareasRecepcion=r.list; try{localStorage.setItem('luffy_tareas_recepcion',JSON.stringify(tareasRecepcion));}catch(e){} refreshCurrentView(); }
+      if(r&&r.list&&JSON.stringify(r.list)!==JSON.stringify(tareasRecepcion)){ tareasRecepcion=r.list; try{localStorage.setItem('luffy_tareas_recepcion',JSON.stringify(tareasRecepcion));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
 }
@@ -733,7 +733,7 @@ function loadTareasData(){
   try{tareasData=JSON.parse(localStorage.getItem('luffy_tareas_data')||'{}');}catch(e){tareasData={};}
   if(DB){
     DB.doc('luffy/tareas_data').get().then(r=>{
-      if(r){ tareasData=r; try{localStorage.setItem('luffy_tareas_data',JSON.stringify(tareasData));}catch(e){} refreshCurrentView(); }
+      if(r&&JSON.stringify(r)!==JSON.stringify(tareasData)){ tareasData=r; try{localStorage.setItem('luffy_tareas_data',JSON.stringify(tareasData));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
 }
@@ -803,7 +803,8 @@ function loadStoryHorarios(){
   try{ storyHorarios={...STORY_HORARIOS_DEFAULT, ...JSON.parse(localStorage.getItem('luffy_story_horarios')||'{}')}; }catch(e){}
   if(DB){
     DB.doc('luffy/story_horarios').get().then(r=>{
-      if(r){ storyHorarios={...STORY_HORARIOS_DEFAULT, ...r}; try{localStorage.setItem('luffy_story_horarios',JSON.stringify(storyHorarios));}catch(e){} refreshCurrentView(); }
+      const merged=r?{...STORY_HORARIOS_DEFAULT, ...r}:null;
+      if(merged&&JSON.stringify(merged)!==JSON.stringify(storyHorarios)){ storyHorarios=merged; try{localStorage.setItem('luffy_story_horarios',JSON.stringify(storyHorarios));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
 }
@@ -825,7 +826,7 @@ function loadStoriesData(){
   try{storiesData=JSON.parse(localStorage.getItem('luffy_stories')||'{}');}catch(e){storiesData={};}
   if(DB){
     DB.doc('luffy/stories').get().then(r=>{
-      if(r){ storiesData=r; try{localStorage.setItem('luffy_stories',JSON.stringify(storiesData));}catch(e){} refreshCurrentView(); }
+      if(r&&JSON.stringify(r)!==JSON.stringify(storiesData)){ storiesData=r; try{localStorage.setItem('luffy_stories',JSON.stringify(storiesData));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
 }
@@ -840,9 +841,11 @@ function loadPuntosData(){
   if(DB){
     DB.doc('luffy/puntos').get().then(r=>{
       if(!r) return;
+      const before=JSON.stringify({puntosData,canjesData,canjesSolicitudes});
       if(r.puntos) puntosData=r.puntos;
       if(r.canjes) canjesData=r.canjes;
       if(r.solicitudes) canjesSolicitudes=r.solicitudes;
+      if(JSON.stringify({puntosData,canjesData,canjesSolicitudes})===before) return; // nada cambio, no re-renderizar
       try{
         localStorage.setItem('luffy_puntos',JSON.stringify(puntosData));
         localStorage.setItem('luffy_canjes',JSON.stringify(canjesData));
@@ -860,8 +863,12 @@ function savePuntosData(){
 }
 
 function getPuntos(profId){
-  if(!puntosData[profId]) puntosData[profId]={total:0,movimientos:[]};
-  return puntosData[profId];
+  // Solo lectura — no mutar puntosData aca. Antes creaba la entrada del
+  // profesional como efecto secundario de "leer", lo que la desincronizaba
+  // del snapshot de la nube en cada render y disparaba un loop de refetch
+  // infinito (loadPuntosData -> getPuntos muta -> difiere de la nube ->
+  // refreshCurrentView -> renderHub -> loadPuntosData -> ...).
+  return puntosData[profId]||{total:0,movimientos:[]};
 }
 function addPuntos(profId, tipo, pts, razon){
   if(!puntosData[profId]) puntosData[profId]={total:0,movimientos:[]};
@@ -947,7 +954,7 @@ async function doLogin(){
   if(!u){ errEl.textContent='Usuario no encontrado (probá con el usuario exacto que usaste al crear la cuenta)'; return; }
   if(u.password!==passInput){ errEl.textContent='Contraseña incorrecta'; return; }
   errEl.textContent='';
-  loginAs(u.id);
+  await loginAs(u.id);
   }finally{ __doLoginBusy = false; }
 }
 
@@ -1252,7 +1259,7 @@ function show(id){
 function goTo(id){
   show(id);
   document.getElementById('nav').style.display=['hub','generador','editor','kanban','dinero','perfil','stories','puntos'].includes(id)?'flex':'none';
-  const navMap2={hub:'n-hub',generador:'n-gen',kanban:'n-kanban',dinero:'n-dinero',stories:'n-hub',puntos:'n-puntos',editor:'n-gen',perfil:'n-hub'};
+  const navMap2={hub:'n-hub',generador:'n-hub',kanban:'n-kanban',dinero:'n-dinero',stories:'n-hub',puntos:'n-puntos',editor:'n-hub',perfil:'n-hub'};
   if(navMap2[id]) setNav(navMap2[id]);
   if(id==='hub') renderHub();
   if(id==='generador') buildGenHome();
@@ -1263,7 +1270,7 @@ function goTo(id){
   if(id==='puntos'){loadPuntosData();renderPuntos();}
 }
 function setNav(id){
-  ['n-hub','n-gen','n-kanban','n-dinero','n-puntos'].forEach(n=>{const el=document.getElementById(n);if(el)el.classList.toggle('active',el.id===id);});
+  ['n-hub','n-kanban','n-dinero','n-puntos'].forEach(n=>{const el=document.getElementById(n);if(el)el.classList.toggle('active',el.id===id);});
 }
 function showToast(msg){
   const t=document.getElementById('toast');
@@ -1439,7 +1446,7 @@ function guardarVentaProducto(){
   const prodId=document.getElementById('prod-sel')?.value;
   const cantidad=parseInt(document.getElementById('prod-cant')?.value)||0;
   const producto=productos.find(p=>p.id===prodId);
-  if(!producto||!cantidad){ showToast('Elegí un producto y una cantidad'); return; }
+  if(!producto||cantidad<1){ showToast('Elegí un producto y una cantidad válida'); return; }
   if(cantidad>producto.stock){ showToast('No hay stock suficiente (quedan '+producto.stock+')'); return; }
   const fecha=new Date().toISOString().split('T')[0];
   const total=producto.precioVenta*cantidad;
@@ -1529,7 +1536,7 @@ const GUION_BLOQUES=[
 ];
 
 function buildGenHome(){
-  setNav('n-gen');
+  setNav('n-hub');
   document.getElementById('gen-back').onclick=()=>goTo('hub');
   document.getElementById('gen-title').textContent='Generador';
   const c=document.getElementById('gen-body');
@@ -2156,7 +2163,7 @@ function cambiarQuincena(dir){
   const today=new Date();
   const currentQ=today.getDate()<=15?1:2;
   const esFuturo = dineroMesOffset>0 || (dineroMesOffset===0 && dineroQ>currentQ);
-  if(esFuturo){ dineroMesOffset=0; dineroQ=currentQ; return; }
+  if(esFuturo){ dineroMesOffset=0; dineroQ=currentQ; }
   renderDineroContent();
 }
 
@@ -3356,7 +3363,7 @@ function enterRecepcionista(){
   try { recData=JSON.parse(localStorage.getItem('luffy_rec_'+profile.id)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){ recData={reagendamientos:0,cumpleanos:[],incidentes:[]}; }
   if(DB){
     DB.doc('luffy/rec_'+profile.id).get().then(r=>{
-      if(r){ recData=r; try{localStorage.setItem('luffy_rec_'+profile.id,JSON.stringify(recData));}catch(e){} refreshCurrentView(); }
+      if(r&&JSON.stringify(r)!==JSON.stringify(recData)){ recData=r; try{localStorage.setItem('luffy_rec_'+profile.id,JSON.stringify(recData));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
   show('recepcion');
