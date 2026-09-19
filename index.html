@@ -706,6 +706,37 @@ function saveProductos(){
   if(DB){try{DB.doc('luffy/productos').set({list:productos});}catch(e){}}
 }
 
+// ============ SERVICIOS Y OFERTAS (los carga el admin) ============
+const DESC_EFECTIVO_PCT = 10; // 10% off en servicios si pagan en efectivo
+const SERVICIOS_DEFAULT = [{id:'s1',nombre:'Corte',precio:18000},{id:'s2',nombre:'Corte + Barba',precio:20000}];
+let servicios = [...SERVICIOS_DEFAULT]; // {id, nombre, precio}
+let ofertas = [];                       // {id, nombre, pct, servicioIds:[] (vacío = todos), activa}
+
+function loadServicios(){
+  try{ const s=JSON.parse(localStorage.getItem('luffy_servicios')||'null'); if(s) servicios=s; }catch(e){}
+  if(DB){
+    DB.doc('luffy/servicios').get().then(r=>{
+      if(r&&r.list&&JSON.stringify(r.list)!==JSON.stringify(servicios)){ servicios=r.list; try{localStorage.setItem('luffy_servicios',JSON.stringify(servicios));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveServicios(){
+  try{localStorage.setItem('luffy_servicios',JSON.stringify(servicios));}catch(e){}
+  if(DB){try{DB.doc('luffy/servicios').set({list:servicios});}catch(e){}}
+}
+function loadOfertas(){
+  try{ ofertas=JSON.parse(localStorage.getItem('luffy_ofertas')||'[]'); }catch(e){ ofertas=[]; }
+  if(DB){
+    DB.doc('luffy/ofertas').get().then(r=>{
+      if(r&&r.list&&JSON.stringify(r.list)!==JSON.stringify(ofertas)){ ofertas=r.list; try{localStorage.setItem('luffy_ofertas',JSON.stringify(ofertas));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveOfertas(){
+  try{localStorage.setItem('luffy_ofertas',JSON.stringify(ofertas));}catch(e){}
+  if(DB){try{DB.doc('luffy/ofertas').set({list:ofertas});}catch(e){}}
+}
+
 // ============ TAREAS DE RECEPCION ============
 const TAREAS_RECEPCION_DEFAULT = [
   {id:'t1', emoji:'🧹', label:'Limpiar piso'},
@@ -1084,6 +1115,8 @@ async function init(){
   await loadUsers();
   loadStoryHorarios();
   loadProductos();
+  loadServicios();
+  loadOfertas();
   loadTareasRecepcion();
   try { if(DB){ const r=await DB.doc('luffy/reels').get(); if(r&&r.list&&r.list.length){reels=r.list;localStorage.setItem('luffy_reels',JSON.stringify(reels));} } } catch(e){}
   // Keep the session across reloads/app switches — without this, iOS
@@ -1301,7 +1334,7 @@ function openRegistro(){
 }
 function abrirRegistroTurno(){
   regState={step:1,tipo:'turno',monto:0,medio:'',categoria:''};
-  turnoServicioSel=''; turnoMedioSel='efectivo';
+  resetCobro();
   renderRegistro();
   openModal('modal-registro');
 }
@@ -1323,31 +1356,7 @@ function renderRegistro(){
     </div>`;
   } else if(regState.step===1){
     if(regState.tipo==='turno'){
-      // TURNO: nombre + monto + medio en una sola pantalla
-      c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">${back}<div class="modal-title" style="margin:0">Turno 💈</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-        <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" placeholder="Nombre del cliente..."/></div>
-        <div class="field"><label>¿Qué le hiciste?</label>
-          <div style="display:flex;flex-wrap:wrap;gap:6px">
-            ${SERVICIOS_TURNO.map((s,i)=>`<button id="sv-${i}" onclick="selTurnoServicio(${i})" style="padding:9px 14px;border-radius:20px;border:1.5px solid var(--border2);background:transparent;cursor:pointer;font-family:var(--font);font-size:12.5px;font-weight:600;color:var(--muted2);transition:all .15s">${s}</button>`).join('')}
-            <button id="sv-otro" onclick="selTurnoServicioOtro()" style="padding:9px 14px;border-radius:20px;border:1.5px solid var(--border2);background:transparent;cursor:pointer;font-family:var(--font);font-size:12.5px;font-weight:600;color:var(--muted2);transition:all .15s">✏️ Otro</button>
-          </div>
-        </div>
-        <div class="field"><label>Monto</label>
-          <div style="display:flex;align-items:center;gap:8px">
-            <span style="font-size:20px;font-weight:700;color:var(--muted)">$</span>
-            <input id="turno-monto" type="number" placeholder="0" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:13px 15px;color:var(--text);font-family:var(--font);font-size:20px;font-weight:700;outline:none"/>
-          </div>
-        </div>
-        <div class="field"><label>Medio de pago</label>
-          <div style="display:flex;gap:8px">
-            ${[['💵','Efectivo','efectivo'],['📱','Mercado Pago','mp'],['💳','Tarjeta','tarjeta']].map(([e,l,v])=>`
-            <button id="tm-${v}" onclick="selTurnoMedio('${v}')" style="flex:1;padding:12px 6px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;color:var(--muted2);transition:all .15s">
-              <div style="font-size:20px;margin-bottom:4px">${e}</div>${l}
-            </button>`).join('')}
-          </div>
-        </div>
-        <button class="btn btn-primary" onclick="guardarTurnoRapido()" style="background:${color};margin-top:8px">Guardar turno</button>`;
-      setTimeout(()=>document.getElementById('turno-nombre')?.focus(),100);
+      renderCobroForm(c,back,color);
     } else if(regState.tipo==='producto'){
       c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:20px">${back}<div class="modal-title" style="margin:0">Venta de producto 📦</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
         ${!productos.length?'<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px 0">Todavía no hay productos cargados. Pedile al admin que cargue el catálogo.</div>':`
@@ -1408,78 +1417,153 @@ function renderRegistro(){
   }
 }
 
-function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; if(tipo==='turno'){ turnoServicioSel=''; turnoMedioSel='efectivo'; } renderRegistro(); }
+function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; if(tipo==='turno') resetCobro(); renderRegistro(); }
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
-const SERVICIOS_TURNO=['Corte','Corte + Barba','Color','Mechas','Keratina','Peinado'];
-let turnoServicioSel = '';
-function selTurnoServicio(i){
-  turnoServicioSel = SERVICIOS_TURNO[i];
-  SERVICIOS_TURNO.forEach((_,idx)=>{
-    const btn=document.getElementById('sv-'+idx);
-    if(!btn) return;
-    const color=profile.color;
-    if(idx===i){ btn.style.borderColor=color; btn.style.background=color+'22'; btn.style.color=color; }
-    else { btn.style.borderColor='var(--border2)'; btn.style.background='transparent'; btn.style.color='var(--muted2)'; }
-  });
-  const otroBtn=document.getElementById('sv-otro');
-  if(otroBtn){ otroBtn.style.borderColor='var(--border2)'; otroBtn.style.background='transparent'; otroBtn.style.color='var(--muted2)'; }
+// ============ COBRO DE TURNO (servicios + oferta + productos + medio) ============
+let cobro = {cliente:'', servicios:[], ofertaId:'', prods:{}, medio:'efectivo'};
+function resetCobro(){ cobro={cliente:'', servicios:[], ofertaId:'', prods:{}, medio:'efectivo'}; }
+
+function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
+function ofertaAplicaA(o,sId){ return !o.servicioIds||!o.servicioIds.length||o.servicioIds.includes(sId); }
+
+function quincenaActualInfo(){
+  const now=new Date(); const q=now.getDate()<=15?1:2;
+  const enQ=f=>{ if(!f) return false; const d=new Date(f+'T00:00:00'); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15); };
+  const fact=(dineroData.turnos||[]).filter(t=>enQ(t.fecha)).reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
+  const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&enQ(r.fecha)).length;
+  return calcComision(fact,reelsQ);
 }
-function selTurnoServicioOtro(){
-  const v=prompt('¿Qué le hiciste?','');
-  if(!v||!v.trim()) return;
-  turnoServicioSel=v.trim();
-  SERVICIOS_TURNO.forEach((_,idx)=>{
-    const btn=document.getElementById('sv-'+idx);
-    if(!btn) return;
-    btn.style.borderColor='var(--border2)'; btn.style.background='transparent'; btn.style.color='var(--muted2)';
+
+// Descuento por oferta y por efectivo NO se acumulan: se aplica el mejor de los dos.
+// Solo afectan a los servicios; los productos van siempre a precio de lista.
+function calcCobro(){
+  const svcs=servicios.filter(s=>cobro.servicios.includes(s.id));
+  const subtotal=svcs.reduce((a,s)=>a+s.precio,0);
+  const oferta=ofertasActivas().find(o=>o.id===cobro.ofertaId)||null;
+  const baseOferta=oferta?svcs.filter(s=>ofertaAplicaA(oferta,s.id)).reduce((a,s)=>a+s.precio,0):0;
+  const descOferta=oferta?Math.round(baseOferta*oferta.pct/100):0;
+  const descEfectivo=cobro.medio==='efectivo'?Math.round(subtotal*DESC_EFECTIVO_PCT/100):0;
+  let descuento=0, descTipo=null;
+  if(descOferta>0&&descOferta>=descEfectivo){ descuento=descOferta; descTipo='oferta'; }
+  else if(descEfectivo>0){ descuento=descEfectivo; descTipo='efectivo'; }
+  const servicioNeto=subtotal-descuento;
+  const prodLineas=productos.filter(p=>(cobro.prods[p.id]||0)>0).map(p=>{
+    const cantidad=cobro.prods[p.id]; const total=p.precioVenta*cantidad;
+    return {producto:p, cantidad, total, comision:Math.round(total*(p.comisionPct||0)/100)};
   });
+  const prodTotal=prodLineas.reduce((a,l)=>a+l.total,0);
+  const prodComision=prodLineas.reduce((a,l)=>a+l.comision,0);
+  return {svcs, subtotal, oferta, ofertaSinEfecto:!!oferta&&descOferta===0, descuento, descTipo, servicioNeto, prodLineas, prodTotal, prodComision, total:servicioNeto+prodTotal};
+}
+
+function pillStyle(sel,color){
+  return `padding:9px 14px;border-radius:20px;border:1.5px solid ${sel?color:'var(--border2)'};background:${sel?color+'22':'transparent'};color:${sel?color:'var(--muted2)'};cursor:pointer;font-family:var(--font);font-size:12.5px;font-weight:600;transition:all .15s`;
+}
+
+function renderCobroForm(c,back,color){
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="modal-title" style="margin:0">Cobro del turno 💈</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" placeholder="Nombre del cliente..." value="${(cobro.cliente||'').replace(/"/g,'&quot;')}" oninput="cobro.cliente=this.value"/></div>
+    <div class="field"><label>¿Qué le hiciste?</label><div id="cb-serv"></div></div>
+    <div class="field" id="cb-ofertas-wrap"><label>¿Tiene alguna oferta?</label><div id="cb-ofertas"></div></div>
+    <div class="field"><label>¿Le vendiste algún producto?</label><div id="cb-prods"></div></div>
+    <div class="field"><label>Medio de pago</label><div id="cb-medio" style="display:flex;gap:8px"></div></div>
+    <div id="cb-total"></div>
+    <button class="btn btn-primary" onclick="guardarCobro()" style="background:${color};margin-top:12px">Guardar cobro</button>`;
+  refreshCobro();
+}
+
+function refreshCobro(){
   const color=profile.color;
-  const otroBtn=document.getElementById('sv-otro');
-  if(otroBtn){ otroBtn.textContent='✏️ '+turnoServicioSel; otroBtn.style.borderColor=color; otroBtn.style.background=color+'22'; otroBtn.style.color=color; }
+  const r=calcCobro();
+  const serv=document.getElementById('cb-serv');
+  if(!serv) return;
+  serv.innerHTML=servicios.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${servicios.map(s=>`<button onclick="cobroToggleServicio('${s.id}')" style="${pillStyle(cobro.servicios.includes(s.id),color)}">${s.nombre} · ${fp(s.precio)}</button>`).join('')}</div>`
+    :'<div style="font-size:12px;color:var(--muted)">El admin todavía no cargó servicios.</div>';
+
+  const acts=ofertasActivas();
+  document.getElementById('cb-ofertas-wrap').style.display=acts.length?'':'none';
+  document.getElementById('cb-ofertas').innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${acts.map(o=>`<button onclick="cobroToggleOferta('${o.id}')" style="${pillStyle(cobro.ofertaId===o.id,color)}">🏷️ ${o.nombre} (−${o.pct}%)</button>`).join('')}</div>`;
+
+  const prodsEl=document.getElementById('cb-prods');
+  const disp=productos.filter(p=>p.stock>0||(cobro.prods[p.id]||0)>0);
+  prodsEl.innerHTML=disp.length?disp.map(p=>{
+    const q=cobro.prods[p.id]||0;
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${p.nombre}</div><div style="font-size:11px;color:var(--muted2)">${fp(p.precioVenta)} · quedan ${p.stock}</div></div>
+      <button onclick="cobroQty('${p.id}',-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-size:18px;cursor:pointer">−</button>
+      <div style="min-width:20px;text-align:center;font-size:15px;font-weight:800;${q?`color:${color}`:'color:var(--muted)'}">${q}</div>
+      <button onclick="cobroQty('${p.id}',1)" style="width:32px;height:32px;border-radius:50%;border:none;background:${color};color:#fff;font-size:18px;cursor:pointer">+</button>
+    </div>`;
+  }).join(''):'<div style="font-size:12px;color:var(--muted)">No hay productos con stock cargados.</div>';
+
+  document.getElementById('cb-medio').innerHTML=[['💵','Efectivo','efectivo',`−${DESC_EFECTIVO_PCT}% servicios`],['📱','Mercado Pago','mp',''],['💳','Tarjeta','tarjeta','']].map(([e,l,v,sub])=>{
+    const sel=cobro.medio===v;
+    return `<button onclick="cobroMedio('${v}')" style="flex:1;padding:12px 6px;border-radius:12px;border:1.5px solid ${sel?color:'var(--border2)'};background:${sel?color+'22':'transparent'};cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;color:${sel?color:'var(--muted2)'};transition:all .15s"><div style="font-size:20px;margin-bottom:4px">${e}</div>${l}${sub?`<div style="font-size:9.5px;font-weight:600;opacity:.8;margin-top:2px">${sub}</div>`:''}</button>`;
+  }).join('');
+
+  const pctServ=r.svcs.length?quincenaActualInfo().pct:0;
+  const comServ=Math.round(r.servicioNeto*pctServ/100);
+  const row=(a,b,style='')=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;${style}"><span>${a}</span><span style="white-space:nowrap">${b}</span></div>`;
+  document.getElementById('cb-total').innerHTML=(r.svcs.length||r.prodLineas.length)?`<div class="card" style="margin-top:4px">
+    ${r.svcs.map(s=>row(s.nombre,fp(s.precio))).join('')}
+    ${r.descuento>0?row(r.descTipo==='oferta'?`🏷️ ${r.oferta.nombre} (−${r.oferta.pct}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(r.descuento),'color:#34d399'):''}
+    ${r.ofertaSinEfecto?`<div style="font-size:11px;color:var(--muted2);padding:2px 0">La oferta elegida no aplica a los servicios seleccionados.</div>`:''}
+    ${r.svcs.length?row('<b>Servicios</b>','<b>'+fp(r.servicioNeto)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
+    ${r.prodLineas.map(l=>row(`${l.producto.nombre} x${l.cantidad}`,fp(l.total))).join('')}
+    ${r.prodLineas.length?row('<b>Productos</b>','<b>'+fp(r.prodTotal)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">TOTAL A COBRAR</span><span style="font-size:24px;font-weight:900">${fp(r.total)}</span></div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.5">
+      ${r.svcs.length?`Suma a tu quincena: <b>${fp(r.servicioNeto)}</b> → comisión ≈ ${fp(comServ)} (${pctServ}%)<br>`:''}
+      ${r.prodLineas.length?`Productos (aparte de tu quincena): comisión <b>${fp(r.prodComision)}</b>`:''}
+    </div>
+  </div>`:'';
 }
 
-let turnoMedioSel = 'efectivo';
-function selTurnoMedio(medio){
-  turnoMedioSel = medio;
-  ['efectivo','mp','tarjeta'].forEach(m=>{
-    const btn=document.getElementById('tm-'+m);
-    if(!btn) return;
-    const color=profile.color;
-    if(m===medio){
-      btn.style.borderColor=color;
-      btn.style.background=color+'22';
-      btn.style.color=color;
-    } else {
-      btn.style.borderColor='var(--border2)';
-      btn.style.background='transparent';
-      btn.style.color='var(--muted2)';
-    }
-  });
+function cobroToggleServicio(id){
+  const i=cobro.servicios.indexOf(id);
+  if(i>=0) cobro.servicios.splice(i,1); else cobro.servicios.push(id);
+  refreshCobro();
+}
+function cobroToggleOferta(id){ cobro.ofertaId=(cobro.ofertaId===id?'':id); refreshCobro(); }
+function cobroMedio(m){ cobro.medio=m; refreshCobro(); }
+function cobroQty(id,delta){
+  const p=productos.find(x=>x.id===id); if(!p) return;
+  const q=Math.max(0,Math.min(p.stock,(cobro.prods[id]||0)+delta));
+  if(q>0) cobro.prods[id]=q; else delete cobro.prods[id];
+  refreshCobro();
 }
 
-function guardarTurnoRapido(){
-  const nombre=document.getElementById('turno-nombre')?.value.trim()||'';
-  const monto=parseFloat(document.getElementById('turno-monto')?.value)||0;
-  if(!turnoServicioSel){ showToast('Elegí qué le hiciste'); return; }
-  if(!monto){ showToast('Ingresá el monto'); return; }
+function guardarCobro(){
+  const r=calcCobro();
+  if(!r.svcs.length){ showToast('Elegí qué le hiciste'); return; }
+  for(const l of r.prodLineas){ if(l.cantidad>l.producto.stock){ showToast('No hay stock de '+l.producto.nombre); return; } }
+  const id=Date.now().toString();
   const fecha=new Date().toISOString().split('T')[0];
+  const creadoEn=new Date().toISOString();
+  const cliente=(cobro.cliente||'').trim()||'Cliente';
   if(!dineroData.turnos) dineroData.turnos=[];
+  if(!dineroData.ventas) dineroData.ventas=[];
   dineroData.turnos.push({
-    id:Date.now().toString(),
-    cliente:nombre||'Cliente',
-    servicio:turnoServicioSel,
-    monto,
-    medio:turnoMedioSel,
-    fecha,
-    creadoEn:new Date().toISOString()
+    id, cliente,
+    servicio:r.svcs.map(s=>s.nombre).join(' + '),
+    servicios:r.svcs.map(s=>({id:s.id,nombre:s.nombre,precio:s.precio})),
+    oferta:r.descTipo==='oferta'?{id:r.oferta.id,nombre:r.oferta.nombre,pct:r.oferta.pct}:null,
+    descuento:r.descuento, descuentoTipo:r.descTipo, subtotal:r.subtotal,
+    monto:r.servicioNeto, // lo único que suma a la quincena
+    medio:cobro.medio, fecha, creadoEn
+  });
+  r.prodLineas.forEach((l,i)=>{
+    dineroData.ventas.push({id:id+'p'+i, turnoId:id, cliente, productoId:l.producto.id, productoNombre:l.producto.nombre, cantidad:l.cantidad, precioUnitario:l.producto.precioVenta, total:l.total, comision:l.comision, fecha, creadoEn});
+    l.producto.stock-=l.cantidad;
   });
   saveDinero();
+  if(r.prodLineas.length) saveProductos();
   closeModal('modal-registro');
-  showToast('Turno guardado — recepción ya lo puede ver ✓');
+  showToast('Cobro guardado — recepción ya lo ve ✓');
+  resetCobro();
   renderHub();
-  turnoMedioSel='efectivo';
-  turnoServicioSel='';
+  if(currentScreenId==='dinero') renderDineroContent();
 }
 
 function guardarVentaProducto(){
@@ -2898,7 +2982,7 @@ function renderAdmin(){
   const body=document.getElementById('admin-body');
   const adminTab = window.adminTab||'dashboard';
   const tabs = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:4px">
-    ${[['dashboard','📊','Dashboard'],['equipo','👥','Equipo'],['stories','📱','Stories'],['banco','📝','Banco'],['productos','📦','Productos'],['puntos','🏆','Puntos'],['cumples','🎂','Cumples']].map(([id,e,l])=>`
+    ${[['dashboard','📊','Dashboard'],['equipo','👥','Equipo'],['stories','📱','Stories'],['banco','📝','Banco'],['servicios','✂️','Servicios'],['productos','📦','Productos'],['puntos','🏆','Puntos'],['cumples','🎂','Cumples']].map(([id,e,l])=>`
     <button onclick="switchAdminTab('${id}')" style="padding:10px 4px;border-radius:12px;border:1.5px solid ${adminTab===id?'var(--accent)':'var(--border)'};background:${adminTab===id?'rgba(124,111,255,.15)':'var(--s1)'};cursor:pointer;font-family:var(--font);transition:all .15s">
       <div style="font-size:18px;margin-bottom:3px">${e}</div>
       <div style="font-size:9px;font-weight:700;color:${adminTab===id?'var(--accent)':'var(--muted2)'};letter-spacing:.02em">${l}</div>
@@ -2907,6 +2991,7 @@ function renderAdmin(){
   if(adminTab==='dashboard'){ body.innerHTML=tabs; renderAdminDashboard(body); return; }
   if(adminTab==='stories'){ body.innerHTML=tabs; renderAdminStories(body); return; }
   if(adminTab==='banco'){ body.innerHTML=tabs; renderAdminBanco(body); return; }
+  if(adminTab==='servicios'){ body.innerHTML=tabs; renderAdminServicios(body); return; }
   if(adminTab==='productos'){ body.innerHTML=tabs; renderAdminProductos(body); return; }
   if(adminTab==='puntos'){ body.innerHTML=tabs; renderAdminPuntos(body); return; }
   if(adminTab==='cumples'){ body.innerHTML=tabs; renderAdminCumpleanos(); return; }
@@ -3198,6 +3283,89 @@ function borrarReelBanco(id){
   renderAdmin();
 }
 
+function renderAdminServicios(body){
+  body.innerHTML += `
+    <div class="sec-title" style="margin-bottom:12px">✂️ Servicios</div>
+    <div class="card" style="margin-bottom:12px;font-size:12px;color:var(--muted2);line-height:1.5">💵 Pagando en efectivo hay <b style="color:var(--text)">${DESC_EFECTIVO_PCT}% off</b> automático en los servicios. Si el cliente además tiene una oferta, se aplica la que más descuenta (no se suman).</div>
+    <button onclick="mostrarFormServicio()" class="btn btn-primary" style="margin-bottom:14px;width:100%">+ Cargar servicio</button>
+    <div id="servicio-form-wrap"></div>
+    ${servicios.length?servicios.map(s=>`<div class="prof-card" style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px">
+      <div style="flex:1"><div style="font-size:14px;font-weight:700">${s.nombre}</div><div style="font-size:12px;color:var(--muted2)">${fp(s.precio)}</div></div>
+      <button onclick="editarPrecioServicio('${s.id}')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar precio</button>
+      <button onclick="borrarServicio('${s.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
+    </div></div>`).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">Sin servicios cargados</div>'}
+
+    <div class="sec-title" style="margin:22px 0 12px">🏷️ Ofertas</div>
+    <button onclick="mostrarFormOferta()" class="btn btn-primary" style="margin-bottom:14px;width:100%">+ Cargar oferta</button>
+    <div id="oferta-form-wrap"></div>
+    ${ofertas.length?ofertas.map(o=>{
+      const activa=o.activa!==false;
+      const aplica=(o.servicioIds&&o.servicioIds.length)?o.servicioIds.map(id=>(servicios.find(s=>s.id===id)||{}).nombre).filter(Boolean).join(', '):'Todos los servicios';
+      return `<div class="prof-card" style="margin-bottom:8px;${activa?'':'opacity:.55'}"><div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1"><div style="font-size:14px;font-weight:700">${o.nombre} · −${o.pct}%</div><div style="font-size:11px;color:var(--muted2)">${aplica}</div></div>
+        <button onclick="toggleOferta('${o.id}')" style="padding:6px 12px;border-radius:10px;border:1.5px solid ${activa?'#34d399':'var(--border2)'};background:${activa?'rgba(52,211,153,.12)':'transparent'};color:${activa?'#34d399':'var(--muted2)'};font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">${activa?'Activa':'Pausada'}</button>
+        <button onclick="borrarOferta('${o.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
+      </div></div>`;
+    }).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">Sin ofertas cargadas</div>'}
+  `;
+}
+function mostrarFormServicio(){
+  document.getElementById('servicio-form-wrap').innerHTML=`<div class="card" style="margin-bottom:14px">
+    <div class="field"><label>Nombre</label><input id="sv-nombre" placeholder="Ej: Corte + Barba"/></div>
+    <div class="field" style="margin-top:8px"><label>Precio</label><input id="sv-precio" type="number" placeholder="0"/></div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="document.getElementById('servicio-form-wrap').innerHTML=''" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+      <button onclick="guardarServicio()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
+    </div></div>`;
+  document.getElementById('sv-nombre')?.focus();
+}
+function guardarServicio(){
+  const nombre=document.getElementById('sv-nombre')?.value.trim();
+  const precio=parseFloat(document.getElementById('sv-precio')?.value)||0;
+  if(!nombre||precio<=0){ showToast('Poné nombre y precio'); return; }
+  servicios.push({id:Date.now().toString(), nombre, precio});
+  saveServicios(); showToast('Servicio agregado ✓'); renderAdmin();
+}
+function editarPrecioServicio(id){
+  const s=servicios.find(x=>x.id===id); if(!s) return;
+  const v=parseFloat(prompt('Nuevo precio de "'+s.nombre+'"',s.precio));
+  if(!v||v<=0) return;
+  s.precio=v; saveServicios(); renderAdmin();
+}
+function borrarServicio(id){
+  if(!confirm('¿Borrar este servicio? Los turnos ya cargados no cambian.')) return;
+  servicios=servicios.filter(s=>s.id!==id); saveServicios(); renderAdmin();
+}
+function mostrarFormOferta(){
+  document.getElementById('oferta-form-wrap').innerHTML=`<div class="card" style="margin-bottom:14px">
+    <div class="field"><label>Nombre de la oferta</label><input id="of-nombre" placeholder="Ej: Promo martes"/></div>
+    <div class="field" style="margin-top:8px"><label>Descuento (%)</label><input id="of-pct" type="number" placeholder="20"/></div>
+    <div class="field" style="margin-top:8px"><label>Aplica a (si no marcás ninguno, aplica a todos)</label>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">${servicios.map(s=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" class="of-svc" value="${s.id}" style="width:auto"/> ${s.nombre}</label>`).join('')}</div>
+    </div>
+    <div style="display:flex;gap:8px;margin-top:12px">
+      <button onclick="document.getElementById('oferta-form-wrap').innerHTML=''" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
+      <button onclick="guardarOferta()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
+    </div></div>`;
+  document.getElementById('of-nombre')?.focus();
+}
+function guardarOferta(){
+  const nombre=document.getElementById('of-nombre')?.value.trim();
+  const pct=parseFloat(document.getElementById('of-pct')?.value)||0;
+  if(!nombre||pct<=0||pct>100){ showToast('Poné nombre y un % entre 1 y 100'); return; }
+  const servicioIds=[...document.querySelectorAll('.of-svc:checked')].map(x=>x.value);
+  ofertas.push({id:Date.now().toString(), nombre, pct, servicioIds, activa:true});
+  saveOfertas(); showToast('Oferta agregada ✓'); renderAdmin();
+}
+function toggleOferta(id){
+  const o=ofertas.find(x=>x.id===id); if(!o) return;
+  o.activa=(o.activa===false); saveOfertas(); renderAdmin();
+}
+function borrarOferta(id){
+  if(!confirm('¿Borrar esta oferta?')) return;
+  ofertas=ofertas.filter(o=>o.id!==id); saveOfertas(); renderAdmin();
+}
+
 function renderAdminProductos(body){
   body.innerHTML += `
     <div class="sec-title" style="margin-bottom:12px">📦 Productos</div>
@@ -3475,6 +3643,7 @@ function getAvisosPendientes(){
       const key='t:'+p.id+':'+t.id;
       const extras=ventasHoy.filter(v=>{
         if(ventasUsadas.has(v.id)) return false;
+        if(v.turnoId) return v.turnoId===t.id;
         if(!v.cliente||!t.cliente) return false;
         if(v.cliente.trim().toLowerCase()!==t.cliente.trim().toLowerCase()) return false;
         return Math.abs(new Date(v.creadoEn)-new Date(t.creadoEn))<45*60*1000;
@@ -3539,10 +3708,14 @@ function renderRecepcion(){
       const t=a.tipo==='turno'?a.turno:null;
       const v=a.tipo==='venta'?a.venta:null;
       const cliente=t?(t.cliente||'Cliente'):(v.cliente||'Venta mostrador');
-      const linea1=t?`${t.servicio||'Servicio'} · ${fp(t.monto)}`:`${v.productoNombre} x${v.cantidad} · ${fp(v.total)}`;
       const extrasTotal=(a.extras||[]).reduce((s,e)=>s+(e.total||0),0);
       const total=(t?t.monto:v.total)+extrasTotal;
-      const medio=t?({efectivo:'💵 Efectivo',mp:'📱 MP',tarjeta:'💳 Tarjeta'}[t.medio]||t.medio):'';
+      const medio=t?({efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'}[t.medio]||t.medio):'';
+      const rr=(x,y,st='')=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:2px 0;${st}"><span>${x}</span><span style="white-space:nowrap">${y}</span></div>`;
+      const detalle=t?(
+        (t.servicios&&t.servicios.length?t.servicios.map(s=>rr(s.nombre,fp(s.precio))).join(''):rr(t.servicio||'Servicio',fp(t.monto)))
+        +(t.descuento>0?rr(t.descuentoTipo==='oferta'?`🏷️ Oferta ${t.oferta?t.oferta.nombre:''} (−${t.oferta?t.oferta.pct:''}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(t.descuento),'color:#34d399'):'')
+      ):rr(`${v.productoNombre} x${v.cantidad}`,fp(v.total));
       return `<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.06)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <div style="width:34px;height:34px;border-radius:50%;background:${a.prof.color}33;border:1.5px solid ${a.prof.color};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${a.prof.emoji||'✂️'}</div>
@@ -3551,9 +3724,9 @@ function renderRecepcion(){
             <div style="font-size:11px;color:var(--muted2)">${a.prof.name} · ${minutosDesde((t||v).creadoEn)}</div>
           </div>
         </div>
-        <div style="font-size:13px;margin-bottom:2px">${linea1}${medio?' · '+medio:''}</div>
-        ${(a.extras||[]).map(e=>`<div style="font-size:13px;color:var(--muted2)">+ ${e.productoNombre} x${e.cantidad} · ${fp(e.total)}</div>`).join('')}
-        ${a.extras&&a.extras.length?`<div style="font-size:15px;font-weight:900;margin-top:6px">Total: ${fp(total)}</div>`:''}
+        ${detalle}
+        ${(a.extras||[]).map(e=>rr(`📦 ${e.productoNombre} x${e.cantidad}`,fp(e.total),'color:var(--muted2)')).join('')}
+        <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;padding-top:6px;border-top:1px solid var(--border2)"><span style="font-size:12px;font-weight:700">COBRAR${medio?' · '+medio:''}</span><span style="font-size:20px;font-weight:900">${fp(total)}</span></div>
         <button onclick="marcarAvisoVisto('${a.key}')" style="width:100%;margin-top:10px;padding:11px;border-radius:12px;border:none;background:#fbbf24;color:#1a1a1a;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">✓ Ya cobrado</button>
       </div>`;
     }).join('')}
