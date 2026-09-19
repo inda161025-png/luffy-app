@@ -182,6 +182,61 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
 .stat-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:14px}
 .stat-card .sc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
 .stat-card .sc-val{font-size:22px;font-weight:900;letter-spacing:-.5px}
+
+/* ===== Admin: navegacion y panel ===== */
+body.adm-wide #app{max-width:1500px}
+.adm-nav{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none;position:sticky;top:0;z-index:20;background:var(--bg)}
+.adm-nav button,.adm-sub button{flex-shrink:0;border:1.5px solid var(--border);background:var(--s1);color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;padding:9px 16px;border-radius:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
+.adm-nav button span{margin-right:6px}
+.adm-nav button.on,.adm-sub button.on{border-color:var(--accent);background:rgba(124,111,255,.15);color:var(--accent)}
+.adm-nav .adm-out{margin-left:auto;background:transparent;border-color:transparent;font-size:12px;opacity:.6}
+.adm-sub{display:flex;gap:6px;margin:2px 0 10px;overflow-x:auto;scrollbar-width:none}
+.adm-sub button{font-size:12px;padding:6px 14px;border-radius:20px}
+.adm-narrow{max-width:760px;margin:0 auto}
+.adm-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;justify-content:space-between;margin-bottom:8px}
+.adm-bar-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.adm-chips{display:flex;gap:6px;flex-wrap:wrap}
+.adm-chips button{border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;padding:8px 14px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
+.adm-chips button.on{border-color:var(--accent);background:rgba(124,111,255,.15);color:var(--accent)}
+.adm-chips.sm button{padding:5px 11px;font-size:11px}
+.adm-chips i{width:9px;height:9px;border-radius:3px;display:inline-block}
+.adm-sel,.adm-btn{background:var(--s1);border:1.5px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12px;font-weight:700;padding:8px 12px;border-radius:12px;cursor:pointer}
+.adm-kpis{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:10px}
+.adm-mini{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
+.kpi,.mini,.pnl{background:var(--s1);border:1px solid var(--border);border-radius:16px}
+.kpi{padding:14px 16px}.kpi.big{border-color:rgba(52,211,153,.4);background:linear-gradient(135deg,rgba(52,211,153,.08),var(--s1))}
+.mini{padding:11px 14px}
+.kl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px}
+.kv{font-size:clamp(18px,5.2vw,24px);font-weight:900;letter-spacing:-.5px;line-height:1.1}.mv{font-size:18px;font-weight:900;letter-spacing:-.3px}
+.ks{font-size:11px;color:var(--muted2);margin-top:5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
+.dl{font-size:11px;font-weight:800;padding:2px 7px;border-radius:8px;background:var(--s3);color:var(--muted2)}
+.dl.up{color:#34d399;background:rgba(52,211,153,.13)}.dl.down{color:#f472b6;background:rgba(244,114,182,.13)}.dl.nt{color:var(--muted2)}
+.adm-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:12px;padding-bottom:20px}
+.pnl{padding:16px}
+.pnl-h{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px}
+.pnl-h h3{font-size:13px;font-weight:800}
+.pnl .hint{font-size:10.5px;color:var(--muted)}
+.hb{padding:6px 8px;margin:0 -8px 4px;border-radius:10px;border:1.5px solid transparent}
+.hb.clickable{cursor:pointer}.hb.clickable:hover{background:var(--s2)}.hb.sel{border-color:var(--accent);background:rgba(124,111,255,.08)}
+.ln{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)}
+.ln:last-child{border-bottom:none}
+.lnk{background:none;border:none;color:var(--accent);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;padding:0}
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:7px}
+.adm-tbl{width:100%;border-collapse:collapse;font-size:12px}
+.adm-tbl th{text-align:left;font-size:10px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);padding:4px 6px;font-weight:700}
+.adm-tbl td{padding:7px 6px;border-top:1px solid var(--border)}
+.adm-tbl tr.low td{color:#f472b6}.adm-tbl tr.tot td{font-weight:800}
+.bars{display:flex;align-items:flex-end;gap:4px;height:84px}
+.bcol{flex:1;height:100%;display:flex;flex-direction:column;justify-content:flex-end;align-items:center;gap:3px;cursor:default}
+.bfill{width:100%;border-radius:3px 3px 0 0;min-height:2px;opacity:.9}.bcol:hover .bfill{opacity:1}
+.bcol span{font-size:9px;color:var(--muted)}
+#adm-tip{position:fixed;z-index:9999;pointer-events:none;background:#000;border:1px solid var(--border2);color:#fff;font-size:12px;line-height:1.5;padding:8px 11px;border-radius:10px;white-space:pre;display:none;box-shadow:0 6px 20px rgba(0,0,0,.5)}
+@media(min-width:1000px){
+  .adm-kpis{grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+  .adm-mini{grid-template-columns:repeat(6,minmax(0,1fr));gap:12px}
+  .adm-grid{grid-template-columns:repeat(12,minmax(0,1fr));gap:14px}
+  .c4{grid-column:span 4}.c6{grid-column:span 6}.c8{grid-column:span 8}
+}
 .stat-card:active{transform:scale(.98)}
 .stat-card .sc-sub{font-size:11px;color:var(--muted2);margin-top:2px}
 
@@ -1079,6 +1134,7 @@ function showLogin(){
   sessionToken++; // invalidate any loginAs() still in flight so it can't resurrect this session
   profile=null;
   if(recepcionPollTimer){ clearInterval(recepcionPollTimer); recepcionPollTimer=null; }
+  if(adminPollTimer){ clearInterval(adminPollTimer); adminPollTimer=null; }
   try{ localStorage.removeItem('luffy_session_id'); }catch(e){}
   show('login');
   document.getElementById('nav').style.display='none';
@@ -1288,6 +1344,7 @@ function renderTramoBanner(){
 // ============ UTILS ============
 function show(id){
   currentScreenId = id;
+  document.body.classList.toggle('adm-wide', id==='admin');
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
@@ -3013,6 +3070,8 @@ function enterAdmin(){
   loadStoriesData();
   loadPuntosData();
   prefetchAdminTeamData();
+  if(adminPollTimer) clearInterval(adminPollTimer);
+  adminPollTimer=setInterval(()=>{ if(currentScreenId==='admin'&&(window.adminTab||'panel')==='panel') prefetchAdminTeamData(); }, 30000);
   show('admin');
   document.getElementById('nav').style.display='none';
   renderAdmin();
@@ -3042,71 +3101,58 @@ function prefetchAdminTeamData(){
       if(r){ try{localStorage.setItem('luffy_horario_'+u.id, JSON.stringify(r));}catch(e){} }
     }).catch(()=>{}));
   });
+  jobs.push(DB.doc('luffy/productos').get().then(r=>{
+    if(r && Array.isArray(r.list)){ productos=r.list; try{localStorage.setItem('luffy_productos', JSON.stringify(productos));}catch(e){} }
+  }).catch(()=>{}));
   jobs.push(DB.doc('luffy/incidentes').get().then(r=>{
     if(r && Array.isArray(r.list)){ try{localStorage.setItem('luffy_incidentes', JSON.stringify(r.list));}catch(e){} }
   }).catch(()=>{}));
-  Promise.all(jobs).then(refreshCurrentView).catch(()=>{});
+  Promise.all(jobs).then(()=>{ adminUltAct=new Date(); refreshCurrentView(); }).catch(()=>{});
 }
+
+const ADMIN_SECCIONES=[
+  {id:'panel',ico:'📊',label:'Panel'},
+  {id:'equipo',ico:'👥',label:'Equipo',subs:[['estado','Estado'],['stories','Stories'],['puntos','Puntos']]},
+  {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios y ofertas'],['productos','Productos y stock']]},
+  {id:'contenido',ico:'📝',label:'Contenido'},
+  {id:'recepcion',ico:'📞',label:'Recepción'},
+];
+window.adminSub={};
 
 function renderAdmin(){
   const body=document.getElementById('admin-body');
-  const adminTab = window.adminTab||'dashboard';
-  const tabs = `<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:4px">
-    ${[['dashboard','📊','Dashboard'],['finanzas','💰','Finanzas'],['equipo','👥','Equipo'],['stories','📱','Stories'],['banco','📝','Banco'],['servicios','✂️','Servicios'],['productos','📦','Productos'],['puntos','🏆','Puntos'],['cumples','🎂','Cumples']].map(([id,e,l])=>`
-    <button onclick="switchAdminTab('${id}')" style="padding:10px 4px;border-radius:12px;border:1.5px solid ${adminTab===id?'var(--accent)':'var(--border)'};background:${adminTab===id?'rgba(124,111,255,.15)':'var(--s1)'};cursor:pointer;font-family:var(--font);transition:all .15s">
-      <div style="font-size:18px;margin-bottom:3px">${e}</div>
-      <div style="font-size:9px;font-weight:700;color:${adminTab===id?'var(--accent)':'var(--muted2)'};letter-spacing:.02em">${l}</div>
-    </button>`).join('')}
-  </div>`;
-  if(adminTab==='dashboard'){ body.innerHTML=tabs; renderAdminDashboard(body); return; }
-  if(adminTab==='stories'){ body.innerHTML=tabs; renderAdminStories(body); return; }
-  if(adminTab==='banco'){ body.innerHTML=tabs; renderAdminBanco(body); return; }
-  if(adminTab==='finanzas'){ body.innerHTML=tabs; renderAdminFinanzas(body); return; }
-  if(adminTab==='servicios'){ body.innerHTML=tabs; renderAdminServicios(body); return; }
-  if(adminTab==='productos'){ body.innerHTML=tabs; renderAdminProductos(body); return; }
-  if(adminTab==='puntos'){ body.innerHTML=tabs; renderAdminPuntos(body); return; }
-  if(adminTab==='cumples'){ body.innerHTML=tabs; renderAdminCumpleanos(); return; }
-  const profesionales=allUsers.filter(p=>p.role==='profesional'||p.role==='encargado');
-  const now=new Date();
-  const q=now.getDate()<=15?1:2;
-  let totalFact=0, totalCom=0;
+  const st=body.scrollTop;
+  let tab=window.adminTab||'panel';
+  if(!ADMIN_SECCIONES.find(s=>s.id===tab)) tab='panel';
+  const sec=ADMIN_SECCIONES.find(s=>s.id===tab);
+  const sub=sec.subs?(window.adminSub[tab]||sec.subs[0][0]):null;
+  const nav=`<div class="adm-nav">
+    ${ADMIN_SECCIONES.map(s=>`<button class="${s.id===tab?'on':''}" onclick="switchAdminTab('${s.id}')"><span>${s.ico}</span>${s.label}</button>`).join('')}
+    <button class="adm-out" onclick="showLogin()">Salir</button>
+  </div>${sec.subs?`<div class="adm-sub">${sec.subs.map(([id,l])=>`<button class="${id===sub?'on':''}" onclick="switchAdminTab('${id}')">${l}</button>`).join('')}</div>`:''}`;
+  body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
+  const c=document.getElementById('adm-content');
+  if(tab==='panel') renderAdminPanel(c);
+  else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else renderAdminEstadoEquipo(c); }
+  else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else renderAdminServicios(c); }
+  else if(tab==='contenido') renderAdminBanco(c);
+  else if(tab==='recepcion') renderAdminCumpleanos(c);
+  body.scrollTop=st;
+}
 
-  const cards=profesionales.map(p=>{
-    let dd={turnos:[]};
-    try{dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{"turnos":[]}');}catch(e){}
-    const turnos=(dd.turnos||[]).filter(t=>{
-      if(!t.fecha) return false;
-      const d=new Date(t.fecha+'T00:00:00');
-      return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
-    });
-    const fact=turnos.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
-    const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===p.name&&r.fecha&&(()=>{const d=new Date(r.fecha+'T00:00:00');return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);})()).length;
-    const {comision,pct,esOro,tramo}=calcComision(fact,reelsQ);
-    const tr=esOro?TRAMO_ORO:tramo;
-    totalFact+=fact; totalCom+=comision;
-    return `<div class="prof-card">
-      <div class="pc-hdr">
-        <div class="pc-av" style="background:${p.color}33;border-color:${p.color}">${p.emoji}</div>
-        <div class="pc-info"><strong>${p.name}</strong><span>${p.profesion||'Profesional'} · ${turnos.length} turnos</span></div>
-        <div class="pc-tramo"><div class="pct" style="color:${tr.color}">${tr.pct}%</div><div class="lbl" style="color:${tr.color}">${tr.emoji} ${tr.label}</div></div>
-      </div>
-      <div class="pc-nums">
-        <div class="pc-num"><span class="pn-val">${fp(fact)}</span><span class="pn-lbl">Facturó</span></div>
-        <div class="pc-num"><span class="pn-val" style="color:#f472b6">${fp(comision)}</span><span class="pn-lbl">Comisión</span></div>
-        <div class="pc-num"><span class="pn-val" style="color:#34d399">${fp(fact-comision)}</span><span class="pn-lbl">Al local</span></div>
-      </div>
-    </div>`;
-  }).join('');
-
-  body.innerHTML=tabs+`
-    <div class="stat-grid" style="margin-bottom:16px">
-      <div class="stat-card"><div class="sc-lbl">Total facturado</div><div class="sc-val" style="font-size:18px">${fp(totalFact)}</div><div class="sc-sub">Todo el equipo</div></div>
-      <div class="stat-card"><div class="sc-lbl">Comisiones</div><div class="sc-val" style="font-size:18px;color:#f472b6">${fp(totalCom)}</div><div class="sc-sub">A pagar</div></div>
-      <div class="stat-card"><div class="sc-lbl">Al local</div><div class="sc-val" style="font-size:18px;color:#34d399">${fp(totalFact-totalCom)}</div><div class="sc-sub">Antes de gastos</div></div>
-    </div>
-    <div class="sec-title" style="margin-bottom:12px">Equipo — ${profesionales.length} profesionales</div>
-    ${cards||'<div class="empty"><div class="e-icon">👥</div><p>Sin profesionales.</p></div>'}
-    <button onclick="showLogin()" class="btn btn-ghost" style="margin-top:12px">← Salir del panel</button>`;
+// Acepta el id de una seccion o de una sub-seccion (y los ids viejos de las 9 pestañas)
+function switchAdminTab(tab){
+  const legacy={dashboard:'panel',finanzas:'panel',banco:'contenido',cumples:'recepcion'};
+  tab=legacy[tab]||tab;
+  const sec=ADMIN_SECCIONES.find(s=>s.id===tab);
+  if(sec){ window.adminTab=sec.id; }
+  else {
+    const dueño=ADMIN_SECCIONES.find(s=>s.subs&&s.subs.some(x=>x[0]===tab))
+      ||(tab==='servicios'||tab==='productos'?ADMIN_SECCIONES.find(s=>s.id==='catalogo'):null);
+    if(dueño){ window.adminTab=dueño.id; window.adminSub[dueño.id]=tab; }
+  }
+  renderAdmin();
+  const b=document.getElementById('admin-body'); if(b) b.scrollTop=0;
 }
 
 function renderAdminIncidentes(){
@@ -3145,80 +3191,15 @@ function procesarIncidente(id, restarPuntos){
   showToast('Incidente procesado ✓');
 }
 
-function switchAdminTab(tab){
-  window.adminTab=tab;
-  renderAdmin();
-}
-
-function renderAdminDashboard(body){
-  const now=new Date();
-  const hoy=now.toISOString().split('T')[0];
-  const q=now.getDate()<=15?1:2;
+function renderAdminEstadoEquipo(body){
+  const hoy=new Date().toISOString().split('T')[0];
   const profesionales=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
-
-  // Total facturado hoy (cortes) y ventas de productos hoy — separado a proposito
-  let factHoy=0, ventasHoy=0;
-  allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista').forEach(p=>{
-    try {
-      const dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{"turnos":[]}');
-      if(p.role!=='recepcionista') (dd.turnos||[]).filter(t=>t.fecha===hoy).forEach(t=>factHoy+=parseFloat(t.monto)||0);
-      (dd.ventas||[]).filter(v=>v.fecha===hoy).forEach(v=>ventasHoy+=v.total||0);
-    } catch(e){}
-  });
-
-  // Reagendamientos hoy
-  let reagHoy=0;
-  allUsers.filter(u=>u.role==='recepcionista').forEach(u=>{
-    try { const rd=JSON.parse(localStorage.getItem('luffy_rec_'+u.id)||'{}'); reagHoy+=rd.reagendamientos||0; } catch(e){}
-  });
-
-  // Stories hoy
-  const storiesToday=profesionales.map(p=>({
-    ...p,
-    done:STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[p.id]?.[t.id]?.done).length
-  }));
-
-  // Reels quincena
-  const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.fecha&&(()=>{
-    const d=new Date(r.fecha+'T00:00:00');
-    return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);
-  })()).length;
-
-  // Incidentes pendientes
   const incsPend=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]').filter(i=>!i.procesado);
-
-  // Canjes pendientes
   const canjesPend=canjesSolicitudes.filter(s=>s.estado==='pendiente');
-
   body.innerHTML+=`
-    <!-- KPIs -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px">
-      <div class="dash-card">
-        <div class="dash-num" style="color:#34d399">${fp(factHoy)}</div>
-        <div class="dash-lbl">Facturación cortes hoy</div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-num" style="color:#7c6fff">${fp(ventasHoy)}</div>
-        <div class="dash-lbl">Ventas productos hoy</div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-num" style="color:#60a5fa">${reagHoy}<span style="font-size:16px;font-weight:600">/10</span></div>
-        <div class="dash-lbl">Reagendamientos</div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-num" style="color:#fbbf24">${reelsQ}</div>
-        <div class="dash-lbl">Reels esta quincena</div>
-      </div>
-      <div class="dash-card">
-        <div class="dash-num" style="color:${incsPend.length>0?'#f472b6':'#34d399'}">${incsPend.length}</div>
-        <div class="dash-lbl">Incidentes pendientes</div>
-      </div>
-    </div>
-
-    <!-- Semaforo equipo -->
-    <div class="sec-title" style="margin-bottom:10px">Estado del equipo</div>
+    <div class="sec-title" style="margin:6px 0 10px">Estado del equipo</div>
     ${profesionales.map(p=>{
-      const storiesDone=storiesToday.find(s=>s.id===p.id)?.done||0;
+      const storiesDone=STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[p.id]?.[t.id]?.done).length;
       const rep=getReputacion(p.id);
       const repInfo=getRepLabel(rep);
       const repColor=getRepColor(rep);
@@ -3236,14 +3217,13 @@ function renderAdminDashboard(body){
         </div>
         <div class="rep-bar"><div class="rep-fill" style="width:${rep}%;background:${repColor}"></div></div>
       </div>`;
-    }).join('')}
+    }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>Sin profesionales.</p></div>'}
 
-    <!-- Alertas -->
     ${incsPend.length||canjesPend.length?`
     <div class="sec-title" style="margin:14px 0 10px">⚠️ Alertas</div>
     <div class="card">
-      ${incsPend.map(i=>`<div class="alert-item"><span style="font-size:16px">⚠️</span><div style="flex:1;font-size:12px"><strong>${i.profName}</strong> — ${i.razon}</div><button onclick="window.adminTab='equipo';procesarIncidente('${i.id}',true)" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(244,114,182,.15);color:#f472b6;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">Ver</button></div>`).join('')}
-      ${canjesPend.map(s=>`<div class="alert-item"><span style="font-size:16px">🎁</span><div style="flex:1;font-size:12px"><strong>${s.profName}</strong> quiere canjear ${s.canjeLabel}</div><button onclick="window.adminTab='puntos';switchAdminTab('puntos')" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(124,111,255,.15);color:#7c6fff;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">Ver</button></div>`).join('')}
+      ${incsPend.map(i=>`<div class="alert-item"><span style="font-size:16px">⚠️</span><div style="flex:1;font-size:12px"><strong>${i.profName}</strong> — ${i.razon}</div><button onclick="procesarIncidente('${i.id}',true)" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(244,114,182,.15);color:#f472b6;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">Ver</button></div>`).join('')}
+      ${canjesPend.map(s=>`<div class="alert-item"><span style="font-size:16px">🎁</span><div style="flex:1;font-size:12px"><strong>${s.profName}</strong> quiere canjear ${s.canjeLabel}</div><button onclick="switchAdminTab('puntos')" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(124,111,255,.15);color:#7c6fff;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">Ver</button></div>`).join('')}
     </div>`:''}
   `;
 }
@@ -3354,201 +3334,351 @@ function borrarReelBanco(id){
   renderAdmin();
 }
 
-// ============ ADMIN: FINANZAS ============
-let adminFinQ=null;            // 1 | 2 (se inicializa a la quincena actual)
-let adminFinMesOffset=0;       // 0 = mes actual, -1 = anterior...
-let adminFinModo='quincena';   // 'quincena' | 'mes'
-let adminFinVista=null;        // null | 'equipo' | 'productos' | 'stock' | 'ganancia'
+// ============ ADMIN: PANEL INTERACTIVO ============
+let adminPanel={periodo:'quincena', prof:'todos', dia:null, series:{cortes:true, productos:true}};
+let adminUltAct=null;
+let adminPollTimer=null;
 
-function adminFinScrollTop(){ const sc=document.getElementById('admin-body'); if(sc) sc.scrollTop=0; }
-function adminFinAbrir(v){ adminFinVista=v; renderAdmin(); adminFinScrollTop(); }
-function adminFinCerrar(){ adminFinVista=null; renderAdmin(); adminFinScrollTop(); }
-function adminFinModoSet(m){ adminFinModo=m; adminFinVista=null; renderAdmin(); }
-function adminFinCambiar(dir){
-  const today=new Date();
-  const currentQ=today.getDate()<=15?1:2;
-  if(adminFinModo==='mes'){
-    adminFinMesOffset=Math.min(0,adminFinMesOffset+dir);
-  } else {
-    if(adminFinQ===null) adminFinQ=currentQ;
-    if(dir<0){ if(adminFinQ===1){ adminFinQ=2; adminFinMesOffset--; } else adminFinQ=1; }
-    else { if(adminFinQ===2){ adminFinQ=1; adminFinMesOffset++; } else adminFinQ=2; }
-    if(adminFinMesOffset>0||(adminFinMesOffset===0&&adminFinQ>currentQ)){ adminFinMesOffset=0; adminFinQ=currentQ; }
+const numV=(x)=>parseFloat(x)||0;
+const escH=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
+const DIAS_SEM=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const COL={cortes:'#7c6fff', prod:'#34d399', rosa:'#f472b6', oro:'#fbbf24', azul:'#60a5fa', mp:'#009ee3'};
+
+// Las fechas se guardan como YYYY-MM-DD (UTC, igual que el resto de la app): se comparan como texto
+function hoyStr(){ return new Date().toISOString().split('T')[0]; }
+function addDias(s,n){ const d=new Date(s+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().split('T')[0]; }
+function diasEntre(a,b){ return Math.round((new Date(b+'T00:00:00Z')-new Date(a+'T00:00:00Z'))/86400000); }
+function finMesUTC(y,m){ return new Date(Date.UTC(y,m,0)).getUTCDate(); }
+function pad2(n){ return String(n).padStart(2,'0'); }
+function quincenaKey(f){ const p=f.split('-'); return p[0]+'-'+p[1]+'-'+(Number(p[2])<=15?1:2); }
+function fpk(n){ n=Math.round(n); const a=Math.abs(n); if(a>=1e6) return (n<0?'-':'')+'$'+(a/1e6).toFixed(a>=1e7?0:1).replace('.0','')+'M'; if(a>=1e3) return (n<0?'-':'')+'$'+Math.round(a/1e3)+'k'; return '$'+n; }
+function fechaCortaStr(f){ const p=f.split('-'); return p[2]+'/'+p[1]; }
+
+function rangoPeriodo(key){
+  const hoy=hoyStr(); const [y,m,d]=hoy.split('-').map(Number);
+  const ms=(yy,mm)=>yy+'-'+pad2(mm);
+  const mesAnt=(yy,mm)=>mm===1?[yy-1,12]:[yy,mm-1];
+  let desde,hasta,prevDesde,prevHasta,label;
+  if(key==='hoy'){ desde=hasta=hoy; prevDesde=prevHasta=addDias(hoy,-1); label='Hoy'; }
+  else if(key==='7d'){ desde=addDias(hoy,-6); hasta=hoy; prevDesde=addDias(hoy,-13); prevHasta=addDias(hoy,-7); label='Últimos 7 días'; }
+  else if(key==='quincena'){
+    if(d<=15){ const [py,pm]=mesAnt(y,m); desde=ms(y,m)+'-01'; hasta=ms(y,m)+'-15'; prevDesde=ms(py,pm)+'-16'; prevHasta=ms(py,pm)+'-'+finMesUTC(py,pm); label='Quincena 1 al 15 de '+MESES[m-1]; }
+    else { desde=ms(y,m)+'-16'; hasta=ms(y,m)+'-'+finMesUTC(y,m); prevDesde=ms(y,m)+'-01'; prevHasta=ms(y,m)+'-15'; label='Quincena 16 al '+finMesUTC(y,m)+' de '+MESES[m-1]; }
   }
-  renderAdmin();
+  else if(key==='mes'){ const [py,pm]=mesAnt(y,m); desde=ms(y,m)+'-01'; hasta=ms(y,m)+'-'+finMesUTC(y,m); prevDesde=ms(py,pm)+'-01'; prevHasta=ms(py,pm)+'-'+finMesUTC(py,pm); label=MESES[m-1]+' '+y; }
+  else { const [py,pm]=mesAnt(y,m); const [qy,qm]=mesAnt(py,pm); desde=ms(py,pm)+'-01'; hasta=ms(py,pm)+'-'+finMesUTC(py,pm); prevDesde=ms(qy,qm)+'-01'; prevHasta=ms(qy,qm)+'-'+finMesUTC(qy,qm); label=MESES[pm-1]+' '+py; }
+  // si el periodo esta en curso, se compara solo contra el mismo tramo del anterior
+  if(hoy>=desde&&hoy<hasta){ const lim=addDias(prevDesde,diasEntre(desde,hoy)); if(lim<prevHasta) prevHasta=lim; }
+  return {key,desde,hasta,prevDesde,prevHasta,label:label.charAt(0).toUpperCase()+label.slice(1)};
 }
 
-// Junta lo que cargaron todos (cortes de profesionales/encargado; productos de
-// profesionales, encargado y recepcion) leyendo el cache que deja prefetchAdminTeamData.
-function adminFinCalc(){
-  const today=new Date();
-  if(adminFinQ===null) adminFinQ=today.getDate()<=15?1:2;
-  const viewDate=new Date(today.getFullYear(),today.getMonth()+adminFinMesOffset,1);
-  const esMes=adminFinModo==='mes';
-  const enQ=(f,qq)=>{ if(!f) return false; const d=new Date(f+'T00:00:00'); return d.getMonth()===viewDate.getMonth()&&d.getFullYear()===viewDate.getFullYear()&&(qq===1?d.getDate()<=15:d.getDate()>15); };
-  const quincenas=esMes?[1,2]:[adminFinQ];
-  const enPeriodo=(f)=>quincenas.some(qq=>enQ(f,qq));
-  const num=(x)=>parseFloat(x)||0;
-  const leer=(u)=>{ try{ return JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){ return {}; } };
+function adminDatos(){
+  const turnos=[], ventas=[], deudas=[];
+  allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista').forEach(u=>{
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    (dd.turnos||[]).forEach(t=>turnos.push({...t,prof:u}));
+    (dd.ventas||[]).forEach(v=>ventas.push({...v,vendedor:u}));
+    (dd.deudores||[]).filter(x=>!x.saldado).forEach(x=>deudas.push({...x,prof:u}));
+  });
+  return {turnos,ventas,deudas};
+}
 
-  // --- Cortes: la comision depende del tramo de CADA profesional en CADA quincena
+// El % de comision de cada profesional depende de lo que facture en TODA la quincena,
+// asi que se calcula sobre la quincena completa y se aplica a la parte que cae en el periodo.
+function pctPorQuincena(D){
+  const fact={};
+  D.turnos.forEach(t=>{ if(!t.fecha) return; const k=t.prof.id+'|'+quincenaKey(t.fecha); fact[k]=(fact[k]||0)+numV(t.monto); });
+  const pct={};
+  Object.keys(fact).forEach(k=>{
+    const [uid,qk]=k.split('|'); const u=allUsers.find(x=>x.id===uid);
+    const reelsQ=reels.filter(r=>r.stage==='publicado'&&u&&r.asignado===u.name&&r.fecha&&quincenaKey(r.fecha)===qk).length;
+    pct[k]=calcComision(fact[k],reelsQ).pct;
+  });
+  return pct;
+}
+
+function costoVenta(v){ return (v.costoUnitario!=null?numV(v.costoUnitario):numV((productos.find(x=>x.id===v.productoId)||{}).costo))*numV(v.cantidad); }
+
+function panelResumen(D,pctMap,desde,hasta,profF){
+  const enR=(f)=>f&&f>=desde&&f<=hasta;
+  const T=D.turnos.filter(t=>enR(t.fecha)&&(profF==='todos'||t.prof.id===profF));
+  const V=D.ventas.filter(v=>enR(v.fecha)&&(profF==='todos'||v.vendedor.id===profF));
+  const r={T,V};
+  r.fact=T.reduce((s,t)=>s+numV(t.monto),0);
+  r.nT=T.length;
+  r.comEq=T.reduce((s,t)=>s+numV(t.monto)*(pctMap[t.prof.id+'|'+quincenaKey(t.fecha)]||0)/100,0);
+  r.quedaCortes=r.fact-r.comEq;
+  r.ticket=r.nT?r.fact/r.nT:0;
+  r.prodVendido=V.reduce((s,v)=>s+numV(v.total),0);
+  r.prodCom=V.reduce((s,v)=>s+numV(v.comision),0);
+  r.prodCosto=V.reduce((s,v)=>s+costoVenta(v),0);
+  r.unidades=V.reduce((s,v)=>s+numV(v.cantidad),0);
+  r.quedaProd=r.prodVendido-r.prodCosto-r.prodCom;
+  r.ganancia=r.quedaCortes+r.quedaProd;
+  r.descTotal=T.reduce((s,t)=>s+numV(t.descuento),0);
+  r.subtotalLista=T.reduce((s,t)=>s+(t.subtotal!=null?numV(t.subtotal):numV(t.monto)),0);
+  r.medios={efectivo:0,mp:0,tarjeta:0};
+  T.forEach(t=>{ if(r.medios[t.medio]!=null) r.medios[t.medio]+=numV(t.monto); });
+  V.forEach(v=>{ if(r.medios[v.medio]!=null) r.medios[v.medio]+=numV(v.total); });
+  return r;
+}
+
+// ---------- tooltip global ----------
+(function(){
+  let tip=null;
+  const get=()=>tip||(tip=Object.assign(document.body.appendChild(document.createElement('div')),{id:'adm-tip'}));
+  document.addEventListener('mouseover',e=>{ const el=e.target.closest&&e.target.closest('[data-tip]'); if(!el){ if(tip) tip.style.display='none'; return; } const txt=el.getAttribute('data-tip'); if(!txt){ if(tip) tip.style.display='none'; return; } const t=get(); t.textContent=txt; t.style.display='block'; });
+  document.addEventListener('mousemove',e=>{ if(!tip||tip.style.display==='none') return; const w=tip.offsetWidth; tip.style.left=Math.min(window.innerWidth-w-8,e.clientX+14)+'px'; tip.style.top=(e.clientY+16)+'px'; });
+  document.addEventListener('mouseout',e=>{ if(tip&&!(e.relatedTarget&&e.relatedTarget.closest&&e.relatedTarget.closest('[data-tip]'))) tip.style.display='none'; });
+})();
+
+// ---------- acciones ----------
+function adminPanelPeriodo(k){ adminPanel.periodo=k; adminPanel.dia=null; renderAdmin(); }
+function adminPanelProfSet(id){ adminPanel.prof=id; adminPanel.dia=null; renderAdmin(); }
+function adminPanelProfToggle(id){ adminPanelProfSet(adminPanel.prof===id?'todos':id); }
+function adminPanelDia(f){ adminPanel.dia=(adminPanel.dia===f?null:f); renderAdmin(); }
+function adminPanelSerie(k){ adminPanel.series[k]=!adminPanel.series[k]; if(!adminPanel.series.cortes&&!adminPanel.series.productos) adminPanel.series[k]=true; renderAdmin(); }
+function adminPanelRefrescar(){ showToast('Actualizando…'); if(DB) prefetchAdminTeamData(); else { adminUltAct=new Date(); renderAdmin(); } }
+
+function adminExportCSV(){
+  const u=window.__adminUlt; if(!u) return;
+  const q=(s)=>'"'+String(s==null?'':s).replace(/"/g,'""')+'"';
+  const hora=(iso)=>iso?new Date(iso).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
+  const rows=[['Fecha','Hora','Tipo','Quien','Cliente','Detalle','Medio','Monto','Descuento','Comision','Costo']];
+  u.cur.T.forEach(t=>rows.push([t.fecha,hora(t.creadoEn),'Turno',t.prof.name,t.cliente||'',t.servicio||'',t.medio||'',numV(t.monto),numV(t.descuento),'','']));
+  u.cur.V.forEach(v=>rows.push([v.fecha,hora(v.creadoEn),'Producto',v.vendedor.name,v.cliente||'',v.productoNombre+' x'+v.cantidad,v.medio||'',numV(v.total),'',numV(v.comision),costoVenta(v)]));
+  rows.sort((a,b)=>String(a[0]+a[1]).localeCompare(b[0]+b[1]));
+  const csv='﻿'+rows.map(r=>r.map(q).join(';')).join('\r\n');
+  const a=document.createElement('a');
+  a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));
+  a.download='inda-'+u.rango.desde+'_'+u.rango.hasta+'.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+  showToast('Descargando '+(rows.length-1)+' movimientos ✓');
+}
+
+// ---------- graficos SVG ----------
+function niceMax(v){ if(v<=0) return 1; const e=Math.pow(10,Math.floor(Math.log10(v))); for(const m of [1,2,2.5,5,10]) if(v<=m*e) return m*e; return 10*e; }
+
+function svgDias(dias,ver,hoy,sel){
+  const W=760,H=250,pl=48,pr=8,pt=10,pb=26;
+  const tot=(d)=>(ver.cortes?d.cortes:0)+(ver.productos?d.prod:0);
+  const max=niceMax(Math.max(0,...dias.map(tot)));
+  const bw=(W-pl-pr)/dias.length, ih=H-pt-pb;
+  const y=(v)=>pt+ih*(1-v/max);
+  let s=`<svg viewBox="0 0 ${W} ${H}" style="width:100%;height:auto;display:block">`;
+  for(let i=0;i<=4;i++){ const yy=pt+ih*(1-i/4); s+=`<line x1="${pl}" x2="${W-pr}" y1="${yy}" y2="${yy}" stroke="var(--border)" stroke-width="1"/><text x="${pl-6}" y="${yy+3}" text-anchor="end" font-size="10" fill="var(--muted)">${fpk(max*i/4)}</text>`; }
+  const paso=Math.ceil(dias.length/16);
+  dias.forEach((d,i)=>{
+    const x=pl+i*bw+bw*.14, w=bw*.72;
+    const futuro=d.f>hoy;
+    const hC=ver.cortes?ih*d.cortes/max:0, hP=ver.productos?ih*d.prod/max:0;
+    const tip=`${DIAS_SEM[new Date(d.f+'T00:00:00Z').getUTCDay()]} ${fechaCortaStr(d.f)}\nCortes: ${fp(d.cortes)} (${d.nT} turnos)\nProductos: ${fp(d.prod)}\nTotal: ${fp(d.cortes+d.prod)}`;
+    s+=`<g data-tip="${escH(tip)}" onclick="adminPanelDia('${d.f}')" style="cursor:pointer">
+      <rect x="${pl+i*bw}" y="${pt}" width="${bw}" height="${ih}" fill="${sel===d.f?'rgba(124,111,255,.14)':'transparent'}"/>
+      ${hC>0?`<rect x="${x}" y="${pt+ih-hC}" width="${w}" height="${hC}" rx="2" fill="${COL.cortes}"/>`:''}
+      ${hP>0?`<rect x="${x}" y="${pt+ih-hC-hP}" width="${w}" height="${hP}" rx="2" fill="${COL.prod}"/>`:''}
+      ${!hC&&!hP&&!futuro?`<rect x="${x}" y="${pt+ih-1.5}" width="${w}" height="1.5" fill="var(--border2)"/>`:''}
+    </g>`;
+    if(i%paso===0) s+=`<text x="${pl+i*bw+bw/2}" y="${H-8}" text-anchor="middle" font-size="10" fill="${d.f===hoy?'var(--accent)':'var(--muted)'}" font-weight="${d.f===hoy?800:500}">${Number(d.f.split('-')[2])}</text>`;
+  });
+  return s+'</svg>';
+}
+
+function svgDonut(items,total){
+  const R=54,C=2*Math.PI*R;
+  let off=0, s=`<svg viewBox="0 0 140 140" style="width:150px;height:150px;flex-shrink:0"><circle cx="70" cy="70" r="${R}" fill="none" stroke="var(--s3)" stroke-width="22"/>`;
+  items.filter(i=>i.v>0).forEach(i=>{
+    const len=C*i.v/total;
+    s+=`<circle cx="70" cy="70" r="${R}" fill="none" stroke="${i.c}" stroke-width="22" stroke-dasharray="${len} ${C-len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)" data-tip="${escH(i.l+': '+fp(i.v)+' ('+Math.round(i.v/total*100)+'%)')}" style="cursor:default"/>`;
+    off+=len;
+  });
+  return s+`<text x="70" y="66" text-anchor="middle" font-size="9" fill="var(--muted)" font-weight="700">COBRADO</text><text x="70" y="82" text-anchor="middle" font-size="15" fill="var(--text)" font-weight="900">${fpk(total)}</text></svg>`;
+}
+
+function hbar(label,valTxt,pct,color,opts={}){
+  return `<div class="hb ${opts.click?'clickable':''} ${opts.sel?'sel':''}" ${opts.click?`onclick="${opts.click}"`:''} ${opts.tip?`data-tip="${escH(opts.tip)}"`:''}>
+    <div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;margin-bottom:3px"><span style="font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${label}</span><span style="font-weight:800;white-space:nowrap">${valTxt}</span></div>
+    <div style="height:7px;background:var(--s3);border-radius:4px;overflow:hidden"><div style="height:100%;width:${Math.max(2,Math.min(100,pct))}%;background:${color};border-radius:4px"></div></div>
+    ${opts.sub?`<div style="font-size:10.5px;color:var(--muted2);margin-top:3px">${opts.sub}</div>`:''}
+  </div>`;
+}
+function deltaHtml(cur,prev,neutral){
+  if(!prev&&!cur) return '<span class="dl">—</span>';
+  if(!prev) return '<span class="dl up">nuevo</span>';
+  const p=(cur-prev)/prev*100, up=p>=0;
+  return `<span class="dl ${neutral?'nt':(up?'up':'down')}">${up?'▲':'▼'} ${Math.abs(Math.round(p))}%</span>`;
+}
+function pnl(cls,titulo,inner,extra=''){ return `<div class="pnl ${cls}"><div class="pnl-h"><h3>${titulo}</h3>${extra}</div>${inner}</div>`; }
+const vacio=(t)=>`<div style="font-size:12px;color:var(--muted);padding:14px 4px;text-align:center">${t}</div>`;
+
+function renderAdminPanel(c){
+  const P=adminPanel;
+  const hoy=hoyStr();
+  const rango=rangoPeriodo(P.periodo);
+  const D=adminDatos();
+  const pctMap=pctPorQuincena(D);
+  const cur=panelResumen(D,pctMap,rango.desde,rango.hasta,P.prof);
+  const prev=panelResumen(D,pctMap,rango.prevDesde,rango.prevHasta,P.prof);
+  window.__adminUlt={rango,cur};
+  if(!adminUltAct) adminUltAct=new Date();
+
+  const profSel=allUsers.find(u=>u.id===P.prof);
   const equipo=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
-  const porProf=equipo.map(p=>{
-    const dd=leer(p);
-    let fact=0, comision=0, turnos=0, tramoPct=0;
-    quincenas.forEach(qq=>{
-      const ts=(dd.turnos||[]).filter(t=>enQ(t.fecha,qq));
-      const fq=ts.reduce((s,t)=>s+num(t.monto),0);
-      const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===p.name&&enQ(r.fecha,qq)).length;
-      const c=calcComision(fq,reelsQ);
-      fact+=fq; comision+=c.comision; turnos+=ts.length; tramoPct=c.pct;
-    });
-    return {p, fact, comision, turnos, alLocal:fact-comision, pct:fact?Math.round(comision/fact*100):tramoPct};
-  });
-  const fact=porProf.reduce((s,x)=>s+x.fact,0);
-  const comisionEquipo=porProf.reduce((s,x)=>s+x.comision,0);
-  const turnos=porProf.reduce((s,x)=>s+x.turnos,0);
-  const quedaCortes=fact-comisionEquipo;
-
-  // --- Productos: los venden profesionales, encargado y recepcion
   const vendedores=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista');
-  const costoDe=(v)=>(v.costoUnitario!=null?num(v.costoUnitario):num((productos.find(x=>x.id===v.productoId)||{}).costo))*num(v.cantidad);
-  const ventas=[];
-  vendedores.forEach(u=>(leer(u).ventas||[]).filter(v=>enPeriodo(v.fecha)).forEach(v=>ventas.push({...v,vendedor:u})));
-  const prodVendido=ventas.reduce((s,v)=>s+num(v.total),0);
-  const prodComision=ventas.reduce((s,v)=>s+num(v.comision),0);
-  const prodCosto=ventas.reduce((s,v)=>s+costoDe(v),0);
-  const prodUnidades=ventas.reduce((s,v)=>s+num(v.cantidad),0);
-  const quedaProd=prodVendido-prodCosto-prodComision;
 
-  const porProducto={};
-  ventas.forEach(v=>{
-    const k=v.productoId||v.productoNombre;
-    const x=porProducto[k]||(porProducto[k]={nombre:v.productoNombre,unidades:0,total:0,costo:0,comision:0});
-    x.unidades+=num(v.cantidad); x.total+=num(v.total); x.costo+=costoDe(v); x.comision+=num(v.comision);
+  // stock (foto de hoy)
+  const stockU=productos.reduce((s,p)=>s+numV(p.stock),0);
+  const stockCosto=productos.reduce((s,p)=>s+numV(p.stock)*numV(p.costo),0);
+  const stockVenta=productos.reduce((s,p)=>s+numV(p.stock)*numV(p.precioVenta),0);
+  const stockBajo=productos.filter(p=>numV(p.stock)<=numV(p.alertaStock));
+
+  // por dia
+  const dias=[]; for(let f=rango.desde;f<=rango.hasta;f=addDias(f,1)) dias.push({f,cortes:0,prod:0,nT:0});
+  const idx={}; dias.forEach((d,i)=>idx[d.f]=i);
+  cur.T.forEach(t=>{ const d=dias[idx[t.fecha]]; if(d){ d.cortes+=numV(t.monto); d.nT++; } });
+  cur.V.forEach(v=>{ const d=dias[idx[v.fecha]]; if(d) d.prod+=numV(v.total); });
+
+  // ranking equipo (cortes)
+  const rank=equipo.map(p=>{
+    const ts=cur.T.filter(t=>t.prof.id===p.id);
+    const fact=ts.reduce((s,t)=>s+numV(t.monto),0);
+    const com=ts.reduce((s,t)=>s+numV(t.monto)*(pctMap[p.id+'|'+quincenaKey(t.fecha)]||0)/100,0);
+    return {p,fact,com,n:ts.length};
+  }).sort((a,b)=>b.fact-a.fact);
+  const rankMax=Math.max(1,...rank.map(x=>x.fact));
+
+  // servicios
+  const svc={};
+  cur.T.forEach(t=>{
+    const lista=(t.servicios&&t.servicios.length)?t.servicios:[{nombre:t.servicio||'Sin detalle',precio:numV(t.monto)}];
+    lista.forEach(s=>{ const x=svc[s.nombre]||(svc[s.nombre]={c:0,monto:0}); x.c++; x.monto+=numV(s.precio); });
   });
-  const listaProductos=Object.values(porProducto).map(x=>({...x,ganancia:x.total-x.costo-x.comision})).sort((a,b)=>b.total-a.total);
-  const porVendedor={};
-  ventas.forEach(v=>{
-    const x=porVendedor[v.vendedor.id]||(porVendedor[v.vendedor.id]={u:v.vendedor,ventas:0,total:0,comision:0});
-    x.ventas++; x.total+=num(v.total); x.comision+=num(v.comision);
-  });
-  const listaVendedores=Object.values(porVendedor).sort((a,b)=>b.total-a.total);
+  const svcList=Object.entries(svc).map(([nombre,x])=>({nombre,...x})).sort((a,b)=>b.c-a.c).slice(0,7);
 
-  // --- Stock (ya viene descontado: cada venta baja las unidades)
-  const stockUnidades=productos.reduce((s,p)=>s+num(p.stock),0);
-  const stockCosto=productos.reduce((s,p)=>s+num(p.stock)*num(p.costo),0);
-  const stockVenta=productos.reduce((s,p)=>s+num(p.stock)*num(p.precioVenta),0);
+  // productos vendidos
+  const prd={};
+  cur.V.forEach(v=>{ const k=v.productoId||v.productoNombre; const x=prd[k]||(prd[k]={nombre:v.productoNombre,u:0,total:0,gan:0,id:v.productoId}); x.u+=numV(v.cantidad); x.total+=numV(v.total); x.gan+=numV(v.total)-costoVenta(v)-numV(v.comision); });
+  const prdList=Object.values(prd).sort((a,b)=>b.total-a.total).slice(0,7);
 
-  const ganancia=quedaCortes+quedaProd;
-  const label=esMes
-    ?viewDate.toLocaleDateString('es-AR',{month:'long',year:'numeric'})
-    :(adminFinQ===1?'1 al 15':'16 al '+new Date(viewDate.getFullYear(),viewDate.getMonth()+1,0).getDate())+' de '+viewDate.toLocaleDateString('es-AR',{month:'long',year:'numeric'});
-  const currentQ=today.getDate()<=15?1:2;
-  const esActual=adminFinMesOffset===0&&(esMes||adminFinQ===currentQ);
-  return {label:label.charAt(0).toUpperCase()+label.slice(1), esActual, esMes, porProf, fact, comisionEquipo, turnos, quedaCortes,
-    ventasCount:ventas.length, prodVendido, prodComision, prodCosto, prodUnidades, quedaProd, listaProductos, listaVendedores,
-    stockUnidades, stockCosto, stockVenta, ganancia};
-}
+  // horas y dias de la semana
+  const horas=Array(24).fill(0), sem=Array(7).fill(0);
+  cur.T.forEach(t=>{ if(t.creadoEn) horas[new Date(t.creadoEn).getHours()]++; if(t.fecha) sem[new Date(t.fecha+'T00:00:00Z').getUTCDay()]++; });
+  const hMin=8,hMax=22; const hMaxV=Math.max(1,...horas.slice(hMin,hMax+1)); const sMaxV=Math.max(1,...sem);
 
-function renderAdminFinanzas(body){
-  const f=adminFinCalc();
-  const pctEquipo=f.fact?Math.round(f.comisionEquipo/f.fact*100):0;
-  const pctLocal=f.fact?100-pctEquipo:0;
-  const verde='#34d399', violeta='#7c6fff', rosa='#f472b6', dorado='#fbbf24';
-  const card=(lbl,val,sub,col,vista)=>`<div class="stat-card" onclick="adminFinAbrir('${vista}')" style="cursor:pointer"><div class="sc-lbl">${lbl}</div><div class="sc-val" style="font-size:19px;${col?'color:'+col:''}">${val}</div><div class="sc-sub">${sub}</div></div>`;
-  const row=(a,b,st='')=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:5px 0;${st}"><span>${a}</span><span style="white-space:nowrap;font-weight:700">${b}</span></div>`;
+  // descuentos
+  const dEf=cur.T.filter(t=>t.descuentoTipo==='efectivo'), dOf=cur.T.filter(t=>t.descuentoTipo==='oferta');
+  const sEf=dEf.reduce((s,t)=>s+numV(t.descuento),0), sOf=dOf.reduce((s,t)=>s+numV(t.descuento),0);
+  const porOferta={}; dOf.forEach(t=>{ const n=(t.oferta&&t.oferta.nombre)||'Oferta'; const x=porOferta[n]||(porOferta[n]={n:0,m:0}); x.n++; x.m+=numV(t.descuento); });
 
-  const nav=`
-    <div style="display:flex;gap:6px;margin:14px 0 12px">
-      ${[['quincena','Quincena'],['mes','Mes completo']].map(([m,l])=>`<button onclick="adminFinModoSet('${m}')" style="flex:1;padding:9px;border-radius:12px;border:1.5px solid ${adminFinModo===m?'var(--accent)':'var(--border2)'};background:${adminFinModo===m?'rgba(124,111,255,.15)':'transparent'};color:${adminFinModo===m?'var(--accent)':'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${l}</button>`).join('')}
-    </div>
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px">
-      <button onclick="adminFinCambiar(-1)" style="background:var(--s2);border:none;color:var(--text);width:36px;height:36px;border-radius:50%;cursor:pointer;font-size:16px;flex-shrink:0">‹</button>
-      <div style="text-align:center"><div style="font-size:13px;font-weight:800">${f.label}</div><div style="font-size:10px;color:var(--muted2)">${f.esActual?(f.esMes?'Mes actual':'Quincena actual'):'Histórico'}</div></div>
-      <button onclick="adminFinCambiar(1)" ${f.esActual?'disabled':''} style="background:var(--s2);border:none;color:${f.esActual?'var(--muted)':'var(--text)'};width:36px;height:36px;border-radius:50%;cursor:${f.esActual?'default':'pointer'};font-size:16px;opacity:${f.esActual?'.4':'1'};flex-shrink:0">›</button>
+  // deudores (pendientes, sin importar el periodo)
+  const deudas=D.deudas.filter(d=>P.prof==='todos'||d.prof.id===P.prof).sort((a,b)=>new Date(b.creadoEn||b.fecha)-new Date(a.creadoEn||a.fecha));
+  const totalDeuda=deudas.reduce((s,d)=>s+numV(d.monto),0);
+
+  // equipo hoy
+  const incsPend=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]').filter(i=>!i.procesado);
+  const canjesPend=canjesSolicitudes.filter(s=>s.estado==='pendiente');
+  let reagHoy=0; allUsers.filter(u=>u.role==='recepcionista').forEach(u=>{ try{ reagHoy+=(JSON.parse(localStorage.getItem('luffy_rec_'+u.id)||'{}').reagendamientos)||0; }catch(e){} });
+
+  // actividad
+  const hora=(iso)=>iso?new Date(iso).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
+  const cuando=(x)=>(x.fecha===hoy?'hoy':fechaCortaStr(x.fecha))+' '+hora(x.creadoEn);
+  const filtro=(x,u)=>P.prof==='todos'||u.id===P.prof;
+  const actividad=[
+    ...D.turnos.filter(t=>filtro(t,t.prof)).map(t=>({ts:t.creadoEn||t.fecha,ico:'💈',txt:`<b>${escH(t.prof.name)}</b> cobró ${escH(t.servicio||'un turno')}${t.cliente&&t.cliente!=='Cliente'?' a '+escH(t.cliente):''}`,m:numV(t.monto),extra:cuando(t)})),
+    ...D.ventas.filter(v=>filtro(v,v.vendedor)).map(v=>({ts:v.creadoEn||v.fecha,ico:'📦',txt:`<b>${escH(v.vendedor.name)}</b> vendió ${escH(v.productoNombre)} x${v.cantidad}`,m:numV(v.total),extra:cuando(v)})),
+  ].sort((a,b)=>new Date(b.ts)-new Date(a.ts)).slice(0,9);
+
+  const cobradoTotal=cur.medios.efectivo+cur.medios.mp+cur.medios.tarjeta;
+  const pctEf=cobradoTotal?Math.round(cur.medios.efectivo/cobradoTotal*100):0;
+
+  const kpi=(l,v,sub,col,d,tip,big)=>`<div class="kpi ${big?'big':''}" data-tip="${escH(tip||'')}"><div class="kl">${l}</div><div class="kv" style="color:${col||'var(--text)'}">${v}</div><div class="ks">${d||''}<span>${sub||''}</span></div></div>`;
+  const mini=(l,v,sub,col)=>`<div class="mini"><div class="kl">${l}</div><div class="mv" style="color:${col||'var(--text)'}">${v}</div><div class="ks"><span>${sub||''}</span></div></div>`;
+  const anterior=(v)=>'Período anterior: '+fp(v);
+
+  const periodos=[['hoy','Hoy'],['7d','7 días'],['quincena','Quincena'],['mes','Este mes'],['mesant','Mes anterior']];
+  const detalleDia=P.dia&&idx[P.dia]!=null?(()=>{
+    const T=cur.T.filter(t=>t.fecha===P.dia).sort((a,b)=>new Date(b.creadoEn||0)-new Date(a.creadoEn||0));
+    const V=cur.V.filter(v=>v.fecha===P.dia).sort((a,b)=>new Date(b.creadoEn||0)-new Date(a.creadoEn||0));
+    return `<div style="border-top:1px solid var(--border);margin-top:10px;padding-top:10px">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">${DIAS_SEM[new Date(P.dia+'T00:00:00Z').getUTCDay()]} ${fechaCortaStr(P.dia)} — ${T.length} turnos, ${V.length} ventas</b><button class="lnk" onclick="adminPanelDia('${P.dia}')">Cerrar ✕</button></div>
+      ${T.map(t=>`<div class="ln"><span>💈 ${escH(t.prof.name)} · ${escH(t.cliente||'Cliente')} · ${escH(t.servicio||'')}</span><span>${hora(t.creadoEn)} · <b>${fp(numV(t.monto))}</b></span></div>`).join('')}
+      ${V.map(v=>`<div class="ln"><span>📦 ${escH(v.vendedor.name)} · ${escH(v.productoNombre)} x${v.cantidad}</span><span>${hora(v.creadoEn)} · <b>${fp(numV(v.total))}</b></span></div>`).join('')}
+      ${!T.length&&!V.length?vacio('Sin movimientos ese día'):''}
     </div>`;
-  const volver=(t)=>`<div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><button onclick="adminFinCerrar()" style="background:var(--s2);border:none;color:var(--text);font-size:16px;width:36px;height:36px;border-radius:50%;cursor:pointer;flex-shrink:0">←</button><div style="font-size:16px;font-weight:800">${t}</div></div>`;
+  })():'';
 
-  if(adminFinVista==='equipo'){
-    body.innerHTML+=nav+volver('💈 Cortes por profesional')+`
-      <div class="stat-grid">
-        <div class="stat-card"><div class="sc-lbl">Facturación</div><div class="sc-val" style="font-size:19px">${fp(f.fact)}</div><div class="sc-sub">${f.turnos} ${f.turnos===1?'turno':'turnos'}</div></div>
-        <div class="stat-card"><div class="sc-lbl">Queda a la empresa</div><div class="sc-val" style="font-size:19px;color:${verde}">${fp(f.quedaCortes)}</div><div class="sc-sub">${pctLocal}%</div></div>
-      </div>
-      ${f.porProf.length?f.porProf.map(x=>`<div class="prof-card" style="margin-bottom:8px">
-        <div class="pc-hdr"><div class="pc-av" style="background:${x.p.color}33;border-color:${x.p.color}">${x.p.emoji||'✂️'}</div><div class="pc-info"><strong>${x.p.name}</strong><span>${x.turnos} ${x.turnos===1?'turno':'turnos'} · tramo ${x.pct}%</span></div></div>
-        <div class="pc-nums">
-          <div class="pc-num"><span class="pn-val">${fp(x.fact)}</span><span class="pn-lbl">Facturó</span></div>
-          <div class="pc-num"><span class="pn-val" style="color:${rosa}">${fp(x.comision)}</span><span class="pn-lbl">Comisión</span></div>
-          <div class="pc-num"><span class="pn-val" style="color:${verde}">${fp(x.alLocal)}</span><span class="pn-lbl">Al local</span></div>
-        </div></div>`).join(''):'<div class="empty"><div class="e-icon">👥</div><p>Sin profesionales.</p></div>'}`;
-    return;
-  }
-  if(adminFinVista==='productos'){
-    body.innerHTML+=nav+volver('📦 Productos vendidos')+`
-      <div class="stat-grid">
-        <div class="stat-card"><div class="sc-lbl">Vendido</div><div class="sc-val" style="font-size:19px">${fp(f.prodVendido)}</div><div class="sc-sub">${f.prodUnidades} unidades</div></div>
-        <div class="stat-card"><div class="sc-lbl">Costo de lo vendido</div><div class="sc-val" style="font-size:19px;color:${dorado}">${fp(f.prodCosto)}</div><div class="sc-sub">Lo que nos costó</div></div>
-        <div class="stat-card"><div class="sc-lbl">Comisiones</div><div class="sc-val" style="font-size:19px;color:${rosa}">${fp(f.prodComision)}</div><div class="sc-sub">Para quienes vendieron</div></div>
-        <div class="stat-card"><div class="sc-lbl">Queda para nosotros</div><div class="sc-val" style="font-size:19px;color:${verde}">${fp(f.quedaProd)}</div><div class="sc-sub">Venta − costo − comisión</div></div>
-      </div>
-      <div class="sec-title" style="margin:6px 0 10px">Por producto</div>
-      ${f.listaProductos.length?f.listaProductos.map(x=>`<div class="card" style="margin-bottom:8px">
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><strong style="font-size:13px">${x.nombre}</strong><span style="font-size:11px;color:var(--muted2)">${x.unidades} u.</span></div>
-        ${row('Vendido',fp(x.total))}${row('Costo','−'+fp(x.costo),'color:var(--muted2)')}${row('Comisión','−'+fp(x.comision),'color:var(--muted2)')}
-        ${row('Ganancia',fp(x.ganancia),'border-top:1px solid var(--border);margin-top:2px;color:'+(x.ganancia>=0?verde:rosa))}
-      </div>`).join(''):'<div class="empty"><div class="e-icon">📦</div><p>Sin ventas en este período.</p></div>'}
-      <div class="sec-title" style="margin:14px 0 10px">Quién vendió</div>
-      ${f.listaVendedores.length?f.listaVendedores.map(x=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:${x.u.color||violeta}"></div><div class="ti-info"><strong>${x.u.name}</strong><span>${x.u.role==='recepcionista'?'Recepción':'Profesional'} · ${x.ventas} ${x.ventas===1?'venta':'ventas'}</span></div><div style="text-align:right"><div class="ti-monto">${fp(x.total)}</div><div class="ti-medio" style="background:${violeta}22;color:${violeta}">+${fp(x.comision)}</div></div></div>`).join(''):'<div style="font-size:12px;color:var(--muted);padding:6px">Nadie vendió productos en este período.</div>'}`;
-    return;
-  }
-  if(adminFinVista==='stock'){
-    body.innerHTML+=volver('🏬 Stock')+`
-      <div class="stat-grid">
-        <div class="stat-card"><div class="sc-lbl">Plata en stock (a costo)</div><div class="sc-val" style="font-size:19px;color:${dorado}">${fp(f.stockCosto)}</div><div class="sc-sub">${f.stockUnidades} unidades</div></div>
-        <div class="stat-card"><div class="sc-lbl">Valor a precio de venta</div><div class="sc-val" style="font-size:19px">${fp(f.stockVenta)}</div><div class="sc-sub">Si se vende todo: +${fp(f.stockVenta-f.stockCosto)}</div></div>
-      </div>
-      <div class="card" style="margin-bottom:12px;font-size:12px;color:var(--muted2);line-height:1.5">Cada venta descuenta las unidades solas, así que esta plata baja a medida que se vende. Lo repuesto lo suma el encargado desde su pantalla.</div>
-      ${productos.length?[...productos].sort((a,b)=>(b.stock*b.costo)-(a.stock*a.costo)).map(p=>{
-        const bajo=p.stock<=p.alertaStock;
-        return `<div class="card" style="margin-bottom:8px;${bajo?'border-color:'+rosa:''}">
-          <div style="display:flex;justify-content:space-between;align-items:baseline"><strong style="font-size:13px">${p.nombre}</strong><span style="font-size:12px;font-weight:800;color:${bajo?rosa:'var(--text)'}">${p.stock} u.${bajo?' ⚠️':''}</span></div>
-          ${row('A costo ('+fp(p.costo)+' c/u)',fp(p.stock*p.costo))}${row('A precio de venta ('+fp(p.precioVenta)+' c/u)',fp(p.stock*p.precioVenta),'color:var(--muted2)')}
-        </div>`;}).join(''):'<div class="empty"><div class="e-icon">📦</div><p>Sin productos cargados.</p></div>'}`;
-    return;
-  }
-  if(adminFinVista==='ganancia'){
-    body.innerHTML+=nav+volver('💰 Cómo se arma la ganancia')+`
-      <div class="card" style="margin-bottom:10px">
-        <div class="sc-lbl" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">Cortes</div>
-        ${row('Facturación total',fp(f.fact))}${row('Comisiones del equipo','−'+fp(f.comisionEquipo),'color:var(--muted2)')}
-        ${row('Queda a la empresa',fp(f.quedaCortes),'border-top:1px solid var(--border);color:'+verde)}
-      </div>
-      <div class="card" style="margin-bottom:10px">
-        <div class="sc-lbl" style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:6px">Productos</div>
-        ${row('Ventas',fp(f.prodVendido))}${row('Costo de lo vendido','−'+fp(f.prodCosto),'color:var(--muted2)')}${row('Comisiones','−'+fp(f.prodComision),'color:var(--muted2)')}
-        ${row('Queda para nosotros',fp(f.quedaProd),'border-top:1px solid var(--border);color:'+verde)}
-      </div>
-      <div class="card" style="border-color:${verde}55">
-        ${row('<b>GANANCIA</b>','<b style="font-size:20px;color:'+verde+'">'+fp(f.ganancia)+'</b>')}
-        <div style="font-size:11px;color:var(--muted2);margin-top:4px">No incluye gastos fijos (alquiler, sueldos fijos, etc.) porque todavía no se cargan en la app.</div>
-      </div>`;
-    return;
-  }
-
-  body.innerHTML+=nav+`
-    <div class="stat-grid">
-      ${card('💈 Facturación total',fp(f.fact),f.turnos+(f.turnos===1?' turno':' turnos'),'','equipo')}
-      ${card('Queda a la empresa',fp(f.quedaCortes),pctLocal+'% de los cortes',verde,'equipo')}
-      ${card('Comisión del equipo',fp(f.comisionEquipo),pctEquipo+'% de los cortes',rosa,'equipo')}
-      ${card('📦 Ventas de productos',fp(f.prodVendido),f.prodUnidades+' unidades','','productos')}
-      ${card('Comisiones productos',fp(f.prodComision),'Para quienes vendieron',rosa,'productos')}
-      ${card('Queda de productos',fp(f.quedaProd),'Venta − costo − comisión',verde,'productos')}
-      ${card('💰 Ganancia',fp(f.ganancia),'Cortes + productos',verde,'ganancia')}
-      ${card('🏬 Plata en stock',fp(f.stockCosto),f.stockUnidades+' u. · a venta '+fp(f.stockVenta),dorado,'stock')}
+  c.innerHTML=`
+  <div class="adm-bar">
+    <div class="adm-chips">${periodos.map(([k,l])=>`<button class="${P.periodo===k?'on':''}" onclick="adminPanelPeriodo('${k}')">${l}</button>`).join('')}</div>
+    <div class="adm-bar-r">
+      <select onchange="adminPanelProfSet(this.value)" class="adm-sel"><option value="todos">👥 Todo el equipo</option>${vendedores.map(u=>`<option value="${u.id}" ${P.prof===u.id?'selected':''}>${escH(u.name)}${u.role==='recepcionista'?' (recepción)':''}</option>`).join('')}</select>
+      <button class="adm-btn" onclick="adminExportCSV()" title="Descargar los movimientos del período">⬇ CSV</button>
+      <button class="adm-btn" onclick="adminPanelRefrescar()" title="Actualizar ahora">⟳ ${adminUltAct.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</button>
     </div>
-    <div style="font-size:11px;color:var(--muted);text-align:center;margin-top:-4px">Tocá cualquier tarjeta para ver el detalle</div>`;
+  </div>
+  <div style="font-size:12px;color:var(--muted2);margin:2px 2px 12px">${rango.label}${profSel?` · filtrando por <b style="color:var(--text)">${escH(profSel.name)}</b> <button class="lnk" onclick="adminPanelProfSet('todos')">quitar filtro ✕</button>`:''} · comparado con ${rango.prevDesde===rango.prevHasta?fechaCortaStr(rango.prevDesde):fechaCortaStr(rango.prevDesde)+' al '+fechaCortaStr(rango.prevHasta)}</div>
+
+  <div class="adm-kpis">
+    ${kpi('💈 Facturación cortes',fp(cur.fact),cur.nT+(cur.nT===1?' turno':' turnos'),'',deltaHtml(cur.fact,prev.fact),anterior(prev.fact))}
+    ${kpi('Queda a la empresa',fp(cur.quedaCortes),(cur.fact?Math.round(cur.quedaCortes/cur.fact*100):0)+'% de los cortes',COL.prod,deltaHtml(cur.quedaCortes,prev.quedaCortes),anterior(prev.quedaCortes))}
+    ${kpi('Comisión del equipo',fp(cur.comEq),(cur.fact?Math.round(cur.comEq/cur.fact*100):0)+'% de los cortes',COL.rosa,deltaHtml(cur.comEq,prev.comEq,true),anterior(prev.comEq))}
+    ${kpi('💰 Ganancia',fp(cur.ganancia),'cortes + productos',COL.prod,deltaHtml(cur.ganancia,prev.ganancia),anterior(prev.ganancia),true)}
+    ${kpi('📦 Ventas de productos',fp(cur.prodVendido),cur.unidades+' u.','',deltaHtml(cur.prodVendido,prev.prodVendido),anterior(prev.prodVendido))}
+    ${kpi('Comisiones productos',fp(cur.prodCom),'para quienes vendieron',COL.rosa,deltaHtml(cur.prodCom,prev.prodCom,true),anterior(prev.prodCom))}
+    ${kpi('Queda de productos',fp(cur.quedaProd),'venta − costo − comisión',COL.prod,deltaHtml(cur.quedaProd,prev.quedaProd),anterior(prev.quedaProd))}
+    ${kpi('🏬 Plata en stock',fp(stockCosto),stockU+' u. · a venta '+fpk(stockVenta),COL.oro,'','Lo que costó el stock que hay hoy. Baja solo con cada venta.')}
+  </div>
+  <div class="adm-mini">
+    ${mini('Turnos',cur.nT,'vs '+prev.nT+' antes')}
+    ${mini('Ticket promedio',fp(cur.ticket),'por turno')}
+    ${mini('Pagan en efectivo',pctEf+'%','del total cobrado',COL.prod)}
+    ${mini('Descuentos dados',fp(cur.descTotal),(cur.subtotalLista?Math.round(cur.descTotal/cur.subtotalLista*100):0)+'% del precio de lista',COL.oro)}
+    ${mini('Clientes que deben',fp(totalDeuda),deudas.length+' pendientes',deudas.length?COL.rosa:'')}
+    ${mini('Reagendamientos hoy',reagHoy+'/10','recepción',COL.azul)}
+  </div>
+
+  <div class="adm-grid">
+    ${pnl('c8','Evolución diaria',`
+      <div class="adm-chips sm" style="margin-bottom:6px">
+        <button class="${P.series.cortes?'on':''}" onclick="adminPanelSerie('cortes')"><i style="background:${COL.cortes}"></i>Cortes</button>
+        <button class="${P.series.productos?'on':''}" onclick="adminPanelSerie('productos')"><i style="background:${COL.prod}"></i>Productos</button>
+        <span style="margin-left:auto;font-size:11px;color:var(--muted)">Tocá un día para ver el detalle</span>
+      </div>${svgDias(dias,P.series,hoy,P.dia)}${detalleDia}`)}
+    ${pnl('c4','⚠️ Para atender',`
+      ${(()=>{ const it=[];
+        incsPend.forEach(i=>it.push(`<div class="ln"><span>⚠️ Incidente: <b>${escH(i.profName)}</b> — ${escH(i.razon)}</span><button class="lnk" onclick="switchAdminTab('estado')">Ver</button></div>`));
+        canjesPend.forEach(s=>it.push(`<div class="ln"><span>🎁 <b>${escH(s.profName)}</b> quiere canjear ${escH(s.canjeLabel)}</span><button class="lnk" onclick="switchAdminTab('puntos')">Ver</button></div>`));
+        stockBajo.forEach(p=>it.push(`<div class="ln"><span>📦 Poco stock: <b>${escH(p.nombre)}</b> (${p.stock})</span><button class="lnk" onclick="switchAdminTab('productos')">Ver</button></div>`));
+        if(totalDeuda) it.push(`<div class="ln"><span>🚫 ${deudas.length} clientes deben <b>${fp(totalDeuda)}</b></span></div>`);
+        return it.length?it.join(''):vacio('Todo en orden ✅');})()}`)}
+
+    ${pnl('c4','Equipo',rank.length?rank.map(x=>hbar((x.p.emoji||'✂️')+' '+escH(x.p.name),fp(x.fact),x.fact/rankMax*100,x.p.color||COL.cortes,{click:`adminPanelProfToggle('${x.p.id}')`,sel:P.prof===x.p.id,sub:`${x.n} turnos · comisión ${fp(x.com)} · al local ${fp(x.fact-x.com)}`,tip:'Tocá para filtrar todo el panel por esta persona'})).join(''):vacio('Sin profesionales'),`<span class="hint">tocá para filtrar</span>`)}
+    ${pnl('c4','Servicios más pedidos',svcList.length?svcList.map(s=>hbar(escH(s.nombre),s.c+' ×',s.c/svcList[0].c*100,COL.cortes,{sub:'valor de lista '+fp(s.monto)})).join(''):vacio('Sin turnos en el período'))}
+    ${pnl('c4','Medios de pago',cobradoTotal?`<div style="display:flex;align-items:center;gap:14px">${svgDonut([{l:'Efectivo',v:cur.medios.efectivo,c:COL.prod},{l:'Mercado Pago',v:cur.medios.mp,c:COL.mp},{l:'Tarjeta',v:cur.medios.tarjeta,c:COL.cortes}],cobradoTotal)}
+      <div style="flex:1;font-size:12px">${[['💵 Efectivo',cur.medios.efectivo,COL.prod],['📱 Mercado Pago',cur.medios.mp,COL.mp],['💳 Tarjeta',cur.medios.tarjeta,COL.cortes]].map(([l,v,col])=>`<div class="ln"><span><i class="dot" style="background:${col}"></i>${l}</span><b>${fp(v)}</b></div>`).join('')}<div style="font-size:10.5px;color:var(--muted);margin-top:6px">Cortes + productos</div></div></div>`:vacio('Sin cobros en el período'))}
+
+    ${pnl('c4','Productos más vendidos',prdList.length?prdList.map(p=>hbar(escH(p.nombre),fp(p.total),p.total/prdList[0].total*100,COL.prod,{sub:p.u+' u. · ganancia '+fp(p.gan)})).join(''):vacio('Sin ventas en el período'))}
+    ${pnl('c4','Stock',productos.length?`<table class="adm-tbl"><tr><th>Producto</th><th>Unid.</th><th>A costo</th></tr>${[...productos].sort((a,b)=>b.stock*b.costo-a.stock*a.costo).slice(0,8).map(p=>{ const bajo=numV(p.stock)<=numV(p.alertaStock); return `<tr class="${bajo?'low':''}"><td>${escH(p.nombre)}${bajo?' ⚠️':''}</td><td>${p.stock}</td><td>${fp(numV(p.stock)*numV(p.costo))}</td></tr>`; }).join('')}<tr class="tot"><td>Total</td><td>${stockU}</td><td>${fp(stockCosto)}</td></tr></table>`:vacio('Sin productos cargados'),`<button class="lnk" onclick="switchAdminTab('productos')">Gestionar ›</button>`)}
+    ${pnl('c4','Clientes que no pagaron',deudas.length?`<div style="font-size:22px;font-weight:900;color:${COL.rosa};margin-bottom:6px">${fp(totalDeuda)}</div>${deudas.slice(0,6).map(d=>`<div class="ln"><span>${escH(d.cliente)} <i style="color:var(--muted)">· ${escH(d.prof.name)}</i></span><b>${fp(numV(d.monto))}</b></div>`).join('')}${deudas.length>6?`<div style="font-size:11px;color:var(--muted);margin-top:4px">y ${deudas.length-6} más…</div>`:''}<div style="font-size:10.5px;color:var(--muted);margin-top:6px">No suman a la facturación</div>`:vacio('Nadie debe nada ✅'))}
+
+    ${pnl('c6','Horarios y días con más turnos',`
+      <div style="font-size:11px;color:var(--muted2);margin-bottom:6px">Por hora en que se cargó el turno</div>
+      <div class="bars">${horas.slice(hMin,hMax+1).map((n,i)=>`<div class="bcol" data-tip="${hMin+i}:00 hs — ${n} turnos"><div class="bfill" style="height:${n/hMaxV*100}%;background:${COL.cortes}"></div><span>${hMin+i}</span></div>`).join('')}</div>
+      <div style="font-size:11px;color:var(--muted2);margin:12px 0 6px">Por día de la semana</div>
+      <div class="bars">${[1,2,3,4,5,6,0].map(dn=>`<div class="bcol" data-tip="${DIAS_SEM[dn]} — ${sem[dn]} turnos"><div class="bfill" style="height:${sem[dn]/sMaxV*100}%;background:${COL.prod}"></div><span>${DIAS_SEM[dn]}</span></div>`).join('')}</div>`)}
+    ${pnl('c6','Descuentos otorgados',cur.descTotal?`<div style="display:flex;gap:10px;margin-bottom:10px">
+        <div class="mini" style="flex:1"><div class="kl">💵 Por efectivo</div><div class="mv" style="color:${COL.oro}">${fp(sEf)}</div><div class="ks"><span>${dEf.length} turnos</span></div></div>
+        <div class="mini" style="flex:1"><div class="kl">🏷️ Por ofertas</div><div class="mv" style="color:${COL.oro}">${fp(sOf)}</div><div class="ks"><span>${dOf.length} turnos</span></div></div></div>
+      ${Object.entries(porOferta).sort((a,b)=>b[1].m-a[1].m).map(([n,x])=>hbar(escH(n),fp(x.m),x.m/sOf*100,COL.oro,{sub:x.n+' veces'})).join('')}`:vacio('No se dieron descuentos en el período'))}
+
+    ${pnl('c6','Equipo hoy',`<table class="adm-tbl"><tr><th>Quién</th><th>Turnos</th><th>Facturó</th><th>Stories</th><th>Rep.</th></tr>${equipo.map(p=>{
+        const th=D.turnos.filter(t=>t.prof.id===p.id&&t.fecha===hoy);
+        const sd=STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[p.id]?.[t.id]?.done).length;
+        const rep=getReputacion(p.id);
+        return `<tr><td>${p.emoji||'✂️'} ${escH(p.name)}</td><td>${th.length}</td><td>${fp(th.reduce((s,t)=>s+numV(t.monto),0))}</td><td style="color:${sd>=STORY_TIPOS.length?COL.prod:COL.oro}">${sd}/${STORY_TIPOS.length}</td><td style="color:${getRepColor(rep)}">${rep}%</td></tr>`; }).join('')||'<tr><td colspan="5">Sin equipo</td></tr>'}</table>`)}
+    ${pnl('c6','Actividad reciente',actividad.length?actividad.map(a=>`<div class="ln"><span>${a.ico} ${a.txt}<i style="color:var(--muted);font-size:10.5px"> · ${a.extra}</i></span><b>${fp(a.m)}</b></div>`).join(''):vacio('Todavía no hay movimientos'))}
+  </div>`;
 }
 
 function renderAdminServicios(body){
@@ -3694,8 +3824,8 @@ function borrarProducto(id){
   renderAdmin();
 }
 
-function renderAdminCumpleanos(){
-  const body=document.getElementById('admin-body');
+function renderAdminCumpleanos(body){
+  body=body||document.getElementById('admin-body');
   body.innerHTML+=`
     <div class="sec-hdr" style="margin:16px 0 10px"><span class="sec-title">📋 Tareas del día (recepción)</span><button onclick="editarTareasRecepcion()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar →</button></div>
     <div class="card" style="margin-bottom:8px">
