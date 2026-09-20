@@ -258,6 +258,8 @@ body.adm-wide #app{max-width:1500px}
 label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid var(--border2);border-radius:12px;margin:0 0 6px;font-size:14px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--text);cursor:pointer;background:var(--s2)}
 .rub-opt input{width:18px;height:18px;flex-shrink:0;padding:0;margin:0}
 .rub-opt:has(input:checked){border-color:var(--accent);background:rgba(124,111,255,.12)}
+#ver-nueva{position:fixed;top:0;left:0;right:0;z-index:2000;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 14px;background:#7c6fff;color:#fff;font-size:13px;font-weight:700;box-shadow:0 4px 18px rgba(0,0,0,.4)}
+#ver-nueva button{background:#fff;color:#4b3fd0;border:none;border-radius:10px;padding:7px 14px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer}
 .stat-card:active{transform:scale(.98)}
 .stat-card .sc-sub{font-size:11px;color:var(--muted2);margin-top:2px}
 
@@ -792,9 +794,30 @@ function loadProductos(){
     }).catch(()=>{});
   }
 }
-function saveProductos(){
-  try{localStorage.setItem('luffy_productos',JSON.stringify(productos));}catch(e){}
-  if(DB){try{DB.doc('luffy/productos').set({list:productos});}catch(e){}}
+function persistProductosLocal(){ try{localStorage.setItem('luffy_productos',JSON.stringify(productos));}catch(e){} }
+// Suma/resta unidades. Se ve al instante en pantalla y despues se aplica sobre la lista MAS FRESCA de la nube,
+// asi dos personas vendiendo a la vez no se pisan (antes cada una escribia su copia entera).
+function ajustarStock(items){
+  const aplicar=(lista)=>items.forEach(i=>{ const p=lista.find(x=>x.id===i.id); if(p) p.stock=numV(p.stock)+i.delta; });
+  aplicar(productos); persistProductosLocal();
+  if(!DB) return;
+  const ref=DB.doc('luffy/productos');
+  Promise.resolve(ref.get()).then(r=>{
+    if(!(r&&Array.isArray(r.list))) return ref.set({list:productos});
+    aplicar(r.list); productos=r.list; persistProductosLocal();
+    return Promise.resolve(ref.set({list:productos})).then(()=>refreshCurrentView());
+  }).catch(()=>{ try{ ref.set({list:productos}); }catch(e){} });
+}
+// Alta/baja de productos (admin) sobre la lista mas fresca. fn recibe la lista y devuelve la lista nueva.
+function productosCambiar(fn){
+  productos=fn(productos)||productos; persistProductosLocal();
+  if(!DB) return;
+  const ref=DB.doc('luffy/productos');
+  Promise.resolve(ref.get()).then(r=>{
+    const base=(r&&Array.isArray(r.list))?r.list:productos;
+    productos=fn(base)||base; persistProductosLocal();
+    return ref.set({list:productos});
+  }).catch(()=>{ try{ ref.set({list:productos}); }catch(e){} });
 }
 
 // ============ SERVICIOS Y OFERTAS (los carga el admin) ============
@@ -891,14 +914,11 @@ function loadTareasData(){
   try{tareasData=JSON.parse(localStorage.getItem('luffy_tareas_data')||'{}');}catch(e){tareasData={};}
   if(DB){
     DB.doc('luffy/tareas_data').get().then(r=>{
-      if(r&&JSON.stringify(r)!==JSON.stringify(tareasData)){ tareasData=r; try{localStorage.setItem('luffy_tareas_data',JSON.stringify(tareasData));}catch(e){} refreshCurrentView(); }
+      if(r&&mergeTs(tareasData,r)){ try{localStorage.setItem('luffy_tareas_data',JSON.stringify(tareasData));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
 }
-function saveTareasData(){
-  try{localStorage.setItem('luffy_tareas_data',JSON.stringify(tareasData));}catch(e){}
-  if(DB){try{DB.doc('luffy/tareas_data').set(tareasData);}catch(e){}}
-}
+function saveTareasData(){ guardarUniendoTs('luffy/tareas_data','luffy_tareas_data',tareasData); }
 
 const TRAMOS = [
   {min:0,       max:999999,   pct:45, label:'Base',  color:'#888896', emoji:'🌱'},
@@ -979,44 +999,81 @@ async function editarHorariosStories(){
   refreshCurrentView();
 }
 
+// Une dos arboles { fecha: { persona: { item: {done, ts} } } }: en cada casillero gana el cambio mas nuevo.
+function mergeTs(t,r){
+  let cambio=false;
+  Object.keys(r||{}).forEach(k=>{
+    const rv=r[k];
+    if(!rv||typeof rv!=='object') return;
+    if('done' in rv||'ts' in rv){ const lv=t[k]; if(!lv||String(rv.ts||'')>String(lv.ts||'')){ t[k]=rv; cambio=true; } }
+    else { if(!t[k]||typeof t[k]!=='object') t[k]={}; if(mergeTs(t[k],rv)) cambio=true; }
+  });
+  return cambio;
+}
+function guardarUniendoTs(docPath,localKey,obj){
+  try{localStorage.setItem(localKey,JSON.stringify(obj));}catch(e){}
+  if(!DB) return;
+  const ref=DB.doc(docPath);
+  Promise.resolve(ref.get()).then(r=>{
+    const cambio=r?mergeTs(obj,r):false;
+    if(cambio){ try{localStorage.setItem(localKey,JSON.stringify(obj));}catch(e){} }
+    return Promise.resolve(ref.set(obj)).then(()=>{ if(cambio) refreshCurrentView(); });
+  }).catch(()=>{ try{ref.set(obj);}catch(e){} });
+}
 function loadStoriesData(){
   try{storiesData=JSON.parse(localStorage.getItem('luffy_stories')||'{}');}catch(e){storiesData={};}
   if(DB){
     DB.doc('luffy/stories').get().then(r=>{
-      if(r&&JSON.stringify(r)!==JSON.stringify(storiesData)){ storiesData=r; try{localStorage.setItem('luffy_stories',JSON.stringify(storiesData));}catch(e){} refreshCurrentView(); }
+      if(r&&mergeTs(storiesData,r)){ try{localStorage.setItem('luffy_stories',JSON.stringify(storiesData));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
 }
-function saveStoriesData(){
-  try{localStorage.setItem('luffy_stories',JSON.stringify(storiesData));}catch(e){}
-  if(DB){try{DB.doc('luffy/stories').set(storiesData);}catch(e){}}
-}
+function saveStoriesData(){ guardarUniendoTs('luffy/stories','luffy_stories',storiesData); }
 function loadPuntosData(){
   try{puntosData=JSON.parse(localStorage.getItem('luffy_puntos')||'{}');}catch(e){puntosData={};}
   try{canjesData=JSON.parse(localStorage.getItem('luffy_canjes')||JSON.stringify(CANJES_DEFAULT));}catch(e){canjesData=[...CANJES_DEFAULT];}
   try{canjesSolicitudes=JSON.parse(localStorage.getItem('luffy_canjes_sol')||'[]');}catch(e){canjesSolicitudes=[];}
   if(DB){
     DB.doc('luffy/puntos').get().then(r=>{
-      if(!r) return;
-      const before=JSON.stringify({puntosData,canjesData,canjesSolicitudes});
-      if(r.puntos) puntosData=r.puntos;
-      if(r.canjes) canjesData=r.canjes;
-      if(r.solicitudes) canjesSolicitudes=r.solicitudes;
-      if(JSON.stringify({puntosData,canjesData,canjesSolicitudes})===before) return; // nada cambio, no re-renderizar
-      try{
-        localStorage.setItem('luffy_puntos',JSON.stringify(puntosData));
-        localStorage.setItem('luffy_canjes',JSON.stringify(canjesData));
-        localStorage.setItem('luffy_canjes_sol',JSON.stringify(canjesSolicitudes));
-      }catch(e){}
-      refreshCurrentView();
+      if(mergePuntos(r)){ persistPuntosLocal(); refreshCurrentView(); }
     }).catch(()=>{});
   }
 }
-function savePuntosData(){
+function persistPuntosLocal(){
   try{localStorage.setItem('luffy_puntos',JSON.stringify(puntosData));}catch(e){}
   try{localStorage.setItem('luffy_canjes',JSON.stringify(canjesData));}catch(e){}
   try{localStorage.setItem('luffy_canjes_sol',JSON.stringify(canjesSolicitudes));}catch(e){}
-  if(DB){try{DB.doc('luffy/puntos').set({puntos:puntosData,canjes:canjesData,solicitudes:canjesSolicitudes});}catch(e){}}
+}
+const movKey=(m)=>m.uid||(m.ts+'|'+m.tipo+'|'+m.pts+'|'+m.razon);
+// Une lo que hay en la nube con lo local: los movimientos se suman (sin repetir), los canjes pendientes toman el estado mas avanzado.
+function mergePuntos(remote){
+  if(!remote) return false;
+  const antes=JSON.stringify({puntosData,canjesData,canjesSolicitudes});
+  Object.keys(remote.puntos||{}).forEach(pid=>{
+    const rp=remote.puntos[pid]; if(!rp) return;
+    const l=puntosData[pid]||(puntosData[pid]={total:0,movimientos:[]});
+    if(!l.movimientos) l.movimientos=[];
+    const vistos=new Set(l.movimientos.map(movKey));
+    (rp.movimientos||[]).forEach(m=>{ if(!vistos.has(movKey(m))){ l.movimientos.push(m); vistos.add(movKey(m)); l.total=(l.total||0)+numV(m.pts); } });
+    l.movimientos.sort((x,y)=>String(y.ts||'').localeCompare(String(x.ts||'')));
+  });
+  if(profile&&profile.role!=='admin'&&Array.isArray(remote.canjes)) canjesData=remote.canjes;
+  (remote.solicitudes||[]).forEach(rs=>{
+    const ls=canjesSolicitudes.find(s=>s.id===rs.id);
+    if(!ls) canjesSolicitudes.push(rs);
+    else if(ls.estado==='pendiente'&&rs.estado!=='pendiente') Object.assign(ls,rs);
+  });
+  return antes!==JSON.stringify({puntosData,canjesData,canjesSolicitudes});
+}
+function savePuntosData(){
+  persistPuntosLocal();
+  if(!DB) return;
+  const ref=DB.doc('luffy/puntos');
+  Promise.resolve(ref.get()).then(r=>{
+    const cambio=mergePuntos(r);
+    if(cambio) persistPuntosLocal();
+    return Promise.resolve(ref.set({puntos:puntosData,canjes:canjesData,solicitudes:canjesSolicitudes})).then(()=>{ if(cambio) refreshCurrentView(); });
+  }).catch(()=>{ try{ ref.set({puntos:puntosData,canjes:canjesData,solicitudes:canjesSolicitudes}); }catch(e){} });
 }
 
 function getPuntos(profId){
@@ -1031,7 +1088,7 @@ function addPuntos(profId, tipo, pts, razon, uid){
   if(!puntosData[profId]) puntosData[profId]={total:0,movimientos:[]};
   if(uid&&puntosData[profId].movimientos.some(m=>m.uid===uid)) return false; // ya se aplico
   puntosData[profId].total = (puntosData[profId].total||0) + pts;
-  puntosData[profId].movimientos.unshift({tipo,pts,razon,uid,ts:new Date().toISOString(),fecha:new Date().toISOString().split('T')[0]});
+  puntosData[profId].movimientos.unshift({tipo,pts,razon,uid,ts:new Date().toISOString(),fecha:ymdLocal(new Date())});
   savePuntosData();
 }
 
@@ -1200,7 +1257,7 @@ async function loginAs(id){
       DB.doc('luffy/perfil_'+id).get().catch(()=>null),
     ]);
     if(myToken!==sessionToken) return; // logged out / a newer login won while we were fetching
-    if(d){ dineroData=d; try{localStorage.setItem('luffy_dinero_'+id,JSON.stringify(dineroData));}catch(e){} }
+    if(d){ dineroData=d; normalizarFechas(dineroData); try{localStorage.setItem('luffy_dinero_'+id,JSON.stringify(dineroData));}catch(e){} }
     if(y){ yoData=y; try{localStorage.setItem('luffy_yo_'+id,JSON.stringify(yoData));}catch(e){} }
     if(ho){ horarioData=ho; try{localStorage.setItem('luffy_horario_'+id,JSON.stringify(horarioData));}catch(e){} }
     if(cp){ Object.assign(profile,cp); try{localStorage.setItem('luffy_perfil_'+id,JSON.stringify(cp));}catch(e){} }
@@ -1315,7 +1372,7 @@ function renderHub(){
 
   // Stories dots
   loadStoriesData();
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = ymdLocal(new Date());
   const storiesDone = STORY_TIPOS.filter(t=>(storiesData?.[hoy]?.[profile.id]?.[t.id]?.done)).length;
   const proximaStory = STORY_TIPOS.find(t=>!(storiesData?.[hoy]?.[profile.id]?.[t.id]?.done));
   const subStories = document.getElementById('qa-stories-sub');
@@ -1503,6 +1560,23 @@ function showToast(msg){
   setTimeout(()=>t.classList.remove('show'),2200);
 }
 function fp(n){ return '$'+Math.round(n).toLocaleString('es-AR'); }
+// Fecha (AAAA-MM-DD) segun la hora local del dispositivo. Nunca usar toISOString() para esto: es UTC.
+function ymdLocal(d){ return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
+// Corrige registros viejos que quedaron con la fecha en UTC (cobros hechos despues de las 21 hs figuraban al dia siguiente)
+function normalizarFechas(dd){
+  if(!dd) return false;
+  let cambio=false;
+  const fix=(x,campo,iso)=>{
+    const f=x&&x[campo], t=x&&x[iso]; if(!f||!t) return;
+    const d=new Date(t); if(isNaN(d)) return;
+    const local=ymdLocal(d), utc=d.toISOString().split('T')[0];
+    if(f!==local&&f===utc){ x[campo]=local; cambio=true; }
+  };
+  (dd.turnos||[]).forEach(x=>fix(x,'fecha','creadoEn'));
+  (dd.ventas||[]).forEach(x=>fix(x,'fecha','creadoEn'));
+  (dd.deudores||[]).forEach(x=>{ fix(x,'fecha','creadoEn'); fix(x,'fechaPago','cobradoEn'); });
+  return cambio;
+}
 function calcComision(fact,reelsQ){
   let tramo=TRAMOS[0];
   for(const t of TRAMOS) if(fact>=t.min) tramo=t;
@@ -1594,10 +1668,7 @@ function fmtFechaHora(iso){ return iso?new Date(iso).toLocaleDateString('es-AR',
 // ---------- puntos (sin duplicar aunque lo corran dos dispositivos) ----------
 function puntosTx(fn){
   if(!DB){ fn(); return; }
-  Promise.resolve(DB.doc('luffy/puntos').get()).then(r=>{
-    if(r){ if(r.puntos) puntosData=r.puntos; if(r.canjes) canjesData=r.canjes; if(r.solicitudes) canjesSolicitudes=r.solicitudes; }
-    fn();
-  }).catch(()=>fn());
+  Promise.resolve(DB.doc('luffy/puntos').get()).then(r=>{ mergePuntos(r); fn(); }).catch(()=>fn());
 }
 
 // ---------- tomar un reel del banco ----------
@@ -2002,6 +2073,7 @@ function mergeDinero(target,remote){
 }
 function saveDinero(){
   const pid=profile.id, mine=dineroData;
+  normalizarFechas(mine);
   try{localStorage.setItem('luffy_dinero_'+pid,JSON.stringify(mine));}catch(e){}
   if(!DB) return;
   const ref=DB.doc('luffy/dinero_'+pid);
@@ -2031,6 +2103,7 @@ function modificarDineroDe(profId,fn){
     if(!dd){ try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+profId)||'null'); }catch(e){} }
     dd=dd||{};
     ['turnos','ventas','deudores'].forEach(k=>{ if(!dd[k]) dd[k]=[]; });
+    normalizarFechas(dd);
     if(!fn(dd)) return false;
     try{localStorage.setItem('luffy_dinero_'+profId,JSON.stringify(dd));}catch(e){}
     if(ref) return Promise.resolve(ref.set(dd)).then(()=>true);
@@ -2051,7 +2124,7 @@ function todasLasDeudas(){
   allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista').forEach(u=>{
     let dd={};
     if(profile&&u.id===profile.id&&dineroData) dd=dineroData;
-    else { try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){} }
+    else { try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){} normalizarFechas(dd); }
     (dd.deudores||[]).filter(x=>!x.saldado).forEach(x=>out.push({...x,prof:u}));
   });
   return out.sort((a,b)=>new Date(a.creadoEn||a.fecha)-new Date(b.creadoEn||b.fecha));
@@ -2096,6 +2169,20 @@ function renderCobroDeuda(){
 }
 // Aplica el pago sobre el dinero del profesional dueño de la deuda.
 // La fecha del turno pasa a ser la del PAGO: asi cae en la quincena en que se cobra.
+// El admin da de baja una deuda que no se va a cobrar. No suma a nadie; el producto ya salio del stock, queda como perdida.
+async function anularDeuda(profId,id){
+  const d=buscarDeuda(profId,id);
+  if(!d){ showToast('Esa deuda ya no está pendiente'); return; }
+  const v=await uiDialog({title:'¿Anular la deuda de '+d.cliente+'?',msg:'Son '+fp(numV(d.monto))+'. Deja de figurar como pendiente y no suma a la quincena de nadie. Los productos ya salieron del stock, así que queda como pérdida.',fields:[{label:'Motivo (opcional)',placeholder:'Ej: no se pudo ubicar al cliente'}],ok:'Anular deuda',danger:true});
+  if(!v) return;
+  const motivo=(v[0]||'').trim();
+  modificarDineroDe(profId,dd=>{
+    const x=(dd.deudores||[]).find(z=>z.id===id);
+    if(!x||x.saldado) return false;
+    x.saldado=true; x.anulada=true; x.anuladaEn=new Date().toISOString(); x.anuladaPor=profile.name; x.motivoAnulacion=motivo;
+    return true;
+  }).then(ok=>{ showToast(ok?'Deuda anulada':'Esa deuda ya no estaba pendiente'); refreshCurrentView(); }).catch(()=>showToast('No se pudo guardar, probá de nuevo'));
+}
 function aplicarPagoDeuda(dd,deudaId,medio){
   const d=(dd.deudores||[]).find(x=>x.id===deudaId);
   if(!d||d.saldado) return false;
@@ -2210,7 +2297,7 @@ function renderRegistro(){
     <div style="font-size:13px;color:var(--muted2);text-align:center;margin-bottom:16px">${regState.medio}</div>
     <div class="chips" style="margin-bottom:20px">${cats.map(cat=>`<div class="chip" onclick="regSelCat('${cat}')">${cat}</div>`).join('')}</div>`;
   } else if(regState.step===4){
-    const hoy=new Date().toISOString().split('T')[0];
+    const hoy=ymdLocal(new Date());
     c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="paso-num" style="margin:0">Confirmar</div></div>
     <div class="card" style="margin-bottom:16px">
       <div style="font-size:28px;font-weight:900;margin-bottom:4px">${fp(regState.monto)}</div>
@@ -2429,11 +2516,10 @@ function guardarCobro(){
       descuento:r.descuento, descuentoTipo:r.descTipo, subtotal:r.subtotal,
       productos:r.prodLineas.map(l=>({productoId:l.producto.id,productoNombre:l.producto.nombre,cantidad:l.cantidad,precioUnitario:l.producto.precioVenta,total:l.total,comision:l.comision,costoUnitario:l.producto.costo||0})),
       motivo:(cobro.motivo||'').trim(),
-      fecha:new Date().toISOString().split('T')[0], creadoEn:new Date().toISOString(), saldado:false
+      fecha:ymdLocal(new Date()), creadoEn:new Date().toISOString(), saldado:false
     });
-    r.prodLineas.forEach(l=>{ l.producto.stock-=l.cantidad; });
     saveDinero();
-    if(r.prodLineas.length) saveProductos();
+    if(r.prodLineas.length) ajustarStock(r.prodLineas.map(l=>({id:l.producto.id,delta:-l.cantidad})));
     closeModal('modal-registro');
     showToast('Anotado como deuda — recepción lo ve para cobrarle');
     resetCobro();
@@ -2441,7 +2527,7 @@ function guardarCobro(){
     return;
   }
   const id=Date.now().toString();
-  const fecha=new Date().toISOString().split('T')[0];
+  const fecha=ymdLocal(new Date());
   const creadoEn=new Date().toISOString();
   const cliente=(cobro.cliente||'').trim()||'Cliente';
   if(!dineroData.turnos) dineroData.turnos=[];
@@ -2457,10 +2543,9 @@ function guardarCobro(){
   });
   r.prodLineas.forEach((l,i)=>{
     dineroData.ventas.push({id:id+'p'+i, turnoId:id, cliente, productoId:l.producto.id, productoNombre:l.producto.nombre, cantidad:l.cantidad, precioUnitario:l.producto.precioVenta, total:l.total, comision:l.comision, costoUnitario:l.producto.costo||0, medio:cobro.medio, fecha, creadoEn});
-    l.producto.stock-=l.cantidad;
   });
   saveDinero();
-  if(r.prodLineas.length) saveProductos();
+  if(r.prodLineas.length) ajustarStock(r.prodLineas.map(l=>({id:l.producto.id,delta:-l.cantidad})));
   closeModal('modal-registro');
   showToast('Cobro guardado — recepción ya lo ve ✓');
   resetCobro();
@@ -2475,7 +2560,7 @@ function guardarVentaProducto(){
   const producto=productos.find(p=>p.id===prodId);
   if(!producto||cantidad<1){ showToast('Elegí un producto y una cantidad válida'); return; }
   if(cantidad>producto.stock){ showToast('No hay stock suficiente (quedan '+producto.stock+')'); return; }
-  const fecha=new Date().toISOString().split('T')[0];
+  const fecha=ymdLocal(new Date());
   const total=producto.precioVenta*cantidad;
   const comision=Math.round(total*(producto.comisionPct/100));
   if(!dineroData.ventas) dineroData.ventas=[];
@@ -2489,8 +2574,7 @@ function guardarVentaProducto(){
     fecha, creadoEn:new Date().toISOString()
   });
   saveDinero();
-  producto.stock -= cantidad;
-  saveProductos();
+  ajustarStock([{id:producto.id,delta:-cantidad}]);
   closeModal('modal-registro');
   showToast('Venta registrada ✓ +'+fp(comision)+' de comisión');
   refreshCurrentView();
@@ -2505,7 +2589,7 @@ function regSelMedio(m){ regState.medio=m; regState.step=3; renderRegistro(); }
 function regSelCat(cat){ regState.categoria=cat; regState.step=4; renderRegistro(); }
 
 function regGuardar(){
-  const fecha=document.getElementById('reg-fecha')?.value||new Date().toISOString().split('T')[0];
+  const fecha=document.getElementById('reg-fecha')?.value||ymdLocal(new Date());
   const nota=document.getElementById('reg-nota')?.value.trim()||'';
   const id=Date.now().toString();
   if(regState.tipo==='turno'){
@@ -3073,7 +3157,7 @@ function renderTrabajo(wrap){
 
   // Deudores: no suman a la facturacion
   const deudoresPend=(dineroData.deudores||[]).filter(d=>!d.saldado).sort((a,b)=>new Date(a.creadoEn||a.fecha)-new Date(b.creadoEn||b.fecha));
-  const deudoresPagadas=(dineroData.deudores||[]).filter(d=>d.saldado&&enElMes(d.fechaPago||d.fecha)).sort((a,b)=>new Date(b.cobradoEn||b.fecha)-new Date(a.cobradoEn||a.fecha));
+  const deudoresPagadas=(dineroData.deudores||[]).filter(d=>d.saldado&&enElMes(d.fechaPago||(d.anuladaEn?String(d.anuladaEn).slice(0,10):d.fecha))).sort((a,b)=>new Date(b.cobradoEn||b.fecha)-new Date(a.cobradoEn||a.fecha));
   const deudoresTodos=[...deudoresPend,...deudoresPagadas];
   const totalDeuda=deudoresPend.reduce((s,d)=>s+num(d.monto),0);
 
@@ -3088,7 +3172,7 @@ function renderTrabajo(wrap){
   const medioColor={efectivo:'#34d399',mp:'#009ee3',tarjeta:'#7c6fff'};
   const medioCorto={efectivo:'EFE',mp:'MP',tarjeta:'TAR'};
   const medioLargo={efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'};
-  const hoyStr=new Date().toISOString().split('T')[0];
+  const hoyStr=ymdLocal(new Date());
   const cuando=(x)=>x.fecha===hoyStr&&x.creadoEn?' · '+hora(x.creadoEn):(x.fecha?' · '+fechaCorta(x.fecha):'');
   const dline=(a,b,st='')=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0;${st}"><span>${a}</span><span style="white-space:nowrap">${b}</span></div>`;
 
@@ -3126,9 +3210,9 @@ function renderTrabajo(wrap){
       </div>${detalleHtml}`;
   };
   const rowDeudor=(d)=>`<div class="turno-item" style="border-color:rgba(244,114,182,.25);cursor:default;${d.saldado?'opacity:.7':''}">
-        <div class="ti-dot" style="background:${d.saldado?'#34d399':'#f472b6'}"></div>
+        <div class="ti-dot" style="background:${d.anulada?'var(--muted)':(d.saldado?'#34d399':'#f472b6')}"></div>
         <div class="ti-info"><strong>${escH(d.cliente)}</strong><span>${escH(d.servicio||d.motivo||'')}${d.servicio&&d.motivo?' · '+escH(d.motivo):''} · servicio del ${fechaCorta(d.fecha)}${d.saldado?'':' · hace '+diasDesdeStr(d.fecha)+' d'}</span></div>
-        <div style="text-align:right"><div class="ti-monto" style="color:${d.saldado?'#34d399':'#f472b6'}">${fp(num(d.monto))}</div>${d.saldado?`<div style="font-size:10px;color:#34d399;font-weight:700">Cobrado ${fechaCorta(d.fechaPago||d.fecha)} ✓</div>`:`<button onclick="abrirCobroDeuda('${profile.id}','${d.id}')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:10px;font-weight:700;cursor:pointer;text-decoration:underline">Ya pagó</button>`}</div>
+        <div style="text-align:right"><div class="ti-monto" style="color:${d.anulada?'var(--muted2)':(d.saldado?'#34d399':'#f472b6')}">${fp(num(d.monto))}</div>${d.saldado?`<div style="font-size:10px;color:${d.anulada?'var(--muted2)':'#34d399'};font-weight:700">${d.anulada?'Anulada':'Cobrado '+fechaCorta(d.fechaPago||d.fecha)+' ✓'}</div>`:`<button onclick="abrirCobroDeuda('${profile.id}','${d.id}')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:10px;font-weight:700;cursor:pointer;text-decoration:underline">Ya pagó</button>`}</div>
       </div>`;
 
   const periodoNav=`
@@ -3680,8 +3764,8 @@ function renderStories(){
   const diasSemana = ['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 
   body.innerHTML = dias.map(d => {
-    const dateStr = d.toISOString().split('T')[0];
-    const esHoy = dateStr === today.toISOString().split('T')[0];
+    const dateStr = ymdLocal(d);
+    const esHoy = dateStr === ymdLocal(today);
     const dLabel = esHoy ? 'HOY' : diasSemana[d.getDay()]+' '+d.getDate()+'/'+String(d.getMonth()+1).padStart(2,'0');
     const doneDia = STORY_TIPOS.filter(t=>storiesData?.[dateStr]?.[profile.id]?.[t.id]?.done).length;
 
@@ -3724,7 +3808,7 @@ function toggleStory(dateStr, tipoId, esHoy){
 
   // Award points if done and today
   if(nuevoDone && esHoy==='true'){
-    addPuntos(profile.id,'story',5,'Story: '+STORY_TIPOS.find(t=>t.id===tipoId)?.label);
+    addPuntos(profile.id,'story',5,'Story: '+STORY_TIPOS.find(t=>t.id===tipoId)?.label,'story:'+dateStr+':'+profile.id+':'+tipoId);
     showToast('+5 puntos ⭐');
     // Check if all 4 done today → bonus week check happens server-side
   }
@@ -3732,7 +3816,7 @@ function toggleStory(dateStr, tipoId, esHoy){
 }
 
 function toggleTarea(tareaId){
-  const hoy=new Date().toISOString().split('T')[0];
+  const hoy=ymdLocal(new Date());
   if(!tareasData[hoy]) tareasData[hoy]={};
   const current=tareasData[hoy][tareaId]||{done:false};
   tareasData[hoy][tareaId]={done:!current.done, ts:new Date().toISOString()};
@@ -3984,7 +4068,7 @@ async function procesarIncidente(id, restarPuntos){
 }
 
 function renderAdminEstadoEquipo(body){
-  const hoy=new Date().toISOString().split('T')[0];
+  const hoy=ymdLocal(new Date());
   const profesionales=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
   const incsPend=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]').filter(i=>!i.procesado);
   const canjesPend=canjesSolicitudes.filter(s=>s.estado==='pendiente');
@@ -4022,7 +4106,7 @@ function renderAdminEstadoEquipo(body){
 }
 
 function renderAdminStories(body){
-  const hoy = new Date().toISOString().split('T')[0];
+  const hoy = ymdLocal(new Date());
   const diaKeys=['dom','lun','mar','mie','jue','vie','sab'];
   const hoyKey=diaKeys[new Date().getDay()];
   const profesionales = allUsers.filter(p=>p.role==='profesional');
@@ -4066,7 +4150,7 @@ const DIAS_SEM=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
 const COL={cortes:'#7c6fff', prod:'#34d399', rosa:'#f472b6', oro:'#fbbf24', azul:'#60a5fa', mp:'#009ee3'};
 
 // Las fechas se guardan como YYYY-MM-DD (UTC, igual que el resto de la app): se comparan como texto
-function hoyStr(){ return new Date().toISOString().split('T')[0]; }
+function hoyStr(){ return ymdLocal(new Date()); }
 function addDias(s,n){ const d=new Date(s+'T00:00:00Z'); d.setUTCDate(d.getUTCDate()+n); return d.toISOString().split('T')[0]; }
 function diasEntre(a,b){ return Math.round((new Date(b+'T00:00:00Z')-new Date(a+'T00:00:00Z'))/86400000); }
 function finMesUTC(y,m){ return new Date(Date.UTC(y,m,0)).getUTCDate(); }
@@ -4094,14 +4178,16 @@ function rangoPeriodo(key){
 }
 
 function adminDatos(){
-  const turnos=[], ventas=[], deudas=[];
+  const turnos=[], ventas=[], deudas=[], anuladas=[];
   allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista').forEach(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    normalizarFechas(dd);
     (dd.turnos||[]).forEach(t=>turnos.push({...t,prof:u}));
     (dd.ventas||[]).forEach(v=>ventas.push({...v,vendedor:u}));
     (dd.deudores||[]).filter(x=>!x.saldado).forEach(x=>deudas.push({...x,prof:u}));
+    (dd.deudores||[]).filter(x=>x.anulada).forEach(x=>anuladas.push({...x,prof:u}));
   });
-  return {turnos,ventas,deudas};
+  return {turnos,ventas,deudas,anuladas};
 }
 
 // El % de comision de cada profesional depende de lo que facture en TODA la quincena,
@@ -4380,7 +4466,7 @@ function renderAdminPanel(c){
 
     ${pnl('c4','Productos más vendidos',prdList.length?prdList.map(p=>hbar(escH(p.nombre),fp(p.total),p.total/prdList[0].total*100,COL.prod,{sub:p.u+' u. · ganancia '+fp(p.gan)})).join(''):vacio('Sin ventas en el período'))}
     ${pnl('c4','Stock',productos.length?`<table class="adm-tbl"><tr><th>Producto</th><th>Unid.</th><th>A costo</th></tr>${[...productos].sort((a,b)=>b.stock*b.costo-a.stock*a.costo).slice(0,8).map(p=>{ const bajo=numV(p.stock)<=numV(p.alertaStock); return `<tr class="${bajo?'low':''}"><td>${escH(p.nombre)}${bajo?' ⚠️':''}</td><td>${p.stock}</td><td>${fp(numV(p.stock)*numV(p.costo))}</td></tr>`; }).join('')}<tr class="tot"><td>Total</td><td>${stockU}</td><td>${fp(stockCosto)}</td></tr></table>`:vacio('Sin productos cargados'),`<button class="lnk" onclick="switchAdminTab('productos')">Gestionar ›</button>`)}
-    ${pnl('c4','Clientes que no pagaron',deudas.length?`<div style="font-size:22px;font-weight:900;color:${COL.rosa};margin-bottom:6px">${fp(totalDeuda)}</div><div style="max-height:230px;overflow-y:auto">${deudas.map(d=>`<div class="ln"><span>${escH(d.cliente)} <i style="color:var(--muted)">· ${escH(d.prof.name)} · hace ${diasDesdeStr(d.fecha)} d</i></span><span style="white-space:nowrap"><b>${fp(numV(d.monto))}</b> <button class="lnk" onclick="abrirCobroDeuda('${d.prof.id}','${d.id}')">Cobrar</button></span></div>`).join('')}</div><div style="font-size:10.5px;color:var(--muted);margin-top:6px">Al cobrarlas suman a la quincena del día de pago</div>`:vacio('Nadie debe nada ✅'))}
+    ${pnl('c4','Clientes que no pagaron',deudas.length?`<div style="font-size:22px;font-weight:900;color:${COL.rosa};margin-bottom:6px">${fp(totalDeuda)}</div><div style="max-height:230px;overflow-y:auto">${deudas.map(d=>`<div class="ln"><span>${escH(d.cliente)} <i style="color:var(--muted)">· ${escH(d.prof.name)} · hace ${diasDesdeStr(d.fecha)} d</i></span><span style="white-space:nowrap"><b>${fp(numV(d.monto))}</b> <button class="lnk" onclick="abrirCobroDeuda('${d.prof.id}','${d.id}')">Cobrar</button> <button class="lnk" style="color:#f472b6" onclick="anularDeuda('${d.prof.id}','${d.id}')">Anular</button></span></div>`).join('')}</div><div style="font-size:10.5px;color:var(--muted);margin-top:6px">Al cobrarlas suman a la quincena del día de pago${D.anuladas.length?' · Anuladas: '+D.anuladas.length+' ('+fp(D.anuladas.reduce((s,x)=>s+numV(x.monto),0))+' perdido)':''}</div>`:vacio('Nadie debe nada ✅'))}
 
     ${pnl('c6','Horarios y días con más turnos',`
       <div style="font-size:11px;color:var(--muted2);margin-bottom:6px">Por hora en que se cargó el turno</div>
@@ -4774,16 +4860,15 @@ function guardarProducto(){
   const comisionPct=parseFloat(document.getElementById('pr-comision')?.value)||0;
   const stock=parseInt(document.getElementById('pr-stock')?.value)||0;
   const alertaStock=parseInt(document.getElementById('pr-alerta')?.value)||5;
-  productos.push({id:Date.now().toString(), nombre, costo, precioVenta, comisionPct, stock, alertaStock, creado:new Date().toISOString()});
-  saveProductos();
+  const nuevo={id:Date.now().toString(), nombre, costo, precioVenta, comisionPct, stock, alertaStock, creado:new Date().toISOString()};
+  productosCambiar(l=>{ if(!l.some(x=>x.id===nuevo.id)) l.push(nuevo); return l; });
   showToast('Producto agregado ✓');
   renderAdmin();
 }
 
 async function borrarProducto(id){
   if(!await uiConfirm('¿Borrar este producto?','Se saca del catálogo. Las ventas ya hechas no cambian.')) return;
-  productos = productos.filter(p=>p.id!==id);
-  saveProductos();
+  productosCambiar(l=>l.filter(p=>p.id!==id));
   renderAdmin();
 }
 
@@ -4998,12 +5083,13 @@ function prefetchRecepcionTeamData(){
   return Promise.all(jobs).then(refreshCurrentView).catch(()=>{});
 }
 function getAvisosPendientes(){
-  const hoy=new Date().toISOString().split('T')[0];
+  const hoy=ymdLocal(new Date());
   const profesionales=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
   const items=[];
   profesionales.forEach(p=>{
     let dd={turnos:[],ventas:[]};
     try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{"turnos":[]}'); }catch(e){}
+    normalizarFechas(dd);
     const turnosHoy=(dd.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId);
     const ventasHoy=(dd.ventas||[]).filter(v=>v.fecha===hoy&&!v.deudaId);
     const ventasUsadas=new Set();
@@ -5070,9 +5156,9 @@ function renderRecepcion(){
   const gr=h<12?'Buenos días 📞':h<20?'Buenas tardes 📞':'Buenas noches 📞';
   document.getElementById('rec-greeting').textContent=gr;
 
-  const hoy=new Date().toISOString().split('T')[0];
+  const hoy=ymdLocal(new Date());
   const mananaDate=new Date(); mananaDate.setDate(mananaDate.getDate()+1);
-  const manana=mananaDate.toISOString().split('T')[0];
+  const manana=ymdLocal(mananaDate);
   const storiesDoneHoy=STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[profile.id]?.[t.id]?.done).length;
   const storiesDoneManana=STORY_TIPOS.filter(t=>storiesData?.[manana]?.[profile.id]?.[t.id]?.done).length;
   const meta=10;
@@ -5276,7 +5362,7 @@ function marcarCumple(id){
   const c=(recData.cumpleanos||[]).find(x=>x.id===id);
   if(!c) return;
   c.contactado=!c.contactado;
-  if(c.contactado) addPuntos(profile.id,'cumple',20,'Cumpleaños contactado');
+  if(c.contactado) addPuntos(profile.id,'cumple',20,'Cumpleaños contactado','cumple:'+c.id+':'+new Date().getFullYear());
   saveRecData();
   renderRecepcion();
   if(c.contactado) showToast('+20 puntos ⭐');
@@ -5336,11 +5422,35 @@ async function reponerStock(id){
   if(!cantStr) return;
   const cant=parseInt(cantStr)||0;
   if(!cant||cant<0){ showToast('Ingresá un número válido'); return; }
-  p.stock += cant;
-  saveProductos();
+  ajustarStock([{id:p.id,delta:cant}]);
   showToast('Stock actualizado ✓');
   renderEncargado();
 }
+
+// ============ AVISO DE VERSION NUEVA ============
+// La sesion queda guardada, asi que un celular puede seguir semanas con codigo viejo.
+// Cada tanto se compara la pagina publicada con la que se cargo y, si cambio, se avisa (sin recargar sola, para no perder lo que se este haciendo).
+let sigVersion=null;
+function firmaTexto(t){ let x=5381; for(let i=0;i<t.length;i++) x=((x<<5)+x+t.charCodeAt(i))|0; return x+':'+t.length; }
+async function chequearVersion(){
+  try{
+    const r=await fetch(location.pathname+'?_v='+Date.now(),{cache:'no-store'});
+    if(!r.ok) return;
+    const sig=firmaTexto(await r.text());
+    if(sigVersion===null){ sigVersion=sig; return; }
+    if(sig!==sigVersion) mostrarAvisoVersion();
+  }catch(e){}
+}
+function mostrarAvisoVersion(){
+  if(document.getElementById('ver-nueva')) return;
+  const d=document.createElement('div'); d.id='ver-nueva';
+  const s=document.createElement('span'); s.textContent='🔄 Hay una versión nueva de la app';
+  const b=document.createElement('button'); b.textContent='Actualizar'; b.onclick=()=>location.reload();
+  d.appendChild(s); d.appendChild(b); document.body.appendChild(d);
+}
+chequearVersion();
+setInterval(chequearVersion, 5*60*1000);
+document.addEventListener('visibilitychange',()=>{ if(!document.hidden) chequearVersion(); });
 
 // ============ START ============
 init();
