@@ -449,7 +449,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
     <button onclick="showWelcome()" style="background:none;border:none;color:var(--muted2);font-size:22px;cursor:pointer;margin-bottom:28px;padding:0;display:block">←</button>
     <div style="font-size:26px;font-weight:900;margin-bottom:4px">Recuperar cuenta</div>
     <div style="font-size:13px;color:var(--muted2);margin-bottom:20px">Pedile el acceso al admin</div>
-    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;font-size:13px;color:var(--muted2);line-height:1.6">El acceso lo gestiona el administrador del salón. Escribile a Ivan para que te resetee la contraseña.</div>
+    <div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;font-size:13px;color:var(--muted2);line-height:1.6">El acceso lo gestiona el administrador del salón. Escribile a Ivan: él te puede dar una contraseña nueva. Cuando entres, podés cambiarla desde el botón 🔑.</div>
     <button onclick="showWelcome()" class="btn btn-ghost" style="margin-top:16px">Volver</button>
   </div>
 </div>
@@ -569,7 +569,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
       <div style="font-size:12px;color:var(--muted2)">Recepción</div>
       <div style="font-size:20px;font-weight:900" id="rec-greeting">Buenos días 📞</div>
     </div>
-    <button class="hub-salir" onclick="showLogin()">SALIR</button>
+    <button class="hub-salir" onclick="cambiarMiPassword()" title="Cambiar contraseña">🔑</button><button class="hub-salir" onclick="showLogin()">SALIR</button>
   </div>
   <div class="scroll" id="rec-body"></div>
 </div>
@@ -581,7 +581,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
       <div style="font-size:12px;color:var(--muted2)">Encargado</div>
       <div style="font-size:20px;font-weight:900">📦 Control de stock</div>
     </div>
-    <button class="hub-salir" onclick="showLogin()">SALIR</button>
+    <button class="hub-salir" onclick="cambiarMiPassword()" title="Cambiar contraseña">🔑</button><button class="hub-salir" onclick="showLogin()">SALIR</button>
   </div>
   <div class="scroll" id="encargado-body"></div>
 </div>
@@ -597,7 +597,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 <div id="admin" class="screen">
   <div class="hub-hdr" style="padding-bottom:16px">
     <div><div style="font-size:12px;color:var(--muted2)">Panel de control</div><div style="font-size:20px;font-weight:900">Inda Studio 👑</div></div>
-    <button class="hub-salir" onclick="showLogin()">SALIR</button>
+    <button class="hub-salir" onclick="cambiarMiPassword()" title="Cambiar contraseña">🔑</button><button class="hub-salir" onclick="showLogin()">SALIR</button>
   </div>
   <div class="scroll" id="admin-body"></div>
 </div>
@@ -1100,6 +1100,118 @@ const STAGES = {
   publicado: {l:'Publicado', c:'#34d399'},
 };
 
+// ============ AUTENTICACION (Supabase Auth) ============
+// Cada persona tiene una cuenta de Supabase Auth (el email es "<usuario>@inda-luffy.app", no es un mail real).
+// Las contraseñas las guarda Supabase (cifradas); la app nunca las guarda. El ROL sale de la tabla luffy_roles,
+// que solo el admin puede modificar, y las reglas de la base deciden que puede leer/escribir cada uno.
+const AUTH_DOMINIO='@inda-luffy.app';
+const authEmail=(u)=>String(u||'').trim().toLowerCase().replace('@','').replace(/ /g,'_')+AUTH_DOMINIO;
+// Supabase pide 6+ caracteres; el prefijo fijo deja entrar tambien a las cuentas viejas con claves cortas
+const authPass=(p)=>'inda-luffy:'+p;
+let signOutPendiente=null;
+let cuentasPendientes=[];
+
+async function cargarMiRol(){
+  if(!supaClient) return null;
+  try{
+    const {data:{session}}=await supaClient.auth.getSession();
+    if(!session) return null;
+    const {data,error}=await supaClient.from('luffy_roles').select('app_id,role').eq('uid',session.user.id).maybeSingle();
+    return (error||!data)?null:data;
+  }catch(e){ return null; }
+}
+
+// Rubros de cada persona: un solo documento compartido { byId: { <id>: [rubros] } }.
+// Cada uno cambia solo su entrada (lee la version mas fresca antes de escribir).
+let rubrosProf={};
+function aplicarRubrosProf(){
+  allUsers.forEach(u=>{
+    if(rubrosProf[u.id]){ u.rubros=rubrosProf[u.id]; if(u.role==='profesional'&&u.rubros.length) u.profesion=u.rubros.map(nombreRubro).filter(Boolean).join(', ')||u.profesion; }
+  });
+  if(profile&&rubrosProf[profile.id]){ profile.rubros=rubrosProf[profile.id]; const u=allUsers.find(x=>x.id===profile.id); if(u&&u.profesion) profile.profesion=u.profesion; }
+}
+async function cargarRubrosProf(){
+  if(DB){ try{ const r=await DB.doc('luffy/rubros_prof').get(); if(r&&r.byId) rubrosProf=r.byId; }catch(e){} }
+  aplicarRubrosProf();
+}
+async function guardarRubrosDe(id,lista){
+  let base={byId:{}};
+  if(DB){ try{ const r=await DB.doc('luffy/rubros_prof').get(); if(r&&r.byId) base=r; }catch(e){} }
+  base.byId[id]=lista; rubrosProf=base.byId;
+  if(DB){ try{ await DB.doc('luffy/rubros_prof').set(base); }catch(e){} }
+  aplicarRubrosProf();
+}
+
+// Todo lo que se carga de la nube necesita sesion iniciada
+function cargarCatalogos(){
+  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion();
+  if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
+}
+
+// ---------- cuentas pendientes de aprobacion (admin) ----------
+async function cargarPendientes(){
+  if(!supaClient||!profile||profile.role!=='admin') return;
+  try{
+    const {data,error}=await supaClient.from('luffy_pending').select('uid,data,created_at').order('created_at');
+    if(error) return;
+    const nuevas=(data||[]).map(x=>({uid:x.uid,creado:x.created_at,...x.data}));
+    if(JSON.stringify(nuevas)!==JSON.stringify(cuentasPendientes)){ cuentasPendientes=nuevas; refreshCurrentView(); }
+  }catch(e){}
+}
+async function aprobarCuenta(uid){
+  const p=cuentasPendientes.find(x=>x.uid===uid); if(!p) return;
+  const rol=(document.getElementById('ap-rol-'+uid)||{}).value||p.role;
+  const appId=String(Date.parse(p.creado)||Date.now()); // fijo: si se reintenta, no duplica
+  let lista=allUsers;
+  if(DB){ try{ const r=await DB.doc('luffy/users').get(); if(r&&Array.isArray(r.list)) lista=r.list; }catch(e){} }
+  if(lista.some(u=>u.username===p.username&&u.id!==appId)){ showToast('Ya existe una persona con ese usuario'); return; }
+  const {error}=await supaClient.from('luffy_roles').upsert({uid,app_id:appId,role:rol},{onConflict:'uid'});
+  if(error){ showToast('No se pudo aprobar: '+error.message); return; }
+  if(!lista.some(u=>u.id===appId)){
+    lista.push({id:appId,name:p.name,username:p.username,role:rol,color:p.color,emoji:p.emoji,profesion:rol==='profesional'?(p.profesion||'Profesional'):(ROLES[rol]||rol),onboardingDone:false});
+    allUsers=lista; saveUsers();
+  }
+  if(rol==='profesional'&&p.rubros&&p.rubros.length) await guardarRubrosDe(appId,p.rubros);
+  await supaClient.from('luffy_pending').delete().eq('uid',uid);
+  cuentasPendientes=cuentasPendientes.filter(x=>x.uid!==uid);
+  showToast('Cuenta aprobada ✓ Ya puede entrar'); refreshCurrentView();
+}
+async function rechazarCuenta(uid){
+  const p=cuentasPendientes.find(x=>x.uid===uid); if(!p) return;
+  if(!await uiConfirm('¿Rechazar la cuenta de '+p.name+'?','No va a poder entrar. Si se equivocó, puede volver a registrarse con otro usuario.',{ok:'Rechazar'})) return;
+  await supaClient.from('luffy_pending').delete().eq('uid',uid);
+  cuentasPendientes=cuentasPendientes.filter(x=>x.uid!==uid);
+  showToast('Cuenta rechazada'); refreshCurrentView();
+}
+function htmlCuentasPendientes(){
+  if(!cuentasPendientes.length) return '';
+  return `<div class="sec-title" style="margin:6px 0 10px">🆕 Cuentas esperando aprobación (${cuentasPendientes.length})</div>
+  ${cuentasPendientes.map(p=>`<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.05)">
+    <div style="font-size:14px;font-weight:800">${escH(p.name)} <span style="font-size:12px;font-weight:600;color:var(--muted2)">@${escH(p.username)}</span></div>
+    <div style="font-size:11.5px;color:var(--muted2);margin:3px 0 10px">Pidió ser ${escH(ROLES[p.role]||p.role)}${(p.rubros&&p.rubros.length)?' · '+escH(p.rubros.map(nombreRubro).filter(Boolean).join(', ')):''}</div>
+    <div style="display:flex;gap:8px;align-items:center">
+      <select id="ap-rol-${p.uid}" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px">${['profesional','recepcionista','encargado'].map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLES[r]}</option>`).join('')}</select>
+      <button onclick="aprobarCuenta('${p.uid}')" style="padding:10px 16px;border-radius:10px;border:none;background:#34d399;color:#0b0b10;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">Aprobar</button>
+      <button onclick="rechazarCuenta('${p.uid}')" style="padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">✕</button>
+    </div></div>`).join('')}`;
+}
+
+// ---------- cambiar mi contraseña ----------
+async function cambiarMiPassword(){
+  if(!supaClient) return;
+  const v=await uiDialog({title:'Cambiar contraseña',fields:[{label:'Contraseña actual',type:'password'},{label:'Contraseña nueva (mínimo 6)',type:'password'},{label:'Repetí la nueva',type:'password'}],ok:'Cambiar'});
+  if(!v) return;
+  if(!v[1]||v[1].length<6){ showToast('La nueva tiene que tener al menos 6 caracteres'); return; }
+  if(v[1]!==v[2]){ showToast('Las contraseñas nuevas no coinciden'); return; }
+  try{
+    const {data:{user}}=await supaClient.auth.getUser();
+    const chk=await supaClient.auth.signInWithPassword({email:user.email,password:authPass(v[0])});
+    if(chk.error){ showToast('La contraseña actual no es correcta'); return; }
+    const {error}=await supaClient.auth.updateUser({password:authPass(v[1])});
+    showToast(error?'No se pudo cambiar: '+error.message:'Contraseña cambiada ✓');
+  }catch(e){ showToast('No se pudo cambiar la contraseña'); }
+}
+
 // ============ AUTH ============
 let allUsers = [];
 
@@ -1111,13 +1223,12 @@ async function loadUsers(){
       if(r && Array.isArray(r.list)){ allUsers=r.list; try{ localStorage.setItem('luffy_users', JSON.stringify(allUsers)); }catch(e){} }
     }catch(e){}
   }
-  if(!allUsers.find(u=>u.role==='admin')){
-    allUsers.unshift({id:'admin',name:'Ivan',username:'ivoadmin',password:'inda2024',role:'admin',color:'#fbbf24',emoji:'👑',profesion:'Administrador'});
-    saveUsers();
-  }
+  allUsers.forEach(u=>{ delete u.password; }); // las claves las maneja Supabase Auth; se limpian copias viejas
+  aplicarRubrosProf();
 }
 
 function saveUsers(){
+  allUsers.forEach(u=>{ delete u.password; }); // nunca se guardan claves en el listado
   try { localStorage.setItem('luffy_users',JSON.stringify(allUsers)); } catch(e){}
   if(DB){ try{ DB.doc('luffy/users').set({list:allUsers}); }catch(e){} }
 }
@@ -1169,16 +1280,14 @@ async function doLogin(){
   errEl.textContent='Verificando...';
   __doLoginBusy = true;
   try{
-  await loadUsers();
-  const u=allUsers.find(x=>{
-    const uname=(x.username||'').toLowerCase().replace(/ /g,'_');
-    const uname2=(x.name||'').toLowerCase().replace(/ /g,'_');
-    return uname===userInput||uname2===userInput||uname2===raw.toLowerCase();
-  });
-  if(!u){ errEl.textContent='Usuario no encontrado (probá con el usuario exacto que usaste al crear la cuenta)'; return; }
-  if(u.password!==passInput){ errEl.textContent='Contraseña incorrecta'; return; }
+  if(!supaClient){ errEl.textContent='No hay conexión con el servidor'; return; }
+  if(signOutPendiente){ try{ await signOutPendiente; }catch(e){} }
+  const {error}=await supaClient.auth.signInWithPassword({email:authEmail(userInput),password:authPass(passInput)});
+  if(error){ errEl.textContent='Usuario o contraseña incorrectos (usá el usuario exacto con el que te registraste)'; return; }
+  const rol=await cargarMiRol();
+  if(!rol){ await supaClient.auth.signOut(); errEl.textContent='Tu cuenta todavía no fue aprobada por el administrador'; return; }
   errEl.textContent='';
-  await loginAs(u.id);
+  await loginAs(rol.app_id);
   }finally{ __doLoginBusy = false; }
 }
 
@@ -1191,36 +1300,26 @@ async function doRegister(){
   const role=document.getElementById('reg-rol')?.value;
   const errEl=document.getElementById('reg-error');
   if(!name||!username||!pass){ errEl.textContent='Completá todos los campos'; return; }
-  if(pass.length<4){ errEl.textContent='Mínimo 4 caracteres'; return; }
+  if(pass.length<6){ errEl.textContent='La contraseña tiene que tener al menos 6 caracteres'; return; }
   const rubrosSel=role==='profesional'?[...document.querySelectorAll('.reg-rubro:checked')].map(x=>x.value):[];
   if(role==='profesional'&&!rubrosSel.length){ errEl.textContent='Elegí al menos un rubro'; return; }
   errEl.textContent='Verificando...';
   __doRegisterBusy = true;
   try{
-  await loadUsers();
-  if(allUsers.find(u=>u.username===username)){ errEl.textContent='Ese usuario ya existe'; return; }
-  errEl.textContent='';
+  if(!supaClient){ errEl.textContent='No hay conexión con el servidor'; return; }
+  if(signOutPendiente){ try{ await signOutPendiente; }catch(e){} }
+  const {data,error}=await supaClient.auth.signUp({email:authEmail(username),password:authPass(pass)});
+  if(error){ errEl.textContent=/registered|already|exists/i.test(error.message)?'Ese usuario ya existe':('No se pudo crear la cuenta: '+error.message); return; }
+  if(!data.session){ errEl.textContent='El servidor todavía pide confirmar por mail. Avisale al admin.'; return; }
   const colors={profesional:'#7c6fff',recepcionista:'#60a5fa',encargado:'#34d399'};
   const emojis={profesional:'✂️',recepcionista:'📞',encargado:'📋'};
-  const newU={id:Date.now().toString(),name,username,password:pass,role,color:colors[role]||'#7c6fff',emoji:emojis[role]||'✂️',profesion:role==='profesional'?rubrosSel.map(nombreRubro).filter(Boolean).join(', '):(ROLES[role]||role),onboardingDone:false};
-  if(role==='profesional') newU.rubros=rubrosSel;
-  allUsers.push(newU);
-  saveUsers();
-  showToast('Cuenta creada ✓');
-  // Enter directly without reloading from storage
-  sessionToken++;
-  profile={...newU};
-  try{ localStorage.setItem('luffy_session_id', newU.id); }catch(e){}
-  if(newU.role==='admin'){ enterAdmin(); return; }
-  if(newU.role==='encargado'){ enterEncargado(); return; }
-  if(newU.role==='recepcionista'){ enterRecepcionista(); return; }
-  dineroData={turnos:[]}; yoData={ingresos:[],gastos:[],deudas:[]};
-  loadStoriesData(); loadPuntosData();
-  show('onboarding');
-  document.getElementById('nav').style.display='none';
-  const iw=document.querySelector('.ob-input-wrap');
-  if(iw) iw.style.display='flex';
-  iniciarOnboarding(newU);
+  const datos={name,username,role,rubros:rubrosSel,color:colors[role]||'#7c6fff',emoji:emojis[role]||'✂️',profesion:role==='profesional'?rubrosSel.map(nombreRubro).filter(Boolean).join(', '):(ROLES[role]||role)};
+  const ins=await supaClient.from('luffy_pending').insert({uid:data.user.id,data:datos});
+  await supaClient.auth.signOut();
+  if(ins.error){ errEl.textContent='No se pudo enviar la solicitud: '+ins.error.message; return; }
+  errEl.textContent='';
+  showWelcome();
+  await uiDialog({title:'Cuenta creada ✓',msg:'Ahora el administrador tiene que aprobarla. Cuando lo haga, entrá con tu usuario y contraseña.',ok:'Entendido',soloOk:true});
   }finally{ __doRegisterBusy = false; }
 }
 
@@ -1238,8 +1337,15 @@ async function loginAs(id){
   if(myToken!==sessionToken) return; // superseded by a newer login/logout while we awaited
   const u=allUsers.find(x=>x.id===id);
   if(!u) return;
+  const rol=await cargarMiRol();
+  if(myToken!==sessionToken) return;
+  if(!rol||rol.app_id!==id){ showLogin(); return; }
+  u.role=rol.role; // el rol no se toma del listado: viene de la tabla protegida
+  await cargarRubrosProf();
+  if(myToken!==sessionToken) return;
   profile={...u};
   try{ localStorage.setItem('luffy_session_id', id); }catch(e){}
+  cargarCatalogos();
   if(u.role==='admin'){ enterAdmin(); return; }
   if(u.role==='encargado'){ enterEncargado(); return; }
   if(u.role==='recepcionista'){ enterRecepcionista(); return; }
@@ -1273,8 +1379,9 @@ async function loginAs(id){
   if(u.role==='profesional'&&!(profile.rubros&&profile.rubros.length)) setTimeout(()=>{ if(profile&&profile.id===id&&currentScreenId==='hub') abrirRubrosProf(id,true); },900);
 }
 
-function showLogin(){
-  sessionToken++; // invalidate any loginAs() still in flight so it can't resurrect this session
+function showLogin(cerrarSesion=true){
+  sessionToken++;
+  if(cerrarSesion&&supaClient) signOutPendiente=supaClient.auth.signOut().catch(()=>{}); // invalidate any loginAs() still in flight so it can't resurrect this session
   profile=null;
   if(recepcionPollTimer){ clearInterval(recepcionPollTimer); recepcionPollTimer=null; }
   if(adminPollTimer){ clearInterval(adminPollTimer); adminPollTimer=null; }
@@ -1315,25 +1422,11 @@ async function init(){
     if(typeof claude!=='undefined'){ DB=await claude.use('db'); }
     else if(supaClient){ DB=makeSupabaseDB(supaClient); }
   } catch(e){}
-  await loadUsers();
-  loadStoryHorarios();
-  loadProductos();
-  loadServicios();
-  loadOfertas();
-  loadRubros();
-  loadCombos();
-  loadReglasReels();
-  loadTareasRecepcion();
-  try { if(DB){ const r=await DB.doc('luffy/reels').get(); if(mergeReels(r)) persistReelsLocal(); } } catch(e){}
+  // Sin sesion la base no deja leer: no se carga nada de la nube hasta que la persona inicie sesion.
+  const rolInicio=await cargarMiRol();
   // Keep the session across reloads/app switches — without this, iOS
   // backgrounding the tab (or any reload) forces a fresh login every time.
-  let sessionId=null;
-  try{ sessionId=localStorage.getItem('luffy_session_id'); }catch(e){}
-  if(sessionId && allUsers.find(u=>u.id===sessionId)){
-    await loginAs(sessionId);
-  } else {
-    showLogin();
-  }
+  if(rolInicio){ await loginAs(rolInicio.app_id); } else { showLogin(false); }
 }
 
 // ============ HUB ============
@@ -3636,6 +3729,7 @@ function renderPerfil(){
     <div style="font-size:18px;font-weight:900;color:#fbbf24">⭐${getPuntos(profile.id).total||0}</div>
   </div>
   ${profile.role==='profesional'?`<div class="card" style="margin-top:10px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">🏷️</span><div style="flex:1"><div style="font-size:14px;font-weight:700">Mis rubros</div><div style="font-size:11px;color:var(--muted2)">${(profile.rubros&&profile.rubros.length)?escH(profile.rubros.map(nombreRubro).filter(Boolean).join(', ')):'Sin elegir: ves todos los servicios'}</div></div><button onclick="abrirRubrosProf('${profile.id}')" style="padding:8px 14px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Cambiar</button></div>`:''}
+  <div class="card" style="margin-top:10px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">🔑</span><div style="flex:1"><div style="font-size:14px;font-weight:700">Contraseña</div><div style="font-size:11px;color:var(--muted2)">Cambiala cuando quieras</div></div><button onclick="cambiarMiPassword()" style="padding:8px 14px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Cambiar</button></div>
   ${getPerfilCreadorHTML(color)}
   ${getHorarioHTML(color)}`;
 }
@@ -3982,6 +4076,7 @@ function prefetchAdminTeamData(){
   jobs.push(DB.doc('luffy/incidentes').get().then(r=>{
     if(r && Array.isArray(r.list)){ try{localStorage.setItem('luffy_incidentes', JSON.stringify(r.list));}catch(e){} }
   }).catch(()=>{}));
+  cargarPendientes();
   Promise.all(jobs).then(()=>{ adminUltAct=new Date(); refreshCurrentView(); }).catch(()=>{});
 }
 
@@ -4073,6 +4168,7 @@ function renderAdminEstadoEquipo(body){
   const incsPend=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]').filter(i=>!i.procesado);
   const canjesPend=canjesSolicitudes.filter(s=>s.estado==='pendiente');
   body.innerHTML+=`
+    ${htmlCuentasPendientes()}
     <div class="sec-title" style="margin:6px 0 10px">Estado del equipo</div>
     ${profesionales.map(p=>{
       const storiesDone=STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[p.id]?.[t.id]?.done).length;
@@ -4455,6 +4551,7 @@ function renderAdminPanel(c){
       ${(()=>{ const it=[];
         incsPend.forEach(i=>it.push(`<div class="ln"><span>⚠️ Incidente: <b>${escH(i.profName)}</b> — ${escH(i.razon)}</span><button class="lnk" onclick="switchAdminTab('estado')">Ver</button></div>`));
         canjesPend.forEach(s=>it.push(`<div class="ln"><span>🎁 <b>${escH(s.profName)}</b> quiere canjear ${escH(s.canjeLabel)}</span><button class="lnk" onclick="switchAdminTab('puntos')">Ver</button></div>`));
+        if(cuentasPendientes.length) it.push(`<div class="ln"><span>🆕 <b>${cuentasPendientes.length}</b> cuenta${cuentasPendientes.length===1?'':'s'} esperando aprobación</span><button class="lnk" onclick="switchAdminTab('estado')">Ver</button></div>`);
         stockBajo.forEach(p=>it.push(`<div class="ln"><span>📦 Poco stock: <b>${escH(p.nombre)}</b> (${p.stock})</span><button class="lnk" onclick="switchAdminTab('productos')">Ver</button></div>`));
         if(totalDeuda) it.push(`<div class="ln"><span>🚫 ${deudas.length} clientes deben <b>${fp(totalDeuda)}</b></span></div>`);
         return it.length?it.join(''):vacio('Todo en orden ✅');})()}`)}
@@ -4677,21 +4774,15 @@ function abrirRubrosProf(profId,primeraVez){
 // Lee la lista de usuarios mas fresca antes de escribir, para no pisar cuentas nuevas
 async function guardarRubrosProf(profId){
   const sel=[...document.querySelectorAll('.rp-chk:checked')].map(x=>x.value);
-  let lista=null;
-  if(DB){ try{ const r=await DB.doc('luffy/users').get(); if(r&&Array.isArray(r.list)) lista=r.list; }catch(e){} }
-  if(!lista) lista=allUsers;
-  const u=lista.find(x=>x.id===profId); if(!u){ showToast('No se encontró a la persona'); return; }
-  u.rubros=sel;
-  if(u.role==='profesional'&&sel.length) u.profesion=sel.map(nombreRubro).filter(Boolean).join(', ');
-  allUsers=lista; saveUsers();
-  if(profile&&profile.id===profId){ profile.rubros=sel; if(u.profesion) profile.profesion=u.profesion; }
+  const u=allUsers.find(x=>x.id===profId); if(!u){ showToast('No se encontró a la persona'); return; }
+  await guardarRubrosDe(profId,sel);
   closeModal('modal-registro'); showToast('Rubros guardados ✓'); refreshCurrentView();
 }
 function refrescarRubrosPropios(){
   if(!DB||!profile||profile.role!=='profesional') return;
-  Promise.resolve(DB.doc('luffy/users').get()).then(r=>{
-    const u=r&&Array.isArray(r.list)&&r.list.find(x=>x.id===profile.id);
-    if(u&&JSON.stringify(u.rubros||[])!==JSON.stringify(profile.rubros||[])){ profile.rubros=u.rubros||[]; refreshCurrentView(); }
+  Promise.resolve(DB.doc('luffy/rubros_prof').get()).then(r=>{
+    const l=r&&r.byId&&r.byId[profile.id];
+    if(l&&JSON.stringify(l)!==JSON.stringify(profile.rubros||[])){ rubrosProf=r.byId; aplicarRubrosProf(); refreshCurrentView(); }
   }).catch(()=>{});
 }
 
@@ -4919,6 +5010,7 @@ async function agregarCumple(recId){
   if(!recD.cumpleanos) recD.cumpleanos=[];
   recD.cumpleanos.push({id:Date.now().toString(),nombre,fecha,telefono:telefono||'',contactado:false});
   localStorage.setItem('luffy_rec_'+recId,JSON.stringify(recD));
+  if(DB){ try{ DB.doc('luffy/rec_'+recId).set(recD); }catch(e){} }
   showToast('Cumpleaños agregado ✓');
   renderAdmin();
 }
@@ -4928,6 +5020,7 @@ function borrarCumple(recId,id){
   try { recD=JSON.parse(localStorage.getItem('luffy_rec_'+recId)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){}
   recD.cumpleanos=(recD.cumpleanos||[]).filter(c=>c.id!==id);
   localStorage.setItem('luffy_rec_'+recId,JSON.stringify(recD));
+  if(DB){ try{ DB.doc('luffy/rec_'+recId).set(recD); }catch(e){} }
   showToast('Eliminado ✓');
   renderAdmin();
 }
