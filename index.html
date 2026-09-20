@@ -794,7 +794,7 @@ function saveProductos(){
 
 // ============ SERVICIOS Y OFERTAS (los carga el admin) ============
 const DESC_EFECTIVO_PCT = 10; // 10% off en servicios si pagan en efectivo
-const SERVICIOS_DEFAULT = [{id:'s1',nombre:'Corte',precio:18000},{id:'s2',nombre:'Corte + Barba',precio:20000}];
+const SERVICIOS_DEFAULT = [{id:'s1',nombre:'Corte',precio:18000,rubro:'barberia'},{id:'s2',nombre:'Corte + Barba',precio:20000,rubro:'barberia'}];
 let servicios = [...SERVICIOS_DEFAULT]; // {id, nombre, precio}
 let ofertas = [];                       // {id, nombre, pct, servicioIds:[] (vacío = todos), activa}
 
@@ -822,6 +822,42 @@ function saveOfertas(){
   try{localStorage.setItem('luffy_ofertas',JSON.stringify(ofertas));}catch(e){}
   if(DB){try{DB.doc('luffy/ofertas').set({list:ofertas});}catch(e){}}
 }
+
+// ============ RUBROS Y COMBOS ============
+// Rubro = sector del negocio (Barberia, Peluqueria...). Cada profesional tiene asignados los suyos
+// (u.rubros) y solo ve los servicios, combos y ofertas de esos rubros. Sin rubros asignados ve todo.
+const RUBROS_DEFAULT=[{id:'barberia',nombre:'Barbería'},{id:'barberia-premium',nombre:'Barbería Premium'},{id:'peluqueria',nombre:'Peluquería'},{id:'cosmetologia',nombre:'Cosmetología'},{id:'cejas',nombre:'Cejas y Pestañas'},{id:'podologia',nombre:'Podología'},{id:'masajes',nombre:'Masajes'},{id:'manos',nombre:'Manos'}];
+let rubros=JSON.parse(JSON.stringify(RUBROS_DEFAULT));
+let combos=[]; // {id, nombre, rubro, servicioIds:[..], precio}
+function loadRubros(){
+  try{ const r=JSON.parse(localStorage.getItem('luffy_rubros')||'null'); if(r&&r.length) rubros=r; }catch(e){}
+  if(DB){
+    DB.doc('luffy/rubros').get().then(r=>{
+      if(r&&r.list&&r.list.length&&JSON.stringify(r.list)!==JSON.stringify(rubros)){ rubros=r.list; try{localStorage.setItem('luffy_rubros',JSON.stringify(rubros));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveRubros(){
+  try{localStorage.setItem('luffy_rubros',JSON.stringify(rubros));}catch(e){}
+  if(DB){try{DB.doc('luffy/rubros').set({list:rubros});}catch(e){}}
+}
+function loadCombos(){
+  try{ combos=JSON.parse(localStorage.getItem('luffy_combos')||'[]'); }catch(e){ combos=[]; }
+  if(DB){
+    DB.doc('luffy/combos').get().then(r=>{
+      if(r&&r.list&&JSON.stringify(r.list)!==JSON.stringify(combos)){ combos=r.list; try{localStorage.setItem('luffy_combos',JSON.stringify(combos));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveCombos(){
+  try{localStorage.setItem('luffy_combos',JSON.stringify(combos));}catch(e){}
+  if(DB){try{DB.doc('luffy/combos').set({list:combos});}catch(e){}}
+}
+function nombreRubro(id){ return (rubros.find(r=>r.id===id)||{}).nombre||''; }
+function rubrosDeUsuario(u){ return (u&&Array.isArray(u.rubros)&&u.rubros.length)?u.rubros:null; }
+function visiblePorRubro(item,rb){ return !rb||!item.rubro||rb.includes(item.rubro); }
+function serviciosVisibles(){ const rb=rubrosDeUsuario(profile); return servicios.filter(s=>visiblePorRubro(s,rb)); }
+function nomSvc(s){ return s.nombre+(s.opcion?' ('+s.opcion+')':''); }
 
 // ============ TAREAS DE RECEPCION ============
 const TAREAS_RECEPCION_DEFAULT = [
@@ -1158,7 +1194,7 @@ async function loginAs(id){
     try { localStorage.setItem('luffy_perfil_'+id, JSON.stringify({...PERFIL_PRUEBA, id})); } catch(e){}
   }
   if(dineroPollTimer) clearInterval(dineroPollTimer);
-  if(u.role==='profesional') dineroPollTimer=setInterval(()=>{ if(currentScreenId==='hub'||currentScreenId==='dinero') refrescarDineroPropio(); if(['hub','kanban','banco'].includes(currentScreenId)) refrescarReels(); }, 45000);
+  if(u.role==='profesional') dineroPollTimer=setInterval(()=>{ if(currentScreenId==='hub'||currentScreenId==='dinero') refrescarDineroPropio(); if(['hub','kanban','banco'].includes(currentScreenId)) refrescarReels(); if(currentScreenId==='hub') refrescarRubrosPropios(); }, 45000);
   showHub();
 }
 
@@ -1209,6 +1245,8 @@ async function init(){
   loadProductos();
   loadServicios();
   loadOfertas();
+  loadRubros();
+  loadCombos();
   loadReglasReels();
   loadTareasRecepcion();
   try { if(DB){ const r=await DB.doc('luffy/reels').get(); if(mergeReels(r)) persistReelsLocal(); } } catch(e){}
@@ -2003,7 +2041,7 @@ function todasLasDeudas(){
 function buscarDeuda(profId,id){ return todasLasDeudas().find(d=>d.id===id&&d.prof.id===profId); }
 function detalleDeudaHtml(d,chico){
   const rr=(a,b,st='')=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:${chico?12:13}px;padding:2px 0;${st}"><span>${a}</span><span style="white-space:nowrap">${b}</span></div>`;
-  const svc=(d.servicios&&d.servicios.length)?d.servicios.map(s=>rr(escH(s.nombre),fp(s.precio))).join(''):(d.servicio||d.motivo?rr(escH(d.servicio||d.motivo),fp(numV(d.montoServicios!=null?d.montoServicios:d.monto))):'');
+  const svc=(d.servicios&&d.servicios.length)?d.servicios.map(s=>rr(escH(nomSvc(s)),fp(s.precio))).join(''):(d.servicio||d.motivo?rr(escH(d.servicio||d.motivo),fp(numV(d.montoServicios!=null?d.montoServicios:d.monto))):'');
   const desc=d.descuento>0?rr(d.descuentoTipo==='oferta'?`🏷️ Oferta ${escH(d.oferta?d.oferta.nombre:'')}`:'Descuento','−'+fp(d.descuento),'color:#34d399'):'';
   const prods=(d.productos||[]).map(p=>rr(`📦 ${escH(p.productoNombre)} x${p.cantidad}`,fp(p.total),'color:var(--muted2)')).join('');
   return svc+desc+prods;
@@ -2169,12 +2207,13 @@ function renderRegistro(){
 function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; if(tipo==='turno') resetCobro(); renderRegistro(); }
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
-// ============ COBRO DE TURNO (servicios + oferta + productos + medio) ============
-let cobro = {cliente:'', servicios:[], ofertaId:'', prods:{}, medio:'efectivo', motivo:''};
-function resetCobro(){ cobro={cliente:'', servicios:[], ofertaId:'', prods:{}, medio:'efectivo', motivo:''}; }
+// ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
+let cobro = {cliente:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''};
+function resetCobro(){ cobro={cliente:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''}; }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
-function ofertaAplicaA(o,sId){ return !o.servicioIds||!o.servicioIds.length||o.servicioIds.includes(sId); }
+function ofertasVisibles(){ const rb=rubrosDeUsuario(profile); return ofertasActivas().filter(o=>visiblePorRubro(o,rb)); }
+function ofertaAplicaA(o,ids){ return !o.servicioIds||!o.servicioIds.length||[].concat(ids).some(id=>o.servicioIds.includes(id)); }
 
 function quincenaActualInfo(){
   const now=new Date(); const q=now.getDate()<=15?1:2;
@@ -2184,13 +2223,52 @@ function quincenaActualInfo(){
   return calcComision(fact,reelsQ);
 }
 
+// Precio de un servicio en este cobro: el de lista (o el que puso el profesional si es "desde") + extra de la opcion elegida
+function precioSvc(id){
+  const s=servicios.find(x=>x.id===id); if(!s) return 0;
+  const ov=numV(cobro.precios[id]);
+  const base=(s.variable&&ov>0)?ov:numV(s.precio);
+  const op=cobro.opciones[id];
+  const extra=op&&s.variante?numV(((s.variante.opciones||[]).find(o=>o.n===op)||{}).extra):0;
+  return base+extra;
+}
+function svcConVariante(id){ const s=servicios.find(x=>x.id===id); return s&&s.variante&&(s.variante.opciones||[]).length?s:null; }
+
+// Lineas de servicio del cobro. Si estan elegidos todos los servicios de un combo, se cobra el precio del combo.
+function lineasCobro(){
+  const rb=rubrosDeUsuario(profile);
+  const elegidos=cobro.servicios.filter(id=>servicios.some(s=>s.id===id));
+  const usados=new Set(), lineas=[];
+  combos.filter(c=>visiblePorRubro(c,rb)&&c.servicioIds.length>1&&c.servicioIds.every(id=>elegidos.includes(id)))
+    .map(c=>({c,lista:c.servicioIds.reduce((a,id)=>a+precioSvc(id),0)}))
+    .filter(x=>x.c.precio<x.lista)
+    .sort((a,b)=>(b.lista-b.c.precio)-(a.lista-a.c.precio))
+    .forEach(({c,lista})=>{
+      if(c.servicioIds.some(id=>usados.has(id))) return;
+      c.servicioIds.forEach(id=>usados.add(id));
+      lineas.push({tipo:'combo',id:c.id,nombre:c.nombre,precio:c.precio,lista,ids:[...c.servicioIds],
+        componentes:c.servicioIds.map(id=>(servicios.find(s=>s.id===id)||{}).nombre)});
+    });
+  elegidos.filter(id=>!usados.has(id)).forEach(id=>{
+    const s=servicios.find(x=>x.id===id); const p=precioSvc(id);
+    lineas.push({tipo:'servicio',id:s.id,nombre:s.nombre,precio:p,lista:p,ids:[s.id]});
+  });
+  lineas.forEach(l=>{
+    const ops=[], faltan=[];
+    l.ids.forEach(id=>{ const s=svcConVariante(id); if(!s) return; const o=cobro.opciones[id]; if(o) ops.push(o); else faltan.push({id,titulo:s.variante.titulo||'Opción',servicio:s.nombre}); });
+    l.opcion=ops.join(', ')||null; l.faltan=faltan;
+  });
+  return lineas;
+}
+
 // Descuento por oferta y por efectivo NO se acumulan: se aplica el mejor de los dos.
 // Solo afectan a los servicios; los productos van siempre a precio de lista.
 function calcCobro(){
-  const svcs=servicios.filter(s=>cobro.servicios.includes(s.id));
-  const subtotal=svcs.reduce((a,s)=>a+s.precio,0);
-  const oferta=ofertasActivas().find(o=>o.id===cobro.ofertaId)||null;
-  const baseOferta=oferta?svcs.filter(s=>ofertaAplicaA(oferta,s.id)).reduce((a,s)=>a+s.precio,0):0;
+  const lineas=lineasCobro();
+  const subtotal=lineas.reduce((a,l)=>a+l.precio,0);
+  const ahorroCombo=lineas.filter(l=>l.tipo==='combo').reduce((a,l)=>a+(l.lista-l.precio),0);
+  const oferta=ofertasVisibles().find(o=>o.id===cobro.ofertaId)||null;
+  const baseOferta=oferta?lineas.filter(l=>ofertaAplicaA(oferta,l.ids)).reduce((a,l)=>a+l.precio,0):0;
   const descOferta=oferta?Math.round(baseOferta*oferta.pct/100):0;
   const descEfectivo=cobro.medio==='efectivo'?Math.round(subtotal*DESC_EFECTIVO_PCT/100):0;
   let descuento=0, descTipo=null;
@@ -2203,7 +2281,10 @@ function calcCobro(){
   });
   const prodTotal=prodLineas.reduce((a,l)=>a+l.total,0);
   const prodComision=prodLineas.reduce((a,l)=>a+l.comision,0);
-  return {svcs, subtotal, oferta, ofertaSinEfecto:!!oferta&&descOferta===0, descuento, descTipo, servicioNeto, prodLineas, prodTotal, prodComision, total:servicioNeto+prodTotal};
+  return {svcs:lineas, lineas, subtotal, ahorroCombo, oferta, ofertaSinEfecto:!!oferta&&descOferta===0, descuento, descTipo, servicioNeto, prodLineas, prodTotal, prodComision, total:servicioNeto+prodTotal};
+}
+function lineaAReg(l){
+  return {id:l.id, nombre:l.nombre, precio:l.precio, opcion:l.opcion||null, combo:l.tipo==='combo'?true:undefined, componentes:l.tipo==='combo'?l.componentes:undefined, lista:l.tipo==='combo'?l.lista:undefined};
 }
 
 function pillStyle(sel,color){
@@ -2211,13 +2292,16 @@ function pillStyle(sel,color){
 }
 
 function renderCobroForm(c,back,color){
+  const vis=serviciosVisibles();
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="modal-title" style="margin:0">Cobro del turno 💈</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-    <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" placeholder="Nombre del cliente..." value="${(cobro.cliente||'').replace(/"/g,'&quot;')}" oninput="cobro.cliente=this.value"/></div>
-    <div class="field"><label>¿Qué le hiciste?</label><div id="cb-serv"></div></div>
+    <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" placeholder="Nombre del cliente..." value="${escH(cobro.cliente)}" oninput="cobro.cliente=this.value"/></div>
+    <div class="field"><label>¿Qué le hiciste?</label>
+      ${vis.length>10?`<input id="cb-q" type="search" placeholder="Buscar servicio..." value="${escH(cobro.q)}" oninput="cobro.q=this.value;refreshCobro()" style="margin-bottom:8px"/>`:''}
+      <div id="cb-serv"></div><div id="cb-extra"></div></div>
     <div class="field" id="cb-ofertas-wrap"><label>¿Tiene alguna oferta?</label><div id="cb-ofertas"></div></div>
     <div class="field"><label>¿Le vendiste algún producto?</label><div id="cb-prods"></div></div>
     <div class="field"><label>Medio de pago</label><div id="cb-medio" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px"></div></div>
-    <div class="field" id="cb-motivo-wrap" style="display:none"><label>Motivo (opcional)</label><input id="cb-motivo" type="text" placeholder="Ej: se le olvidó la billetera, paga mañana..." value="${(cobro.motivo||'').replace(/"/g,'&quot;')}" oninput="cobro.motivo=this.value"/></div>
+    <div class="field" id="cb-motivo-wrap" style="display:none"><label>Motivo (opcional)</label><input id="cb-motivo" type="text" placeholder="Ej: se le olvidó la billetera, paga mañana..." value="${escH(cobro.motivo)}" oninput="cobro.motivo=this.value"/></div>
     <div id="cb-total"></div>
     <button class="btn btn-primary" onclick="guardarCobro()" style="background:${color};margin-top:12px">Guardar cobro</button>`;
   refreshCobro();
@@ -2228,21 +2312,41 @@ function refreshCobro(){
   const r=calcCobro();
   const serv=document.getElementById('cb-serv');
   if(!serv) return;
-  serv.innerHTML=servicios.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${servicios.map(s=>`<button onclick="cobroToggleServicio('${s.id}')" style="${pillStyle(cobro.servicios.includes(s.id),color)}">${s.nombre} · ${fp(s.precio)}</button>`).join('')}</div>`
-    :'<div style="font-size:12px;color:var(--muted)">El admin todavía no cargó servicios.</div>';
+  // --- servicios visibles segun los rubros del profesional ---
+  const vis=serviciosVisibles();
+  const q=(cobro.q||'').trim().toLowerCase();
+  const grupos={};
+  vis.filter(s=>!q||s.nombre.toLowerCase().includes(q)).forEach(s=>{ (grupos[s.rubro||'']=grupos[s.rubro||'']||[]).push(s); });
+  const multi=Object.keys(grupos).length>1;
+  serv.innerHTML=!vis.length?'<div style="font-size:12px;color:var(--muted)">El admin todavía no cargó servicios para tu rubro.</div>'
+    :!Object.keys(grupos).length?'<div style="font-size:12px;color:var(--muted)">No hay servicios que coincidan.</div>'
+    :Object.entries(grupos).map(([rid,list])=>`${multi?`<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px">${escH(nombreRubro(rid)||'Otros')}</div>`:''}
+      <div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(s=>`<button onclick="cobroToggleServicio('${s.id}')" style="${pillStyle(cobro.servicios.includes(s.id),color)}">${escH(s.nombre)} · ${s.variable?'desde ':''}${fp(s.precio)}</button>`).join('')}</div>`).join('');
 
-  const acts=ofertasActivas();
+  // --- combos aplicados, largo de barba, precio final de los "desde" ---
+  const ex=[];
+  r.lineas.filter(l=>l.tipo==='combo').forEach(l=>ex.push(`<div style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#34d399;font-weight:700">✨ Combo aplicado: ${escH(l.nombre)} ${fp(l.precio)} <span style="font-weight:600;opacity:.85">(ahorrás ${fp(l.lista-l.precio)})</span></div>`));
+  cobro.servicios.forEach(id=>{
+    const s=servicios.find(x=>x.id===id); if(!s) return;
+    if(s.variable) ex.push(`<div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:12px"><span style="flex:1;color:var(--muted2)">${escH(s.nombre)} — precio final</span><input type="number" inputmode="decimal" placeholder="${s.precio}" value="${cobro.precios[id]||''}" onchange="cobroPrecio('${id}',this.value)" style="width:110px;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:14px;font-weight:700;outline:none"/></div>`);
+    if(svcConVariante(id)){
+      ex.push(`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:5px">${escH(s.nombre)}: ${escH(s.variante.titulo||'Opción')} <span style="color:#f472b6">*</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.variante.opciones.map((o,oi)=>`<button onclick="cobroOpcion('${id}',${oi})" style="${pillStyle(cobro.opciones[id]===o.n,color)}">${escH(o.n)}${numV(o.extra)?' +'+fp(o.extra):''}</button>`).join('')}</div></div>`);
+    }
+  });
+  document.getElementById('cb-extra').innerHTML=ex.join('');
+
+  const acts=ofertasVisibles();
   document.getElementById('cb-ofertas-wrap').style.display=acts.length?'':'none';
-  document.getElementById('cb-ofertas').innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${acts.map(o=>`<button onclick="cobroToggleOferta('${o.id}')" style="${pillStyle(cobro.ofertaId===o.id,color)}">🏷️ ${o.nombre} (−${o.pct}%)</button>`).join('')}</div>`;
+  document.getElementById('cb-ofertas').innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${acts.map(o=>`<button onclick="cobroToggleOferta('${o.id}')" style="${pillStyle(cobro.ofertaId===o.id,color)}">🏷️ ${escH(o.nombre)} (−${o.pct}%)</button>`).join('')}</div>`;
 
   const prodsEl=document.getElementById('cb-prods');
   const disp=productos.filter(p=>p.stock>0||(cobro.prods[p.id]||0)>0);
   prodsEl.innerHTML=disp.length?disp.map(p=>{
-    const q=cobro.prods[p.id]||0;
+    const qn=cobro.prods[p.id]||0;
     return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="flex:1"><div style="font-size:13px;font-weight:600">${p.nombre}</div><div style="font-size:11px;color:var(--muted2)">${fp(p.precioVenta)} · quedan ${p.stock}</div></div>
+      <div style="flex:1"><div style="font-size:13px;font-weight:600">${escH(p.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${fp(p.precioVenta)} · quedan ${p.stock}</div></div>
       <button onclick="cobroQty('${p.id}',-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-size:18px;cursor:pointer">−</button>
-      <div style="min-width:20px;text-align:center;font-size:15px;font-weight:800;${q?`color:${color}`:'color:var(--muted)'}">${q}</div>
+      <div style="min-width:20px;text-align:center;font-size:15px;font-weight:800;${qn?`color:${color}`:'color:var(--muted)'}">${qn}</div>
       <button onclick="cobroQty('${p.id}',1)" style="width:32px;height:32px;border-radius:50%;border:none;background:${color};color:#fff;font-size:18px;cursor:pointer">+</button>
     </div>`;
   }).join(''):'<div style="font-size:12px;color:var(--muted)">No hay productos con stock cargados.</div>';
@@ -2257,11 +2361,11 @@ function refreshCobro(){
   const comServ=Math.round(r.servicioNeto*pctServ/100);
   const row=(a,b,style='')=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;${style}"><span>${a}</span><span style="white-space:nowrap">${b}</span></div>`;
   document.getElementById('cb-total').innerHTML=(r.svcs.length||r.prodLineas.length)?`<div class="card" style="margin-top:4px">
-    ${r.svcs.map(s=>row(s.nombre,fp(s.precio))).join('')}
-    ${r.descuento>0?row(r.descTipo==='oferta'?`🏷️ ${r.oferta.nombre} (−${r.oferta.pct}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(r.descuento),'color:#34d399'):''}
+    ${r.svcs.map(l=>row(escH(nomSvc(l)),fp(l.precio))).join('')}
+    ${r.descuento>0?row(r.descTipo==='oferta'?`🏷️ ${escH(r.oferta.nombre)} (−${r.oferta.pct}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(r.descuento),'color:#34d399'):''}
     ${r.ofertaSinEfecto?`<div style="font-size:11px;color:var(--muted2);padding:2px 0">La oferta elegida no aplica a los servicios seleccionados.</div>`:''}
     ${r.svcs.length?row('<b>Servicios</b>','<b>'+fp(r.servicioNeto)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
-    ${r.prodLineas.map(l=>row(`${l.producto.nombre} x${l.cantidad}`,fp(l.total))).join('')}
+    ${r.prodLineas.map(l=>row(`${escH(l.producto.nombre)} x${l.cantidad}`,fp(l.total))).join('')}
     ${r.prodLineas.length?row('<b>Productos</b>','<b>'+fp(r.prodTotal)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">${cobro.medio==='debe'?'QUEDA DEBIENDO':'TOTAL A COBRAR'}</span><span style="font-size:24px;font-weight:900">${fp(r.total)}</span></div>
     <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.5">
@@ -2273,9 +2377,11 @@ function refreshCobro(){
 
 function cobroToggleServicio(id){
   const i=cobro.servicios.indexOf(id);
-  if(i>=0) cobro.servicios.splice(i,1); else cobro.servicios.push(id);
+  if(i>=0){ cobro.servicios.splice(i,1); delete cobro.opciones[id]; delete cobro.precios[id]; } else cobro.servicios.push(id);
   refreshCobro();
 }
+function cobroOpcion(id,i){ const s=servicios.find(x=>x.id===id); if(!s||!s.variante) return; cobro.opciones[id]=s.variante.opciones[i].n; refreshCobro(); }
+function cobroPrecio(id,v){ const n=parseFloat(v)||0; if(n>0) cobro.precios[id]=n; else delete cobro.precios[id]; refreshCobro(); }
 function cobroToggleOferta(id){ cobro.ofertaId=(cobro.ofertaId===id?'':id); refreshCobro(); }
 function cobroMedio(m){ cobro.medio=m; refreshCobro(); }
 function cobroQty(id,delta){
@@ -2288,16 +2394,20 @@ function cobroQty(id,delta){
 function guardarCobro(){
   const r=calcCobro();
   if(!r.svcs.length){ showToast('Elegí qué le hiciste'); return; }
+  const falta=r.lineas.flatMap(l=>l.faltan)[0];
+  if(falta){ showToast('Elegí: '+falta.titulo.toLowerCase()+' ('+falta.servicio+')'); return; }
   for(const l of r.prodLineas){ if(l.cantidad>l.producto.stock){ showToast('No hay stock de '+l.producto.nombre); return; } }
+  const nombresSvc=r.lineas.map(l=>nomSvc(l)).join(' + ');
+  const ofertaReg=r.descTipo==='oferta'?{id:r.oferta.id,nombre:r.oferta.nombre,pct:r.oferta.pct}:null;
   if(cobro.medio==='debe'){
     const nombre=(cobro.cliente||'').trim();
     if(!nombre){ showToast('Poné el nombre del cliente para poder cobrarle después'); return; }
     if(!dineroData.deudores) dineroData.deudores=[];
     dineroData.deudores.push({
       id:Date.now().toString(), cliente:nombre, monto:r.total, montoServicios:r.servicioNeto,
-      servicio:r.svcs.map(s=>s.nombre).join(' + '),
-      servicios:r.svcs.map(s=>({id:s.id,nombre:s.nombre,precio:s.precio})),
-      oferta:r.descTipo==='oferta'?{id:r.oferta.id,nombre:r.oferta.nombre,pct:r.oferta.pct}:null,
+      servicio:nombresSvc,
+      servicios:r.lineas.map(lineaAReg),
+      oferta:ofertaReg,
       descuento:r.descuento, descuentoTipo:r.descTipo, subtotal:r.subtotal,
       productos:r.prodLineas.map(l=>({productoId:l.producto.id,productoNombre:l.producto.nombre,cantidad:l.cantidad,precioUnitario:l.producto.precioVenta,total:l.total,comision:l.comision,costoUnitario:l.producto.costo||0})),
       motivo:(cobro.motivo||'').trim(),
@@ -2320,9 +2430,9 @@ function guardarCobro(){
   if(!dineroData.ventas) dineroData.ventas=[];
   dineroData.turnos.push({
     id, cliente,
-    servicio:r.svcs.map(s=>s.nombre).join(' + '),
-    servicios:r.svcs.map(s=>({id:s.id,nombre:s.nombre,precio:s.precio})),
-    oferta:r.descTipo==='oferta'?{id:r.oferta.id,nombre:r.oferta.nombre,pct:r.oferta.pct}:null,
+    servicio:nombresSvc,
+    servicios:r.lineas.map(lineaAReg),
+    oferta:ofertaReg,
     descuento:r.descuento, descuentoTipo:r.descTipo, subtotal:r.subtotal,
     monto:r.servicioNeto, // lo único que suma a la quincena
     medio:cobro.medio, fecha, creadoEn
@@ -2971,7 +3081,7 @@ function renderTrabajo(wrap){
     const abierto=detalle&&dineroExpand===t.id;
     const extras=(dineroData.ventas||[]).filter(v=>v.turnoId===t.id);
     const detalleHtml=abierto?`<div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin:-2px 0 8px">
-      ${(t.servicios&&t.servicios.length?t.servicios.map(s=>dline(s.nombre,fp(s.precio))).join(''):dline(t.servicio||'Servicio',fp(num(t.monto))))}
+      ${(t.servicios&&t.servicios.length?t.servicios.map(s=>dline(nomSvc(s),fp(s.precio))).join(''):dline(t.servicio||'Servicio',fp(num(t.monto))))}
       ${t.descuento>0?dline(t.descuentoTipo==='oferta'?`🏷️ Oferta ${t.oferta?t.oferta.nombre:''}`:`💵 Efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(t.descuento),'color:#34d399'):''}
       ${dline('<b>Suma a tu quincena</b>','<b>'+fp(num(t.monto))+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px')}
       ${extras.map(v=>dline(`📦 ${v.productoNombre} x${v.cantidad}`,fp(v.total)+' · +'+fp(v.comision),'color:var(--muted2)')).join('')}
@@ -3775,7 +3885,7 @@ function prefetchAdminTeamData(){
 const ADMIN_SECCIONES=[
   {id:'panel',ico:'📊',label:'Panel'},
   {id:'equipo',ico:'👥',label:'Equipo',subs:[['estado','Estado'],['stories','Stories'],['puntos','Puntos']]},
-  {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios y ofertas'],['productos','Productos y stock']]},
+  {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Productos y stock']]},
   {id:'contenido',ico:'📝',label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
   {id:'recepcion',ico:'📞',label:'Recepción'},
 ];
@@ -3796,7 +3906,7 @@ function renderAdmin(){
   const c=document.getElementById('adm-content');
   if(tab==='panel') renderAdminPanel(c);
   else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else renderAdminEstadoEquipo(c); }
-  else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else renderAdminServicios(c); }
+  else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
   else if(tab==='recepcion') renderAdminCumpleanos(c);
   body.scrollTop=st;
@@ -3879,6 +3989,7 @@ function renderAdminEstadoEquipo(body){
           <div style="text-align:right"><div style="font-size:11px;font-weight:700;color:${repColor}">${repInfo.emoji} ${repInfo.label}</div><div style="font-size:10px;color:var(--muted2)">Rep: ${rep}%</div></div>
         </div>
         <div class="rep-bar"><div class="rep-fill" style="width:${rep}%;background:${repColor}"></div></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">🏷️ ${(p.rubros&&p.rubros.length)?escH(p.rubros.map(nombreRubro).filter(Boolean).join(', ')):'<i>Todos los rubros (sin asignar)</i>'}</span><button class="lnk" onclick="abrirRubrosProf('${p.id}')">Cambiar</button></div>
       </div>`;
     }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>Sin profesionales.</p></div>'}
 
@@ -4271,80 +4382,318 @@ function renderAdminPanel(c){
   </div>`;
 }
 
-function renderAdminServicios(body){
-  body.innerHTML += `
-    <div class="sec-title" style="margin-bottom:12px">✂️ Servicios</div>
-    <div class="card" style="margin-bottom:12px;font-size:12px;color:var(--muted2);line-height:1.5">💵 Pagando en efectivo hay <b style="color:var(--text)">${DESC_EFECTIVO_PCT}% off</b> automático en los servicios. Si el cliente además tiene una oferta, se aplica la que más descuenta (no se suman).</div>
-    <button onclick="mostrarFormServicio()" class="btn btn-primary" style="margin-bottom:14px;width:100%">+ Cargar servicio</button>
-    <div id="servicio-form-wrap"></div>
-    ${servicios.length?servicios.map(s=>`<div class="prof-card" style="margin-bottom:8px"><div style="display:flex;align-items:center;gap:10px">
-      <div style="flex:1"><div style="font-size:14px;font-weight:700">${s.nombre}</div><div style="font-size:12px;color:var(--muted2)">${fp(s.precio)}</div></div>
-      <button onclick="editarPrecioServicio('${s.id}')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar precio</button>
-      <button onclick="borrarServicio('${s.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
-    </div></div>`).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">Sin servicios cargados</div>'}
+// ---------- ADMIN: servicios por rubro ----------
+let adminSvcRubro='todos', adminSvcQ='';
+const minsTxt=(m)=>m?(m>=60?(Math.floor(m/60)+' h'+(m%60?' '+(m%60)+' min':'')):m+' min'):'';
+function slugRubro(n){ return String(n).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,'-').replace(/^-|-$/g,'')||('r'+Date.now()); }
 
-    <div class="sec-title" style="margin:22px 0 12px">🏷️ Ofertas</div>
-    <button onclick="mostrarFormOferta()" class="btn btn-primary" style="margin-bottom:14px;width:100%">+ Cargar oferta</button>
-    <div id="oferta-form-wrap"></div>
-    ${ofertas.length?ofertas.map(o=>{
-      const activa=o.activa!==false;
-      const aplica=(o.servicioIds&&o.servicioIds.length)?o.servicioIds.map(id=>(servicios.find(s=>s.id===id)||{}).nombre).filter(Boolean).join(', '):'Todos los servicios';
-      return `<div class="prof-card" style="margin-bottom:8px;${activa?'':'opacity:.55'}"><div style="display:flex;align-items:center;gap:10px">
-        <div style="flex:1"><div style="font-size:14px;font-weight:700">${o.nombre} · −${o.pct}%</div><div style="font-size:11px;color:var(--muted2)">${aplica}</div></div>
-        <button onclick="toggleOferta('${o.id}')" style="padding:6px 12px;border-radius:10px;border:1.5px solid ${activa?'#34d399':'var(--border2)'};background:${activa?'rgba(52,211,153,.12)':'transparent'};color:${activa?'#34d399':'var(--muted2)'};font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">${activa?'Activa':'Pausada'}</button>
-        <button onclick="borrarOferta('${o.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
-      </div></div>`;
-    }).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">Sin ofertas cargadas</div>'}
-  `;
+function renderAdminServicios(body){
+  const f=adminSvcRubro, q=adminSvcQ.trim().toLowerCase();
+  const sinRubro=servicios.filter(s=>!s.rubro||!rubros.some(r=>r.id===s.rubro)).length;
+  const lista=servicios.filter(s=>(f==='todos'||(f==='sin'?(!s.rubro||!rubros.some(r=>r.id===s.rubro)):s.rubro===f))&&(!q||s.nombre.toLowerCase().includes(q)));
+  const grupos=[...rubros.map(r=>({id:r.id,nombre:r.nombre})),{id:'',nombre:'Sin rubro'}].map(g=>({...g,items:lista.filter(s=>g.id?s.rubro===g.id:(!s.rubro||!rubros.some(r=>r.id===s.rubro)))})).filter(g=>g.items.length);
+  const chip=(id,l,n)=>`<button class="${f===id?'on':''}" onclick="adminSvcRubro='${id}';renderAdmin()">${escH(l)} (${n})</button>`;
+  body.innerHTML+=`
+    <div style="display:flex;gap:8px;margin:6px 0 12px;flex-wrap:wrap">
+      <button onclick="abrirFormServicio()" class="btn btn-primary" style="flex:1;margin:0;min-width:130px">+ Servicio</button>
+      <button onclick="abrirImportServicios()" class="btn btn-ghost" style="flex:1;margin:0;min-width:130px">📥 Cargar varios</button>
+      <button onclick="abrirRubros()" class="btn btn-ghost" style="flex:1;margin:0;min-width:130px">🏷️ Rubros</button>
+    </div>
+    <div class="card" style="margin-bottom:12px;font-size:12px;color:var(--muted2);line-height:1.5">💵 Pagando en efectivo hay <b style="color:var(--text)">${DESC_EFECTIVO_PCT}% off</b> automático en los servicios. Los combos se arman en <b style="color:var(--text)">Combos y ofertas</b>. Cada profesional ve solo los servicios de sus rubros (se asignan en Equipo → Estado).</div>
+    <div class="adm-chips sm" style="margin-bottom:10px">${chip('todos','Todos',servicios.length)}${rubros.map(r=>chip(r.id,r.nombre,servicios.filter(s=>s.rubro===r.id).length)).join('')}${sinRubro?chip('sin','Sin rubro',sinRubro):''}</div>
+    ${servicios.length>8?`<input type="search" id="admsvc-q" placeholder="Buscar servicio..." value="${escH(adminSvcQ)}" oninput="adminSvcQ=this.value;renderAdmin();var e=document.getElementById('admsvc-q');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:13px;margin-bottom:10px;outline:none"/>`:''}
+    ${grupos.length?grupos.map(g=>`
+      <div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:12px 0 6px">${escH(g.nombre)} · ${g.items.length}</div>
+      ${g.items.map(s=>`<div class="prof-card" style="margin-bottom:6px;padding:10px 14px"><div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13.5px;font-weight:700">${escH(s.nombre)}</div>
+          <div style="display:flex;gap:5px;flex-wrap:wrap;margin-top:4px">${s.duracion?`<span class="bdg">⏱ ${minsTxt(s.duracion)}</span>`:''}${s.variable?'<span class="bdg">precio "desde"</span>':''}${s.variante?`<span class="bdg">${escH(s.variante.titulo||'Opciones')}: ${escH((s.variante.opciones||[]).map(o=>o.n).join('/'))}</span>`:''}</div>
+        </div>
+        <div style="font-size:14px;font-weight:800;white-space:nowrap">${s.variable?'<span style="font-size:10px;font-weight:600;color:var(--muted2)">desde </span>':''}${fp(s.precio)}</div>
+        <button onclick="abrirFormServicio('${s.id}')" title="Editar" style="background:none;border:none;color:var(--muted2);font-size:15px;cursor:pointer;padding:4px">✏️</button>
+        <button onclick="borrarServicio('${s.id}')" title="Borrar" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer;padding:0 4px">×</button>
+      </div></div>`).join('')}`).join(''):`<div style="text-align:center;color:var(--muted);font-size:13px;padding:20px">${servicios.length?'No hay servicios en este filtro':'Sin servicios cargados todavía'}</div>`}`;
 }
-function mostrarFormServicio(){
-  document.getElementById('servicio-form-wrap').innerHTML=`<div class="card" style="margin-bottom:14px">
-    <div class="field"><label>Nombre</label><input id="sv-nombre" placeholder="Ej: Corte + Barba"/></div>
-    <div class="field" style="margin-top:8px"><label>Precio</label><input id="sv-precio" type="number" placeholder="0"/></div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button onclick="document.getElementById('servicio-form-wrap').innerHTML=''" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
-      <button onclick="guardarServicio()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
-    </div></div>`;
-  document.getElementById('sv-nombre')?.focus();
+
+function abrirFormServicio(id){
+  const s=id?servicios.find(x=>x.id===id):null;
+  const v=(k)=>escH(s&&s[k]!=null?s[k]:'');
+  const ops=s&&s.variante?(s.variante.opciones||[]).map(o=>o.n+(numV(o.extra)?':'+o.extra:'')).join(', '):'';
+  const c=document.getElementById('registro-content');
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div class="modal-title" style="margin:0">${s?'Editar servicio':'Servicio nuevo'}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <input type="hidden" id="sv-id" value="${s?s.id:''}"/>
+    <div class="field"><label>Nombre</label><input id="sv-nombre" placeholder="Ej: Barba" value="${v('nombre')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Rubro</label><select id="sv-rubro" style="${inpCss}">${rubros.map(r=>`<option value="${r.id}" ${s?(s.rubro===r.id?'selected':''):(adminSvcRubro===r.id?'selected':'')}>${escH(r.nombre)}</option>`).join('')}</select></div>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <div class="field" style="flex:1"><label>Precio ($)</label><input id="sv-precio" type="number" inputmode="decimal" placeholder="0" value="${v('precio')}"/></div>
+      <div class="field" style="flex:1"><label>Duración (min)</label><input id="sv-dur" type="number" inputmode="numeric" placeholder="45" value="${v('duracion')}"/></div>
+    </div>
+    <label style="display:flex;align-items:flex-start;gap:8px;font-size:12px;color:var(--muted2);margin:12px 0;text-transform:none;letter-spacing:0;line-height:1.4"><input id="sv-var" type="checkbox" ${s&&s.variable?'checked':''} style="width:auto;margin-top:2px"/><span>El precio <b style="color:var(--text)">varía</b> ("desde"): el profesional pone el precio final al cobrar</span></label>
+    <div class="field"><label>Opciones a elegir al cobrar (opcional)</label>
+      <input id="sv-vtit" placeholder="Nombre de la opción. Ej: Largo de barba" value="${escH(s&&s.variante?s.variante.titulo:'')}" style="margin-bottom:6px"/>
+      <input id="sv-vops" placeholder="Corta, Media, Larga   (con extra: Larga:2000)" value="${escH(ops)}"/></div>
+    <button class="btn btn-primary" onclick="guardarServicio()" style="margin-top:14px">${s?'Guardar cambios':'Agregar servicio'}</button>`;
+  openModal('modal-registro');
 }
 function guardarServicio(){
-  const nombre=document.getElementById('sv-nombre')?.value.trim();
-  const precio=parseFloat(document.getElementById('sv-precio')?.value)||0;
+  const val=(i)=>(document.getElementById(i)?.value||'').trim();
+  const nombre=val('sv-nombre'), precio=parseFloat(val('sv-precio'))||0;
   if(!nombre||precio<=0){ showToast('Poné nombre y precio'); return; }
-  servicios.push({id:Date.now().toString(), nombre, precio});
-  saveServicios(); showToast('Servicio agregado ✓'); renderAdmin();
-}
-async function editarPrecioServicio(id){
-  const s=servicios.find(x=>x.id===id); if(!s) return;
-  const r=await uiPrompt('Editar precio',{msg:s.nombre,label:'Nuevo precio ($)',type:'number',value:s.precio,ok:'Guardar'});
-  const v=parseFloat(r);
-  if(!v||v<=0) return;
-  s.precio=v; saveServicios(); renderAdmin();
+  const ops=val('sv-vops').split(',').map(t=>t.trim()).filter(Boolean).map(t=>{ const p=t.split(':'); return {n:p[0].trim(), extra:parseFloat(p[1])||0}; });
+  const campos={nombre, precio, rubro:val('sv-rubro'), duracion:parseInt(val('sv-dur'))||0, variable:document.getElementById('sv-var').checked||undefined, variante:ops.length?{titulo:val('sv-vtit')||'Opción',opciones:ops}:undefined};
+  const id=val('sv-id');
+  if(id){ const s=servicios.find(x=>x.id===id); if(!s) return; Object.keys(campos).forEach(k=>{ if(campos[k]===undefined) delete s[k]; else s[k]=campos[k]; }); showToast('Servicio actualizado ✓'); }
+  else { const s={id:Date.now().toString()}; Object.keys(campos).forEach(k=>{ if(campos[k]!==undefined) s[k]=campos[k]; }); servicios.push(s); showToast('Servicio agregado ✓'); }
+  saveServicios(); closeModal('modal-registro'); renderAdmin();
 }
 async function borrarServicio(id){
-  if(!await uiConfirm('¿Borrar este servicio?','Los turnos ya cargados no cambian.')) return;
-  servicios=servicios.filter(s=>s.id!==id); saveServicios(); renderAdmin();
+  const s=servicios.find(x=>x.id===id); if(!s) return;
+  const enCombos=combos.filter(c=>c.servicioIds.includes(id));
+  const msg=(enCombos.length?'Está en el combo "'+enCombos.map(c=>c.nombre).join('", "')+'": también se borra ese combo.\n':'')+'Los turnos ya cargados no cambian.';
+  if(!await uiConfirm('¿Borrar "'+s.nombre+'"?',msg)) return;
+  servicios=servicios.filter(x=>x.id!==id);
+  if(enCombos.length){ combos=combos.filter(c=>!c.servicioIds.includes(id)); saveCombos(); }
+  ofertas.forEach(o=>{ if(o.servicioIds) o.servicioIds=o.servicioIds.filter(x=>x!==id); });
+  saveServicios(); saveOfertas(); renderAdmin();
 }
-function mostrarFormOferta(){
-  document.getElementById('oferta-form-wrap').innerHTML=`<div class="card" style="margin-bottom:14px">
-    <div class="field"><label>Nombre de la oferta</label><input id="of-nombre" placeholder="Ej: Promo martes"/></div>
-    <div class="field" style="margin-top:8px"><label>Descuento (%)</label><input id="of-pct" type="number" placeholder="20"/></div>
-    <div class="field" style="margin-top:8px"><label>Aplica a (si no marcás ninguno, aplica a todos)</label>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-top:4px">${servicios.map(s=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" class="of-svc" value="${s.id}" style="width:auto"/> ${s.nombre}</label>`).join('')}</div>
+
+// ---------- carga masiva de servicios ----------
+function serviciosDeTabla(txt){
+  let rows=parseTabla(txt);
+  if(rows.length){ const h=(rows[0][0]||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').trim(); if(h==='nombre'||h==='servicio'||h==='name') rows=rows.slice(1); }
+  const norm=(s)=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const validos=[]; let omitidos=0; const rubrosNuevos=new Set();
+  rows.forEach(c=>{
+    const g=(i)=>(c[i]||'').trim();
+    const precio=parseFloat(g(1).replace(/\./g,'').replace(',','.'))||0;
+    if(!g(0)||precio<=0){ omitidos++; return; }
+    const rn=g(3); const ex=rn&&rubros.find(r=>norm(r.nombre)===norm(rn));
+    if(rn&&!ex) rubrosNuevos.add(rn);
+    validos.push({nombre:g(0),precio,duracion:parseInt(g(2))||0,rubroNombre:rn,rubroId:ex?ex.id:null,desc:g(4),variable:/desde\)?\s*$/i.test(g(0))||undefined});
+  });
+  return {validos,omitidos,rubrosNuevos:[...rubrosNuevos]};
+}
+function abrirImportServicios(){
+  const c=document.getElementById('registro-content');
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="modal-title" style="margin:0">Cargar varios servicios</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:10px">Pegá filas de una planilla o subí un CSV con estas columnas, en este orden:<br><b style="color:var(--text)">Nombre · Precio · Duración (min) · Rubro · Descripción</b><br>Si el rubro no existe, se crea. Los que ya están (mismo nombre y rubro) se saltean.</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <button onclick="descargarPlantillaServicios()" class="btn btn-ghost" style="flex:1;margin:0;padding:10px;font-size:12px">⬇ Plantilla CSV</button>
+      <label class="btn btn-ghost" style="flex:1;margin:0;padding:10px;font-size:12px;text-align:center;cursor:pointer">📂 Subir archivo<input type="file" accept=".csv,.tsv,.txt" style="display:none" onchange="importServiciosArchivo(this)"/></label>
     </div>
-    <div style="display:flex;gap:8px;margin-top:12px">
-      <button onclick="document.getElementById('oferta-form-wrap').innerHTML=''" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
-      <button onclick="guardarOferta()" style="flex:1;padding:12px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
-    </div></div>`;
-  document.getElementById('of-nombre')?.focus();
+    <textarea id="isv-txt" rows="7" placeholder="O pegá acá las filas copiadas de la planilla..." oninput="previewImportServicios()" style="${inpCss};min-height:130px"></textarea>
+    <div id="isv-prev" style="font-size:12px;color:var(--muted2);margin:10px 0"></div>
+    <button id="isv-btn" class="btn btn-primary" onclick="confirmarImportServicios()" disabled>Importar</button>`;
+  openModal('modal-registro');
 }
+function importServiciosArchivo(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{ document.getElementById('isv-txt').value=String(rd.result||''); previewImportServicios(); }; rd.readAsText(f,'utf-8');
+}
+function serviciosNuevosDeImport(){
+  const {validos,omitidos,rubrosNuevos}=serviciosDeTabla(document.getElementById('isv-txt')?.value||'');
+  const ya=new Set(servicios.map(s=>s.nombre.toLowerCase()+'|'+(s.rubro||'')));
+  const nuevos=validos.filter(v=>!ya.has(v.nombre.toLowerCase()+'|'+(v.rubroId||slugRubro(v.rubroNombre||''))));
+  return {validos,nuevos,omitidos,rubrosNuevos};
+}
+function previewImportServicios(){
+  const txt=document.getElementById('isv-txt')?.value||'';
+  const prev=document.getElementById('isv-prev'), btn=document.getElementById('isv-btn');
+  if(!txt.trim()){ prev.textContent=''; btn.disabled=true; btn.textContent='Importar'; return; }
+  const {validos,nuevos,omitidos,rubrosNuevos}=serviciosNuevosDeImport();
+  prev.innerHTML=`<b style="color:var(--text)">${nuevos.length}</b> servicios nuevos${validos.length-nuevos.length?` · ${validos.length-nuevos.length} ya existen (se saltean)`:''}${omitidos?` · <span style="color:#fbbf24">${omitidos} filas sin nombre o sin precio (se saltean)</span>`:''}${rubrosNuevos.length?`<div style="margin-top:6px;color:#fbbf24">Se van a crear los rubros: ${rubrosNuevos.map(escH).join(', ')}</div>`:''}${nuevos.length?'<div style="margin-top:6px;color:var(--muted)">'+nuevos.slice(0,4).map(v=>'• '+escH(v.nombre)+' — '+fp(v.precio)).join('<br>')+(nuevos.length>4?'<br>…':'')+'</div>':''}`;
+  btn.disabled=!nuevos.length; btn.textContent=nuevos.length?'Importar '+nuevos.length+' servicios':'Importar';
+}
+function confirmarImportServicios(){
+  const {nuevos}=serviciosNuevosDeImport(); if(!nuevos.length) return;
+  const base=Date.now();
+  nuevos.forEach((v,i)=>{
+    let rid=v.rubroId;
+    if(!rid&&v.rubroNombre){ rid=slugRubro(v.rubroNombre); if(!rubros.some(r=>r.id===rid)) rubros.push({id:rid,nombre:v.rubroNombre}); }
+    const s={id:base+'-'+i,nombre:v.nombre,precio:v.precio,duracion:v.duracion,rubro:rid||''};
+    if(v.desc) s.desc=v.desc; if(v.variable) s.variable=true;
+    servicios.push(s);
+  });
+  saveRubros(); saveServicios();
+  closeModal('modal-registro'); adminSvcRubro='todos';
+  showToast(nuevos.length+' servicios cargados ✓'); renderAdmin();
+}
+function descargarPlantillaServicios(){
+  const filas=[['Nombre','Precio','Duración (min)','Rubro','Descripción'],['Corte de cabello',18000,45,'Barbería',''],['Balayage desde',130000,120,'Peluquería','El precio final depende del largo']];
+  const csv='﻿'+filas.map(f=>f.map(x=>'"'+String(x).replace(/"/g,'""')+'"').join(';')).join('\r\n');
+  const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download='plantilla-servicios.csv';
+  document.body.appendChild(a); a.click(); a.remove();
+}
+
+// ---------- rubros ----------
+function abrirRubros(){
+  const c=document.getElementById('registro-content');
+  const profs=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div class="modal-title" style="margin:0">Rubros</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:10px">Los rubros ordenan los servicios. Cada profesional ve solo los de los rubros que tiene asignados.</div>
+    ${rubros.map(r=>{ const ns=servicios.filter(s=>s.rubro===r.id).length, nc=combos.filter(x=>x.rubro===r.id).length, np=profs.filter(u=>(u.rubros||[]).includes(r.id)).length;
+      return `<div class="ln"><span><b>${escH(r.nombre)}</b><br><span style="font-size:10.5px;color:var(--muted)">${ns} servicios${nc?' · '+nc+' combos':''} · ${np} profesionales</span></span><span><button class="lnk" onclick="renombrarRubro('${r.id}')">Renombrar</button> <button class="lnk" style="color:#f472b6" onclick="borrarRubro('${r.id}')">Borrar</button></span></div>`; }).join('')}
+    <button class="btn btn-primary" onclick="agregarRubro()" style="margin-top:14px">+ Agregar rubro</button>`;
+  openModal('modal-registro');
+}
+async function agregarRubro(){
+  const n=await uiPrompt('Nuevo rubro',{label:'Nombre',placeholder:'Ej: Depilación',ok:'Agregar'});
+  if(!n||!n.trim()) return;
+  const id=slugRubro(n);
+  if(rubros.some(r=>r.id===id)){ showToast('Ese rubro ya existe'); return; }
+  rubros.push({id,nombre:n.trim()}); saveRubros(); abrirRubros(); renderAdmin();
+}
+async function renombrarRubro(id){
+  const r=rubros.find(x=>x.id===id); if(!r) return;
+  const n=await uiPrompt('Renombrar rubro',{label:'Nombre',value:r.nombre,ok:'Guardar'});
+  if(!n||!n.trim()) return;
+  r.nombre=n.trim(); saveRubros(); abrirRubros(); renderAdmin();
+}
+async function borrarRubro(id){
+  const r=rubros.find(x=>x.id===id); if(!r) return;
+  const ns=servicios.filter(s=>s.rubro===id).length;
+  if(ns){ showToast('Tiene '+ns+' servicios: movelos o borralos primero'); return; }
+  if(!await uiConfirm('¿Borrar el rubro "'+r.nombre+'"?','A los profesionales que lo tengan asignado se les saca.')) return;
+  rubros=rubros.filter(x=>x.id!==id); combos=combos.filter(c=>c.rubro!==id); ofertas.forEach(o=>{ if(o.rubro===id) delete o.rubro; });
+  saveRubros(); saveCombos(); saveOfertas(); abrirRubros(); renderAdmin();
+}
+
+// ---------- asignar rubros a un profesional ----------
+function abrirRubrosProf(profId){
+  const u=allUsers.find(x=>x.id===profId); if(!u) return;
+  const c=document.getElementById('registro-content');
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="modal-title" style="margin:0">Rubros de ${escH(u.name)}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:12px">Va a ver solo los servicios y ofertas de estos rubros. Si no marcás ninguno, ve todos.</div>
+    ${rubros.map(r=>`<label style="display:flex;align-items:center;gap:10px;padding:11px 12px;border:1.5px solid var(--border2);border-radius:12px;margin-bottom:6px;font-size:14px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" class="rp-chk" value="${r.id}" ${(u.rubros||[]).includes(r.id)?'checked':''} style="width:auto"/> ${escH(r.nombre)} <span style="margin-left:auto;font-size:11px;color:var(--muted);font-weight:500">${servicios.filter(s=>s.rubro===r.id).length} servicios</span></label>`).join('')}
+    <button class="btn btn-primary" onclick="guardarRubrosProf('${u.id}')" style="margin-top:10px">Guardar</button>`;
+  openModal('modal-registro');
+}
+// Lee la lista de usuarios mas fresca antes de escribir, para no pisar cuentas nuevas
+async function guardarRubrosProf(profId){
+  const sel=[...document.querySelectorAll('.rp-chk:checked')].map(x=>x.value);
+  let lista=null;
+  if(DB){ try{ const r=await DB.doc('luffy/users').get(); if(r&&Array.isArray(r.list)) lista=r.list; }catch(e){} }
+  if(!lista) lista=allUsers;
+  const u=lista.find(x=>x.id===profId); if(!u){ showToast('No se encontró a la persona'); return; }
+  u.rubros=sel; allUsers=lista; saveUsers();
+  closeModal('modal-registro'); showToast('Rubros guardados ✓'); renderAdmin();
+}
+function refrescarRubrosPropios(){
+  if(!DB||!profile||profile.role!=='profesional') return;
+  Promise.resolve(DB.doc('luffy/users').get()).then(r=>{
+    const u=r&&Array.isArray(r.list)&&r.list.find(x=>x.id===profile.id);
+    if(u&&JSON.stringify(u.rubros||[])!==JSON.stringify(profile.rubros||[])){ profile.rubros=u.rubros||[]; refreshCurrentView(); }
+  }).catch(()=>{});
+}
+
+// ---------- combos y ofertas ----------
+let comboSel=[], ofertaSel=[];
+function renderAdminCombos(body){
+  const nom=(id)=>(servicios.find(s=>s.id===id)||{}).nombre||'?';
+  body.innerHTML+=`
+    <div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🧩 Combos</span><button class="lnk" onclick="abrirFormCombo()">+ Nuevo combo</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cuando el profesional elige <b style="color:var(--text)">todos los servicios de un combo</b>, se cobra el precio del combo solo, sin que tenga que hacer nada.</div>
+    ${combos.length?combos.map(c=>{ const lista=c.servicioIds.reduce((a,id)=>a+numV((servicios.find(s=>s.id===id)||{}).precio),0);
+      return `<div class="prof-card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">${escH(c.nombre)} ${c.rubro?`<span class="bdg">${escH(nombreRubro(c.rubro))}</span>`:''}</div>
+          <div style="font-size:11.5px;color:var(--muted2);margin-top:3px">${c.servicioIds.map(id=>escH(nom(id))).join(' + ')}</div>
+          <div style="font-size:11.5px;margin-top:3px"><span style="color:var(--muted2)">Por separado ${fp(lista)}</span> → <b>${fp(c.precio)}</b> <span style="color:#34d399;font-weight:700">(ahorro ${fp(lista-c.precio)})</span></div></div>
+        <button onclick="abrirFormCombo('${c.id}')" style="background:none;border:none;color:var(--muted2);font-size:15px;cursor:pointer">✏️</button>
+        <button onclick="borrarCombo('${c.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
+      </div></div>`; }).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:14px">Sin combos cargados</div>'}
+
+    <div class="sec-hdr" style="margin:20px 0 8px"><span class="sec-title">🏷️ Ofertas</span><button class="lnk" onclick="abrirFormOferta()">+ Nueva oferta</button></div>
+    ${ofertas.length?ofertas.map(o=>{
+      const activa=o.activa!==false;
+      const aplica=(o.servicioIds&&o.servicioIds.length)?o.servicioIds.map(id=>(servicios.find(s=>s.id===id)||{}).nombre).filter(Boolean).join(', '):(o.rubro?'Todos los servicios de '+nombreRubro(o.rubro):'Todos los servicios');
+      return `<div class="prof-card" style="margin-bottom:8px;${activa?'':'opacity:.55'}"><div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">${escH(o.nombre)} · −${o.pct}% ${o.rubro?`<span class="bdg">${escH(nombreRubro(o.rubro))}</span>`:''}</div><div style="font-size:11px;color:var(--muted2)">${escH(aplica)}</div></div>
+        <button onclick="toggleOferta('${o.id}')" style="padding:6px 12px;border-radius:10px;border:1.5px solid ${activa?'#34d399':'var(--border2)'};background:${activa?'rgba(52,211,153,.12)':'transparent'};color:${activa?'#34d399':'var(--muted2)'};font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">${activa?'Activa':'Pausada'}</button>
+        <button onclick="abrirFormOferta('${o.id}')" style="background:none;border:none;color:var(--muted2);font-size:15px;cursor:pointer">✏️</button>
+        <button onclick="borrarOferta('${o.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
+      </div></div>`;
+    }).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:14px">Sin ofertas cargadas</div>'}`;
+}
+function listaChecksServicios(rubroId,seleccion,fnToggle){
+  const l=servicios.filter(s=>!rubroId||s.rubro===rubroId);
+  if(!l.length) return '<div style="font-size:12px;color:var(--muted);padding:6px">No hay servicios en este rubro.</div>';
+  return l.map(s=>`<label style="display:flex;align-items:center;gap:8px;font-size:13px;padding:6px 2px;text-transform:none;letter-spacing:0;color:var(--text)"><input type="checkbox" ${seleccion.includes(s.id)?'checked':''} onchange="${fnToggle}('${s.id}')" style="width:auto"/> <span style="flex:1">${escH(s.nombre)}</span><span style="color:var(--muted2);font-size:12px">${fp(s.precio)}</span></label>`).join('');
+}
+const selRubroHtml=(id,valor,conTodos)=>`<select id="${id}" style="${inpCss}">${conTodos?`<option value="" ${!valor?'selected':''}>Todos los rubros</option>`:''}${rubros.map(r=>`<option value="${r.id}" ${valor===r.id?'selected':''}>${escH(r.nombre)}</option>`).join('')}</select>`;
+
+// --- combo ---
+function abrirFormCombo(id){
+  const c=id?combos.find(x=>x.id===id):null;
+  comboSel=c?[...c.servicioIds]:[];
+  const cont=document.getElementById('registro-content');
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div class="modal-title" style="margin:0">${c?'Editar combo':'Combo nuevo'}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <input type="hidden" id="cbo-id" value="${c?c.id:''}"/>
+    <div class="field"><label>Nombre del combo</label><input id="cbo-nombre" placeholder="Ej: Corte y Barba" value="${escH(c?c.nombre:'')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Rubro</label>${selRubroHtml('cbo-rubro',c?c.rubro:(adminSvcRubro!=='todos'&&adminSvcRubro!=='sin'?adminSvcRubro:'barberia'),false).replace('<select ','<select onchange="comboRefrescar()" ')}</div>
+    <div class="field" style="margin-top:8px"><label>Servicios que lo forman (2 o más)</label><div id="cbo-lista" style="max-height:220px;overflow-y:auto;border:1.5px solid var(--border2);border-radius:12px;padding:6px 10px"></div></div>
+    <div class="field" style="margin-top:8px"><label>Precio del combo ($)</label><input id="cbo-precio" type="number" inputmode="decimal" placeholder="0" value="${c?c.precio:''}" oninput="comboResumen()"/></div>
+    <div id="cbo-resumen" style="font-size:12px;margin:10px 0;line-height:1.6"></div>
+    <button class="btn btn-primary" onclick="guardarCombo()">${c?'Guardar cambios':'Crear combo'}</button>`;
+  comboRefrescar(); openModal('modal-registro');
+}
+function comboRefrescar(){
+  const rid=document.getElementById('cbo-rubro').value;
+  comboSel=comboSel.filter(id=>{ const s=servicios.find(x=>x.id===id); return s&&s.rubro===rid; });
+  document.getElementById('cbo-lista').innerHTML=listaChecksServicios(rid,comboSel,'comboToggle');
+  comboResumen();
+}
+function comboToggle(id){ const i=comboSel.indexOf(id); if(i>=0) comboSel.splice(i,1); else comboSel.push(id); comboResumen(); }
+function comboResumen(){
+  const lista=comboSel.reduce((a,id)=>a+numV((servicios.find(s=>s.id===id)||{}).precio),0);
+  const p=parseFloat(document.getElementById('cbo-precio')?.value)||0;
+  const el=document.getElementById('cbo-resumen'); if(!el) return;
+  el.innerHTML=comboSel.length?`Por separado: <b>${fp(lista)}</b>${p?` · Combo: <b>${fp(p)}</b> · `+(p<lista?`<span style="color:#34d399;font-weight:700">ahorro ${fp(lista-p)}</span>`:`<span style="color:#f472b6;font-weight:700">el combo tiene que costar menos que la suma</span>`):''}`:'<span style="color:var(--muted)">Marcá los servicios del combo</span>';
+}
+function guardarCombo(){
+  const nombre=(document.getElementById('cbo-nombre').value||'').trim();
+  const precio=parseFloat(document.getElementById('cbo-precio').value)||0;
+  const rubro=document.getElementById('cbo-rubro').value;
+  const lista=comboSel.reduce((a,id)=>a+numV((servicios.find(s=>s.id===id)||{}).precio),0);
+  if(!nombre||precio<=0){ showToast('Poné nombre y precio'); return; }
+  if(comboSel.length<2){ showToast('Elegí al menos 2 servicios'); return; }
+  if(precio>=lista){ showToast('El combo tiene que costar menos que la suma ('+fp(lista)+')'); return; }
+  const id=document.getElementById('cbo-id').value;
+  if(id){ const c=combos.find(x=>x.id===id); if(c) Object.assign(c,{nombre,precio,rubro,servicioIds:[...comboSel]}); }
+  else combos.push({id:Date.now().toString(),nombre,precio,rubro,servicioIds:[...comboSel]});
+  saveCombos(); closeModal('modal-registro'); showToast('Combo guardado ✓'); renderAdmin();
+}
+async function borrarCombo(id){
+  const c=combos.find(x=>x.id===id); if(!c) return;
+  if(!await uiConfirm('¿Borrar el combo "'+c.nombre+'"?','Los servicios se siguen cobrando por separado.')) return;
+  combos=combos.filter(x=>x.id!==id); saveCombos(); renderAdmin();
+}
+
+// --- oferta ---
+function abrirFormOferta(id){
+  const o=id?ofertas.find(x=>x.id===id):null;
+  ofertaSel=o&&o.servicioIds?[...o.servicioIds]:[];
+  const cont=document.getElementById('registro-content');
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div class="modal-title" style="margin:0">${o?'Editar oferta':'Oferta nueva'}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <input type="hidden" id="of-id" value="${o?o.id:''}"/>
+    <div class="field"><label>Nombre de la oferta</label><input id="of-nombre" placeholder="Ej: Promo martes" value="${escH(o?o.nombre:'')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Descuento (%)</label><input id="of-pct" type="number" inputmode="decimal" placeholder="20" value="${o?o.pct:''}"/></div>
+    <div class="field" style="margin-top:8px"><label>Rubro (quién la ve)</label>${selRubroHtml('of-rubro',o?o.rubro:'',true).replace('<select ','<select onchange="ofertaRefrescar()" ')}</div>
+    <div class="field" style="margin-top:8px"><label>Aplica a (si no marcás ninguno, aplica a todos los servicios del rubro)</label><div id="of-lista" style="max-height:200px;overflow-y:auto;border:1.5px solid var(--border2);border-radius:12px;padding:6px 10px"></div></div>
+    <button class="btn btn-primary" onclick="guardarOferta()" style="margin-top:14px">${o?'Guardar cambios':'Crear oferta'}</button>`;
+  ofertaRefrescar(); openModal('modal-registro');
+}
+function ofertaRefrescar(){ document.getElementById('of-lista').innerHTML=listaChecksServicios(document.getElementById('of-rubro').value,ofertaSel,'ofertaToggle'); }
+function ofertaToggle(id){ const i=ofertaSel.indexOf(id); if(i>=0) ofertaSel.splice(i,1); else ofertaSel.push(id); }
 function guardarOferta(){
-  const nombre=document.getElementById('of-nombre')?.value.trim();
-  const pct=parseFloat(document.getElementById('of-pct')?.value)||0;
+  const nombre=(document.getElementById('of-nombre').value||'').trim();
+  const pct=parseFloat(document.getElementById('of-pct').value)||0;
+  const rubro=document.getElementById('of-rubro').value;
   if(!nombre||pct<=0||pct>100){ showToast('Poné nombre y un % entre 1 y 100'); return; }
-  const servicioIds=[...document.querySelectorAll('.of-svc:checked')].map(x=>x.value);
-  ofertas.push({id:Date.now().toString(), nombre, pct, servicioIds, activa:true});
-  saveOfertas(); showToast('Oferta agregada ✓'); renderAdmin();
+  const servicioIds=ofertaSel.filter(id=>{ const s=servicios.find(x=>x.id===id); return s&&(!rubro||s.rubro===rubro); });
+  const id=document.getElementById('of-id').value;
+  if(id){ const o=ofertas.find(x=>x.id===id); if(o){ Object.assign(o,{nombre,pct,servicioIds}); if(rubro) o.rubro=rubro; else delete o.rubro; } }
+  else { const o={id:Date.now().toString(),nombre,pct,servicioIds,activa:true}; if(rubro) o.rubro=rubro; ofertas.push(o); }
+  saveOfertas(); closeModal('modal-registro'); showToast('Oferta guardada ✓'); renderAdmin();
 }
 function toggleOferta(id){
   const o=ofertas.find(x=>x.id===id); if(!o) return;
@@ -4742,7 +5091,7 @@ function renderRecepcion(){
       const medio=t?({efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'}[t.medio]||t.medio):'';
       const rr=(x,y,st='')=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:2px 0;${st}"><span>${x}</span><span style="white-space:nowrap">${y}</span></div>`;
       const detalle=t?(
-        (t.servicios&&t.servicios.length?t.servicios.map(s=>rr(s.nombre,fp(s.precio))).join(''):rr(t.servicio||'Servicio',fp(t.monto)))
+        (t.servicios&&t.servicios.length?t.servicios.map(s=>rr(nomSvc(s),fp(s.precio))).join(''):rr(t.servicio||'Servicio',fp(t.monto)))
         +(t.descuento>0?rr(t.descuentoTipo==='oferta'?`🏷️ Oferta ${t.oferta?t.oferta.nombre:''} (−${t.oferta?t.oferta.pct:''}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(t.descuento),'color:#34d399'):'')
       ):rr(`${v.productoNombre} x${v.cantidad}`,fp(v.total));
       return `<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.06)">
