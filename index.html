@@ -1592,7 +1592,13 @@ async function guardarSucursalProf(profId){
 async function toggleEncargado(id){
   const u=allUsers.find(x=>x.id===id); if(!u) return;
   if(!u.esEncargado&&!await uiConfirm('¿Hacer encargado a '+u.name+'?','Sigue siendo profesional y suma a su menú "Control de stock" para reponer productos y ver el que queda poco.',{ok:'Hacer encargado'})) return;
-  if(await guardarCampoUsuario(id,{esEncargado:!u.esEncargado})){ showToast(u.esEncargado?u.name+' ya es encargado ✓':'Listo, ya no es encargado'); renderAdmin(); }
+  if(await guardarCampoUsuario(id,{esEncargado:!u.esEncargado,comisionFija:null})){ showToast(u.esEncargado?u.name+' ya es encargado ✓':'Listo, ya no es encargado'); renderAdmin(); }
+}
+async function editarComisionFija(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return;
+  const v=await uiPrompt('Comisión fija de '+u.name,{msg:'Cobra siempre este porcentaje de lo que pagan los clientes por sus servicios, sin importar cuánto facture en la quincena.',label:'Comisión (%)',type:'number',value:comisionFijaDe(u)||60,ok:'Guardar'});
+  if(v===null) return; const n=Math.min(100,Math.max(1,numV(v)));
+  if(await guardarCampoUsuario(id,{comisionFija:n})){ showToast('Comisión fija: '+n+'% ✓'); renderAdmin(); }
 }
 // Sucursal sin recepcionista: el profesional cierra sus propios turnos (reagendo, resena, sena...) y suma los puntos
 function htmlCierresPendProf(){
@@ -3831,12 +3837,12 @@ function renderTramoBanner(){
     });
     const fact=turnos.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
     const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&r.fecha&&(()=>{const d=new Date(r.fecha+'T00:00:00');const now2=new Date();return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);})()).length;
-    const {pct,esOro,tramo}=calcComision(fact,reelsQ);
+    const {pct,esOro,tramo,fija}=calcComision(fact,reelsQ,profile);
     const tr=esOro?TRAMO_ORO:tramo;
     banner.style.display='flex';
     banner.style.background=`${tr.color}15`;
     banner.style.border=`1px solid ${tr.color}30`;
-    banner.innerHTML=`<div class="tb-emoji">${tr.emoji}</div><div class="tb-info"><strong style="color:${tr.color}">${tr.pct}% — Tramo ${tr.label}</strong><span>${fp(fact)} esta quincena</span></div><div class="tb-pct" style="color:${tr.color}">›</div>`;
+    banner.innerHTML=`<div class="tb-emoji">${tr.emoji}</div><div class="tb-info"><strong style="color:${tr.color}">${tr.pct}% — ${fija?'Comisión fija':'Tramo '+tr.label}</strong><span>${fp(fact)} esta quincena</span></div><div class="tb-pct" style="color:${tr.color}">›</div>`;
   } catch(e){ banner.style.display='none'; }
 }
 
@@ -3935,7 +3941,11 @@ function normalizarFechas(dd){
   (dd.deudores||[]).forEach(x=>{ fix(x,'fecha','creadoEn'); fix(x,'fechaPago','cobradoEn'); });
   return cambio;
 }
-function calcComision(fact,reelsQ){
+// Comision fija: el encargado cobra 60% siempre (el admin puede cambiar el %). El resto va por tramos.
+function comisionFijaDe(u){ if(!u) return null; if(numV(u.comisionFija)>0) return numV(u.comisionFija); if(u.esEncargado) return 60; return null; }
+function calcComision(fact,reelsQ,u){
+  const cf=comisionFijaDe(u);
+  if(cf) return {comision:fact*cf/100, pct:cf, esOro:false, fija:true, tramo:{min:0,max:Infinity,pct:cf,label:'Fija',color:'#34d399',emoji:'📦'}};
   let tramo=TRAMOS[0];
   for(const t of TRAMOS) if(fact>=t.min) tramo=t;
   const esOro=fact>=1200000&&reelsQ>=3;
@@ -4693,7 +4703,7 @@ function quincenaActualInfo(){
   const enQ=f=>{ if(!f) return false; const d=new Date(f+'T00:00:00'); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15); };
   const fact=(dineroData.turnos||[]).filter(t=>enQ(t.fecha)).reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
   const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&enQ(r.fecha)).length;
-  return calcComision(fact,reelsQ);
+  return calcComision(fact,reelsQ,profile);
 }
 
 // Precio de un servicio en este cobro: el de lista (o el que puso el profesional si es "desde") + extra de la opcion elegida
@@ -5491,11 +5501,11 @@ function renderTrabajo(wrap){
   const turnos=(dineroData.turnos||[]).filter(t=>enElMes(t.fecha));
   const fact=turnos.reduce((s,t)=>s+num(t.monto),0);
   const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&r.fecha&&enElMes(r.fecha)).length;
-  let {comision,pct,esOro,tramo}=calcComision(fact,reelsQ);
+  let {comision,pct,esOro,tramo,fija}=calcComision(fact,reelsQ,profile);
   comision=comisionConFijas(turnos,fact,pct);
   const tr=esOro?TRAMO_ORO:tramo;
   const nextT=!esOro&&tramo.max!==Infinity?TRAMOS[TRAMOS.indexOf(tramo)+1]:null;
-  const progressPct=nextT?Math.min(100,(fact/nextT.min)*100):fact>=1200000?Math.min(100,(reelsQ/3)*100):100;
+  const progressPct=fija?100:(nextT?Math.min(100,(fact/nextT.min)*100):fact>=1200000?Math.min(100,(reelsQ/3)*100):100);
   const sortedTurnos=[...turnos].sort(porReciente);
 
   // Ventas de productos: aparte de los cortes, con su propia comision
@@ -5615,8 +5625,8 @@ function renderTrabajo(wrap){
       <div style="font-size:40px">${tr.emoji}</div>
       <div style="flex:1">
         <div style="font-size:28px;font-weight:900;line-height:1;color:${tr.color}">${tr.pct}%</div>
-        <div style="font-size:12px;font-weight:700;color:${tr.color}">Tramo ${tr.label}</div>
-        <div style="font-size:11px;color:var(--muted2);margin-top:2px">${nextT?'Faltan '+fp(nextT.min-fact)+' para '+nextT.pct+'%':esOro?'🏆 Tramo máximo':reelsQ<3?'Publicá '+(3-reelsQ)+' reels más para el 60%':''}</div>
+        <div style="font-size:12px;font-weight:700;color:${tr.color}">${fija?'Comisión fija':'Tramo '+tr.label}</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:2px">${fija?'Sos encargado: tu comisión es siempre del '+pct+'%':(nextT?'Faltan '+fp(nextT.min-fact)+' para '+nextT.pct+'%':esOro?'🏆 Tramo máximo':reelsQ<3?'Publicá '+(3-reelsQ)+' reels más para el 60%':'')}</div>
       </div>
     </div>
     <div class="progress-bar"><div class="progress-fill" style="width:${progressPct.toFixed(1)}%;background:${tr.color}"></div></div>
@@ -6459,7 +6469,7 @@ function renderAdminEstadoEquipo(body){
         <div class="rep-bar"><div class="rep-fill" style="width:${rep}%;background:${repColor}"></div></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">🏷️ ${(p.rubros&&p.rubros.length)?escH(p.rubros.map(nombreRubro).filter(Boolean).join(', ')):'<i>Todos los rubros (sin asignar)</i>'}</span><button class="lnk" onclick="abrirRubrosProf('${p.id}')">Cambiar</button></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">${sucursalDe(p.sucursal)?chipSucursal(p.sucursal):'<i>Sin sucursal asignada</i>'}</span><button class="lnk" onclick="abrirSucursalProf('${p.id}')">Cambiar</button></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">${p.esEncargado?'📦 <b style="color:#34d399">Encargado</b> · controla el stock':'📦 No es encargado'}</span><button class="lnk" onclick="toggleEncargado('${p.id}')">${p.esEncargado?'Quitar':'Hacer encargado'}</button></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">${p.esEncargado?'📦 <b style="color:#34d399">Encargado</b> · controla el stock · comisión fija <b style="color:var(--text)">'+comisionFijaDe(p)+'%</b> <button class="lnk" onclick="editarComisionFija(\''+p.id+'\')">cambiar %</button>':'📦 No es encargado'}</span><button class="lnk" onclick="toggleEncargado('${p.id}')">${p.esEncargado?'Quitar':'Hacer encargado'}</button></div>
       </div>`;
     }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>Sin profesionales.</p></div>'}
 
@@ -6566,7 +6576,7 @@ function pctPorQuincena(D){
   Object.keys(fact).forEach(k=>{
     const [uid,qk]=k.split('|'); const u=allUsers.find(x=>x.id===uid);
     const reelsQ=reels.filter(r=>r.stage==='publicado'&&u&&r.asignado===u.name&&r.fecha&&quincenaKey(r.fecha)===qk).length;
-    pct[k]=calcComision(fact[k],reelsQ).pct;
+    pct[k]=calcComision(fact[k],reelsQ,u).pct;
   });
   return pct;
 }
