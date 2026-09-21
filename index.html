@@ -1305,7 +1305,8 @@ async function cargarPendientes(){
 }
 async function aprobarCuenta(uid){
   const p=cuentasPendientes.find(x=>x.uid===uid); if(!p) return;
-  const rol=(document.getElementById('ap-rol-'+uid)||{}).value||p.role;
+  let rol=(document.getElementById('ap-rol-'+uid)||{}).value||p.role;
+  const adminProf=rol==='adminprof'; if(adminProf) rol='admin'; // administrador que tambien atiende como profesional
   const sucElegida=(document.getElementById('ap-suc-'+uid)||{}).value||null;
   const appId=String(Date.parse(p.creado)||Date.now()); // fijo: si se reintenta, no duplica
   let lista=allUsers;
@@ -1314,10 +1315,10 @@ async function aprobarCuenta(uid){
   const {error}=await supaClient.from('luffy_roles').upsert({uid,app_id:appId,role:rol},{onConflict:'uid'});
   if(error){ showToast('No se pudo aprobar: '+error.message); return; }
   if(!lista.some(u=>u.id===appId)){
-    lista.push({id:appId,name:p.name,username:p.username,role:rol,color:p.color,emoji:p.emoji,profesion:rol==='profesional'?(p.profesion||'Profesional'):(ROLES[rol]||rol),sucursal:sucElegida,onboardingDone:false});
+    lista.push({id:appId,name:p.name,username:p.username,role:rol,color:p.color,emoji:p.emoji,profesion:(rol==='profesional'||adminProf)?(p.profesion||'Profesional'):(ROLES[rol]||rol),sucursal:sucElegida,sucursales:sucElegida?[sucElegida]:[],tambienProf:adminProf||undefined,onboardingDone:false});
     allUsers=lista; saveUsers();
   }
-  if(rol==='profesional'&&p.rubros&&p.rubros.length) await guardarRubrosDe(appId,p.rubros);
+  if((rol==='profesional'||adminProf)&&p.rubros&&p.rubros.length) await guardarRubrosDe(appId,p.rubros);
   await supaClient.from('luffy_pending').delete().eq('uid',uid);
   cuentasPendientes=cuentasPendientes.filter(x=>x.uid!==uid);
   showToast('Cuenta aprobada ✓ Ya puede entrar'); refreshCurrentView();
@@ -1337,7 +1338,7 @@ function htmlCuentasPendientes(){
     <div style="font-size:11.5px;color:var(--muted2);margin:3px 0 10px">Pidió ser ${escH(ROLES[p.role]||p.role)}${(p.rubros&&p.rubros.length)?' · '+escH(p.rubros.map(nombreRubro).filter(Boolean).join(', ')):''}</div>
     <div style="display:flex;gap:8px;align-items:center">
       <select id="ap-suc-${p.uid}" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px;max-width:130px">${sucursales.map((s,i)=>`<option value="${s.id}">${escH(s.nombre)}</option>`).join('')}</select>
-      <select id="ap-rol-${p.uid}" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px">${['profesional','recepcionista'].map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLES[r]}</option>`).join('')}</select>
+      <select id="ap-rol-${p.uid}" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px">${['profesional','recepcionista'].map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLES[r]}</option>`).join('')}<option value="adminprof">Administrador + profesional</option></select>
       <button onclick="aprobarCuenta('${p.uid}')" style="padding:10px 16px;border-radius:10px;border:none;background:#34d399;color:#0b0b10;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">Aprobar</button>
       <button onclick="rechazarCuenta('${p.uid}')" style="padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">✕</button>
     </div></div>`).join('')}`;
