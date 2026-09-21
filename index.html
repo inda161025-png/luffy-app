@@ -923,33 +923,37 @@ function nomSvc(s){ return s.nombre+(s.opcion?' ('+s.opcion+')':''); }
 
 // ============ TAREAS DE RECEPCION ============
 const TAREAS_RECEPCION_DEFAULT = [
-  // Apertura
-  {id:'t1', emoji:'💻', label:'Prender la computadora y abrir la agenda', desde:'08:30', hasta:'10:00'},
-  {id:'t2', emoji:'💡', label:'Prender luces, aire y música', desde:'08:30', hasta:'10:00'},
-  {id:'t3', emoji:'🧹', label:'Ver que el salón esté limpio y ordenado (piso, espejos, sillones)', desde:'08:30', hasta:'10:00'},
-  {id:'t4', emoji:'🚽', label:'Revisar que el baño esté limpio y con papel y jabón', desde:'08:30', hasta:'10:00'},
-  {id:'t5', emoji:'📅', label:'Revisar la agenda del día y confirmar los primeros turnos', desde:'08:30', hasta:'10:00'},
-  {id:'t6', emoji:'💰', label:'Chequear el fondo de caja inicial', desde:'08:30', hasta:'10:00'},
+  // Apertura (turno mañana, 9:00 a 14:30)
+  {id:'t1', emoji:'💻', label:'Prender la computadora y abrir la agenda', desde:'08:55', hasta:'10:30'},
+  {id:'t2', emoji:'💡', label:'Prender luces, aire y música', desde:'08:55', hasta:'10:30'},
+  {id:'t3', emoji:'💰', label:'Abrir la caja: contar el efectivo y anotar el saldo de la cuenta', desde:'08:55', hasta:'10:30'},
+  {id:'t4', emoji:'🧹', label:'Ver que el salón esté limpio y ordenado (piso, espejos, sillones)', desde:'08:55', hasta:'10:30'},
+  {id:'t5', emoji:'🚽', label:'Revisar que el baño esté limpio y con papel y jabón', desde:'08:55', hasta:'10:30'},
+  {id:'t6', emoji:'📅', label:'Revisar la agenda del día y confirmar los primeros turnos', desde:'08:55', hasta:'10:30'},
   // Mañana
-  {id:'t7', emoji:'📲', label:'Responder los mensajes pendientes de WhatsApp e Instagram', desde:'10:00', hasta:'12:30'},
-  {id:'t8', emoji:'🔔', label:'Confirmar por WhatsApp los turnos de la tarde', desde:'10:00', hasta:'12:30'},
-  {id:'t9', emoji:'🧴', label:'Revisar que los productos estén exhibidos y con precio', desde:'10:00', hasta:'12:30'},
+  {id:'t7', emoji:'📲', label:'Responder los mensajes pendientes de WhatsApp e Instagram', desde:'10:30', hasta:'12:30'},
+  {id:'t8', emoji:'🔔', label:'Confirmar por WhatsApp los turnos de la tarde', desde:'10:30', hasta:'12:30'},
+  {id:'t9', emoji:'🧴', label:'Revisar que los productos estén exhibidos y con precio', desde:'10:30', hasta:'12:30'},
   // Mediodía
-  {id:'t10', emoji:'🔁', label:'Escribir a clientes que hace más de 30 días no vienen', desde:'12:30', hasta:'15:00'},
-  {id:'t11', emoji:'🎂', label:'Revisar cumpleaños de la semana y mandar el saludo', desde:'12:30', hasta:'15:00'},
-  {id:'t12', emoji:'🧾', label:'Registrar las ventas de productos de la mañana', desde:'12:30', hasta:'15:00'},
-  // Tarde
-  {id:'t13', emoji:'📲', label:'Responder los mensajes pendientes', desde:'15:00', hasta:'18:00'},
-  {id:'t14', emoji:'⭐', label:'Pedir reseña de Google a los clientes que se van conformes', desde:'15:00', hasta:'18:00'},
-  {id:'t15', emoji:'🧹', label:'Repasar el salón: barrer pelos y ordenar los puestos', desde:'15:00', hasta:'18:00'},
+  {id:'t10', emoji:'🔁', label:'Escribir a clientes que hace más de 30 días no vienen', desde:'12:30', hasta:'14:00'},
+  {id:'t11', emoji:'🎂', label:'Revisar cumpleaños de la semana y mandar el saludo', desde:'12:30', hasta:'14:00'},
+  {id:'t12', emoji:'🧾', label:'Registrar las ventas de productos de la mañana', desde:'12:30', hasta:'14:00'},
+  // Cambio de turno
+  {id:'t13', emoji:'🔒', label:'Cerrar la caja de la mañana (contar todo y dejarlo anotado)', desde:'14:00', hasta:'14:30'},
+  {id:'t14', emoji:'🧾', label:'Cerrar todos los turnos de la mañana (preguntas de cierre)', desde:'14:00', hasta:'14:30'},
+  // Turno tarde (14:30 a 20:30)
+  {id:'t15', emoji:'💰', label:'Abrir la caja de la tarde con el saldo que dejó la mañana', desde:'14:30', hasta:'15:30'},
+  {id:'t16', emoji:'📲', label:'Responder los mensajes pendientes', desde:'14:30', hasta:'17:30'},
+  {id:'t17', emoji:'⭐', label:'Pedir reseña de Google a los clientes que se van conformes', desde:'15:30', hasta:'17:30'},
+  {id:'t18', emoji:'🧹', label:'Repasar el salón: barrer pelos y ordenar los puestos', desde:'15:30', hasta:'17:30'},
   // Cierre
-  {id:'t16', emoji:'📅', label:'Confirmar los turnos de mañana', desde:'18:00', hasta:'21:00'},
-  {id:'t17', emoji:'🧾', label:'Cerrar todos los turnos del día (preguntas de cierre)', desde:'18:00', hasta:'21:00'},
-  {id:'t18', emoji:'💰', label:'Hacer caja y cuadrar efectivo, Mercado Pago y tarjeta', desde:'18:00', hasta:'21:00'},
-  {id:'t19', emoji:'🧹', label:'Limpiar piso, vidrios y espejos', desde:'18:00', hasta:'21:00'},
-  {id:'t20', emoji:'🚽', label:'Limpiar el baño', desde:'18:00', hasta:'21:00'},
-  {id:'t21', emoji:'🔌', label:'Apagar luces, aire, equipos y computadora', desde:'18:00', hasta:'21:00'},
-  {id:'t22', emoji:'🔒', label:'Cerrar el local con llave y alarma', desde:'18:00', hasta:'21:00'},
+  {id:'t19', emoji:'📅', label:'Confirmar los turnos de mañana', desde:'17:30', hasta:'20:30'},
+  {id:'t20', emoji:'🧾', label:'Cerrar todos los turnos del día (preguntas de cierre)', desde:'17:30', hasta:'20:30'},
+  {id:'t21', emoji:'🧹', label:'Limpiar piso, vidrios y espejos', desde:'19:30', hasta:'20:30'},
+  {id:'t22', emoji:'🚽', label:'Limpiar el baño', desde:'19:30', hasta:'20:30'},
+  {id:'t23', emoji:'💰', label:'Cerrar la caja del día: contar efectivo y cuenta', desde:'19:45', hasta:'20:30'},
+  {id:'t24', emoji:'🔌', label:'Apagar luces, aire, equipos y computadora', desde:'19:45', hasta:'20:30'},
+  {id:'t25', emoji:'🔒', label:'Cerrar el local con llave y alarma', desde:'19:45', hasta:'20:30'},
 ];
 let tareasRecepcion = [...TAREAS_RECEPCION_DEFAULT]; // admin-editable
 let tareasData = {}; // {[fecha]: {[tareaId]: {done, ts}}}
@@ -1203,7 +1207,7 @@ async function guardarRubrosDe(id,lista){
 
 // Todo lo que se carga de la nube necesita sesion iniciada
 function cargarCatalogos(){
-  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas();
+  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja();
   if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
 }
 
@@ -1496,10 +1500,10 @@ async function revisarEpoca(){
   if(!n) return false;
   let mio=null; try{ mio=localStorage.getItem('luffy_epoca'); }catch(e){}
   if(String(n)===mio) return false;
-  const prefijos=['luffy_dinero_','luffy_yo_','luffy_rec_','luffy_clientes'];
+  const prefijos=['luffy_dinero_','luffy_yo_','luffy_rec_','luffy_clientes','luffy_caja_'];
   const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_cierres','luffy_reels','luffy_reels_del','luffy_productos','luffy_avisos_leidos','luffy_incidentes','luffy_membresias','luffy_paquetes'];
   try{ Object.keys(localStorage).forEach(k=>{ if(prefijos.some(p=>k.startsWith(p))||exactos.includes(k)) localStorage.removeItem(k); }); localStorage.setItem('luffy_epoca',String(n)); }catch(e){}
-  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; productos=[]; clientesDir=[]; membresiasSt.list=[]; paquetesSt.list=[];
+  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; productos=[]; clientesDir=[]; membresiasSt.list=[]; paquetesSt.list=[]; cajaDocs={};
   dineroData={turnos:[],ventas:[],deudores:[]}; avisosLeidos=[]; cierresData={byKey:{}};
   return true;
 }
@@ -1929,6 +1933,9 @@ const PROMOS_DEFAULT={
   ],
   // Si el descuento total supera "t1" el profesional cobra "p1"% de lo que pagó el cliente; si llega a "t2", cobra "p2"%
   tope:30, // los descuentos se suman hasta este maximo (%); lo que sobra de cupones queda para la proxima
+  bloquesRec:[{id:'b1',nombre:'Mañana',desde:'09:00',hasta:'14:30',dias:[1,2,3,4,5,6]},{id:'b2',nombre:'Tarde',desde:'14:30',hasta:'20:30',dias:[1,2,3,4,5,6]}],
+  avisoAperturaMin:5, // el admin ve si recepcion ya abrio la caja desde 5 minutos antes de cada bloque
+  recPaq:{pct:10,comProf:45}, // recepcion cobra el 10% de la ganancia del salon por cada paquete que vende
   comision:{t1:30,p1:60,t2:50,p2:95},
   paquetes:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15}],
   membresia:{creditos:4,descPct:20,servicioId:'',rubro:'barberia,barberia-premium'},
@@ -2229,6 +2236,12 @@ async function confirmarVentaMembresia(){
 }
 
 // ============ vender paquete (promos cruzadas) ============
+function miComisionPaq(items,pct,total){
+  if(!profile||profile.role!=='recepcionista'||items.length<2) return '';
+  const p={total,vendedorRol:'recepcionista',items:items.map(x=>({final:Math.round(numV(x.precio)*(1-pct/100))}))};
+  return `<div style="background:rgba(124,111,255,.12);border:1px solid rgba(124,111,255,.35);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:13px;font-weight:700">💰 Tu comisión por esta venta: <span style="color:#7c6fff">${fp(comRecPaquete(p))}</span></div>`;
+}
+function comPaqQuincena(recId){ const q=rangoPeriodo('quincena'); return paquetesSt.list.filter(p=>p.vendedorId===recId&&p.fecha>=q.desde&&p.fecha<=q.hasta).reduce((s,p)=>s+comRecPaquete(p),0); }
 function pctPaquete(n){ let p=0; (promos.paquetes||[]).forEach(s=>{ if(n>=s.n) p=s.pct; }); return p; }
 function abrirVentaPaquete(cid){
   const c=clienteDe(cid); if(!c) return;
@@ -2252,6 +2265,7 @@ function renderVentaPaquete(){
       ${items.length?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;color:#34d399"><span>Descuento por ${items.length} ${items.length===1?'servicio':'servicios'} juntos (${pct}%)</span><span>−${fp(lista-total)}</span></div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;padding-top:6px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">TOTAL</span><span style="font-size:22px;font-weight:900">${fp(total)}</span></div>`:''}
     </div>
+    ${miComisionPaq(items,pct,total)}
     <div class="field"><label>¿Cómo paga?</label>${htmlMedios('ventaMedio',s.medio,color)}</div>
     <button class="btn btn-primary" onclick="confirmarVentaPaquete()" style="background:${color}">${items.length>=2?'Cobrar '+fp(total)+' y vender':'Elegí al menos 2 servicios'}</button>`;
   if(box) box.scrollTop=st;
@@ -2373,14 +2387,18 @@ function adminMembresias(c){
 }
 function adminPaquetes(c){
   const L=paquetesSt.list.slice().sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));
+  const rp=recPaq();
   const total=L.reduce((s,p)=>s+numV(p.total),0), desc=L.reduce((s,p)=>s+numV(p.totalLista)-numV(p.total),0);
-  const porVend={}; L.forEach(p=>{ const x=porVend[p.vendedorNombre]||(porVend[p.vendedorNombre]={n:0,m:0}); x.n++; x.m+=numV(p.total); });
-  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🎁 Paquetes (${L.length})</span></div>
-    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)"><div class="stat-card"><div class="sc-lbl">Vendido</div><div class="sc-val" style="font-size:18px">${fp(total)}</div></div><div class="stat-card"><div class="sc-lbl">Descuento dado</div><div class="sc-val" style="font-size:18px">${fp(desc)}</div></div></div>
-    ${Object.keys(porVend).length?`<div class="card" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Por vendedor</div>${Object.entries(porVend).map(([n,x])=>`<div class="ln"><span>${escH(n)} <i style="color:var(--muted)">· ${x.n}</i></span><b>${fp(x.m)}</b></div>`).join('')}</div>`:''}
+  const gan=L.reduce((s,p)=>s+gananciaPaquete(p),0), com=L.reduce((s,p)=>s+comRecPaquete(p),0);
+  const porVend={}; L.forEach(p=>{ const x=porVend[p.vendedorNombre]||(porVend[p.vendedorNombre]={n:0,m:0,com:0,rol:p.vendedorRol}); x.n++; x.m+=numV(p.total); x.com+=comRecPaquete(p); });
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🎁 Paquetes (${L.length})</span><button class="lnk" onclick="editarVentasCfg()">Editar %</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Ganancia del salón = lo cobrado − lo que se le paga a los profesionales por esos servicios (estimado con <b style="color:var(--text)">${rp.comProf}%</b> de comisión). Quien vende el paquete desde recepción cobra el <b style="color:var(--text)">${rp.pct}%</b> de esa ganancia. Los dos porcentajes se cambian con "Editar %".</div>
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)"><div class="stat-card"><div class="sc-lbl">Vendido</div><div class="sc-val" style="font-size:18px">${fp(total)}</div><div class="sc-sub">descuento dado ${fp(desc)}</div></div><div class="stat-card"><div class="sc-lbl">Ganancia del salón</div><div class="sc-val" style="font-size:18px;color:#34d399">${fp(gan-com)}</div><div class="sc-sub">${fp(gan)} − ${fp(com)} de comisión de recepción</div></div></div>
+    ${Object.keys(porVend).length?`<div class="card" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Por vendedor</div>${Object.entries(porVend).map(([n,x])=>`<div class="ln"><span>${escH(n)} <i style="color:var(--muted)">· ${x.n} vendidos · ${fp(x.m)}</i></span><b>${x.rol==='recepcionista'?'comisión '+fp(x.com):'sin comisión'}</b></div>`).join('')}</div>`:''}
     ${L.map(p=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:13.5px;font-weight:800">${escH(p.clienteNombre)} <span style="color:var(--muted2)">#${p.clienteNumero}</span></div><b>${fp(p.total)}</b></div>
       <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${p.pct}% off · ${fechaCortaStr(p.fecha)} · vendió ${escH(p.vendedorNombre||'')}</div>
-      ${p.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0;${i.usado?'color:var(--muted2)':''}"><span>${i.usado?'✓':'○'} ${escH(i.nombre)}${i.usado?' <i>(con '+escH(i.usado.profNombre)+')</i>':''}</span><span>${fp(i.final)}</span></div>`).join('')}</div>`).join('')||'<div class="empty"><div class="e-icon">🎁</div><p>Todavía no se vendió ningún paquete.</p></div>'}`;
+      ${p.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0;${i.usado?'color:var(--muted2)':''}"><span>${i.usado?'✓':'○'} ${escH(i.nombre)}${i.usado?' <i>(con '+escH(i.usado.profNombre)+')</i>':''}</span><span>${fp(i.final)}</span></div>`).join('')}
+      <div style="font-size:11.5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);color:var(--muted2)">Ganancia del salón ≈ <b style="color:var(--text)">${fp(gananciaPaquete(p)-comRecPaquete(p))}</b>${p.vendedorRol==='recepcionista'?` · comisión de ${escH(p.vendedorNombre)}: <b style="color:#7c6fff">${fp(comRecPaquete(p))}</b> (${rp.pct}% de ${fp(gananciaPaquete(p))})`:' · vendido por un profesional (sin comisión de recepción)'}</div></div>`).join('')||'<div class="empty"><div class="e-icon">🎁</div><p>Todavía no se vendió ningún paquete.</p></div>'}`;
 }
 function adminTarjetas(c){
   const cards=promos.tarjetas||[];
@@ -2431,7 +2449,7 @@ function adminDescuentos(c){
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">💰 Comisión con descuentos altos</span><button class="lnk" onclick="editarComisionCfg()">Editar</button></div>
     <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Tope de descuentos acumulados: <b>${promos.tope||30}%</b>. Si un descuento supera el <b>${cm.t1}%</b>: el profesional cobra el <b>${cm.p1}%</b> de lo que pagó el cliente y el salón el ${100-cm.p1}%.<br>Si el descuento llega al <b>${cm.t2}%</b> o más: el profesional cobra el <b>${cm.p2}%</b> y el salón el ${100-cm.p2}%.</div>
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🎁 Paquetes y 💳 membresía</span><button class="lnk" onclick="editarVentasCfg()">Editar</button></div>
-    <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Paquetes (servicios juntos): 1 = normal · ${(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ')}<br>Membresía: ${mb.creditos} cortes de <b>${sv?escH(sv.nombre)+' ('+fp(sv.precio)+')':'— sin servicio configurado —'}</b> con ${mb.descPct}% menos${sv?' = '+fp(Math.round(sv.precio*mb.creditos*(1-mb.descPct/100))):''}</div>
+    <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Paquetes (servicios juntos): 1 = normal · ${(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ')} · quien los vende cobra el ${recPaq().pct}% de la ganancia del salón<br>Membresía: ${mb.creditos} cortes de <b>${sv?escH(sv.nombre)+' ('+fp(sv.precio)+')':'— sin servicio configurado —'}</b> con ${mb.descPct}% menos${sv?' = '+fp(Math.round(sv.precio*mb.creditos*(1-mb.descPct/100))):''}</div>
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📉 Plata que dejamos en descuentos</span><span style="font-size:11px;color:var(--muted2)">${r.label}</span></div>
     <div class="card">${P.html}</div>`;
 }
@@ -2462,17 +2480,20 @@ async function editarComisionCfg(){
   if(!v) return; promos.tope=Math.min(100,Math.max(1,numV(v[0])||30)); promos.comision={t1:numV(v[1]),p1:numV(v[2]),t2:numV(v[3]),p2:numV(v[4])}; savePromos(); renderAdmin();
 }
 async function editarVentasCfg(){
-  const sv=servicioMembresia(); const mb=promos.membresia;
+  const sv=servicioMembresia(); const mb=promos.membresia; const rp=recPaq();
   const v=await uiDialog({title:'Paquetes y membresía',msg:'Escalera de paquetes: "servicios:%" separados por coma.',fields:[
     {label:'Paquetes (ej: 2:5, 3:10, 4:15)',value:(promos.paquetes||[]).map(x=>x.n+':'+x.pct).join(', ')},
+    {label:'Comisión de recepción por vender un paquete (% de la ganancia del salón)',type:'number',value:rp.pct},
+    {label:'Comisión estimada a los profesionales por esos servicios (%)',type:'number',value:rp.comProf},
     {label:'Membresía: cantidad de cortes',type:'number',value:mb.creditos},{label:'Membresía: % más barata',type:'number',value:mb.descPct},
     {label:'Membresía: nombre exacto del servicio (ej: Corte)',value:sv?sv.nombre:''}],ok:'Guardar'});
   if(!v) return;
   const esc=v[0].split(',').map(s=>s.trim().split(':').map(Number)).filter(a=>a[0]>1&&a[1]>=0).map(a=>({n:a[0],pct:a[1]})).sort((a,b)=>a.n-b.n);
-  const nom=nkey(v[3]); const s2=servicios.find(x=>nkey(x.nombre)===nom&&(!mb.rubro||x.rubro===mb.rubro))||servicios.find(x=>nkey(x.nombre)===nom);
-  if(v[3].trim()&&!s2){ showToast('No encontré un servicio con ese nombre'); return; }
+  const nom=nkey(v[5]); const s2=servicios.find(x=>nkey(x.nombre)===nom&&rubroEn(mb.rubro,x.rubro||''))||servicios.find(x=>nkey(x.nombre)===nom);
+  if(v[5].trim()&&!s2){ showToast('No encontré un servicio con ese nombre'); return; }
   promos.paquetes=esc.length?esc:promos.paquetes;
-  promos.membresia={...mb,creditos:Math.max(1,Math.round(numV(v[1]))||4),descPct:Math.min(90,Math.max(0,numV(v[2]))),servicioId:s2?s2.id:mb.servicioId};
+  promos.recPaq={pct:Math.min(100,Math.max(0,numV(v[1]))),comProf:Math.min(100,Math.max(0,numV(v[2])))};
+  promos.membresia={...mb,creditos:Math.max(1,Math.round(numV(v[3]))||4),descPct:Math.min(90,Math.max(0,numV(v[4]))),servicioId:s2?s2.id:mb.servicioId};
   savePromos(); showToast('Guardado ✓'); renderAdmin();
 }
 
@@ -2528,7 +2549,18 @@ async function borrarAccionPuntos(id){ if(!await uiConfirm('¿Borrar esta acció
 
 // ============ RECEPCION: turnos de trabajo, tareas por horario y tablero ============
 const hh2=(n)=>String(n).padStart(2,'0');
-function ventanaRec(u){ const t=(u||profile)&&(u||profile).turnoRec; return t&&t.desde&&t.hasta?t:{desde:'00:00',hasta:'24:00'}; }
+// Ventana de trabajo de una recepcionista: sus bloques del dia (o el horario libre viejo, o todo el dia)
+function ventanaRec(u){
+  const uu=u||profile; if(!uu) return {desde:'00:00',hasta:'24:00'};
+  const bl=(promos.bloquesRec||[]).filter(b=>(uu.bloquesRec||[]).includes(b.id));
+  if(bl.length){
+    const dw=new Date().getDay(); const hoy=bl.filter(b=>!b.dias||!b.dias.length||b.dias.includes(dw));
+    if(!hoy.length) return {desde:'00:00',hasta:'00:00'};
+    return {desde:hoy.map(b=>b.desde).sort()[0],hasta:hoy.map(b=>b.hasta).sort().slice(-1)[0]};
+  }
+  const t=uu.turnoRec; return t&&t.desde&&t.hasta?t:{desde:'00:00',hasta:'24:00'};
+}
+function bloquesDe(u){ return (promos.bloquesRec||[]).filter(b=>((u&&u.bloquesRec)||[]).includes(b.id)); }
 function horaDeIso(iso){ const d=new Date(iso); return hh2(d.getHours())+':'+hh2(d.getMinutes()); }
 function enVentana(iso,w){ if(!iso) return false; const h=horaDeIso(iso); return h>=w.desde&&h<w.hasta; }
 function tareasDeRec(u){ const w=ventanaRec(u); return tareasRecepcion.filter(t=>t.desde<w.hasta&&t.hasta>w.desde); }
@@ -2619,7 +2651,8 @@ function htmlTableroRec(){
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
       ${tile('Turnos hechos',e.total,'en tu horario')}${tile('Reseñas',e.resenas,'declaradas','#fbbf24')}${tile('Señas',e.senas,'de '+e.cerrados+' cerrados','#34d399')}
     </div>
-    ${ventasHoy.length?`<div style="font-size:12px;color:var(--muted2);margin:-2px 2px 8px">💳🎁 Vendiste hoy ${ventasHoy.length} ${ventasHoy.length===1?'membresía/paquete':'membresías/paquetes'} por ${fp(ventasHoy.reduce((a,b)=>a+b,0))}</div>`:''}`;
+    ${ventasHoy.length?`<div style="font-size:12px;color:var(--muted2);margin:-2px 2px 8px">💳🎁 Vendiste hoy ${ventasHoy.length} ${ventasHoy.length===1?'membresía/paquete':'membresías/paquetes'} por ${fp(ventasHoy.reduce((a,b)=>a+b,0))}</div>`:''}
+    ${comPaqQuincena(profile.id)>0?`<div style="font-size:12px;margin:-2px 2px 8px">🎁 Tu comisión por paquetes esta quincena: <b style="color:#7c6fff">${fp(comPaqQuincena(profile.id))}</b></div>`:''}`;
 }
 function htmlClientesRec(){
   return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">👥 Clientes del salón</span><button class="sec-btn" onclick="abrirFormCliente()" style="background:#7c6fff">+ Cliente</button></div>
@@ -2631,10 +2664,10 @@ function htmlClientesRec(){
 function renderAdminRecepcion(c){
   const recs=allUsers.filter(u=>u.role==='recepcionista');
   const bloques={}; tareasRecepcion.slice().sort((a,b)=>a.desde.localeCompare(b.desde)).forEach(t=>{ (bloques[t.desde+'–'+t.hasta]=bloques[t.desde+'–'+t.hasta]||[]).push(t); });
-  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📞 Recepcionistas</span></div>
-    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Cada recepcionista tiene su <b style="color:var(--text)">horario de trabajo</b>. Solo ve las tareas de su horario y solo se le cuentan los turnos (y reagendamientos) que se hicieron mientras trabaja. Para sumar otra cuenta, aprobala en Equipo y elegí "Recepcionista".</div>
+  c.innerHTML=htmlAperturaAdmin()+`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📞 Recepcionistas</span><button class="lnk" onclick="editarBloquesRec()">Editar bloques</button></div>
+    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Cada recepcionista trabaja en uno o más <b style="color:var(--text)">bloques</b> (de 9:00 a 14:30 y de 14:30 a 20:30). Solo ve las tareas de su horario y solo se le cuentan los turnos (y reagendamientos) que se hicieron mientras trabaja. Para sumar otra cuenta, aprobala en Equipo y elegí "Recepcionista".</div>
     ${recs.map(u=>{ const e=estadoRecHoy(u); const w=ventanaRec(u); return `<div class="prof-card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(u.name)} <span style="font-size:11px;color:var(--muted2);font-weight:600">@${escH(u.username||'')}</span></div>
-      <div style="font-size:12px;color:var(--muted2)">🕐 ${w.desde==='00:00'&&w.hasta==='24:00'?'Sin horario (todo el día)':w.desde+' a '+w.hasta}</div></div><button class="lnk" onclick="editarTurnoRec('${u.id}')">Horario</button></div>
+      <div style="font-size:12px;color:var(--muted2)">🕐 ${bloquesDe(u).length?bloquesDe(u).map(b=>escH(b.nombre)+' '+b.desde+'–'+b.hasta).join(' + '):(w.desde==='00:00'&&w.hasta==='24:00'?'Sin bloque asignado (todo el día)':w.desde+' a '+w.hasta)}</div></div><button class="lnk" onclick="abrirBloquesUsuario('${u.id}')">Bloques</button></div>
       <div style="font-size:12px;margin-top:8px">Hoy: <b>${e.total}</b> turnos en su horario · reagendaron <b style="color:#60a5fa">${e.reag}</b> (${e.pct}%) · no se les preguntó ${e.sinPreguntar} · no quisieron ${e.noQuiso} · reseñas ${e.resenas}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">📞</div><p>No hay recepcionistas.</p></div>'}
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📋 Tareas por horario</span><button class="lnk" onclick="editarTareasRecepcion()">Editar</button></div>
     ${Object.entries(bloques).map(([r,l])=>`<div class="card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:800;color:#60a5fa;margin-bottom:4px">${r}</div>${l.map(t=>`<div style="font-size:12px;padding:3px 0">${t.emoji||'✅'} ${escH(t.label)}</div>`).join('')}</div>`).join('')}`;
@@ -2672,16 +2705,21 @@ async function editarTareasRecepcion(){
 //           + lo que se paga a los empleados a comision + el costo de los productos vendidos.
 const CAT_GASTOS=[
   {id:'alquiler',n:'Alquiler',c:'#7c6fff',t:'fijo'},
-  {id:'servicios',n:'Luz, gas, agua e internet',c:'#60a5fa',t:'fijo'},
-  {id:'impuestos',n:'Impuestos y monotributo',c:'#f472b6',t:'fijo'},
-  {id:'sueldos',n:'Sueldos de empleados fijos',c:'#34d399',t:'sueldo'},
+  {id:'servicios',n:'Luz, agua, gas e internet',c:'#60a5fa',t:'fijo'},
+  {id:'impuestos',n:'Impuestos, monotributo y cargas sociales',c:'#f472b6',t:'fijo'},
+  {id:'seguros',n:'Seguros',c:'#e879f9',t:'fijo'},
+  {id:'contador',n:'Contador',c:'#c084fc',t:'fijo'},
+  {id:'depreciacion',n:'Depreciación de máquinas e instalaciones',c:'#f87171',t:'fijo'},
+  {id:'sueldos',n:'Sueldos de recepción y administración',c:'#34d399',t:'sueldo'},
+  {id:'personal_limpieza',n:'Personal de limpieza',c:'#6ee7b7',t:'sueldo'},
   {id:'cuotas',n:'Cuotas y préstamos',c:'#f59e0b',t:'cuota'},
-  {id:'suscripciones',n:'Suscripciones y software',c:'#a78bfa',t:'suscripcion'},
-  {id:'insumos',n:'Insumos y productos de trabajo',c:'#fb923c',t:'variable'},
+  {id:'suscripciones',n:'Suscripciones y sistema administrativo',c:'#a78bfa',t:'suscripcion'},
+  {id:'insumos',n:'Insumos y proveedores (ceras, filos, papel…)',c:'#fb923c',t:'variable'},
+  {id:'cafeteria',n:'Cafetería',c:'#d97706',t:'variable'},
   {id:'marketing',n:'Publicidad y marketing',c:'#2dd4bf',t:'variable'},
-  {id:'mantenimiento',n:'Mantenimiento y reparaciones',c:'#94a3b8',t:'variable'},
-  {id:'limpieza',n:'Limpieza',c:'#84cc16',t:'variable'},
-  {id:'otros',n:'Otros gastos',c:'#64748b',t:'variable'},
+  {id:'mantenimiento',n:'Refacciones, mantenimiento y mejoras',c:'#94a3b8',t:'variable'},
+  {id:'limpieza',n:'Productos de limpieza',c:'#84cc16',t:'variable'},
+  {id:'otros',n:'Varios',c:'#64748b',t:'variable'},
 ];
 const CAT_AUTO=[
   {id:'comisiones',n:'Comisiones del equipo',c:'#fbbf24',t:'comision'},
@@ -2692,24 +2730,24 @@ const catFin=(id)=>[...CAT_GASTOS,...CAT_AUTO].find(c=>c.id===id)||CAT_GASTOS[CA
 const FRECUENCIAS=[['mensual','Mensual'],['quincenal','Quincenal'],['semanal','Semanal'],['anual','Anual']];
 const DIAS_LARGO=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
 
-let finData={gastos:[],fijos:[],borrados:[],plan:{}};
+let finData={gastos:[],fijos:[],consumibles:[],borrados:[],plan:{},cfg:{}};
 let finState={periodo:'mes',suc:'todas'};
 function persistFin(){ try{ localStorage.setItem('luffy_finanzas',JSON.stringify(finData)); }catch(e){} }
 function mergeFin(remote){
   if(!remote) return false;
   const antes=JSON.stringify(finData);
   const del=new Set([...(finData.borrados||[]),...(remote.borrados||[])]);
-  ['gastos','fijos'].forEach(k=>{
+  ['gastos','fijos','consumibles'].forEach(k=>{
     const m=new Map((finData[k]||[]).map(x=>[x.id,x]));
     (remote[k]||[]).forEach(r=>{ const l=m.get(r.id); if(!l||String(r.upd||'')>String(l.upd||'')) m.set(r.id,r); });
     finData[k]=[...m.values()].filter(x=>!del.has(x.id));
   });
-  finData.borrados=[...del]; finData.plan={...(remote.plan||{}),...(finData.plan||{})};
+  finData.borrados=[...del]; finData.plan={...(remote.plan||{}),...(finData.plan||{})}; finData.cfg={...(remote.cfg||{}),...(finData.cfg||{})};
   return antes!==JSON.stringify(finData);
 }
 function loadFinanzas(){
   if(!profile||profile.role!=='admin') return;
-  try{ finData={gastos:[],fijos:[],borrados:[],plan:{},...JSON.parse(localStorage.getItem('luffy_finanzas')||'{}')}; }catch(e){}
+  try{ finData={gastos:[],fijos:[],consumibles:[],borrados:[],plan:{},cfg:{},...JSON.parse(localStorage.getItem('luffy_finanzas')||'{}')}; }catch(e){}
   if(DB) DB.doc('luffy/finanzas').get().then(r=>{ if(mergeFin(r)){ persistFin(); refreshCurrentView(); } }).catch(()=>{});
 }
 async function cambiarFin(fn){
@@ -2733,15 +2771,18 @@ function rubroDeTurno(t,prof){
   if(s0){ const sv=servicios.find(x=>x.id===s0.id); if(sv&&sv.rubro) return sv.rubro; const cb=combos.find(x=>x.id===s0.id); if(cb&&cb.rubro) return cb.rubro; }
   return (prof&&prof.rubros&&prof.rubros[0])||'';
 }
-// Devuelve por sucursal: ingresos, egresos por categoria y los turnos (con rubro) del periodo
-function finCalc(desde,hasta){
-  const D=adminDatos(), pctMap=pctPorQuincena(D);
-  const S={}; sucursales.forEach(s=>{ S[s.id]={ing:{servicios:0,productos:0,membresias:0,paquetes:0},eg:{},turnos:[]}; });
-  const sx=(id)=>S[id]||(S[id]={ing:{servicios:0,productos:0,membresias:0,paquetes:0},eg:{},turnos:[]});
+// Devuelve por sucursal: ingresos, egresos por categoria, ingreso por profesional y los turnos (con rubro) del periodo.
+// "pre" permite reusar los datos ya leidos cuando se calculan muchos periodos seguidos (flujo anual).
+function finCalc(desde,hasta,pre){
+  const D=pre?pre.D:adminDatos(), pctMap=pre?pre.pctMap:pctPorQuincena(D);
+  const nuevo=()=>({ing:{servicios:0,productos:0,membresias:0,paquetes:0},eg:{},turnos:[],porProf:{}});
+  const S={}; sucursales.forEach(s=>{ S[s.id]=nuevo(); });
+  const sx=(id)=>S[id]||(S[id]=nuevo());
   const eg=(s,cat,v)=>{ s.eg[cat]=(s.eg[cat]||0)+v; };
   D.turnos.filter(t=>t.fecha>=desde&&t.fecha<=hasta).forEach(t=>{
     const s=sx(sucDeReg(t,t.prof)); const pct=pctMap[t.prof.id+'|'+quincenaKey(t.fecha)]||0;
-    s.ing.servicios+=numV(t.aCobrar!=null?t.aCobrar:t.monto);
+    const cash=numV(t.aCobrar!=null?t.aCobrar:t.monto);
+    s.ing.servicios+=cash; s.porProf[t.prof.id]=(s.porProf[t.prof.id]||0)+cash;
     const com=comTurno(t,pct); eg(s,'comisiones',com);
     s.turnos.push({t,rubro:rubroDeTurno(t,t.prof),com,prof:t.prof});
   });
@@ -2749,18 +2790,20 @@ function finCalc(desde,hasta){
     const s=sx(sucDeReg(v,v.vendedor)); s.ing.productos+=numV(v.total); eg(s,'comisiones',numV(v.comision)); eg(s,'costoprod',costoVenta(v));
   });
   membresiasSt.list.filter(m=>m.fecha>=desde&&m.fecha<=hasta).forEach(m=>{ sx(sucDeReg(m,allUsers.find(u=>u.id===m.vendedorId))).ing.membresias+=numV(m.precio); });
-  paquetesSt.list.filter(p=>p.fecha>=desde&&p.fecha<=hasta).forEach(p=>{ sx(sucDeReg(p,allUsers.find(u=>u.id===p.vendedorId))).ing.paquetes+=numV(p.total); });
+  paquetesSt.list.filter(p=>p.fecha>=desde&&p.fecha<=hasta).forEach(p=>{ const s=sx(sucDeReg(p,allUsers.find(u=>u.id===p.vendedorId))); s.ing.paquetes+=numV(p.total); eg(s,'comisiones',comRecPaquete(p)); });
   const ids=sucursales.map(s=>s.id), n=Math.max(1,ids.length);
   const reparto=(suc,cat,v)=>{ if(!v) return; if(suc&&suc!=='todas'&&S[suc]) eg(S[suc],cat,v); else ids.forEach(i=>eg(S[i],cat,v/n)); };
   finData.gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta).forEach(g=>reparto(g.sucursal,g.categoria,numV(g.monto)));
   finData.fijos.forEach(f=>reparto(f.sucursal,f.categoria,fijoDevengado(f,desde,hasta)));
+  // gastos anotados en la caja de recepcion (los retiros y pagos de gastos fijos no cuentan: ya estan devengados)
+  todasSesiones().forEach(s=>movsVivos(s).filter(m=>m.gasto&&m.tipo==='salida').forEach(m=>{ const f=ymdLocal(new Date(m.ts)); if(f>=desde&&f<=hasta) reparto(s.sucursal||ids[0],m.cat||'otros',numV(m.monto)); }));
   return S;
 }
 const sumaIng=(s)=>s.ing.servicios+s.ing.productos+s.ing.membresias+s.ing.paquetes;
 const sumaEg=(s)=>Object.values(s.eg).reduce((a,b)=>a+b,0);
 function juntarS(S,ids){
-  const T={ing:{servicios:0,productos:0,membresias:0,paquetes:0},eg:{},turnos:[]};
-  ids.forEach(i=>{ const s=S[i]; if(!s) return; Object.keys(T.ing).forEach(k=>T.ing[k]+=s.ing[k]); Object.entries(s.eg).forEach(([c,v])=>T.eg[c]=(T.eg[c]||0)+v); T.turnos.push(...s.turnos); });
+  const T={ing:{servicios:0,productos:0,membresias:0,paquetes:0},eg:{},turnos:[],porProf:{}};
+  ids.forEach(i=>{ const s=S[i]; if(!s) return; Object.keys(T.ing).forEach(k=>T.ing[k]+=s.ing[k]); Object.entries(s.eg).forEach(([c,v])=>T.eg[c]=(T.eg[c]||0)+v); Object.entries(s.porProf||{}).forEach(([p,v])=>T.porProf[p]=(T.porProf[p]||0)+v); T.turnos.push(...s.turnos); });
   return T;
 }
 function rangoFin(){ return finState.periodo==='semana'?rangoPeriodo('7d'):rangoPeriodo(finState.periodo); }
@@ -2784,7 +2827,7 @@ function finSet(k,v){ finState[k]=v; renderAdmin(); }
 const linea=(a,b,st='')=>`<div class="ln" style="${st}"><span>${a}</span><span>${b}</span></div>`;
 
 // ---------- balance ----------
-function renderAdminFinanzas(c,sub){ ({balance:finBalance,gastos:finGastos,fijos:finFijos,equilibrio:finEquilibrio}[sub]||finBalance)(c); }
+function renderAdminFinanzas(c,sub){ ({balance:finBalance,gastos:finGastos,fijos:finFijos,equilibrio:finEquilibrio,costos:finCostos,flujo:finFlujo,caja:adminCaja}[sub]||finBalance)(c); }
 function finBalance(c){
   const r=rangoFin(), S=finCalc(r.desde,r.hasta);
   const ids=finState.suc==='todas'?sucursales.map(s=>s.id):[finState.suc];
@@ -2915,19 +2958,23 @@ async function borrarFijo(id){
   await cambiarFin(d=>{ d.fijos=d.fijos.filter(x=>x.id!==id); d.borrados=[...(d.borrados||[]),id]; }); renderAdmin();
 }
 
-// ---------- punto de equilibrio: cuantos servicios necesito para cubrir los gastos fijos ----------
+// ---------- punto de equilibrio (mismo modelo que la planilla de costos) ----------
+// costo variable por servicio = comision + insumos que se gastan en cada servicio
+// costo fijo por servicio = gastos fijos / servicios hechos       margen = precio - costo total
+// punto de equilibrio = gastos fijos / (precio - costo variable)   ocupacion = servicios / (dias x turnos x profesionales)
+const cfgFin=()=>({diasLab:22,turnosDia:10,reserva:5,inversion:15,retiros:15,...(finData.cfg||{})});
+function costoInsumosServicio(rubro){ return (finData.consumibles||[]).filter(x=>rubroEn(x.rubro,rubro)).reduce((a,x)=>a+numV(x.precio)/Math.max(1,numV(x.rinde)),0); }
 function finEquilibrio(c){
   const hoy=hoyStr(), [y,m]=hoy.split('-').map(Number), desde=y+'-'+pad2(m)+'-01', hasta=y+'-'+pad2(m)+'-'+finMesUTC(y,m);
-  const diasMes=finMesUTC(y,m), diasPas=Math.max(1,numV(hoy.slice(8)));
+  const diasMes=finMesUTC(y,m), diasPas=Math.max(1,numV(hoy.slice(8))), cf=cfgFin();
   const suc=finState.suc, ids=suc==='todas'?sucursales.map(s=>s.id):[suc], nS=Math.max(1,sucursales.length);
   const S=finCalc(desde,hasta), T=juntarS(S,ids);
-  // gastos fijos del mes (mensualizados) que le tocan a este alcance
   const fijosAlc=finData.fijos.filter(f=>f.activo!==false).map(f=>{ const compartido=!f.sucursal||f.sucursal==='todas'; const share=compartido?(suc==='todas'?1:1/nS):(suc==='todas'||f.sucursal===suc?1:0); return {f,monto:mensualizado(f)*share}; }).filter(x=>x.monto>0);
   const totFijo=fijosAlc.reduce((a,x)=>a+x.monto,0);
-  // rubros con actividad (o profesionales) en el alcance
   const porRubro={};
   T.turnos.forEach(x=>{ const r=x.rubro||'otros'; const o=porRubro[r]||(porRubro[r]={visitas:0,ingreso:0,com:0}); o.visitas++; o.ingreso+=numV(x.t.monto); o.com+=x.com; });
-  allUsers.filter(u=>(u.role==='profesional'||u.role==='encargado')&&(suc==='todas'||u.sucursal===suc)).forEach(u=>(u.rubros||[]).forEach(r=>{ porRubro[r]=porRubro[r]||{visitas:0,ingreso:0,com:0}; }));
+  const pros=allUsers.filter(u=>(u.role==='profesional'||u.role==='encargado')&&(suc==='todas'||u.sucursal===suc));
+  pros.forEach(u=>(u.rubros||[]).forEach(r=>{ porRubro[r]=porRubro[r]||{visitas:0,ingreso:0,com:0}; }));
   fijosAlc.forEach(x=>{ if(x.f.rubro) porRubro[x.f.rubro]=porRubro[x.f.rubro]||{visitas:0,ingreso:0,com:0}; });
   const rids=Object.keys(porRubro);
   const generales=fijosAlc.filter(x=>!x.f.rubro).reduce((a,x)=>a+x.monto,0);
@@ -2935,33 +2982,367 @@ function finEquilibrio(c){
   const filas=rids.map(r=>{
     const o=porRubro[r]; const cat=servicios.filter(s=>s.rubro===r); const catProm=cat.length?cat.reduce((a,s)=>a+numV(s.precio),0)/cat.length:0;
     const ticket=o.visitas?o.ingreso/o.visitas:catProm; const comPct=o.ingreso>0?o.com/o.ingreso:0.45;
-    const margen=ticket*(1-comPct);
+    const insumos=costoInsumosServicio(r), comMonto=ticket*comPct, cv=comMonto+insumos, contrib=ticket-cv;
     const propios=fijosAlc.filter(x=>x.f.rubro===r).reduce((a,x)=>a+x.monto,0);
     const parte=ingTotal>0?o.ingreso/ingTotal:1/Math.max(1,rids.length);
     const fijo=propios+generales*parte;
-    const necesarios=margen>0?Math.ceil(fijo/margen):0;
+    const cfServ=o.visitas?fijo/o.visitas:0, costoTotal=cv+cfServ, margen=ticket-costoTotal;
+    const pe=contrib>0?Math.ceil(fijo/contrib):0;
     const proy=Math.round(o.visitas/diasPas*diasMes);
+    const nPro=Math.max(1,pros.filter(u=>(u.rubros||[]).includes(r)).length), cap=cf.diasLab*cf.turnosDia*nPro;
     const plan=finData.plan[suc+':'+r];
-    return {r,nombre:r==='otros'?'Sin rubro':(nombreRubro(r)||r),o,ticket,comPct,margen,fijo,necesarios,proy,plan};
+    return {r,nombre:r==='otros'?'Sin rubro':(nombreRubro(r)||r),o,ticket,comPct,comMonto,insumos,cv,contrib,fijo,cfServ,costoTotal,margen,pe,proy,cap,ocup:cap?o.visitas/cap:0,ocupProy:cap?proy/cap:0,nPro,plan,beneficio:margen*o.visitas};
   }).filter(f=>f.o.visitas||f.fijo>0).sort((a,b)=>b.fijo-a.fijo);
-  const cubierto=filas.reduce((a,f)=>a+f.o.visitas*f.margen,0);
+  const margenProd=T.ing.productos-(T.eg.costoprod||0);
+  const beneficio=filas.reduce((a,f)=>a+(f.o.visitas?f.beneficio:-f.fijo),0)+margenProd;
+  const cubierto=filas.reduce((a,f)=>a+f.o.visitas*f.contrib,0);
   c.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button onclick="finSet('suc','todas')" style="${pillStyle(suc==='todas','#7c6fff')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>
-    <div class="sec-title" style="margin-bottom:6px">⚖️ Punto de equilibrio · ${MESES[m-1]}</div>
-    <div style="font-size:11.5px;color:var(--muted2);margin:0 2px 10px;line-height:1.5">Cuántos servicios tenés que hacer en el mes para cubrir los gastos fijos, rubro por rubro. Cada servicio deja el precio menos la comisión del profesional. Los gastos fijos generales se reparten según lo que factura cada rubro.</div>
+    <div class="sec-title" style="margin-bottom:6px">⚖️ Costos y punto de equilibrio · ${MESES[m-1]}</div>
+    <div style="font-size:11.5px;color:var(--muted2);margin:0 2px 10px;line-height:1.5">Igual que en tu planilla: cada servicio tiene un <b style="color:var(--text)">costo variable</b> (comisión + insumos que se gastan en cada uno) y una parte de los <b style="color:var(--text)">gastos fijos</b>. Los gastos fijos generales se reparten según lo que factura cada rubro. Los insumos por servicio se cargan en "Costo por servicio".</div>
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card"><div class="sc-lbl">Gastos fijos / mes</div><div class="sc-val" style="font-size:17px;color:#f472b6">${fp(totFijo)}</div></div>
       <div class="stat-card"><div class="sc-lbl">Ya cubierto</div><div class="sc-val" style="font-size:17px;color:#34d399">${totFijo>0?Math.min(999,Math.round(cubierto/totFijo*100)):0}%</div><div class="sc-sub">${fp(cubierto)}</div></div>
-      <div class="stat-card"><div class="sc-lbl">${cubierto>=totFijo?'Ganancia del mes':'Falta cubrir'}</div><div class="sc-val" style="font-size:17px;color:${cubierto>=totFijo?'#34d399':'#fbbf24'}">${fp(Math.abs(cubierto-totFijo))}</div></div></div>
-    ${filas.map(f=>{ const prog=f.necesarios?Math.min(100,f.o.visitas/f.necesarios*100):0; const proyGan=f.proy*f.margen-f.fijo; const nPlan=f.plan!=null?numV(f.plan):null;
-      return `<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:14px;font-weight:800">${escH(f.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">gastos fijos asignados <b style="color:var(--text)">${fp(f.fijo)}</b></div></div>
-      <div style="font-size:12px;color:var(--muted2);margin:6px 0;line-height:1.6">Ticket promedio <b style="color:var(--text)">${fp(f.ticket)}</b> · comisión ${Math.round(f.comPct*100)}% · deja <b style="color:#34d399">${fp(f.margen)}</b> por servicio${f.o.visitas?'':' <i>(estimado con el precio de lista)</i>'}</div>
-      ${f.necesarios?`<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span>Necesitás <b>${f.necesarios}</b> servicios al mes (≈ ${(f.necesarios/diasMes).toFixed(1)} por día)</span><span>hiciste <b>${f.o.visitas}</b></span></div>
+      <div class="stat-card"><div class="sc-lbl">Beneficio del mes</div><div class="sc-val" style="font-size:17px;color:${beneficio>=0?'#34d399':'#f472b6'}">${fp(beneficio)}</div><div class="sc-sub">servicios + productos</div></div></div>
+    ${filas.map(f=>{ const prog=f.pe?Math.min(100,f.o.visitas/f.pe*100):0; const proyGan=f.proy*f.contrib-f.fijo; const nPlan=f.plan!=null?numV(f.plan):null; const simN=nPlan!=null?nPlan:f.pe;
+      const fila=(a,b,st)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;${st||''}"><span style="color:var(--muted2)">${a}</span><span>${b}</span></div>`;
+      return `<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:14px;font-weight:800">${escH(f.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">${f.o.visitas} servicios · gastos fijos <b style="color:var(--text)">${fp(f.fijo)}</b></div></div>
+      <div style="margin:8px 0;padding:8px 10px;background:var(--s2);border-radius:10px">
+        ${fila('Precio promedio'+(f.o.visitas?'':' (de lista)'),`<b>${fp(f.ticket)}</b>`)}
+        ${fila('Comisión del profesional ('+Math.round(f.comPct*100)+'%)','−'+fp(f.comMonto))}
+        ${fila('Insumos por servicio (gel, café, papel, cera, filos…)','−'+fp(f.insumos))}
+        ${fila('<b>Costo variable</b>','<b>'+fp(f.cv)+'</b>','border-top:1px solid var(--border);margin-top:2px;padding-top:4px')}
+        ${fila('Parte de gastos fijos por servicio'+(f.o.visitas?'':' (sin servicios todavía)'),'−'+fp(f.cfServ))}
+        ${fila('<b>Margen por servicio</b> (precio − costo total)',`<b style="color:${f.margen>=0?'#34d399':'#f472b6'}">${fp(f.margen)}</b>`,'border-top:1px solid var(--border);margin-top:2px;padding-top:4px')}
+      </div>
+      ${f.pe?`<div style="display:flex;justify-content:space-between;font-size:12.5px;margin-bottom:4px"><span>Punto de equilibrio: <b>${f.pe}</b> servicios al mes (≈ ${(f.pe/diasMes).toFixed(1)} por día)</span><span>hiciste <b>${f.o.visitas}</b></span></div>
       <div style="height:8px;background:var(--border2);border-radius:4px;overflow:hidden"><div style="height:100%;width:${prog}%;background:${prog>=100?'#34d399':'#fbbf24'};border-radius:4px"></div></div>
-      <div style="font-size:11.5px;color:var(--muted2);margin-top:6px;line-height:1.6">Cada servicio cubre el <b style="color:var(--text)">${f.fijo>0?(f.margen/f.fijo*100).toFixed(1):0}%</b> de los gastos fijos de este rubro. Con tu ritmo terminás el mes en ~${f.proy} servicios → <b style="color:${proyGan>=0?'#34d399':'#f472b6'}">${proyGan>=0?'ganancia':'pérdida'} de ${fp(Math.abs(proyGan))}</b>.</div>`:''}
-      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px"><span style="color:var(--muted2)">Si hago</span><input type="number" min="0" inputmode="numeric" value="${nPlan!=null?nPlan:''}" placeholder="${f.necesarios||0}" onchange="finPlan('${suc}:${f.r}',this.value)" style="width:80px;padding:6px 8px"/><span style="color:var(--muted2)">servicios: ganancia</span><b style="color:${(nPlan!=null?nPlan:f.necesarios)*f.margen-f.fijo>=0?'#34d399':'#f472b6'}">${fp((nPlan!=null?nPlan:f.necesarios)*f.margen-f.fijo)}</b></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">⚖️</div><p>Cargá tus gastos fijos para ver cuántos servicios necesitás.</p></div>'}`;
+      <div style="font-size:11.5px;color:var(--muted2);margin-top:6px;line-height:1.6">Cada servicio aporta ${fp(f.contrib)} y cubre el <b style="color:var(--text)">${f.fijo>0?(f.contrib/f.fijo*100).toFixed(1):0}%</b> de los gastos fijos de este rubro. Con tu ritmo terminás el mes en ~${f.proy} servicios → <b style="color:${proyGan>=0?'#34d399':'#f472b6'}">${proyGan>=0?'ganancia':'pérdida'} de ${fp(Math.abs(proyGan))}</b>.</div>`:''}
+      <div style="font-size:11.5px;color:var(--muted2);margin-top:6px">Ocupación: <b style="color:var(--text)">${Math.round(f.ocup*100)}%</b> hoy · proyectada <b style="color:var(--text)">${Math.round(f.ocupProy*100)}%</b> <span style="color:var(--muted)">(${f.nPro} ${f.nPro===1?'profesional':'profesionales'} × ${cfgFin().diasLab} días × ${cfgFin().turnosDia} turnos = ${f.cap} servicios con la agenda llena)</span></div>
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px;padding-top:8px;border-top:1px solid var(--border);font-size:12px"><span style="color:var(--muted2)">Si hago</span><input type="number" min="0" inputmode="numeric" value="${nPlan!=null?nPlan:''}" placeholder="${f.pe||0}" onchange="finPlan('${suc}:${f.r}',this.value)" style="width:80px;padding:6px 8px"/><span style="color:var(--muted2)">servicios: ganancia</span><b style="color:${simN*f.contrib-f.fijo>=0?'#34d399':'#f472b6'}">${fp(simN*f.contrib-f.fijo)}</b></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">⚖️</div><p>Cargá tus gastos fijos para ver cuántos servicios necesitás.</p></div>'}
+    ${T.ing.productos>0?`<div class="card" style="margin-bottom:10px"><div style="font-size:13px;font-weight:800;margin-bottom:4px">📦 Productos</div>${linea('Ventas',fp(T.ing.productos))}${linea('Costo de los productos vendidos','−'+fp(T.eg.costoprod||0))}${linea('<b>Ganancia por productos</b>','<b>'+fp(margenProd)+'</b>')}</div>`:''}`;
 }
 async function finPlan(k,v){ await cambiarFin(d=>{ if(v===''||v==null) delete d.plan[k]; else d.plan[k]=numV(v); }); renderAdmin(); }
 
+// ============ CAJA DE RECEPCION: apertura, movimientos y cierre ============
+// Igual que la planilla "Caja chica": se abre con el saldo en efectivo y en cuenta (Mercado Pago / banco), durante el turno
+// entran solos los cobros y se anotan a mano las salidas (proveedores, cafe, retiros), y al cerrar se cuenta lo que hay.
+// El saldo con el que cierra una caja es el de apertura de la siguiente.
+let cajaDocs={};
+const CONCEPTOS_CAJA=[
+  {id:'proveedor',n:'Pago a proveedor / insumos',tipo:'salida',cat:'insumos',gasto:true},
+  {id:'cafe',n:'Café y cafetería',tipo:'salida',cat:'cafeteria',gasto:true},
+  {id:'limpieza',n:'Limpieza',tipo:'salida',cat:'limpieza',gasto:true},
+  {id:'otro_gasto',n:'Otro gasto',tipo:'salida',cat:'otros',gasto:true},
+  {id:'fijo',n:'Pago de gasto fijo (alquiler, sueldo, luz…)',tipo:'salida',gasto:false},
+  {id:'retiro',n:'Retiro de dinero (socios)',tipo:'salida',gasto:false},
+  {id:'deposito',n:'Depósito: del efectivo a la cuenta',tipo:'traspaso',gasto:false},
+  {id:'ingreso_extra',n:'Ingreso extra',tipo:'entrada',gasto:false},
+];
+const ymHoy=()=>hoyStr().slice(0,7);
+const ymPrev=()=>{ const [y,m]=hoyStr().split('-').map(Number); return m===1?(y-1)+'-12':y+'-'+pad2(m-1); };
+const persistCaja=(ym)=>{ try{ localStorage.setItem('luffy_caja_'+ym,JSON.stringify(cajaDocs[ym])); }catch(e){} };
+function unirSesion(a,b){
+  const base=String(b.upd||'')>String(a.upd||'')?b:a; const m=new Map();
+  [...(a.movs||[]),...(b.movs||[])].forEach(x=>{ const p=m.get(x.id); m.set(x.id,(p&&p.borrado)?p:x); });
+  return {...base,movs:[...m.values()]};
+}
+function mergeCajaDoc(ym,remote){
+  if(!remote||!Array.isArray(remote.sesiones)) return false;
+  const cur=cajaDocs[ym]||{sesiones:[]}; const antes=JSON.stringify(cur); const m=new Map(cur.sesiones.map(s=>[s.id,s]));
+  remote.sesiones.forEach(r=>{ const l=m.get(r.id); m.set(r.id,l?unirSesion(l,r):r); });
+  cajaDocs[ym]={sesiones:[...m.values()]}; return antes!==JSON.stringify(cajaDocs[ym]);
+}
+function loadCaja(){
+  if(!profile||!['recepcionista','admin'].includes(profile.role)) return;
+  [ymHoy(),ymPrev()].forEach(ym=>{
+    try{ cajaDocs[ym]=JSON.parse(localStorage.getItem('luffy_caja_'+ym)||'{"sesiones":[]}'); }catch(e){ cajaDocs[ym]={sesiones:[]}; }
+    if(DB) DB.doc('luffy/caja_'+ym).get().then(r=>{ if(mergeCajaDoc(ym,r)){ persistCaja(ym); refreshCurrentView(); } }).catch(()=>{});
+  });
+}
+async function cambiarCaja(ym,fn){
+  if(DB){ try{ mergeCajaDoc(ym,await DB.doc('luffy/caja_'+ym).get()); }catch(e){} }
+  if(!cajaDocs[ym]) cajaDocs[ym]={sesiones:[]};
+  const res=fn(cajaDocs[ym].sesiones); persistCaja(ym);
+  if(DB){ try{ await DB.doc('luffy/caja_'+ym).set(cajaDocs[ym]); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
+  return res;
+}
+const todasSesiones=()=>Object.values(cajaDocs).flatMap(d=>d.sesiones).sort((a,b)=>String(a.apertura.ts).localeCompare(String(b.apertura.ts)));
+const sesionAbierta=()=>todasSesiones().filter(s=>!s.cierre).pop()||null;
+const ultimoCierre=()=>{ const c=todasSesiones().filter(s=>s.cierre).pop(); return c?c.cierre:null; };
+const movsVivos=(s)=>(s.movs||[]).filter(m=>!m.borrado);
+
+// Lo que entro solo durante la caja: cobros de cada profesional (por medio) y membresias/paquetes vendidos
+function cajaAuto(s){
+  const desde=new Date(s.apertura.ts), hasta=s.cierre?new Date(s.cierre.ts):new Date();
+  const dentro=(iso)=>{ if(!iso) return false; const d=new Date(iso); return d>=desde&&d<=hasta; };
+  const lin={}; const add=(k,nombre,medio,m)=>{ if(!m) return; const o=lin[k]||(lin[k]={nombre,ef:0,cta:0}); if(medio==='efectivo') o.ef+=m; else o.cta+=m; };
+  allUsers.filter(u=>['profesional','encargado','recepcionista'].includes(u.role)).forEach(u=>{
+    const suc=sucursalDe(u.sucursal); if(suc&&suc.recepcion===false) return;
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    if(profile&&u.id===profile.id&&profile.role!=='admin'&&dineroData) dd=dineroData;
+    (dd.turnos||[]).filter(t=>dentro(t.creadoEn)).forEach(t=>add(u.id,u.name,t.medio,numV(t.aCobrar!=null?t.aCobrar:t.monto)));
+    (dd.ventas||[]).filter(v=>dentro(v.creadoEn)).forEach(v=>add(u.id,u.name,v.medio,numV(v.total)));
+  });
+  membresiasSt.list.filter(m=>dentro(m.creadoEn)).forEach(m=>add('memb','Membresías vendidas',m.medio,numV(m.precio)));
+  paquetesSt.list.filter(p=>dentro(p.creadoEn)).forEach(p=>add('paq','Paquetes vendidos',p.medio,numV(p.total)));
+  return Object.values(lin);
+}
+function cajaSaldos(s){
+  const auto=cajaAuto(s); let ef=numV(s.apertura.efectivo), cta=numV(s.apertura.cuenta);
+  auto.forEach(x=>{ ef+=x.ef; cta+=x.cta; });
+  movsVivos(s).forEach(m=>{ const sg=m.tipo==='entrada'?1:-1; if(m.medio==='efectivo') ef+=sg*numV(m.monto); else cta+=sg*numV(m.monto); });
+  return {ef,cta,auto};
+}
+
+// ---------- bloques de recepcion (para saber a que turno pertenece una apertura) ----------
+const minDeHora=(h)=>{ const [a,b]=String(h).split(':').map(Number); return a*60+b; };
+const horaDeMin=(n)=>pad2(Math.floor(n/60))+':'+pad2(n%60);
+const restarMin=(h,m)=>horaDeMin(Math.max(0,minDeHora(h)-m));
+function bloquesHoy(){ const dw=new Date().getDay(); return (promos.bloquesRec||[]).filter(b=>!b.dias||!b.dias.length||b.dias.includes(dw)); }
+function bloqueParaApertura(){
+  const ahora=minDeHora(horaAhora()); const L=bloquesHoy();
+  return L.find(b=>ahora>=minDeHora(b.desde)-90&&ahora<minDeHora(b.hasta))||L.find(b=>ahora<minDeHora(b.desde))||null;
+}
+
+// ---------- pantalla de recepcion ----------
+function htmlCajaRec(){
+  const s=sesionAbierta(); const hoy=hoyStr();
+  const btn=(t,f,st)=>`<button onclick="${f}" style="padding:10px 14px;border-radius:12px;border:${st?'none':'1.5px solid var(--border2)'};background:${st||'transparent'};color:${st?'#fff':'var(--text)'};font-family:var(--font);font-size:12.5px;font-weight:800;cursor:pointer">${t}</button>`;
+  if(!s) return `<div class="card" style="margin-top:14px;border-color:rgba(251,191,36,.4)"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:26px">💰</div><div style="flex:1"><div style="font-size:14px;font-weight:800">Caja cerrada</div><div style="font-size:11.5px;color:var(--muted2)">Abrila al empezar tu turno, contando el efectivo y el saldo de la cuenta.</div></div>${btn('Abrir caja','abrirFormCaja()','#34d399')}</div></div>`;
+  const sd=cajaSaldos(s); const otraFecha=s.fecha!==hoy;
+  return `<div class="card" style="margin-top:14px;border-color:${otraFecha?'rgba(244,114,182,.5)':'rgba(52,211,153,.4)'}">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="font-size:24px">💰</div><div style="flex:1"><div style="font-size:14px;font-weight:800">Caja abierta</div><div style="font-size:11.5px;color:${otraFecha?'#f472b6':'var(--muted2)'}">${otraFecha?'⚠️ Quedó abierta del '+fechaCortaStr(s.fecha)+' · ':''}la abrió ${escH(s.recNombre)} a las ${horaDeIso(s.apertura.ts)}</div></div></div>
+    <div style="display:flex;gap:10px;margin-bottom:10px"><div style="flex:1;background:var(--s2);border-radius:12px;padding:10px 12px"><div style="font-size:10.5px;color:var(--muted2);font-weight:700">💵 EFECTIVO</div><div style="font-size:20px;font-weight:900">${fp(sd.ef)}</div></div><div style="flex:1;background:var(--s2);border-radius:12px;padding:10px 12px"><div style="font-size:10.5px;color:var(--muted2);font-weight:700">🏦 CUENTA</div><div style="font-size:20px;font-weight:900">${fp(sd.cta)}</div></div></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${btn('+ Movimiento','abrirMovCaja()','#7c6fff')}${btn('Ver detalle','cajaDetalle(\''+s.id+'\')')}${btn('Cerrar caja','abrirCierreCaja()','#f472b6')}</div></div>`;
+}
+function abrirFormCaja(){
+  const ab=sesionAbierta(); if(ab){ showToast('Hay una caja abierta: primero hay que cerrarla'); return; }
+  const uc=ultimoCierre();
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Abrir caja 💰')+`
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">${uc?'Precargué lo que dejó la caja anterior al cerrar. Contá el efectivo y confirmá o corregí.':'Contá el efectivo que hay y poné cuánto tenés en la cuenta.'}</div>
+    <div class="field"><label>💵 Efectivo en caja</label><input id="cj-ef" type="number" inputmode="decimal" value="${uc?numV(uc.efectivo):''}" placeholder="0"/></div>
+    <div class="field" style="margin-top:8px"><label>🏦 Saldo en cuenta (Mercado Pago / banco)</label><input id="cj-cta" type="number" inputmode="decimal" value="${uc?numV(uc.cuenta):''}" placeholder="0"/></div>
+    <button class="btn btn-primary" onclick="confirmarAperturaCaja()" style="margin-top:14px;background:#34d399;color:#0b0b10">Abrir caja</button>`;
+  openModal('modal-registro');
+}
+async function confirmarAperturaCaja(){
+  const ef=numV(document.getElementById('cj-ef').value), cta=numV(document.getElementById('cj-cta').value);
+  const uc=ultimoCierre(); const b=bloqueParaApertura(); const ahora=new Date().toISOString();
+  const r=await cambiarCaja(ymHoy(),l=>{
+    if(todasSesiones().some(s=>!s.cierre)) return {error:true};
+    const s={id:'cj'+Date.now().toString(36),fecha:hoyStr(),bloque:b?b.id:null,recId:profile.id,recNombre:profile.name,sucursal:profile.sucursal||((sucursales.find(x=>x.recepcion!==false)||{}).id)||null,
+      apertura:{efectivo:ef,cuenta:cta,ts:ahora,difEf:uc?ef-numV(uc.efectivo):0,difCta:uc?cta-numV(uc.cuenta):0},movs:[],cierre:null,upd:ahora};
+    l.push(s); return {s};
+  });
+  if(r.error){ showToast('Alguien ya abrió la caja'); return; }
+  closeModal('modal-registro'); showToast('Caja abierta ✓'); renderRecepcion();
+}
+function cajaDetalle(id){
+  const s=todasSesiones().find(x=>x.id===id); if(!s) return; const sd=cajaSaldos(s); const editable=!s.cierre&&profile.role==='recepcionista';
+  const f=(n)=>fp(n);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Detalle de la caja')+`
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px">${escH(s.recNombre)} · ${fechaCortaStr(s.fecha)} · abrió ${horaDeIso(s.apertura.ts)}${s.cierre?' · cerró '+horaDeIso(s.cierre.ts):''}</div>
+    <div class="card" style="margin-bottom:8px">${linea('<b>Apertura</b>',`💵 ${f(s.apertura.efectivo)} · 🏦 ${f(s.apertura.cuenta)}`)}
+      ${(s.apertura.difEf||s.apertura.difCta)?`<div style="font-size:11px;color:#fbbf24;margin-top:2px">Difiere de lo que cerró la caja anterior (efectivo ${fp(s.apertura.difEf)}, cuenta ${fp(s.apertura.difCta)})</div>`:''}</div>
+    <div class="sec-title" style="margin:10px 0 6px">⬆️ Cobros (entran solos)</div>
+    <div class="card" style="margin-bottom:8px">${sd.auto.map(x=>linea(escH(x.nombre),`💵 ${f(x.ef)} · 🏦 ${f(x.cta)}`)).join('')||'<div style="font-size:12px;color:var(--muted)">Todavía no hubo cobros.</div>'}</div>
+    <div class="sec-title" style="margin:10px 0 6px">✍️ Movimientos anotados</div>
+    <div class="card" style="margin-bottom:8px">${movsVivos(s).map(m=>`<div class="ln"><span>${m.tipo==='entrada'?'⬆️':'⬇️'} ${escH(m.concepto)}${m.detalle?' <i style="color:var(--muted)">· '+escH(m.detalle)+'</i>':''} <span style="color:var(--muted);font-size:10.5px">${m.medio==='efectivo'?'efectivo':'cuenta'} · ${horaDeIso(m.ts)}</span></span><span style="white-space:nowrap"><b style="color:${m.tipo==='entrada'?'#34d399':'#f472b6'}">${m.tipo==='entrada'?'+':'−'}${f(m.monto)}</b>${editable?` <button class="lnk" style="color:#f472b6" onclick="borrarMovCaja('${s.id}','${m.id}')">×</button>`:''}</span></div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Sin movimientos.</div>'}</div>
+    <div class="card"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">${s.cierre?'Al cerrar':'Debería haber ahora'}</div>
+      ${linea('💵 Efectivo',`<b>${f(s.cierre?s.cierre.esperadoEf:sd.ef)}</b>`)}${linea('🏦 Cuenta',`<b>${f(s.cierre?s.cierre.esperadoCta:sd.cta)}</b>`)}
+      ${s.cierre?`${linea('Contado: efectivo / cuenta',`${f(s.cierre.efectivo)} / ${f(s.cierre.cuenta)}`)}${linea('<b>Diferencia</b>',`<b style="color:${(s.cierre.difEf||s.cierre.difCta)?'#f472b6':'#34d399'}">${fp(s.cierre.difEf)} / ${fp(s.cierre.difCta)}</b>`)}${s.cierre.nota?`<div style="font-size:11.5px;color:var(--muted2);margin-top:4px">📝 ${escH(s.cierre.nota)}</div>`:''}`:''}</div>`;
+  openModal('modal-registro');
+}
+let movCajaSel=null;
+function abrirMovCaja(){
+  movCajaSel={concepto:'proveedor',medio:'efectivo'}; renderMovCaja(); openModal('modal-registro');
+}
+function movCajaSet(k,v){ movCajaSel[k]=v; renderMovCaja(); }
+function renderMovCaja(){
+  const s=movCajaSel, color='#7c6fff', cp=CONCEPTOS_CAJA.find(c=>c.id===s.concepto);
+  const keep=document.getElementById('mv-monto')?document.getElementById('mv-monto').value:'', keepD=document.getElementById('mv-det')?document.getElementById('mv-det').value:'';
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Movimiento de caja')+`
+    <div class="field"><label>¿Qué es?</label><div style="display:flex;flex-wrap:wrap;gap:6px">${CONCEPTOS_CAJA.map(c=>`<button onclick="movCajaSet('concepto','${c.id}')" style="${pillStyle(s.concepto===c.id,c.tipo==='entrada'?'#34d399':'#f472b6')}">${c.tipo==='entrada'?'⬆️':'⬇️'} ${c.n}</button>`).join('')}</div></div>
+    <div class="field" style="margin-top:8px"><label>Monto</label><input id="mv-monto" type="number" inputmode="decimal" placeholder="0" value="${escH(keep)}"/></div>
+    ${cp.tipo==='traspaso'?'<div style="font-size:11.5px;color:var(--muted2);margin:4px 0">Sale del efectivo y entra a la cuenta.</div>':`<div class="field" style="margin-top:8px"><label>¿De dónde?</label><div style="display:flex;gap:8px">${[['efectivo','💵 Efectivo'],['cuenta','🏦 Cuenta']].map(([v,l])=>`<button onclick="movCajaSet('medio','${v}')" style="flex:1;${pillStyle(s.medio===v,color)}">${l}</button>`).join('')}</div></div>`}
+    <div class="field" style="margin-top:8px"><label>Detalle (opcional)</label><input id="mv-det" placeholder="Ej: ceras a proveedor" value="${escH(keepD)}"/></div>
+    <button class="btn btn-primary" onclick="guardarMovCaja()" style="margin-top:14px;background:${color}">Guardar</button>`;
+}
+async function guardarMovCaja(){
+  const monto=numV(document.getElementById('mv-monto').value); if(monto<=0){ showToast('Poné el monto'); return; }
+  const det=document.getElementById('mv-det').value.trim(); const cp=CONCEPTOS_CAJA.find(c=>c.id===movCajaSel.concepto); const ab=sesionAbierta(); if(!ab){ showToast('La caja está cerrada'); return; }
+  const ts=new Date().toISOString(), base={concepto:cp.n,cat:cp.cat||null,gasto:!!cp.gasto,detalle:det,ts,por:profile.name};
+  const movs=cp.tipo==='traspaso'?[{...base,id:'m'+Date.now().toString(36)+'a',tipo:'salida',medio:'efectivo',monto},{...base,id:'m'+Date.now().toString(36)+'b',tipo:'entrada',medio:'cuenta',monto}]:[{...base,id:'m'+Date.now().toString(36),tipo:cp.tipo,medio:movCajaSel.medio,monto}];
+  await cambiarCaja(ab.fecha.slice(0,7),l=>{ const s=l.find(x=>x.id===ab.id); if(s){ s.movs=[...(s.movs||[]),...movs]; s.upd=new Date().toISOString(); } });
+  closeModal('modal-registro'); showToast('Anotado ✓'); renderRecepcion();
+}
+async function borrarMovCaja(sid,mid){
+  const s=todasSesiones().find(x=>x.id===sid); if(!s||s.cierre) return;
+  await cambiarCaja(s.fecha.slice(0,7),l=>{ const x=l.find(z=>z.id===sid); const m=x&&(x.movs||[]).find(z=>z.id===mid); if(m){ m.borrado=true; x.upd=new Date().toISOString(); } });
+  cajaDetalle(sid); renderRecepcion();
+}
+function abrirCierreCaja(){
+  const s=sesionAbierta(); if(!s) return; const sd=cajaSaldos(s);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Cerrar caja 💰')+`
+    <div class="card" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Según el sistema debería haber</div>${linea('💵 Efectivo',`<b>${fp(sd.ef)}</b>`)}${linea('🏦 Cuenta',`<b>${fp(sd.cta)}</b>`)}</div>
+    <div class="field"><label>💵 Efectivo que contaste</label><input id="cc-ef" type="number" inputmode="decimal" placeholder="0" oninput="cierreCajaDif()"/></div>
+    <div class="field" style="margin-top:8px"><label>🏦 Saldo real en la cuenta</label><input id="cc-cta" type="number" inputmode="decimal" placeholder="0" oninput="cierreCajaDif()"/></div>
+    <div id="cc-dif" style="font-size:12.5px;font-weight:700;margin:8px 0"></div>
+    <div class="field"><label>Nota (opcional, ej: por qué hay diferencia)</label><input id="cc-nota" placeholder="Opcional"/></div>
+    <button class="btn btn-primary" onclick="confirmarCierreCaja()" style="margin-top:12px;background:#f472b6">Cerrar caja</button>`;
+  openModal('modal-registro');
+}
+function cierreCajaDif(){
+  const s=sesionAbierta(); if(!s) return; const sd=cajaSaldos(s); const e=document.getElementById('cc-ef').value, c=document.getElementById('cc-cta').value; const el=document.getElementById('cc-dif');
+  if(e===''||c===''){ el.innerHTML=''; return; }
+  const de=numV(e)-sd.ef, dc=numV(c)-sd.cta; const ok=Math.abs(de)<1&&Math.abs(dc)<1;
+  el.innerHTML=`<span style="color:${ok?'#34d399':'#fbbf24'}">${ok?'✓ Cuadra perfecto':'Diferencia: efectivo '+fp(de)+' · cuenta '+fp(dc)}</span>`;
+}
+async function confirmarCierreCaja(){
+  const s=sesionAbierta(); if(!s) return; const sd=cajaSaldos(s);
+  const e=document.getElementById('cc-ef').value, c=document.getElementById('cc-cta').value; if(e===''||c===''){ showToast('Poné cuánto contaste en efectivo y en la cuenta'); return; }
+  const ef=numV(e), cta=numV(c), de=ef-sd.ef, dc=cta-sd.cta;
+  if((Math.abs(de)>=1||Math.abs(dc)>=1)&&!await uiConfirm('Hay una diferencia','Efectivo '+fp(de)+' y cuenta '+fp(dc)+'. Queda registrada para el admin. ¿Cerrar igual?',{ok:'Cerrar igual'})) return;
+  const nota=document.getElementById('cc-nota').value.trim(); const ts=new Date().toISOString();
+  await cambiarCaja(s.fecha.slice(0,7),l=>{ const x=l.find(z=>z.id===s.id); if(x&&!x.cierre){ x.cierre={efectivo:ef,cuenta:cta,esperadoEf:sd.ef,esperadoCta:sd.cta,difEf:de,difCta:dc,nota,ts,porId:profile.id,por:profile.name}; x.upd=ts; } });
+  closeModal('modal-registro'); showToast('Caja cerrada ✓'); renderRecepcion();
+}
+
+// ---------- SOLO ADMIN: ¿abrio recepcion? ----------
+// La caja abierta cuenta como "abrio". Se avisa desde 5 minutos antes del inicio del bloque (8:55 para el de las 9:00).
+function estadoApertura(){
+  const ahora=horaAhora(), hoy=hoyStr(), antes=numV(promos.avisoAperturaMin)||5;
+  return bloquesHoy().map(b=>{
+    const limite=restarMin(b.desde,antes);
+    const ses=todasSesiones().find(s=>s.fecha===hoy&&s.bloque===b.id);
+    const asignadas=allUsers.filter(u=>u.role==='recepcionista'&&(u.bloquesRec||[]).includes(b.id));
+    return {b,limite,ses,asignadas,pasado:ahora>=limite,fin:ahora>=b.hasta};
+  });
+}
+function htmlAperturaAdmin(){
+  const L=estadoApertura(); if(!L.length) return '';
+  const fila=(x)=>{
+    const q=x.asignadas.length?' · '+escH(x.asignadas.map(u=>u.name).join(', ')):'';
+    let ico,txt,col;
+    if(x.ses){ ico='🟢'; col='#34d399'; txt=`Abrió a las <b>${horaDeIso(x.ses.apertura.ts)}</b> (${escH(x.ses.recNombre)})${horaDeIso(x.ses.apertura.ts)>x.b.desde?' · tarde':''}`; }
+    else if(x.fin){ ico='⚫'; col='#94a3b8'; txt='No abrió la caja en este turno'; }
+    else if(x.pasado){ ico='🔴'; col='#f472b6'; txt=`<b>Todavía no abrió</b> — tenía que abrir a las ${x.limite} (son las ${horaAhora()})`; }
+    else { ico='⚪'; col='var(--muted2)'; txt=`Todavía no es la hora (avisa a las ${x.limite})`; }
+    return `<div style="display:flex;gap:8px;align-items:center;font-size:12.5px;padding:3px 0"><span>${ico}</span><span style="flex:1;color:${col}">${escH(x.b.nombre)} ${x.b.desde}–${x.b.hasta}${q}<br><span style="font-size:12px">${txt}</span></span></div>`;
+  };
+  const alerta=L.some(x=>!x.ses&&x.pasado&&!x.fin);
+  return `<div class="card" style="margin:10px 0;${alerta?'border-color:rgba(244,114,182,.6);background:rgba(244,114,182,.07)':''}"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">📞 Apertura de recepción (solo lo ves vos)</div>${L.map(fila).join('')}</div>`;
+}
+function cargarCajasAdmin(){ loadCaja(); }
+
+// ---------- admin: cajas del mes ----------
+function adminCaja(c){
+  const ses=todasSesiones().slice().reverse();
+  const abiertas=ses.filter(s=>!s.cierre);
+  const dif=ses.filter(s=>s.cierre).reduce((a,s)=>a+numV(s.cierre.difEf)+numV(s.cierre.difCta),0);
+  c.innerHTML=`${htmlAperturaAdmin()}
+    <div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">💰 Cajas de recepción</span></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-card"><div class="sc-lbl">Cajas</div><div class="sc-val">${ses.length}</div></div><div class="stat-card"><div class="sc-lbl">Abiertas</div><div class="sc-val" style="color:${abiertas.length?'#fbbf24':'var(--text)'}">${abiertas.length}</div></div><div class="stat-card"><div class="sc-lbl">Diferencias</div><div class="sc-val" style="font-size:17px;color:${Math.abs(dif)>=1?'#f472b6':'#34d399'}">${fp(dif)}</div><div class="sc-sub">suma de sobrantes y faltantes</div></div></div>
+    ${ses.slice(0,40).map(s=>{ const sd=s.cierre?null:cajaSaldos(s); const d=s.cierre?(numV(s.cierre.difEf)+numV(s.cierre.difCta)):0; return `<div class="card" onclick="cajaDetalle('${s.id}')" style="cursor:pointer;margin-bottom:6px;border-left:4px solid ${!s.cierre?'#fbbf24':(Math.abs(d)>=1?'#f472b6':'#34d399')}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><div style="font-size:13px;font-weight:800">${fechaCortaStr(s.fecha)} · ${escH(s.recNombre)}</div><div style="font-size:11.5px;color:var(--muted2)">${horaDeIso(s.apertura.ts)}${s.cierre?' → '+horaDeIso(s.cierre.ts):' → abierta'}</div></div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:3px">Apertura 💵 ${fp(s.apertura.efectivo)} · 🏦 ${fp(s.apertura.cuenta)}${s.cierre?` · Cierre 💵 ${fp(s.cierre.efectivo)} · 🏦 ${fp(s.cierre.cuenta)}`:` · ahora debería haber 💵 ${fp(sd.ef)} · 🏦 ${fp(sd.cta)}`}${s.cierre&&Math.abs(d)>=1?` · <b style="color:#f472b6">diferencia ${fp(d)}</b>`:''}${(s.apertura.difEf||s.apertura.difCta)?' · <b style="color:#fbbf24">abrió con distinto saldo</b>':''}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">💰</div><p>Todavía no se abrió ninguna caja.</p></div>'}`;
+}
+
+// ---------- admin: bloques y asignacion ----------
+async function editarBloquesRec(){
+  const actuales=(promos.bloquesRec||[]).map(b=>b.nombre+' | '+b.desde+' | '+b.hasta+' | '+(b.dias||[]).map(d=>DIAS_NOM[d]).join(', ')).join('\n');
+  const v=await uiDialog({title:'Bloques de recepción',msg:'Una línea por bloque: nombre | desde | hasta | días (ej: lun, mar, mié, jue, vie, sáb). Se avisa al admin si no abrió la caja 5 minutos antes de cada bloque.',fields:[{type:'textarea',value:actuales},{label:'Avisar minutos antes de que empiece el bloque',type:'number',value:promos.avisoAperturaMin||5}],ok:'Guardar'});
+  if(!v) return;
+  const dk=DIAS_NOM.map(nkey); const out=[]; let mal=0;
+  v[0].split('\n').map(l=>l.trim()).filter(Boolean).forEach((l,i)=>{
+    const p=l.split('|').map(s=>s.trim()); if(p.length<3||!/^\d{1,2}:\d{2}$/.test(p[1])||!/^\d{1,2}:\d{2}$/.test(p[2])){ mal++; return; }
+    const dias=(p[3]||'').split(',').map(x=>dk.indexOf(nkey(x).slice(0,3))).filter(d=>d>=0);
+    const prev=(promos.bloquesRec||[])[i];
+    out.push({id:prev?prev.id:'b'+Date.now().toString(36)+i,nombre:p[0],desde:p[1].padStart(5,'0'),hasta:p[2].padStart(5,'0'),dias:[...new Set(dias)].length?[...new Set(dias)]:[1,2,3,4,5,6]});
+  });
+  if(mal||!out.length){ showToast('Revisá las líneas: nombre | 09:00 | 14:30 | días'); return; }
+  promos.bloquesRec=out; promos.avisoAperturaMin=Math.max(0,Math.round(numV(v[1])))||5; savePromos(); showToast('Bloques guardados ✓'); renderAdmin();
+}
+function abrirBloquesUsuario(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return;
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Bloques de '+escH(u.name))+`<div style="font-size:12px;color:var(--muted2);margin-bottom:10px">Solo ve las tareas de sus bloques y solo se le cuentan los turnos que se hacen en ese horario.</div>
+    ${(promos.bloquesRec||[]).map(b=>`<label class="rub-opt"><input type="checkbox" class="bq-chk" value="${b.id}" ${(u.bloquesRec||[]).includes(b.id)?'checked':''}/> ${escH(b.nombre)} · ${b.desde} a ${b.hasta} <span style="color:var(--muted);font-size:11px">${(b.dias||[]).map(d=>DIAS_NOM[d]).join(', ')}</span></label>`).join('')}
+    <button class="btn btn-primary" onclick="guardarBloquesUsuario('${u.id}')" style="margin-top:12px">Guardar</button>`;
+  openModal('modal-registro');
+}
+async function guardarBloquesUsuario(id){
+  const ids=[...document.querySelectorAll('.bq-chk:checked')].map(x=>x.value);
+  if(await guardarCampoUsuario(id,{bloquesRec:ids,turnoRec:null})){ closeModal('modal-registro'); showToast('Guardado ✓'); renderAdmin(); }
+}
+
+// ---------- paquetes: ganancia del salon y comision de recepcion ----------
+// Ganancia del salon (estimada) = lo cobrado menos lo que se les paga a los profesionales por esos servicios.
+// Quien vende el paquete (recepcion) cobra un % de esa ganancia; el % se cambia desde el admin.
+const recPaq=()=>({pct:10,comProf:45,...(promos.recPaq||{})});
+function gananciaPaquete(p){ const cp=numV(recPaq().comProf); return Math.round(numV(p.total)-(p.items||[]).reduce((s,i)=>s+numV(i.final)*cp/100,0)); }
+function comRecPaquete(p){ if(p.vendedorRol!=='recepcionista') return 0; return Math.round(Math.max(0,gananciaPaquete(p))*numV(recPaq().pct)/100); }
+// ---------- costo por servicio (insumos) y capacidad ----------
+function finCostos(c){
+  const L=finData.consumibles||[]; const cf=cfgFin();
+  const porRubro={}; rubros.forEach(r=>{ porRubro[r.id]=costoInsumosServicio(r.id); });
+  c.innerHTML=`<div class="sec-hdr" style="margin:0 0 8px"><span class="sec-title">🧴 Insumos por servicio</span><button class="lnk" onclick="editarConsumible('')">+ Nuevo</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Lo que se gasta en <b style="color:var(--text)">cada servicio</b>. Ej: un gel de afeitar de $10.000 que rinde 200 servicios cuesta $50 por servicio; una cera de $10.000 que rinde 80, $125. Se usa en el punto de equilibrio para calcular el costo variable de cada servicio.</div>
+    ${L.map(x=>`<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(x.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${fp(x.precio)} · rinde ${x.rinde} servicios · ${x.rubro?escH(rubrosNombres(x.rubro)):'todos los rubros'}</div></div><div style="text-align:right"><b style="font-size:14px">${fp(numV(x.precio)/Math.max(1,numV(x.rinde)))}</b><div style="font-size:10px;color:var(--muted)">por servicio</div></div><button class="lnk" onclick="editarConsumible('${x.id}')">✏️</button><button class="lnk" style="color:#f472b6" onclick="borrarConsumible('${x.id}')">×</button></div></div>`).join('')||'<div class="empty"><div class="e-icon">🧴</div><p>Todavía no cargaste insumos.</p></div>'}
+    ${rubros.some(r=>porRubro[r.id]>0)?`<div class="card" style="margin:10px 0"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Insumos por servicio, por rubro</div>${rubros.filter(r=>porRubro[r.id]>0).map(r=>linea(escH(r.nombre),'<b>'+fp(porRubro[r.id])+'</b>')).join('')}</div>`:''}
+    <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📐 Capacidad y reservas</span><button class="lnk" onclick="editarCapacidad()">Editar</button></div>
+    <div class="card" style="font-size:12.5px;line-height:1.8">Días de trabajo por mes: <b>${cf.diasLab}</b> · Turnos por día por profesional: <b>${cf.turnosDia}</b><br>Capacidad por profesional: <b>${cf.diasLab*cf.turnosDia}</b> servicios al mes con la agenda llena.<br>Del resultado del mes se separa: reservas <b>${cf.reserva}%</b> · inversiones <b>${cf.inversion}%</b> · retiros de socios <b>${cf.retiros}%</b> (se ven en el flujo anual).</div>`;
+}
+async function editarConsumible(id){
+  const x=id?finData.consumibles.find(z=>z.id===id):null;
+  const v=await uiDialog({title:x?'Editar insumo':'Nuevo insumo',fields:[{label:'Nombre',placeholder:'Ej: Gel de afeitar',value:x?x.nombre:''},{label:'Precio de compra',type:'number',value:x?x.precio:''},{label:'Cuántos servicios rinde',type:'number',value:x?x.rinde:'',placeholder:'Ej: 200'},{label:'Rubros (ids separados por coma, vacío = todos)',value:x?x.rubro:'barberia,barberia-premium'}],ok:'Guardar'});
+  if(!v) return; const nombre=v[0].trim(), precio=numV(v[1]), rinde=numV(v[2]);
+  if(!nombre||precio<=0||rinde<=0){ showToast('Poné nombre, precio y cuántos servicios rinde'); return; }
+  const ahora=new Date().toISOString();
+  await cambiarFin(d=>{ if(!d.consumibles) d.consumibles=[]; const z=id?d.consumibles.find(k=>k.id===id):null; const dato={nombre,precio,rinde,rubro:v[3].trim(),upd:ahora}; if(z) Object.assign(z,dato); else d.consumibles.push({id:'c'+Date.now().toString(36),...dato}); });
+  showToast('Guardado ✓'); renderAdmin();
+}
+async function borrarConsumible(id){ if(!await uiConfirm('¿Borrar este insumo?','',{ok:'Borrar'})) return; await cambiarFin(d=>{ d.consumibles=d.consumibles.filter(x=>x.id!==id); d.borrados=[...(d.borrados||[]),id]; }); renderAdmin(); }
+async function editarCapacidad(){
+  const cf=cfgFin();
+  const v=await uiDialog({title:'Capacidad y reservas',fields:[{label:'Días de trabajo por mes',type:'number',value:cf.diasLab},{label:'Turnos por día por profesional',type:'number',value:cf.turnosDia},{label:'Reservas de dinero (% del resultado)',type:'number',value:cf.reserva},{label:'Inversiones (% del resultado)',type:'number',value:cf.inversion},{label:'Retiros de socios (% del resultado)',type:'number',value:cf.retiros}],ok:'Guardar'});
+  if(!v) return; await cambiarFin(d=>{ d.cfg={diasLab:numV(v[0])||22,turnosDia:numV(v[1])||10,reserva:numV(v[2]),inversion:numV(v[3]),retiros:numV(v[4])}; }); renderAdmin();
+}
+
+// ---------- flujo anual (como la hoja "Cash Flow" de la planilla) ----------
+let cajaAnioCargado={};
+async function asegurarCajaAnio(y){
+  if(cajaAnioCargado[y]||!DB) return; cajaAnioCargado[y]=true; let cambio=false;
+  for(let m=1;m<=12;m++){ const ym=y+'-'+pad2(m); if(cajaDocs[ym]) continue; try{ const r=await DB.doc('luffy/caja_'+ym).get(); if(r){ cajaDocs[ym]={sesiones:[]}; mergeCajaDoc(ym,r); persistCaja(ym); cambio=true; } }catch(e){} }
+  if(cambio) refreshCurrentView();
+}
+function finFlujo(c){
+  const y=finState.anio||Number(hoyStr().slice(0,4)); asegurarCajaAnio(y);
+  const ids=finState.suc==='todas'?sucursales.map(s=>s.id):[finState.suc]; const cf=cfgFin();
+  const pre={D:adminDatos()}; pre.pctMap=pctPorQuincena(pre.D);
+  const M=[]; for(let m=1;m<=12;m++){ const d=y+'-'+pad2(m)+'-01', h=y+'-'+pad2(m)+'-'+finMesUTC(y,m); M.push(juntarS(finCalc(d,h,pre),ids)); }
+  const filas=[]; const suma=(f)=>M.reduce((a,t)=>a+f(t),0);
+  const profs=[...new Set(M.flatMap(t=>Object.keys(t.porProf)))].map(id=>allUsers.find(u=>u.id===id)).filter(Boolean);
+  const ingRows=[...profs.map(u=>({n:'Ingresos '+u.name,f:t=>t.porProf[u.id]||0})),{n:'Venta de productos',f:t=>t.ing.productos},{n:'Membresías',f:t=>t.ing.membresias},{n:'Paquetes',f:t=>t.ing.paquetes}];
+  const catsUsadas=[...CAT_GASTOS,...CAT_AUTO].filter(cat=>suma(t=>t.eg[cat.id]||0)>0.5);
+  const egRows=catsUsadas.map(cat=>({n:cat.n,c:cat.c,f:t=>t.eg[cat.id]||0}));
+  const totIng=M.map(t=>sumaIng(t)), totEg=M.map(t=>sumaEg(t)), res=M.map((t,i)=>totIng[i]-totEg[i]);
+  const rsv=res.map(v=>Math.max(0,v)*cf.reserva/100), inv=res.map(v=>Math.max(0,v)*cf.inversion/100), ret=res.map(v=>Math.max(0,v)*cf.retiros/100), neto=res.map((v,i)=>v-rsv[i]-inv[i]-ret[i]);
+  const T=(arr)=>arr.reduce((a,b)=>a+b,0), TI=T(totIng), TE=T(totEg);
+  const celda=(v,neg)=>`<td style="text-align:right;padding:5px 8px;white-space:nowrap;${v===0?'color:var(--muted)':''}${neg&&v<0?';color:#f472b6':''}">${v===0?'—':fp(v)}</td>`;
+  const fila=(n,vals,base,extra)=>{ const t=T(vals); return `<tr style="${extra||''}"><td style="padding:5px 8px;position:sticky;left:0;background:var(--s1);white-space:nowrap;font-size:12px">${n}</td>${vals.map(v=>celda(v,extra&&extra.includes('bold'))).join('')}<td style="text-align:right;padding:5px 8px;font-weight:800;white-space:nowrap">${t===0?'—':fp(t)}</td><td style="text-align:right;padding:5px 8px;color:var(--muted2);font-size:11px">${base>0&&t!==0?Math.round(t/base*100)+'%':''}</td></tr>`; };
+  const titulo=(t)=>`<tr><td colspan="15" style="padding:10px 8px 4px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">${t}</td></tr>`;
+  c.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button onclick="finSet('anio',${y-1})" style="${pillStyle(false,'#7c6fff')}">‹ ${y-1}</button><button style="${pillStyle(true,'#7c6fff')}">${y}</button><button onclick="finSet('anio',${y+1})" style="${pillStyle(false,'#7c6fff')}">${y+1} ›</button></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><button onclick="finSet('suc','todas')" style="${pillStyle(finState.suc==='todas','#7c6fff')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(finState.suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>
+    <div class="sec-title" style="margin-bottom:6px">📆 Flujo anual ${y}</div>
+    <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--s1)"><table style="border-collapse:collapse;font-size:12px;min-width:1100px;width:100%">
+      <thead><tr><th style="text-align:left;padding:8px;position:sticky;left:0;background:var(--s1)"></th>${MESES.map(n=>`<th style="text-align:right;padding:8px;font-size:10.5px;text-transform:uppercase;color:var(--muted2)">${n.slice(0,3)}</th>`).join('')}<th style="text-align:right;padding:8px;font-size:10.5px">TOTAL</th><th style="text-align:right;padding:8px;font-size:10.5px">%</th></tr></thead><tbody>
+      ${titulo('Ingresos')}${ingRows.map(r=>fila(escH(r.n),M.map(r.f),TI)).join('')}${fila('<b>TOTAL INGRESOS</b>',totIng,TI,'font-weight:800;border-top:1.5px solid var(--border2)')}
+      ${titulo('Gastos')}${egRows.map(r=>fila(`<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${r.c};margin-right:6px"></span>${escH(r.n)}`,M.map(r.f),TE)).join('')}${fila('<b>TOTAL GASTOS</b>',totEg,TE,'font-weight:800;border-top:1.5px solid var(--border2)')}
+      ${fila('<b>TOTAL INGRESOS − GASTOS</b>',res,TI,'font-weight:800;bold;background:var(--s2)')}
+      ${fila('Reservas de dinero ('+cf.reserva+'%)',rsv,0)}${fila('Inversiones ('+cf.inversion+'%)',inv,0)}${fila('Retiros de socios ('+cf.retiros+'%)',ret,0)}
+      ${fila('<b>SALDO NETO</b>',neto,TI,'font-weight:800;bold;background:var(--s2)')}
+    </tbody></table></div>
+    <div style="font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5">Reservas, inversiones y retiros se calculan sobre el resultado de cada mes (solo si es positivo) con los porcentajes de "Costo por servicio". El % de cada gasto es sobre el total de gastos; el de cada ingreso, sobre el total de ingresos.</div>`;
+}
 // ============ INIT ============
 async function init(){
   try { reels=JSON.parse(localStorage.getItem('luffy_reels')||'[]'); } catch(e){}
@@ -5599,6 +5980,7 @@ function enterAdmin(){
 // incidentes globales), so the dashboard reflects data entered on OTHER
 // devices, not just whatever happens to be cached on this one.
 function prefetchAdminTeamData(){
+  cargarCajasAdmin();
   if(!DB) return;
   const targets = allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista');
   const jobs = targets.map(u=>{
@@ -5637,7 +6019,7 @@ const ADMIN_SECCIONES=[
   {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Productos y stock']]},
   {id:'contenido',ico:'📝',label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
   {id:'clientes',ico:'🧑‍🤝‍🧑',label:'Clientes',subs:[['directorio','Clientes'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas'],['descuentos','Descuentos']]},
-  {id:'finanzas',ico:'💼',label:'Finanzas',subs:[['balance','Balance'],['gastos','Gastos'],['fijos','Gastos fijos'],['equilibrio','Punto de equilibrio']]},
+  {id:'finanzas',ico:'💼',label:'Finanzas',subs:[['balance','Balance'],['gastos','Gastos'],['fijos','Gastos fijos'],['costos','Costo por servicio'],['equilibrio','Punto de equilibrio'],['flujo','Flujo anual'],['caja','Caja']]},
   {id:'recepcion',ico:'📞',label:'Recepción'},
 ];
 window.adminSub={};
@@ -5655,7 +6037,7 @@ function renderAdmin(){
   </div>${sec.subs?`<div class="adm-sub">${sec.subs.map(([id,l])=>`<button class="${id===sub?'on':''}" onclick="switchAdminTab('${id}')">${l}</button>`).join('')}</div>`:''}`;
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
-  if(tab==='panel') renderAdminPanel(c);
+  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()); }
   else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='sucursales') renderAdminSucursales(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
@@ -6708,6 +7090,7 @@ function marcarAvisoVisto(key){ /* solo para ventas de mostrador */
 // Trae el dinero_<id> de cada profesional/encargado a localStorage, igual que
 // hace el dashboard de admin, para poder armar el feed de avisos.
 function prefetchRecepcionTeamData(){
+  loadCaja();
   if(!DB) return Promise.resolve();
   const targets=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
   const jobs=targets.map(u=>DB.doc('luffy/dinero_'+u.id).get().then(r=>{
@@ -6821,6 +7204,7 @@ function renderRecepcion(){
   const body=document.getElementById('rec-body');
   body.innerHTML=`
     ${htmlTableroRec()}
+    ${htmlCajaRec()}
     <!-- Avisos de cobro -->
     ${avisos.length?`
     <div class="sec-hdr" style="margin-top:16px;margin-bottom:8px">
