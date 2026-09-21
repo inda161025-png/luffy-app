@@ -1289,7 +1289,7 @@ async function guardarRubrosDe(id,lista){
 
 // Todo lo que se carga de la nube necesita sesion iniciada
 function cargarCatalogos(){
-  loadStoryHorarios(); loadStoryRecTextos(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja(); loadTurnosRec(); loadProveedores(); loadDecisionesCom();
+  loadStoryHorarios(); loadStoryRecTextos(); cargarEstadoCaja(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja(); loadTurnosRec(); loadProveedores(); loadDecisionesCom();
   if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
 }
 
@@ -2039,12 +2039,14 @@ const PROMOS_DEFAULT={
   recPaq:{pct:10,comProf:45}, // recepcion cobra el 10% de la ganancia del salon por cada paquete que vende
   comisiones:{tramos:[{min:0,pct:45},{min:1000000,pct:50},{min:1200000,pct:55}],oro:{min:1200000,pct:60,reels:3},nuevos:{meses:2,base:50,contenido:5,reels:3,extra:5,extraDesde:800000},asegurado:{pct:50}},
   comision:{t1:30,p1:60,t2:50,p2:95},
+  noche:{desde:'21:00',pct:70}, // turnos que terminan desde esta hora: sin descuentos y el profesional cobra pct%
   paquetes:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15}],
   membresia:{creditos:4,descPct:20,servicioId:'',rubro:'barberia,barberia-premium'},
   tarjetas:[{id:'tj-barberia',rubro:'barberia,barberia-premium',nombre:'Tarjeta de fidelidad',activa:true,
     visitas:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15},{n:10,pct:50}],referidos:[10,15,20,25],premio:{visitas:5,refs:4}}],
 };
 const clonar=(o)=>JSON.parse(JSON.stringify(o));
+const nocheCfg=()=>({desde:'21:00',pct:70,...(promos.noche||{})});
 let promos=clonar(PROMOS_DEFAULT);
 const DIAS_NOM=['dom','lun','mar','mié','jue','vie','sáb'];
 function aplicarPromosRemotas(r){ return r?{...clonar(PROMOS_DEFAULT),...r}:null; }
@@ -2151,6 +2153,7 @@ function calcCobro(){
   const ahorroCombo=lineas.filter(l=>l.tipo==='combo').reduce((a,l)=>a+(l.lista-l.precio),0);
   const cli=clienteDe(cobro.clienteId);
   const ctx=ctxCobro(cli);
+  const nocheC=nocheCfg(), esNoche=ctx.hora>=String(nocheC.desde).padStart(5,'0'); // de noche: precio de lista, sin ningun descuento
   const cubiertas=new Set(), prepagos=[];
   (cobro.prepagos||[]).forEach(p=>{
     const l=lineas.find(x=>x.tipo==='servicio'&&x.id===p.svcId&&!cubiertas.has(x.id));
@@ -2173,14 +2176,14 @@ function calcCobro(){
   if(fijo) cand.push({tipo:'fijo',label:fijo.nombre,pct:fijo.pct,monto:Math.round(base(fijo.rubro)*fijo.pct/100)});
   const baseOferta=oferta?normales.filter(l=>ofertaAplicaA(oferta,l.ids)).reduce((a,l)=>a+l.precio,0):0;
   const descOferta=oferta?Math.round(baseOferta*oferta.pct/100):0;
-  ofertaSinEfecto=!!oferta&&descOferta===0;
+  ofertaSinEfecto=!!oferta&&descOferta===0&&!esNoche;
   if(descOferta>0) cand.push({tipo:'oferta',label:'Oferta '+oferta.nombre,pct:oferta.pct,monto:descOferta});
   if(tarj&&bT>0&&tarj.pctFid>0) cand.push({tipo:'fidelidad',label:'Fidelidad · visita n°'+tarj.k,pct:tarj.pctFid,monto:Math.round(bT*tarj.pctFid/100)});
   let mejorCupon=null;
   if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
   const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
   if(descEfectivo>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:descEfectivo});
-  let ganador=null; cand.forEach(c=>{ if(c.monto>0&&(!ganador||c.monto>ganador.monto)) ganador=c; });
+  let ganador=null; if(!esNoche) cand.forEach(c=>{ if(c.monto>0&&(!ganador||c.monto>ganador.monto)) ganador=c; });
   if(ganador){ D.push(ganador); if(ganador.tipo==='referidos'&&mejorCupon) tarjUso.cupones.push({id:mejorCupon.id,pct:numV(mejorCupon.pct)}); }
   const topeAlcanzado=false, tope=null;
   const descuento=Math.min(subNormal,D.reduce((a,d)=>a+d.monto,0));
@@ -2193,6 +2196,7 @@ function calcCobro(){
   let comFija=null;
   if(subNormal>0&&descPct>=cm.t2) comFija=Math.round(Math.max(montoNormal,subNormal*0.5)*cm.p2/100);
   else if(subNormal>0&&descPct>cm.t1) comFija=Math.round(montoNormal*cm.p1/100);
+  if(esNoche&&subNormal>0) comFija=Math.round(montoNormal*numV(nocheC.pct)/100); // turno de noche: comision fija, no importa nada mas
   const servicioNeto=montoNormal+prepTotal;
   const prodLineas=productos.filter(p=>(cobro.prods[p.id]||0)>0).map(p=>{
     const cantidad=cobro.prods[p.id]; const total=p.precioVenta*cantidad;
@@ -2200,7 +2204,7 @@ function calcCobro(){
   });
   const prodTotal=prodLineas.reduce((a,l)=>a+l.total,0);
   const prodComision=prodLineas.reduce((a,l)=>a+l.comision,0);
-  return {svcs:lineas, lineas, subtotal, subNormal, ahorroCombo, oferta, ofertaSinEfecto, descuentos:D, descuento, descPct, descTipo, fijo, tarj, tarjUso, tope, topeAlcanzado, ctx,
+  return {svcs:lineas, lineas, subtotal, subNormal, ahorroCombo, oferta, ofertaSinEfecto, descuentos:D, descuento, descPct, descTipo, fijo, tarj, tarjUso, tope, topeAlcanzado, ctx, esNoche,
     servicioNeto, aCobrarServ:montoNormal-sn.total, senaTotal:sn.total, senasUso:sn.usos, prepagos, prepTotal, comFija, comFijaBase:comFija!=null?montoNormal:0,
     prodLineas, prodTotal, prodComision, total:montoNormal-sn.total+prodTotal};
 }
@@ -2211,7 +2215,7 @@ function lineaAReg(l){
 function camposDescuento(r,cli){
   return {descDetalle:r.descuentos, descPct:Math.round(r.descPct*10)/10, comFija:r.comFija, comFijaBase:r.comFijaBase, aCobrar:r.aCobrarServ,
     prepago:r.prepTotal||0, prepagos:r.prepagos.map(p=>({kind:p.kind,refId:p.refId,itemId:p.itemId,nombre:p.nombre,credito:p.credito})),
-    sena:r.senaTotal>0?{monto:r.senaTotal,ids:r.senasUso.map(x=>x.id)}:null, horaTurno:r.ctx.hora, fijoId:r.fijo?r.fijo.id:null, fidK:r.tarj?r.tarj.k:null, clienteProfesion:cli?cli.profesion:null};
+    sena:r.senaTotal>0?{monto:r.senaTotal,ids:r.senasUso.map(x=>x.id)}:null, horaTurno:r.ctx.hora, noche:r.esNoche?true:undefined, fijoId:r.fijo?r.fijo.id:null, fidK:r.tarj?r.tarj.k:null, clienteProfesion:cli?cli.profesion:null};
 }
 // Despues de guardar el cobro: consume membresia/paquete, suma la visita a la tarjeta, cupones y premio de referidos
 async function postCobroCliente(cli,r,turnoId){
@@ -2532,7 +2536,7 @@ async function borrarTarjetaCfg(id){
 }
 function adminDescuentos(c){
   const hoy=hoyStr(); const r=rangoPeriodo('quincena'); const P=htmlPerdidaDescuentos(r.desde,r.hasta);
-  const sv=servicioMembresia(); const cm=promos.comision, mb=promos.membresia;
+  const sv=servicioMembresia(); const cm=promos.comision, mb=promos.membresia, nc=nocheCfg();
   const diasTxt=(d)=>d&&d.length?d.map(x=>DIAS_NOM[x]).join(', '):'todos los días';
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🏷️ Descuentos fijos</span><button class="lnk" onclick="editarReglaFija('')">+ Nuevo</button></div>
     <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Se aplican solos según el <b style="color:var(--text)">horario del turno</b>, el día, la sucursal y la profesión del cliente. En cada cobro se aplica <b style="color:var(--text)">un solo descuento: el más alto</b> entre estas promos, el efectivo, las ofertas, la fidelidad y los referidos. Nunca se suman.</div>
@@ -2541,6 +2545,8 @@ function adminDescuentos(c){
       <button class="lnk" onclick="toggleReglaFija('${f.id}')">${f.activo===false?'Activar':'Pausar'}</button><button class="lnk" onclick="editarReglaFija('${f.id}')">Editar</button><button class="lnk" style="color:#f472b6" onclick="borrarReglaFija('${f.id}')">×</button></div></div>`).join('')}
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">💰 Comisión con descuentos altos</span><button class="lnk" onclick="editarComisionCfg()">Editar</button></div>
     <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Se aplica un solo descuento por cobro (el más alto). Si el descuento supera el <b>${cm.t1}%</b>: el profesional cobra el <b>${cm.p1}%</b> de lo que pagó el cliente y el salón el ${100-cm.p1}%.<br>Si el descuento llega al <b>${cm.t2}%</b> o más: el profesional cobra el <b>${cm.p2}%</b> y el salón el ${100-cm.p2}%.</div>
+    <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🌙 Turnos de noche</span><button class="lnk" onclick="editarNocheCfg()">Editar</button></div>
+    <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Los turnos que terminan a partir de las <b>${escH(nc.desde)}</b> (en cualquier sucursal) van a <b>precio de lista, sin ningún descuento</b> (ni efectivo, ni promos, ni fidelidad, ni referidos) y el profesional cobra el <b>${numV(nc.pct)}%</b> de lo que paga el cliente.</div>
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🎁 Paquetes y 💳 membresía</span><button class="lnk" onclick="editarVentasCfg()">Editar</button></div>
     <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Paquetes (servicios juntos): 1 = normal · ${(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ')} · quien los vende cobra el ${recPaq().pct}% de la ganancia del salón<br>Membresía: ${mb.creditos} cortes de <b>${sv?escH(sv.nombre)+' ('+fp(sv.precio)+')':'— sin servicio configurado —'}</b> con ${mb.descPct}% menos${sv?' = '+fp(Math.round(sv.precio*mb.creditos*(1-mb.descPct/100))):''}</div>
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📉 Plata que dejamos en descuentos</span><span style="font-size:11px;color:var(--muted2)">${r.label}</span></div>
@@ -2571,6 +2577,13 @@ async function editarComisionCfg(){
   const cm=promos.comision;
   const v=await uiDialog({title:'Comisión con descuentos altos',fields:[{label:'Si el descuento supera (%)',type:'number',value:cm.t1},{label:'…el profesional cobra (% de lo que pagó el cliente)',type:'number',value:cm.p1},{label:'Si el descuento llega a (%)',type:'number',value:cm.t2},{label:'…el profesional cobra (%)',type:'number',value:cm.p2}],ok:'Guardar'});
   if(!v) return; promos.comision={t1:numV(v[0]),p1:numV(v[1]),t2:numV(v[2]),p2:numV(v[3])}; savePromos(); renderAdmin();
+}
+async function editarNocheCfg(){
+  const nc=nocheCfg();
+  const v=await uiDialog({title:'Turnos de noche',msg:'Los turnos que terminan desde esta hora no llevan descuentos y el profesional cobra un porcentaje fijo.',fields:[{label:'Desde la hora (HH:MM)',value:nc.desde},{label:'El profesional cobra (%)',type:'number',value:nc.pct}],ok:'Guardar'});
+  if(!v) return; const h=v[0].trim(), p=numV(v[1]);
+  if(!/^\d{1,2}:\d{2}$/.test(h)||p<=0||p>100){ showToast('Poné la hora como HH:MM y un porcentaje entre 1 y 100'); return; }
+  promos.noche={desde:h.padStart(5,'0'),pct:p}; savePromos(); showToast('Guardado ✓'); renderAdmin();
 }
 async function editarVentasCfg(){
   const sv=servicioMembresia(); const mb=promos.membresia; const rp=recPaq();
@@ -2721,21 +2734,47 @@ function htmlReactivar(){
   return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🔁 Para reactivar (hace +30 días)</span></div>
     ${L.map(({c,u})=>{ const wa=linkWhatsApp(c.tel,'Hola '+c.nombre.split(' ')[0]+'! Te escribimos de Inda Studio 💈 Hace un tiempo que no te vemos, ¿querés que te reservemos un turno?'); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">hace ${diasDesdeStr(u.fecha)} días · ✂️ ${escH([...u.barberos].join(', '))}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:'<span style="font-size:10.5px;color:var(--muted)">sin teléfono</span>'}</div>`; }).join('')}`;
 }
+// Cuatro medidores del dia, de las dos sucursales (los turnos de French figuran aunque recepcion no los pueda reagendar en persona)
+function medidoresRec(){
+  const hoy=hoyStr(), w=ventanaRec(profile); const cierres=(cierresData&&cierresData.byKey)||{};
+  const S=sucursales.map(s=>({s,total:0,cerrados:0,reag:0,resenas:0,senas:0}));
+  allUsers.filter(x=>esProf(x)).forEach(p=>{
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{}'); }catch(e){}
+    (dd.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&enVentana(t.creadoEn,w)).forEach(t=>{
+      const o=S.find(x=>x.s.id===(t.sucursal||p.sucursal)); if(!o) return;
+      const c=cierres['t:'+p.id+':'+t.id]; o.total++;
+      if(c) o.cerrados++;
+      if((c&&c.r&&c.r.reagendo==='si')||(t.reag&&t.reag.estado==='si')) o.reag++;
+      if(c&&c.r&&c.r.resena==='si') o.resenas++;
+      if(c&&c.r&&c.r.sena==='si') o.senas++;
+    });
+  });
+  const suma=(k)=>S.reduce((a,x)=>a+x[k],0);
+  return {S,w,total:suma('total'),cerrados:suma('cerrados'),reag:suma('reag'),resenas:suma('resenas'),senas:suma('senas')};
+}
 function htmlTableroRec(){
-  const e=estadoRecHoy(); const hoy=hoyStr();
-  const ventasHoy=[...membresiasSt.list.filter(m=>m.fecha===hoy&&m.vendedorId===profile.id).map(m=>numV(m.precio)),...paquetesSt.list.filter(p=>p.fecha===hoy&&p.vendedorId===profile.id).map(p=>numV(p.total))];
-  const tile=(l,v,sub,c)=>`<div class="stat-card"><div class="sc-lbl">${l}</div><div class="sc-val" style="font-size:22px;${c?'color:'+c:''}">${v}</div><div class="sc-sub">${sub||''}</div></div>`;
-  const w=e.w, franja=(w.desde==='00:00'&&w.hasta==='24:00')?'todo el día':(w.desde===w.hasta?'hoy no tenés turno':w.desde+' a '+w.hasta);
-  return `<div class="card" style="margin-top:14px;background:linear-gradient(135deg,rgba(96,165,250,.14),rgba(124,111,255,.10));border-color:rgba(96,165,250,.35)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:14px;font-weight:800">🕐 ${franja==='hoy no tenés turno'?'Hoy no tenés turno':'Tu turno: '+franja}</div>${e.porSuc.map(x=>chipSucursal(x.s.id,true)+`<span style="font-size:11px;font-weight:800;margin-left:-4px">${x.n}</span>`).join(' ')}</div>
-    <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12px;font-weight:700">🔁 Reagendaron</span><span style="font-size:22px;font-weight:900;color:#60a5fa">${e.reag} <span style="font-size:13px;color:var(--muted2);font-weight:700">de ${e.total} turnos · ${e.pct}%</span></span></div>
-    <div style="height:6px;background:var(--border2);border-radius:3px;margin:8px 0 4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,e.pct)}%;background:#60a5fa;border-radius:3px"></div></div>
-    <div style="font-size:10.5px;color:var(--muted2)">Cuenta solo los turnos que se hicieron en tu horario. Cerrados ${e.cerrados} · pendientes de cierre ${e.pendientes}</div></div>
-    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
-      ${tile('Turnos hechos',e.total,'en tu horario')}${tile('Reseñas',e.resenas,'declaradas','#fbbf24')}${tile('Señas',e.senas,'de '+e.cerrados+' cerrados','#34d399')}
+  const m=medidoresRec(), w=m.w; const hoy=hoyStr();
+  const ventasHoy=[...membresiasSt.list.filter(x=>x.fecha===hoy&&x.vendedorId===profile.id).map(x=>numV(x.precio)),...paquetesSt.list.filter(x=>x.fecha===hoy&&x.vendedorId===profile.id).map(x=>numV(x.total))];
+  const franja=(w.desde==='00:00'&&w.hasta==='24:00')?'todo el día':(w.desde===w.hasta?'hoy no tenés turno':w.desde+' a '+w.hasta);
+  const pct=(a,b)=>b?Math.round(a/b*100):0;
+  const porSuc=(fn)=>m.S.map(x=>`<span style="white-space:nowrap"><span style="color:${x.s.color}">●</span> ${escH(x.s.nombre.split(' ')[0])} ${fn(x)}</span>`).join(' · ');
+  const tile=(ico,l,val,den,color,barra,sub)=>`<div style="background:var(--s2);border-radius:12px;padding:8px 10px;min-width:0">
+    <div style="display:flex;justify-content:space-between;align-items:baseline;font-size:11px;font-weight:800"><span>${ico} ${l}</span><span style="color:${color}">${den!=null?pct(val,den)+'%':''}</span></div>
+    <div style="font-size:19px;font-weight:900;color:${color};line-height:1.2">${val}${den!=null?` <span style="font-size:11px;color:var(--muted2);font-weight:700">de ${den}</span>`:''}</div>
+    <div style="height:4px;background:var(--border2);border-radius:2px;margin:4px 0;overflow:hidden"><div style="height:100%;width:${Math.min(100,barra)}%;background:${color};border-radius:2px"></div></div>
+    <div style="font-size:10px;color:var(--muted2);line-height:1.5">${sub}</div></div>`;
+  return `<div class="card" style="margin-top:14px;padding:11px 12px;background:linear-gradient(135deg,rgba(96,165,250,.12),rgba(124,111,255,.08));border-color:rgba(96,165,250,.3)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:12.5px;font-weight:800">🕐 ${franja==='hoy no tenés turno'?'Hoy no tenés turno':'Tu turno: '+franja}</div><div style="font-size:10.5px;color:var(--muted2)">${m.total-m.cerrados} sin cerrar</div></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+      ${tile('📋','Turnos hechos',m.total,null,'#60a5fa',pct(m.cerrados,m.total),porSuc(x=>x.total)+' · '+m.cerrados+' cerrados')}
+      ${tile('⭐','Reseñas',m.resenas,m.cerrados,'#fbbf24',pct(m.resenas,m.cerrados),porSuc(x=>x.resenas+'/'+x.cerrados))}
+      ${tile('💵','Señas',m.senas,m.cerrados,'#34d399',pct(m.senas,m.cerrados),porSuc(x=>x.senas+'/'+x.cerrados))}
+      ${tile('🔁','Reagendaron',m.reag,m.total,'#a78bfa',pct(m.reag,m.total),porSuc(x=>x.reag+'/'+x.total))}
     </div>
-    ${ventasHoy.length?`<div style="font-size:12px;color:var(--muted2);margin:-2px 2px 8px">💳🎁 Vendiste hoy ${ventasHoy.length} ${ventasHoy.length===1?'membresía/paquete':'membresías/paquetes'} por ${fp(ventasHoy.reduce((a,b)=>a+b,0))}</div>`:''}
-    ${comPaqQuincena(profile.id)>0?`<div style="font-size:12px;margin:-2px 2px 8px">🎁 Tu comisión por paquetes esta quincena: <b style="color:#7c6fff">${fp(comPaqQuincena(profile.id))}</b></div>`:''}`;
+    <div style="font-size:10px;color:var(--muted);margin-top:7px">Cuenta los turnos de las dos sucursales hechos en tu horario. En sucursales sin recepción los cierran los profesionales.</div>
+  </div>
+  ${ventasHoy.length?`<div style="font-size:12px;color:var(--muted2);margin:8px 2px">💳🎁 Vendiste hoy ${ventasHoy.length} ${ventasHoy.length===1?'membresía/paquete':'membresías/paquetes'} por ${fp(ventasHoy.reduce((a,b)=>a+b,0))}</div>`:''}
+  ${comPaqQuincena(profile.id)>0?`<div style="font-size:12px;margin:6px 2px 8px">🎁 Tu comisión por paquetes esta quincena: <b style="color:#7c6fff">${fp(comPaqQuincena(profile.id))}</b></div>`:''}`;
 }
 function htmlClientesRec(){
   return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">👥 Clientes del salón</span><button class="sec-btn" onclick="abrirFormCliente()" style="background:#7c6fff">+ Cliente</button></div>
@@ -2747,7 +2786,7 @@ function htmlClientesRec(){
 function renderAdminRecepcion(c){
   const recs=allUsers.filter(u=>u.role==='recepcionista');
   const bloques={}; tareasRecepcion.slice().sort((a,b)=>a.desde.localeCompare(b.desde)).forEach(t=>{ (bloques[t.desde+'–'+t.hasta]=bloques[t.desde+'–'+t.hasta]||[]).push(t); });
-  c.innerHTML=htmlAperturaAdmin()+htmlCalendarioAdmin()+`<div class="sec-hdr" style="margin:18px 0 8px"><span class="sec-title">📞 Recepcionistas</span></div>
+  c.innerHTML=htmlAperturaAdmin()+htmlCajaRec()+htmlCalendarioAdmin()+`<div class="sec-hdr" style="margin:18px 0 8px"><span class="sec-title">📞 Recepcionistas</span></div>
     <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Cada recepcionista trabaja en los <b style="color:var(--text)">bloques</b> que le asignás en el calendario de arriba. Solo ve las tareas de su horario y solo se le cuentan los turnos (y reagendamientos) que se hicieron mientras trabaja. Para sumar otra cuenta, aprobala en Equipo y elegí "Recepcionista".</div>
     ${recs.map(u=>{ const e=estadoRecHoy(u); const w=ventanaRec(u); return `<div class="prof-card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(u.name)} <span style="font-size:11px;color:var(--muted2);font-weight:600">@${escH(u.username||'')}</span></div>
       <div style="font-size:12px;color:var(--muted2)">🕐 Hoy: ${bloquesDe(u).length?bloquesDe(u).map(b=>escH(b.nombre)+' '+b.desde+'–'+b.hasta).join(' + '):(hayCalendario()||(u.bloquesRec||[]).length?'no trabaja':(w.desde==='00:00'&&w.hasta==='24:00'?'sin turnos asignados (todo el día)':w.desde+' a '+w.hasta))}</div></div><button class="lnk" onclick="editarCuenta('${u.id}')">Editar</button></div>
@@ -3159,10 +3198,12 @@ const movsVivos=(s)=>(s.movs||[]).filter(m=>!m.borrado);
 // Lo que entro solo durante la caja: cobros de cada profesional (por medio) y membresias/paquetes vendidos
 const enCajaSuc=(s,sid)=>(s.sucursales&&s.sucursales.length)?s.sucursales.includes(sid):sucursalConRecepcion(sid);
 function cajaAuto(s){
-  const desde=new Date(s.apertura.ts), hasta=s.cierre?new Date(s.cierre.ts):new Date();
+  const prev=todasSesiones().filter(x=>x.cierre&&String(x.apertura.ts)<String(s.apertura.ts)).pop();
+  // lo cobrado desde que cerro la caja anterior (aunque haya sido de noche o con la caja cerrada) entra en la caja que se abre
+  const desde=prev?new Date(prev.cierre.ts):new Date(s.apertura.ts), hasta=s.cierre?new Date(s.cierre.ts):new Date();
   const dentro=(iso)=>{ if(!iso) return false; const d=new Date(iso); return d>=desde&&d<=hasta; };
   const lin={}; const add=(k,nombre,medio,m)=>{ if(!m) return; const o=lin[k]||(lin[k]={nombre,ef:0,cta:0}); if(medio==='efectivo') o.ef+=m; else o.cta+=m; };
-  allUsers.filter(u=>['profesional','encargado','recepcionista'].includes(u.role)).forEach(u=>{
+  allUsers.filter(u=>esProf(u)||u.role==='recepcionista').forEach(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     if(profile&&u.id===profile.id&&profile.role!=='admin'&&dineroData) dd=dineroData;
     (dd.turnos||[]).filter(t=>dentro(t.creadoEn)&&enCajaSuc(s,t.sucursal||u.sucursal)).forEach(t=>add(u.id,u.name,t.medio,numV(t.aCobrar!=null?t.aCobrar:t.monto)));
@@ -3180,6 +3221,97 @@ function cajaSaldos(s){
   return {ef,cta,auto};
 }
 
+// ---------- estado publico de la caja: lo leen todos (profesionales incluidos) para saber si ya se puede cobrar ----------
+// Solo hay caja de recepcion en las sucursales con recepcionista (hoy Diego Laure). Hasta que no se abre la caja del dia, nadie cobra ahi.
+let estadoCaja={};
+async function refrescarEstadoCaja(){
+  if(!DB) return;
+  try{ const r=await DB.doc('luffy/estado_caja').get(); if(r){ estadoCaja=r; try{localStorage.setItem('luffy_estado_caja',JSON.stringify(r));}catch(e){} } }catch(e){}
+}
+function cargarEstadoCaja(){
+  try{ estadoCaja=JSON.parse(localStorage.getItem('luffy_estado_caja')||'{}')||{}; }catch(e){ estadoCaja={}; }
+  refrescarEstadoCaja();
+}
+async function guardarEstadoCaja(o){
+  estadoCaja={...estadoCaja,...o}; try{localStorage.setItem('luffy_estado_caja',JSON.stringify(estadoCaja));}catch(e){}
+  if(DB){ try{ await DB.doc('luffy/estado_caja').set(estadoCaja); }catch(e){} }
+}
+// "Abierta hoy" = se abrio la caja hoy (aunque despues la hayan cerrado: si siguen cortando, eso lo cobra recepcion al otro dia)
+function cajaAbiertaHoy(sid){
+  if(!sid||!sucursalConRecepcion(sid)) return true;
+  const hoy=hoyStr(), e=estadoCaja||{};
+  if(e.fecha===hoy&&(!(e.sucursales||[]).length||e.sucursales.includes(sid))) return true;
+  return todasSesiones().some(s=>s.fecha===hoy&&enCajaSuc(s,sid));
+}
+async function cajaOkParaCobrar(sid){
+  if(cajaAbiertaHoy(sid)) return true;
+  await refrescarEstadoCaja();
+  if(cajaAbiertaHoy(sid)) return true;
+  avisoCajaCerrada(sid); return false;
+}
+function avisoCajaCerrada(sid){
+  const su=sucursalDe(sid)||{nombre:'la sucursal'}; const puede=!!profile&&(profile.role==='recepcionista'||profile.role==='admin');
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🔒 La caja no está abierta')+
+    `<div style="font-size:13.5px;line-height:1.6;margin-bottom:14px">No se puede cobrar en <b>${escH(su.nombre)}</b> hasta que recepción abra la caja del día (contando el efectivo y comparándolo con lo que dice la app).</div>`+
+    (puede?`<button class="btn btn-primary" style="background:#34d399;color:#0b0b10" onclick="closeModal('modal-registro');abrirFormCaja()">Abrir la caja ahora</button>`
+      :`<div style="font-size:12px;color:var(--muted2)">Avisale a recepción y volvé a intentar.</div><button class="btn btn-ghost" style="margin-top:10px" onclick="closeModal('modal-registro')">Entendido</button>`);
+  openModal('modal-registro');
+}
+// Sucursal donde esta cobrando la persona (recepcion: la primera con recepcion que atiende)
+function sucCajaDe(){
+  try{
+    if(profile&&profile.role==='recepcionista') return (sucursales.find(x=>sucursalConRecepcion(x.id)&&atiende(profile,x.id))||{}).id||null;
+    return sucursalActual();
+  }catch(e){ return null; }
+}
+async function cajaOkAccion(){ return cajaOkParaCobrar(sucCajaDe()); }
+// Todo lo que mueve plata pide la caja abierta
+['abrirVentaMembresia','abrirVentaPaquete','abrirCobroDeuda','abrirFormSena','abrirVentaProducto'].forEach(n=>{
+  const f=window[n]; if(typeof f!=='function') return;
+  window[n]=async function(...a){ if(!await cajaOkAccion()) return; return f.apply(this,a); };
+});
+
+// ---------- que se cobro en el dia (todo lo de la sucursal, sin importar quien atendio la caja) ----------
+function resumenDiaSuc(sid,fecha){
+  const R={ef:0,mp:0,tj:0,debe:0,n:0,otros:0,porProf:{}};
+  const add=(medio,m,quien)=>{ m=numV(m); if(!m) return; if(medio==='efectivo') R.ef+=m; else if(medio==='tarjeta') R.tj+=m; else R.mp+=m; R.porProf[quien]=(R.porProf[quien]||0)+m; };
+  allUsers.filter(u=>esProf(u)||u.role==='recepcionista').forEach(u=>{
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    if(profile&&u.id===profile.id&&profile.role!=='admin'&&dineroData) dd=dineroData;
+    (dd.turnos||[]).filter(t=>t.fecha===fecha&&(t.sucursal||u.sucursal)===sid).forEach(t=>{ add(t.medio,t.aCobrar!=null?t.aCobrar:t.monto,u.name); R.n++; });
+    (dd.ventas||[]).filter(v=>v.fecha===fecha&&(v.sucursal||u.sucursal)===sid).forEach(v=>{ add(v.medio,v.total,u.name); R.otros++; });
+    (dd.deudores||[]).filter(d=>d.fecha===fecha&&(d.sucursal||u.sucursal)===sid&&!d.anulada).forEach(d=>{ R.debe+=numV(d.monto); });
+  });
+  membresiasSt.list.filter(m=>m.fecha===fecha&&(!m.sucursal||m.sucursal===sid)).forEach(m=>{ add(m.medio,m.precio,'Membresías'); R.otros++; });
+  paquetesSt.list.filter(p=>p.fecha===fecha&&(!p.sucursal||p.sucursal===sid)).forEach(p=>{ add(p.medio,p.total,'Paquetes'); R.otros++; });
+  senasSt.list.filter(x=>(x.fecha||ymdLocal(new Date(x.ts)))===fecha&&(!x.sucursal||x.sucursal===sid)).forEach(x=>{ add(x.medio,x.monto,'Señas'); R.otros++; });
+  R.total=R.ef+R.mp+R.tj;
+  return R;
+}
+function htmlResumenDia(){
+  const L=sucursales.filter(x=>sucursalConRecepcion(x.id)); if(!L.length) return '';
+  const hoy=hoyStr();
+  return L.map(su=>{
+    const R=resumenDiaSuc(su.id,hoy); const pp=Object.entries(R.porProf).sort((a,b)=>b[1]-a[1]);
+    return `<div class="card" style="margin-top:10px;border-left:5px solid ${su.color}"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:12.5px;font-weight:800">📊 Hoy en ${escH(su.nombre)}</div><div style="font-size:21px;font-weight:900">${fp(R.total)}</div></div>
+      <div style="display:flex;gap:6px;margin:8px 0">${[['💵','Efectivo',R.ef],['📱','M. Pago',R.mp],['💳','Tarjeta',R.tj]].map(([e,l,v])=>`<div style="flex:1;background:var(--s2);border-radius:10px;padding:7px 8px;min-width:0"><div style="font-size:10px;color:var(--muted2);font-weight:700">${e} ${l}</div><div style="font-size:14px;font-weight:800">${fp(v)}</div></div>`).join('')}</div>
+      <div style="font-size:11px;color:var(--muted2)">${R.n} ${R.n===1?'turno':'turnos'}${R.otros?' + '+R.otros+' de productos, señas, membresías o paquetes':''}${R.debe>0?' · <span style="color:#f472b6">quedaron debiendo '+fp(R.debe)+'</span>':''}</div>
+      ${pp.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:11.5px;font-weight:700;color:var(--muted2)">Por profesional</summary>${pp.map(([n,v])=>`<div class="ln"><span>${escH(n)}</span><b>${fp(v)}</b></div>`).join('')}</details>`:''}</div>`;
+  }).join('');
+}
+// La caja anterior ya cerro: lo cobrado desde ese cierre hasta la apertura siguiente entra en la caja que se abre (no se pierde)
+function cubiertoPorCaja(iso,sid){
+  if(!iso) return true; const ss=todasSesiones(); if(!ss.length) return true;
+  const d=new Date(iso);
+  return ss.some(s=>enCajaSuc(s,sid)&&d>=new Date(s.apertura.ts)&&(!s.cierre||d<=new Date(s.cierre.ts)));
+}
+function aperturaCajaDif(){
+  const uc=ultimoCierre(); const e=document.getElementById('cj-ef').value, c=document.getElementById('cj-cta').value; const el=document.getElementById('cj-dif');
+  if(e===''||c===''||!uc){ el.innerHTML=''; return; }
+  const de=numV(e)-numV(uc.efectivo), dc=numV(c)-numV(uc.cuenta); const ok=Math.abs(de)<1&&Math.abs(dc)<1;
+  el.innerHTML=`<span style="color:${ok?'#34d399':'#fbbf24'}">${ok?'✓ Coincide con lo que dice la app':'Diferencia con la app: efectivo '+fp(de)+' · cuenta '+fp(dc)}</span>`;
+}
+
 // ---------- bloques de recepcion (para saber a que turno pertenece una apertura) ----------
 const minDeHora=(h)=>{ const [a,b]=String(h).split(':').map(Number); return a*60+b; };
 const horaDeMin=(n)=>pad2(Math.floor(n/60))+':'+pad2(n%60);
@@ -3191,10 +3323,11 @@ function bloqueParaApertura(){
 }
 
 // ---------- pantalla de recepcion ----------
-function htmlCajaRec(){
+function htmlCajaRec(){ return htmlCajaRecBase()+htmlResumenDia(); }
+function htmlCajaRecBase(){
   const s=sesionAbierta(); const hoy=hoyStr();
   const btn=(t,f,st)=>`<button onclick="${f}" style="padding:10px 14px;border-radius:12px;border:${st?'none':'1.5px solid var(--border2)'};background:${st||'transparent'};color:${st?'#fff':'var(--text)'};font-family:var(--font);font-size:12.5px;font-weight:800;cursor:pointer">${t}</button>`;
-  if(!s) return `<div class="card" style="margin-top:14px;border-color:rgba(251,191,36,.4)"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:26px">💰</div><div style="flex:1"><div style="font-size:14px;font-weight:800">Caja cerrada</div><div style="font-size:11.5px;color:var(--muted2)">Abrila al empezar tu turno, contando el efectivo y el saldo de la cuenta.</div></div>${btn('Abrir caja','abrirFormCaja()','#34d399')}</div></div>`;
+  if(!s) return `<div class="card" style="margin-top:14px;border-color:rgba(251,191,36,.4)"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:26px">💰</div><div style="flex:1"><div style="font-size:14px;font-weight:800">${todasSesiones().some(x=>x.fecha===hoy)?'Caja cerrada':'🔒 Caja sin abrir'}</div><div style="font-size:11.5px;color:var(--muted2)">${todasSesiones().some(x=>x.fecha===hoy)?'Si los profesionales siguen cobrando, lo ves mañana en "Para cobrar".':'Hasta que no la abras nadie puede cobrar en Diego Laure. Contá el efectivo, compará con la app y abrila.'}</div></div>${btn('Abrir caja','abrirFormCaja()','#34d399')}</div></div>`;
   const sd=cajaSaldos(s); const otraFecha=s.fecha!==hoy;
   return `<div class="card" style="margin-top:14px;border-color:${otraFecha?'rgba(244,114,182,.5)':'rgba(52,211,153,.4)'}">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="font-size:24px">💰</div><div style="flex:1"><div style="font-size:14px;font-weight:800">Caja abierta</div><div style="font-size:11.5px;color:${otraFecha?'#f472b6':'var(--muted2)'}">${otraFecha?'⚠️ Quedó abierta del '+fechaCortaStr(s.fecha)+' · ':''}la abrió ${escH(s.recNombre)} a las ${horaDeIso(s.apertura.ts)}</div></div></div>
@@ -3203,25 +3336,33 @@ function htmlCajaRec(){
 }
 function abrirFormCaja(){
   const ab=sesionAbierta(); if(ab){ showToast('Hay una caja abierta: primero hay que cerrarla'); return; }
-  const uc=ultimoCierre();
+  const ult=todasSesiones().filter(s=>s.cierre).pop(); const uc=ult?ult.cierre:null;
   document.getElementById('registro-content').innerHTML=cabeceraModal('Abrir caja 💰')+`
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">${uc?'Precargué lo que dejó la caja anterior al cerrar. Contá el efectivo y confirmá o corregí.':'Contá el efectivo que hay y poné cuánto tenés en la cuenta.'}</div>
-    <div class="field"><label>💵 Efectivo en caja</label><input id="cj-ef" type="number" inputmode="decimal" value="${uc?numV(uc.efectivo):''}" placeholder="0"/></div>
-    <div class="field" style="margin-top:8px"><label>🏦 Saldo en cuenta (Mercado Pago / banco)</label><input id="cj-cta" type="number" inputmode="decimal" value="${uc?numV(uc.cuenta):''}" placeholder="0"/></div>
+    ${uc?`<div class="card" style="margin-bottom:12px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Según la app debería haber</div>${linea('💵 Efectivo',`<b>${fp(numV(uc.efectivo))}</b>`)}${linea('🏦 Cuenta',`<b>${fp(numV(uc.cuenta))}</b>`)}<div style="font-size:11px;color:var(--muted2);margin-top:4px">Es lo que contó ${escH(uc.por||'recepción')} al cerrar la caja del ${fechaCortaStr(ult.fecha)} a las ${horaDeIso(uc.ts)}.</div></div>`
+      :`<div class="card" style="margin-bottom:12px;font-size:12.5px;color:var(--muted2)">Es la primera caja: contá el efectivo que hay y poné cuánto tenés en la cuenta.</div>`}
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">${uc?'Contá el efectivo que hay <b style="color:var(--text)">ahora</b> en la caja y compará con lo de arriba. Si no coincide, anotá por qué.':'Sin abrir la caja no se puede cobrar.'}</div>
+    <div class="field"><label>💵 Efectivo que contaste</label><input id="cj-ef" type="number" inputmode="decimal" placeholder="0" oninput="aperturaCajaDif()"/></div>
+    <div class="field" style="margin-top:8px"><label>🏦 Saldo real en la cuenta (Mercado Pago / banco)</label><input id="cj-cta" type="number" inputmode="decimal" placeholder="0" oninput="aperturaCajaDif()"/></div>
+    <div id="cj-dif" style="font-size:12.5px;font-weight:700;margin:8px 0"></div>
+    <div class="field"><label>Nota (si hay diferencia, ¿por qué?)</label><input id="cj-nota" placeholder="Opcional"/></div>
     <button class="btn btn-primary" onclick="confirmarAperturaCaja()" style="margin-top:14px;background:#34d399;color:#0b0b10">Abrir caja</button>`;
   openModal('modal-registro');
 }
 async function confirmarAperturaCaja(){
-  const ef=numV(document.getElementById('cj-ef').value), cta=numV(document.getElementById('cj-cta').value);
-  const uc=ultimoCierre(); const b=bloqueParaApertura(); const ahora=new Date().toISOString();
+  const e0=document.getElementById('cj-ef').value, c0=document.getElementById('cj-cta').value; if(e0===''||c0===''){ showToast('Poné cuánto contaste en efectivo y en la cuenta'); return; }
+  const ef=numV(e0), cta=numV(c0), nota=(document.getElementById('cj-nota')||{value:''}).value.trim();
+  const uc=ultimoCierre();
+  if(uc&&(Math.abs(ef-numV(uc.efectivo))>=1||Math.abs(cta-numV(uc.cuenta))>=1)&&!await uiConfirm('No coincide con la app','Efectivo '+fp(ef-numV(uc.efectivo))+' y cuenta '+fp(cta-numV(uc.cuenta))+' respecto de lo que dejó la caja anterior. Queda registrado para el admin. ¿Abrir igual?',{ok:'Abrir igual'})) return;
+  const b=bloqueParaApertura(); const ahora=new Date().toISOString();
   const r=await cambiarCaja(ymHoy(),l=>{
     if(todasSesiones().some(s=>!s.cierre)) return {error:true};
     const s={id:'cj'+Date.now().toString(36),fecha:hoyStr(),bloque:b?b.id:null,recId:profile.id,recNombre:profile.name,sucursal:profile.sucursal||((sucursales.find(x=>sucursalConRecepcion(x.id))||{}).id)||null,sucursales:sucursalesDe(profile).length?sucursalesDe(profile):sucursales.filter(x=>sucursalConRecepcion(x.id)).map(x=>x.id),
-      apertura:{efectivo:ef,cuenta:cta,ts:ahora,difEf:uc?ef-numV(uc.efectivo):0,difCta:uc?cta-numV(uc.cuenta):0},movs:[],cierre:null,upd:ahora};
+      apertura:{efectivo:ef,cuenta:cta,ts:ahora,difEf:uc?ef-numV(uc.efectivo):0,difCta:uc?cta-numV(uc.cuenta):0,nota,esperadoEf:uc?numV(uc.efectivo):null,esperadoCta:uc?numV(uc.cuenta):null},movs:[],cierre:null,upd:ahora};
     l.push(s); return {s};
   });
   if(r.error){ showToast('Alguien ya abrió la caja'); return; }
-  closeModal('modal-registro'); showToast('Caja abierta ✓'); renderRecepcion();
+  await guardarEstadoCaja({fecha:hoyStr(),abierta:true,ts:ahora,por:profile.name,sucursales:(r.s&&r.s.sucursales)||[]});
+  closeModal('modal-registro'); showToast('Caja abierta ✓'); refreshCurrentView();
 }
 function cajaDetalle(id){
   const s=todasSesiones().find(x=>x.id===id); if(!s) return; const sd=cajaSaldos(s); const editable=!s.cierre&&profile.role==='recepcionista';
@@ -3229,7 +3370,7 @@ function cajaDetalle(id){
   document.getElementById('registro-content').innerHTML=cabeceraModal('Detalle de la caja')+`
     <div style="font-size:12px;color:var(--muted2);margin-bottom:10px">${escH(s.recNombre)} · ${fechaCortaStr(s.fecha)} · abrió ${horaDeIso(s.apertura.ts)}${s.cierre?' · cerró '+horaDeIso(s.cierre.ts):''}</div>
     <div class="card" style="margin-bottom:8px">${linea('<b>Apertura</b>',`💵 ${f(s.apertura.efectivo)} · 🏦 ${f(s.apertura.cuenta)}`)}
-      ${(s.apertura.difEf||s.apertura.difCta)?`<div style="font-size:11px;color:#fbbf24;margin-top:2px">Difiere de lo que cerró la caja anterior (efectivo ${fp(s.apertura.difEf)}, cuenta ${fp(s.apertura.difCta)})</div>`:''}</div>
+      ${(s.apertura.difEf||s.apertura.difCta)?`<div style="font-size:11px;color:#fbbf24;margin-top:2px">Difiere de lo que cerró la caja anterior (efectivo ${fp(s.apertura.difEf)}, cuenta ${fp(s.apertura.difCta)})</div>`:''}${s.apertura.nota?`<div style="font-size:11.5px;color:var(--muted2);margin-top:4px">📝 ${escH(s.apertura.nota)}</div>`:''}</div>
     <div class="sec-title" style="margin:10px 0 6px">⬆️ Cobros (entran solos)</div>
     <div class="card" style="margin-bottom:8px">${sd.auto.map(x=>linea(escH(x.nombre),`💵 ${f(x.ef)} · 🏦 ${f(x.cta)}`)).join('')||'<div style="font-size:12px;color:var(--muted)">Todavía no hubo cobros.</div>'}</div>
     <div class="sec-title" style="margin:10px 0 6px">✍️ Movimientos anotados</div>
@@ -3260,12 +3401,12 @@ async function guardarMovCaja(){
   const ts=new Date().toISOString(), base={concepto:cp.n,cat:cp.cat||null,gasto:!!cp.gasto,detalle:det,ts,por:profile.name};
   const movs=cp.tipo==='traspaso'?[{...base,id:'m'+Date.now().toString(36)+'a',tipo:'salida',medio:'efectivo',monto},{...base,id:'m'+Date.now().toString(36)+'b',tipo:'entrada',medio:'cuenta',monto}]:[{...base,id:'m'+Date.now().toString(36),tipo:cp.tipo,medio:movCajaSel.medio,monto}];
   await cambiarCaja(ab.fecha.slice(0,7),l=>{ const s=l.find(x=>x.id===ab.id); if(s){ s.movs=[...(s.movs||[]),...movs]; s.upd=new Date().toISOString(); } });
-  closeModal('modal-registro'); showToast('Anotado ✓'); renderRecepcion();
+  closeModal('modal-registro'); showToast('Anotado ✓'); refreshCurrentView();
 }
 async function borrarMovCaja(sid,mid){
   const s=todasSesiones().find(x=>x.id===sid); if(!s||s.cierre) return;
   await cambiarCaja(s.fecha.slice(0,7),l=>{ const x=l.find(z=>z.id===sid); const m=x&&(x.movs||[]).find(z=>z.id===mid); if(m){ m.borrado=true; x.upd=new Date().toISOString(); } });
-  cajaDetalle(sid); renderRecepcion();
+  cajaDetalle(sid); refreshCurrentView();
 }
 function abrirCierreCaja(){
   const s=sesionAbierta(); if(!s) return; const sd=cajaSaldos(s);
@@ -3291,7 +3432,8 @@ async function confirmarCierreCaja(){
   if((Math.abs(de)>=1||Math.abs(dc)>=1)&&!await uiConfirm('Hay una diferencia','Efectivo '+fp(de)+' y cuenta '+fp(dc)+'. Queda registrada para el admin. ¿Cerrar igual?',{ok:'Cerrar igual'})) return;
   const nota=document.getElementById('cc-nota').value.trim(); const ts=new Date().toISOString();
   await cambiarCaja(s.fecha.slice(0,7),l=>{ const x=l.find(z=>z.id===s.id); if(x&&!x.cierre){ x.cierre={efectivo:ef,cuenta:cta,esperadoEf:sd.ef,esperadoCta:sd.cta,difEf:de,difCta:dc,nota,ts,porId:profile.id,por:profile.name}; x.upd=ts; } });
-  closeModal('modal-registro'); showToast('Caja cerrada ✓'); renderRecepcion();
+  await guardarEstadoCaja({abierta:false,cierreTs:ts});
+  closeModal('modal-registro'); showToast('Caja cerrada ✓'); refreshCurrentView();
 }
 
 // ---------- SOLO ADMIN: ¿abrio recepcion? ----------
@@ -5151,14 +5293,17 @@ function openRegistro(){
   renderRegistro();
   openModal('modal-registro');
 }
-function abrirRegistroTurno(){
+async function abrirRegistroTurno(){
+  if(!await cajaOkParaCobrar(sucursalActual())) return false; // sin caja abierta no se cobra
   regState={step:1,tipo:'turno',monto:0,medio:'',categoria:''};
   resetCobro();
   renderRegistro();
   openModal('modal-registro');
+  return true;
 }
-function abrirCobroDebe(){ abrirRegistroTurno(); cobro.medio='debe'; refreshCobro(); }
-function abrirRegistroTipo(tipo){
+async function abrirCobroDebe(){ if(!await abrirRegistroTurno()) return; cobro.medio='debe'; refreshCobro(); }
+async function abrirRegistroTipo(tipo){
+  if((tipo==='turno'||tipo==='producto')&&!await cajaOkParaCobrar(sucursalActual())) return;
   regState={step:1,tipo,monto:0,medio:'',categoria:'',saltoTipo:true};
   renderRegistro();
   openModal('modal-registro');
@@ -5239,7 +5384,7 @@ function renderRegistro(){
   }
 }
 
-function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; if(tipo==='turno') resetCobro(); if(tipo==='producto') ventaProd={cliente:'',clienteId:null}; renderRegistro(); }
+async function regSelTipo(tipo){ if((tipo==='turno'||tipo==='producto')&&!await cajaOkParaCobrar(sucursalActual())) return; regState.tipo=tipo; regState.step=1; if(tipo==='turno') resetCobro(); if(tipo==='producto') ventaProd={cliente:'',clienteId:null}; renderRegistro(); }
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
@@ -5346,6 +5491,7 @@ function refreshCobro(){
       ex.push(`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:5px">${escH(s.nombre)}: ${escH(s.variante.titulo||'Opción')} <span style="color:#f472b6">*</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.variante.opciones.map((o,oi)=>`<button onclick="cobroOpcion('${id}',${oi})" style="${pillStyle(cobro.opciones[id]===o.n,color)}">${escH(o.n)}${numV(o.extra)?' +'+fp(o.extra):''}</button>`).join('')}</div></div>`);
     }
   });
+  if(r.esNoche) ex.unshift(`<div style="background:rgba(124,111,255,.12);border:1px solid rgba(124,111,255,.35);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#a89fff;font-weight:700">🌙 Turno de noche (desde las ${escH(nocheCfg().desde)}): precio de lista, sin descuentos. Tu comisión es ${numV(nocheCfg().pct)}% fijo.</div>`);
   document.getElementById('cb-extra').innerHTML=ex.join('');
 
   const acts=ofertasVisibles();
@@ -5364,7 +5510,7 @@ function refreshCobro(){
     </div>`;
   }).join(''):'<div style="font-size:12px;color:var(--muted)">No hay productos con stock cargados.</div>';
 
-  document.getElementById('cb-medio').innerHTML=[['💵','Efectivo','efectivo',`−${DESC_EFECTIVO_PCT}% servicios`],['📱','Mercado Pago','mp',''],['💳','Tarjeta','tarjeta',''],['⏳','Paga después','debe','queda debiendo']].map(([e,l,v,sub])=>{
+  document.getElementById('cb-medio').innerHTML=[['💵','Efectivo','efectivo',r.esNoche?'':`−${DESC_EFECTIVO_PCT}% servicios`],['📱','Mercado Pago','mp',''],['💳','Tarjeta','tarjeta',''],['⏳','Paga después','debe','queda debiendo']].map(([e,l,v,sub])=>{
     const sel=cobro.medio===v;
     return `<button onclick="cobroMedio('${v}')" style="min-width:0;padding:12px 3px;border-radius:12px;border:1.5px solid ${sel?color:'var(--border2)'};background:${sel?color+'22':'transparent'};cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;color:${sel?color:'var(--muted2)'};transition:all .15s"><div style="font-size:20px;margin-bottom:4px">${e}</div>${l}${sub?`<div style="font-size:9.5px;font-weight:600;opacity:.8;margin-top:2px">${sub}</div>`:''}</button>`;
   }).join('');
@@ -5383,7 +5529,7 @@ function refreshCobro(){
     ${r.prodLineas.length?row('<b>Productos</b>','<b>'+fp(r.prodTotal)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">${cobro.medio==='debe'?'QUEDA DEBIENDO':'TOTAL A COBRAR'}</span><span style="font-size:24px;font-weight:900">${fp(r.total)}</span></div>
     <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.5">
-      ${cobro.medio==='debe'?'⏳ <b>No suma a tu quincena todavía.</b> Cuando pague, se suma a la quincena del día en que pague (no a la de hoy). Recepción lo ve para cobrarle.':r.svcs.length?`Suma a tu quincena: <b>${fp(r.servicioNeto)}</b> → comisión ≈ ${fp(comServ)} ${r.comFija!=null?'(descuento alto: comisión fija sobre lo que paga el cliente)':'('+pctServ+'%)'}<br>`:''}
+      ${cobro.medio==='debe'?'⏳ <b>No suma a tu quincena todavía.</b> Cuando pague, se suma a la quincena del día en que pague (no a la de hoy). Recepción lo ve para cobrarle.':r.svcs.length?`Suma a tu quincena: <b>${fp(r.servicioNeto)}</b> → comisión ≈ ${fp(comServ)} ${r.esNoche?'(turno de noche: '+numV(nocheCfg().pct)+'% fijo)':r.comFija!=null?'(descuento alto: comisión fija sobre lo que paga el cliente)':'('+pctServ+'%)'}<br>`:''}
       ${cobro.medio!=='debe'&&r.prodLineas.length?`Productos (aparte de tu quincena): comisión <b>${fp(r.prodComision)}</b>`:''}
     </div>
   </div>`:'';
@@ -5408,6 +5554,7 @@ function cobroQty(id,delta){
 let guardandoCobro=false;
 async function guardarCobro(){
   if(guardandoCobro) return;
+  if(!await cajaOkParaCobrar(sucursalActual())) return;
   const r=calcCobro();
   if(!r.svcs.length){ showToast('Elegí qué le hiciste'); return; }
   const falta=r.lineas.flatMap(l=>l.faltan)[0];
@@ -8005,19 +8152,22 @@ function prefetchRecepcionTeamData(){
   return Promise.all(jobs).then(refreshCurrentView).catch(()=>{});
 }
 function getAvisosPendientes(){
-  const hoy=ymdLocal(new Date());
+  const hoy=ymdLocal(new Date()), desde=addDias(hoy,-3);
+  const cierres=(cierresData&&cierresData.byKey)||{};
   const profesionales=allUsers.filter(u=>esProf(u));
+  // Lo cobrado en una sucursal con recepcion cuando la caja ya estaba cerrada (los chicos siguen cortando) le aparece a recepcion al otro dia
+  const dePasado=(x,key,p)=>{ const sid=x.sucursal||p.sucursal; return x.fecha>=desde&&x.fecha<hoy&&sucursalConRecepcion(sid)&&!avisosLeidos.includes(key)&&!cierres[key]&&!cubiertoPorCaja(x.creadoEn,sid); };
   const items=[];
   profesionales.forEach(p=>{
     let dd={turnos:[],ventas:[]};
     try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{"turnos":[]}'); }catch(e){}
     normalizarFechas(dd);
-    const turnosHoy=(dd.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId);
-    const ventasHoy=(dd.ventas||[]).filter(v=>v.fecha===hoy&&!v.deudaId);
+    const turnosSel=(dd.turnos||[]).filter(t=>!t.deudaId&&(t.fecha===hoy||dePasado(t,'t:'+p.id+':'+t.id,p)));
+    const ventasSel=(dd.ventas||[]).filter(v=>!v.deudaId&&(v.fecha===hoy||(v.fecha>=desde&&v.fecha<hoy&&(v.turnoId?turnosSel.some(t=>t.id===v.turnoId):dePasado(v,'v:'+p.id+':'+v.id,p)))));
     const ventasUsadas=new Set();
-    turnosHoy.forEach(t=>{
+    turnosSel.forEach(t=>{
       const key='t:'+p.id+':'+t.id;
-      const extras=ventasHoy.filter(v=>{
+      const extras=ventasSel.filter(v=>{
         if(ventasUsadas.has(v.id)) return false;
         if(v.turnoId) return v.turnoId===t.id;
         if(!v.cliente||!t.cliente) return false;
@@ -8025,11 +8175,11 @@ function getAvisosPendientes(){
         return Math.abs(new Date(v.creadoEn)-new Date(t.creadoEn))<45*60*1000;
       });
       extras.forEach(v=>ventasUsadas.add(v.id));
-      items.push({key, prof:p, tipo:'turno', turno:t, extras, leido:avisosLeidos.includes(key)});
+      items.push({key, prof:p, tipo:'turno', turno:t, extras, fecha:t.fecha, leido:avisosLeidos.includes(key)});
     });
-    ventasHoy.filter(v=>!ventasUsadas.has(v.id)).forEach(v=>{
+    ventasSel.filter(v=>!ventasUsadas.has(v.id)).forEach(v=>{
       const key='v:'+p.id+':'+v.id;
-      items.push({key, prof:p, tipo:'venta', venta:v, leido:avisosLeidos.includes(key)});
+      items.push({key, prof:p, tipo:'venta', venta:v, fecha:v.fecha, leido:avisosLeidos.includes(key)});
     });
   });
   items.sort((a,b)=>{
@@ -8038,6 +8188,7 @@ function getAvisosPendientes(){
   });
   return items;
 }
+
 function marcarDeudaVista(profId,id){
   const key='u:'+profId+':'+id;
   if(!avisosLeidos.includes(key)) avisosLeidos.push(key);
@@ -8109,13 +8260,10 @@ function renderRecepcion(){
   const avisos=getAvisosPendientes().filter(a=>!a.leido);
   const body=document.getElementById('rec-body');
   body.innerHTML=`
-    ${htmlTableroRec()}
-    ${htmlMisTurnosRec()}
-    ${htmlCajaRec()}
     <!-- Avisos de cobro -->
     ${avisos.length?`
     <div class="sec-hdr" style="margin-top:16px;margin-bottom:8px">
-      <span class="sec-title">🔔 Para cobrar (${avisos.length})</span>
+      <span class="sec-title">🔔 Para cobrar (${avisos.length})${avisos.filter(a=>a.fecha&&a.fecha<hoy).length?' · <span style="color:#fbbf24">'+avisos.filter(a=>a.fecha&&a.fecha<hoy).length+' de ayer</span>':''}</span>
     </div>
     ${avisos.map(a=>{
       const t=a.tipo==='turno'?a.turno:null;
@@ -8135,7 +8283,7 @@ function renderRecepcion(){
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <div style="width:34px;height:34px;border-radius:50%;background:${a.prof.color}33;border:1.5px solid ${a.prof.color};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${a.prof.emoji||'✂️'}</div>
           <div style="flex:1;min-width:0">
-            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:3px">${chipSucursal(sucId,true)}<span style="font-size:10.5px;color:var(--muted)">${minutosDesde((t||v).creadoEn)}</span></div>
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:3px">${chipSucursal(sucId,true)}${a.fecha&&a.fecha<hoy?'<span style="font-size:10px;font-weight:800;background:#fbbf24;color:#1a1a1a;border-radius:6px;padding:2px 7px">📅 DE '+(a.fecha===addDias(hoy,-1)?'AYER':fechaCortaStr(a.fecha))+'</span>':''}<span style="font-size:10.5px;color:var(--muted)">${minutosDesde((t||v).creadoEn)}</span></div>
             <div style="font-size:12px;color:var(--muted2)">Profesional: <b style="color:var(--text)">${escH(a.prof.name)}</b></div>
             <div style="font-size:14px;font-weight:800">Cliente: ${cliente}${cliNum}</div>
           </div>
@@ -8147,6 +8295,9 @@ function renderRecepcion(){
       </div>`;
     }).join('')}
     `:''}
+    ${htmlCajaRec()}
+    ${htmlTableroRec()}
+    ${htmlMisTurnosRec()}
 
     ${htmlDeudasRecepcion()}
     ${htmlSenasRec()}
@@ -8473,9 +8624,10 @@ function preguntasCierre(a){
 }
 
 let cierreSel=null;
-function abrirCierreCobro(key){
+async function abrirCierreCobro(key){
   const a=getAvisosPendientes().find(x=>x.key===key);
   if(!a||a.tipo!=='turno'){ showToast('Ese turno ya no está'); return; }
+  if(!await cajaOkParaCobrar(a.turno.sucursal||a.prof.sucursal)) return;
   cierreSel={key,r:{},senaMonto:'',senaMedio:'efectivo',senaProf:a.prof.id};
   if(a.turno.reag&&a.turno.reag.estado==='si') cierreSel.r.reagendo='si'; // el profesional ya lo reagendo
   renderCierre(); openModal('modal-registro');
