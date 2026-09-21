@@ -1063,6 +1063,87 @@ async function editarHorariosStories(){
   refreshCurrentView();
 }
 
+// ---------- Historias de recepcion: 2 cuentas (Inda Barber / Inda Studio) x 2 bloques (mañana / tarde) ----------
+// Son las 4 historias predeterminadas, repetidas para cada cuenta. Se tildan una sola vez por dia para todo el equipo de recepcion (clave 'rec').
+const STORY_CUENTAS=[{id:'barber',nombre:'Inda Barber',emoji:'💈',color:'#fbbf24'},{id:'studio',nombre:'Inda Studio',emoji:'💅',color:'#f472b6'}];
+const STORY_BLOQUES=[{id:'man',label:'Mañana',emoji:'🌅',tipos:['buenos_dias','turnos_libres']},{id:'tar',label:'Tarde',emoji:'🌇',tipos:['resultado','cierre']}];
+const STORY_REC_TEXTOS={
+  barber:{
+    buenos_dias:'Arrancamos el día 💈 Ya estamos en Inda Barber listos para atenderte. Reservá tu turno por DM 👇',
+    turnos_libres:'Turnos disponibles para hoy en Inda Barber:\n⏰ [HORA 1]\n⏰ [HORA 2]\n⏰ [HORA 3]\nEscribinos y te reservamos 🙌',
+    resultado:'¿Les gusta el resultado? ✨ Este es el trabajo de hoy en Inda Barber. Si querés algo así, reservá tu turno por DM 💈',
+    cierre:'Cerramos el día 🙏 ¡Gracias a todos los que pasaron por Inda Barber! Si querés reservar para mañana, escribinos ahora 📩'},
+  studio:{
+    buenos_dias:'Buenos días desde Inda Studio ✨ Ya estamos listas para consentirte. Reservá tu turno por DM 👇',
+    turnos_libres:'Turnos disponibles para hoy en Inda Studio:\n⏰ [HORA 1]\n⏰ [HORA 2]\n⏰ [HORA 3]\nEscribinos y te reservamos 🙌',
+    resultado:'Mirá cómo quedó ✨ Este es el trabajo de hoy en Inda Studio. Si querés algo así, reservá tu turno por DM 💅',
+    cierre:'Cerramos el día 🙏 ¡Gracias a todas las que pasaron por Inda Studio! Si querés reservar para mañana, escribinos ahora 📩'},
+};
+let storyRecTextos={};
+function loadStoryRecTextos(){
+  try{ storyRecTextos=JSON.parse(localStorage.getItem('luffy_story_rec_textos')||'{}'); }catch(e){}
+  if(DB){ DB.doc('luffy/stories_rec_textos').get().then(r=>{ const n=r||{}; if(JSON.stringify(n)!==JSON.stringify(storyRecTextos)){ storyRecTextos=n; try{localStorage.setItem('luffy_story_rec_textos',JSON.stringify(n));}catch(e){} refreshCurrentView(); } }).catch(()=>{}); }
+}
+const storyRecTexto=(cuenta,tipo)=>storyRecTextos[cuenta+'_'+tipo]||STORY_REC_TEXTOS[cuenta][tipo];
+const storyRecItems=(bloqueId)=>{ const b=STORY_BLOQUES.find(x=>x.id===bloqueId); return b.tipos.flatMap(tp=>STORY_CUENTAS.map(c=>({id:c.id+'_'+tp,cuenta:c,tipo:STORY_TIPOS.find(t=>t.id===tp),bloque:b}))); };
+const storyRecDone=(fecha,id)=>!!(storiesData&&storiesData[fecha]&&storiesData[fecha].rec&&storiesData[fecha].rec[id]&&storiesData[fecha].rec[id].done);
+const storyRecHechas=(fecha,bloqueId)=>storyRecItems(bloqueId).filter(i=>storyRecDone(fecha,i.id)).length;
+
+function renderStoriesRec(){
+  loadStoriesData();
+  const body=document.getElementById('stories-body');
+  const hoy=ymdLocal(new Date()); const md=new Date(); md.setDate(md.getDate()+1); const man=ymdLocal(md);
+  const dia=(fecha,titulo,esHoy)=>{
+    const total=STORY_BLOQUES.reduce((a,b)=>a+storyRecItems(b.id).length,0), hechas=STORY_BLOQUES.reduce((a,b)=>a+storyRecHechas(fecha,b.id),0);
+    return `<div style="margin-bottom:22px"><div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.1em;color:${esHoy?'var(--text)':'var(--muted)'};margin-bottom:10px">${titulo} · ${hechas}/${total}</div>
+    ${STORY_BLOQUES.map(b=>{ const its=storyRecItems(b.id); const hs=b.tipos.map(t=>storyHorarios[t]).filter(Boolean).join(' y ');
+      return `<div style="font-size:12px;font-weight:800;margin:0 0 8px;display:flex;align-items:center;gap:6px">${b.emoji} ${b.label} <span style="color:var(--muted2);font-weight:600">${storyRecHechas(fecha,b.id)}/${its.length}${hs?' · sugeridas '+hs+'hs':''}</span></div>
+      ${its.map((it,i)=>{ const ch=(storiesData&&storiesData[fecha]&&storiesData[fecha].rec&&storiesData[fecha].rec[it.id])||{done:false};
+        return `<div class="story-card ${ch.done?'done':''}"><div class="story-top"><div class="story-num" style="background:${it.cuenta.color};color:#1a1a1a">${it.cuenta.emoji}</div>
+          <div class="story-tipo"><strong>${it.tipo.emoji} ${it.tipo.label}</strong><span style="display:block;color:${it.cuenta.color};font-weight:800">${it.cuenta.nombre}</span><span>${escH(it.tipo.ref)}${storyHorarios[it.tipo.id]?' · Sugerido '+storyHorarios[it.tipo.id]+'hs':''}${ch.done&&ch.por?' · lo subió '+escH(ch.por):''}</span></div>
+          <div class="story-check ${ch.done?'done':''}" onclick="toggleStoryRec('${fecha}','${it.id}','${esHoy}')">${ch.done?'✓':''}</div></div>
+          <div class="story-texto">${escH(storyRecTexto(it.cuenta.id,it.tipo.id)).replace(/\n/g,'<br>')}<button class="story-copy" onclick="copyStoryRec('${it.id}')">Copiar</button></div></div>`; }).join('')}
+      <div style="height:6px"></div>`; }).join('')}</div>`;
+  };
+  body.innerHTML=dia(hoy,'Hoy',true)+dia(man,'Mañana · para dejarlas listas',false);
+}
+function copyStoryRec(id){ const it=STORY_BLOQUES.flatMap(b=>storyRecItems(b.id)).find(x=>x.id===id); if(it) copyText(storyRecTexto(it.cuenta.id,it.tipo.id)); }
+function toggleStoryRec(fecha,id,esHoy){
+  if(!storiesData[fecha]) storiesData[fecha]={};
+  if(!storiesData[fecha].rec) storiesData[fecha].rec={};
+  const cur=storiesData[fecha].rec[id]||{done:false}; const nuevo=!cur.done;
+  storiesData[fecha].rec[id]={done:nuevo,ts:new Date().toISOString(),por:profile.name,porId:profile.id};
+  saveStoriesData();
+  if(nuevo&&esHoy==='true'){
+    const it=STORY_BLOQUES.flatMap(b=>storyRecItems(b.id)).find(x=>x.id===id);
+    if(addPuntos(profile.id,'story',ptsDe('story',5),'Story '+it.cuenta.nombre+': '+it.tipo.label,'story:'+fecha+':rec:'+id)!==false) showToast('+'+ptsDe('story',5)+' puntos ⭐');
+  }
+  renderStoriesRec();
+}
+function htmlStoriesRecAdmin(){
+  const hoy=ymdLocal(new Date());
+  const bl=STORY_BLOQUES.map(b=>{ const its=storyRecItems(b.id);
+    return `<div style="font-size:11px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;margin:10px 0 2px">${b.emoji} ${b.label} · ${storyRecHechas(hoy,b.id)}/${its.length}</div>`+its.map(i=>{ const c=storiesData&&storiesData[hoy]&&storiesData[hoy].rec&&storiesData[hoy].rec[i.id]; const h=c&&c.ts?new Date(c.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
+      return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-size:15px">${i.tipo.emoji}</div><div style="flex:1;font-size:12px">${i.tipo.label} <span style="color:${i.cuenta.color};font-weight:700">· ${i.cuenta.nombre}</span></div>${c&&c.done?`<div style="font-size:11px;color:#34d399;font-weight:700">✓ ${h}${c.por?' · '+escH(c.por):''}</div>`:'<div style="font-size:11px;color:var(--muted)">Pendiente</div>'}</div>`; }).join(''); }).join('');
+  return `<div class="prof-card" style="margin-bottom:14px"><div class="pc-hdr"><div class="pc-av" style="background:#7c6fff33;border-color:#7c6fff">📞</div><div class="pc-info"><strong>Recepción</strong><span>Historias de Inda Barber e Inda Studio · mañana y tarde</span></div></div>${bl}<button class="btn btn-ghost" style="margin-top:10px" onclick="abrirTextosStoriesRec()">✏️ Editar los textos</button></div>`;
+}
+const taStyle='width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px;resize:vertical';
+function abrirTextosStoriesRec(){
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Textos de las historias · recepción')+
+    `<div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 10px;line-height:1.5">Recepción los copia y los sube tal cual. Usá <b>[HORA 1]</b>, <b>[HORA 2]</b>… donde va cada horario libre.</div>`+
+    STORY_CUENTAS.map(c=>`<div style="font-size:12px;font-weight:800;color:${c.color};margin:12px 0 4px">${c.emoji} ${c.nombre}</div>`+STORY_BLOQUES.flatMap(b=>b.tipos.map(tp=>{ const t=STORY_TIPOS.find(x=>x.id===tp); return `<div class="field" style="margin-top:6px"><label>${b.emoji} ${b.label} · ${t.emoji} ${t.label}</label><textarea id="str-${c.id}_${tp}" rows="3" style="${taStyle}">${escH(storyRecTexto(c.id,tp))}</textarea></div>`; })).join('')).join('')+
+    `<button class="btn btn-primary" onclick="guardarTextosStoriesRec()" style="margin-top:14px">Guardar</button><button class="btn btn-ghost" onclick="restaurarTextosStoriesRec()" style="margin-top:8px">Volver a los textos originales</button>`;
+  openModal('modal-registro');
+}
+function guardarTextosStoriesRec(restaurar){
+  const n={};
+  if(!restaurar) STORY_CUENTAS.forEach(c=>STORY_TIPOS.forEach(t=>{ const e=document.getElementById('str-'+c.id+'_'+t.id); if(!e) return; const v=e.value.trim(); if(v&&STORY_REC_TEXTOS[c.id]&&STORY_REC_TEXTOS[c.id][t.id]!==v) n[c.id+'_'+t.id]=v; }));
+  storyRecTextos=n; try{localStorage.setItem('luffy_story_rec_textos',JSON.stringify(n));}catch(e){}
+  if(DB){ try{ DB.doc('luffy/stories_rec_textos').set(n); }catch(e){} }
+  closeModal('modal-registro'); showToast(restaurar?'Textos originales ✓':'Textos guardados ✓'); refreshCurrentView();
+}
+function restaurarTextosStoriesRec(){ guardarTextosStoriesRec(true); }
+
 // Une dos arboles { fecha: { persona: { item: {done, ts} } } }: en cada casillero gana el cambio mas nuevo.
 function mergeTs(t,r){
   let cambio=false;
@@ -1208,7 +1289,7 @@ async function guardarRubrosDe(id,lista){
 
 // Todo lo que se carga de la nube necesita sesion iniciada
 function cargarCatalogos(){
-  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja(); loadTurnosRec(); loadProveedores(); loadDecisionesCom();
+  loadStoryHorarios(); loadStoryRecTextos(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja(); loadTurnosRec(); loadProveedores(); loadDecisionesCom();
   if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
 }
 
@@ -6600,6 +6681,7 @@ function reHacerOnboarding(){
 
 // ============ STORIES ============
 function renderStories(){
+  if(profile&&profile.role==='recepcionista') return renderStoriesRec();
   loadStoriesData();
   const body = document.getElementById('stories-body');
   const color = profile.color;
@@ -6992,7 +7074,7 @@ function renderAdminStories(body){
       ${movs}
     </div>`;
   }).join('');
-  body.innerHTML += `<div class="sec-hdr" style="margin-bottom:12px"><span class="sec-title">Stories de hoy</span><button onclick="editarHorariosStories()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">⏰ Horarios sugeridos</button></div>${html}`;
+  body.innerHTML += `<div class="sec-hdr" style="margin-bottom:12px"><span class="sec-title">Stories de hoy</span><button onclick="editarHorariosStories()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">⏰ Horarios sugeridos</button></div>${htmlStoriesRecAdmin()}${html}`;
 }
 
 // ============ ADMIN: PANEL INTERACTIVO ============
@@ -8000,8 +8082,8 @@ function renderRecepcion(){
   const hoy=ymdLocal(new Date());
   const mananaDate=new Date(); mananaDate.setDate(mananaDate.getDate()+1);
   const manana=ymdLocal(mananaDate);
-  const storiesDoneHoy=STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[profile.id]?.[t.id]?.done).length;
-  const storiesDoneManana=STORY_TIPOS.filter(t=>storiesData?.[manana]?.[profile.id]?.[t.id]?.done).length;
+  const stBl=STORY_BLOQUES.map(b=>({b,d:storyRecHechas(hoy,b.id),n:storyRecItems(b.id).length}));
+  const stHechas=stBl.reduce((a,x)=>a+x.d,0), stTotal=stBl.reduce((a,x)=>a+x.n,0);
 
   // Próximos cumpleaños (3 días)
   const today=new Date();
@@ -8085,32 +8167,16 @@ function renderRecepcion(){
     <div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px"><div style="font-size:24px">🎁</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Paquetes y membresías</div><div style="font-size:11px;color:var(--muted2)">Se venden desde la ficha de cada cliente (buscalo arriba)</div></div></div>
     <div style="height:10px"></div>
 
-    <!-- Stories: hoy y mañana -->
+    <!-- Historias de hoy: Inda Barber + Inda Studio, mañana y tarde -->
     <div class="card" style="cursor:pointer" onclick="goToRec('stories')">
       <div style="display:flex;align-items:center;gap:12px">
         <div style="font-size:28px">📱</div>
         <div style="flex:1">
           <div style="font-size:14px;font-weight:700">Historias de hoy</div>
-          <div style="font-size:12px;color:var(--muted2)">${storiesDoneHoy}/${STORY_TIPOS.length} publicadas</div>
+          <div style="font-size:12px;color:var(--muted2)">Inda Barber e Inda Studio · ${stHechas}/${stTotal} publicadas</div>
         </div>
-        <div style="display:flex;gap:4px">${STORY_TIPOS.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i<storiesDoneHoy?'#34d399':'var(--border2)'}"></div>`).join('')}</div>
       </div>
-      <div style="height:4px;background:var(--border2);border-radius:2px;margin-top:10px;overflow:hidden">
-        <div style="height:100%;width:${Math.round((storiesDoneHoy/STORY_TIPOS.length)*100)}%;background:#34d399;border-radius:2px"></div>
-      </div>
-    </div>
-    <div class="card" style="margin-top:10px;cursor:pointer" onclick="goToRec('stories')">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="font-size:28px">🌙</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700">Historias de mañana</div>
-          <div style="font-size:12px;color:var(--muted2)">${storiesDoneManana}/${STORY_TIPOS.length} preparadas</div>
-        </div>
-        <div style="display:flex;gap:4px">${STORY_TIPOS.map((_,i)=>`<div style="width:8px;height:8px;border-radius:50%;background:${i<storiesDoneManana?'#60a5fa':'var(--border2)'}"></div>`).join('')}</div>
-      </div>
-      <div style="height:4px;background:var(--border2);border-radius:2px;margin-top:10px;overflow:hidden">
-        <div style="height:100%;width:${Math.round((storiesDoneManana/STORY_TIPOS.length)*100)}%;background:#60a5fa;border-radius:2px"></div>
-      </div>
+      ${stBl.map(x=>`<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>${x.b.emoji} ${x.b.label}</span><span style="color:${x.d>=x.n?'#34d399':'var(--muted2)'}">${x.d}/${x.n}</span></div><div style="height:4px;background:var(--border2);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.round((x.d/x.n)*100)}%;background:#34d399;border-radius:2px"></div></div></div>`).join('')}
     </div>
 
     ${htmlCumplesRec(proxCumples)}

@@ -50,7 +50,7 @@ returns boolean language sql stable security definer set search_path = public as
     when starts_with(k, 'luffy/rec_')     then k = 'luffy/rec_'     || public.luffy_app_id()
     when starts_with(k, 'luffy/caja_') then public.luffy_role() = 'recepcionista'
     when k in ('luffy/users','luffy/servicios','luffy/ofertas','luffy/combos','luffy/rubros',
-               'luffy/reglas_reels','luffy/story_horarios','luffy/tareas_recepcion','luffy/sucursales','luffy/epoca','luffy/promos_cfg','luffy/puntos_reglas','luffy/finanzas','luffy/proveedores','luffy/turnos_rec','luffy/decisiones_com') then false
+               'luffy/reglas_reels','luffy/story_horarios','luffy/stories_rec_textos','luffy/tareas_recepcion','luffy/sucursales','luffy/epoca','luffy/promos_cfg','luffy/puntos_reglas','luffy/finanzas','luffy/proveedores','luffy/turnos_rec','luffy/decisiones_com') then false
     else true
   end
 $$;
