@@ -487,6 +487,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
       <div class="hub-greeting" id="hub-greeting" style="font-size:11px;color:var(--muted2);font-weight:600;letter-spacing:.03em"></div>
       <div class="hub-name" id="hub-name" style="font-size:19px;font-weight:900;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
+    <button id="hub-modo" onclick="cambiarModo('admin')" style="display:none;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:800;border-radius:12px;padding:9px 12px;margin-right:8px;cursor:pointer">👑 Admin</button>
     <button class="hub-menu" onclick="abrirMenu()" aria-label="Menú"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
 
@@ -621,7 +622,8 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 <!-- ADMIN -->
 <div id="admin" class="screen">
   <div class="hub-hdr" style="padding-bottom:16px">
-    <div><div style="font-size:12px;color:var(--muted2)">Panel de control</div><div style="font-size:20px;font-weight:900">Inda Studio 👑</div></div>
+    <div style="flex:1"><div style="font-size:12px;color:var(--muted2)">Panel de control</div><div style="font-size:20px;font-weight:900">Inda Studio 👑</div></div>
+    <button id="adm-modo" onclick="cambiarModo('prof')" style="display:none;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:800;border-radius:12px;padding:9px 12px;margin-right:8px;cursor:pointer">✂️ Mi perfil</button>
     <button class="hub-menu" onclick="abrirMenu()" aria-label="Menú"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
   <div class="scroll" id="admin-body"></div>
@@ -1188,7 +1190,7 @@ async function cargarMiRol(){
 let rubrosProf={};
 function aplicarRubrosProf(){
   allUsers.forEach(u=>{
-    if(rubrosProf[u.id]){ u.rubros=rubrosProf[u.id]; if(u.role==='profesional'&&u.rubros.length) u.profesion=u.rubros.map(nombreRubro).filter(Boolean).join(', ')||u.profesion; }
+    if(rubrosProf[u.id]){ u.rubros=rubrosProf[u.id]; if(esProf(u)&&u.role!=='encargado'&&u.rubros.length) u.profesion=u.rubros.map(nombreRubro).filter(Boolean).join(', ')||u.profesion; }
   });
   if(profile&&rubrosProf[profile.id]){ profile.rubros=rubrosProf[profile.id]; const u=allUsers.find(x=>x.id===profile.id); if(u&&u.profesion) profile.profesion=u.profesion; }
 }
@@ -1277,6 +1279,8 @@ async function cambiarMiPassword(){
 }
 
 // ============ AUTH ============
+// Un admin puede ser tambien profesional (flag tambienProf): entra en todas las listas de equipo, comisiones y puntos.
+function esProf(u){ return !!u&&(u.role==='profesional'||u.role==='encargado'||(u.role==='admin'&&!!u.tambienProf)); }
 let allUsers = [];
 
 async function loadUsers(){
@@ -1427,7 +1431,10 @@ async function loginAs(id){
   try{ localStorage.setItem('luffy_session_id', id); }catch(e){}
   cargarCatalogos();
   setTimeout(guiaInicial,1500);
-  if(u.role==='admin'){ enterAdmin(); return; }
+  let modoProf=false;
+  if(u.role==='admin'&&u.tambienProf){ try{ modoProf=localStorage.getItem('luffy_modo_'+id)==='prof'; }catch(e){} }
+  if(u.role==='admin'&&!modoProf){ enterAdmin(); return; }
+  if(modoProf){ profile.role='profesional'; profile.adminReal=true; }
   if(u.role==='encargado'){ enterEncargado(); return; }
   if(u.role==='recepcionista'){ enterRecepcionista(); return; }
   try { dineroData=JSON.parse(localStorage.getItem('luffy_dinero_'+id)||'{"turnos":[]}'); } catch(e){ dineroData={turnos:[]}; }
@@ -1453,9 +1460,17 @@ async function loginAs(id){
   try{ const ep0=JSON.parse(localStorage.getItem('luffy_perfil_'+id)||'null'); if(ep0&&ep0.nicho===PERFIL_PRUEBA.nicho) localStorage.removeItem('luffy_perfil_'+id); }catch(e){}
   if(profile.nicho===PERFIL_PRUEBA.nicho){ ['onboardingDone','nicho','voz','palabrasSi','palabrasNo'].forEach(k=>delete profile[k]); }
   if(dineroPollTimer) clearInterval(dineroPollTimer);
-  if(u.role==='profesional') dineroPollTimer=setInterval(()=>{ if(currentScreenId==='hub'||currentScreenId==='dinero') refrescarDineroPropio(); if(['hub','kanban','banco'].includes(currentScreenId)) refrescarReels(); if(currentScreenId==='hub') refrescarRubrosPropios(); }, 45000);
+  if(profile.role==='profesional') dineroPollTimer=setInterval(()=>{ if(currentScreenId==='hub'||currentScreenId==='dinero') refrescarDineroPropio(); if(['hub','kanban','banco'].includes(currentScreenId)) refrescarReels(); if(currentScreenId==='hub') refrescarRubrosPropios(); }, 45000);
   showHub();
-  if(u.role==='profesional'&&!(profile.rubros&&profile.rubros.length)) setTimeout(()=>{ if(profile&&profile.id===id&&currentScreenId==='hub') abrirRubrosProf(id,true); },900);
+  if(profile.role==='profesional'&&!(profile.rubros&&profile.rubros.length)) setTimeout(()=>{ if(profile&&profile.id===id&&currentScreenId==='hub') abrirRubrosProf(id,true); },900);
+}
+
+// Admin que tambien es profesional: alterna entre "Admin" y "Mi perfil profesional" (misma cuenta, mismo login).
+async function cambiarModo(m){
+  if(!profile||!profile.tambienProf) return;
+  const id=profile.id; cerrarMenu();
+  try{ localStorage.setItem('luffy_modo_'+id,m); }catch(e){}
+  await loginAs(id);
 }
 
 function showLogin(cerrarSesion=true){
@@ -1683,7 +1698,7 @@ async function crearCliente(d){
 // ---------- visitas (salen de los cobros) ----------
 function fuentesDinero(){
   if(profile.role==='profesional') return [{dd:dineroData,prof:profile}];
-  return todosLosUsuarios().filter(u=>u.role==='profesional'||u.role==='encargado').map(u=>{
+  return todosLosUsuarios().filter(u=>esProf(u)).map(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     return {dd,prof:u};
   });
@@ -2324,7 +2339,7 @@ function htmlDescuentosCobro(r,row){
 // ============ ADMIN: Clientes (directorio, membresias, paquetes, tarjetas, descuentos) ============
 function adminDatosDescuentos(desde,hasta,profF){
   const filas=[];
-  allUsers.filter(u=>(u.role==='profesional'||u.role==='encargado')&&coincideProf(u,profF||'todos')).forEach(u=>{
+  allUsers.filter(u=>(esProf(u))&&coincideProf(u,profF||'todos')).forEach(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     const add=(t,pend)=>{ if(!(t.fecha>=desde&&t.fecha<=hasta)||numV(t.descuento)<=0) return; filas.push({...t,prof:u,pend}); };
     (dd.turnos||[]).filter(t=>!t.deudaId).forEach(t=>add(t,false));
@@ -2501,7 +2516,7 @@ function comTurno(t,pct){
 }
 function comisionConFijas(turnos,fact,pct){ return (turnos||[]).reduce((s,t)=>s+comTurno(t,pct),0); }
 // Las sucursales sin recepcionista (ej: French): los profesionales cierran ellos mismos el turno y suman los puntos
-function sucursalSinRecepcion(u){ return !!u&&u.role==='profesional'&&sinRecepcionId(u.sucursal); }
+function sucursalSinRecepcion(u){ return !!u&&(u.role==='profesional'||(u.role==='admin'&&!!u.tambienProf))&&sinRecepcionId(u.sucursal); }
 // Cambia campos de una persona en el listado de usuarios (solo el admin lo puede hacer)
 async function guardarCampoUsuario(id,patch){ return editarUsuario(id,patch); }
 
@@ -2571,7 +2586,7 @@ function htmlTareasRec(){
 // Turnos hechos en mi franja (solo sucursales con recepcion) y cuantos reagendaron
 function estadoRecHoy(u){
   const hoy=hoyStr(), w=ventanaRec(u); const turnos=[];
-  allUsers.filter(x=>x.role==='profesional'||x.role==='encargado').forEach(p=>{
+  allUsers.filter(x=>esProf(x)).forEach(p=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{}'); }catch(e){}
     (dd.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&enVentana(t.creadoEn,w)&&atiende(u||profile,t.sucursal||p.sucursal)).forEach(t=>turnos.push({key:'t:'+p.id+':'+t.id,prof:p,t}));
   });
@@ -2587,7 +2602,7 @@ function estadoRecHoy(u){
 // Ultima visita de cada cliente, mirando los cobros de todo el equipo (una sola pasada)
 function ultimasVisitas(){
   const m={};
-  todosLosUsuarios().filter(u=>u.role==='profesional'||u.role==='encargado').forEach(u=>{
+  todosLosUsuarios().filter(u=>esProf(u)).forEach(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     const add=(x)=>{ if(!x.clienteId) return; const y=m[x.clienteId]||(m[x.clienteId]={fecha:'',n:0,barberos:new Set()}); y.n++; y.barberos.add(u.name); if(x.fecha>y.fecha) y.fecha=x.fecha; };
     (dd.turnos||[]).filter(t=>!t.deudaId).forEach(add); (dd.deudores||[]).forEach(add);
@@ -2961,7 +2976,7 @@ function finEquilibrio(c){
   const totFijo=fijosAlc.reduce((a,x)=>a+x.monto,0);
   const porRubro={};
   T.turnos.forEach(x=>{ const r=x.rubro||'otros'; const o=porRubro[r]||(porRubro[r]={visitas:0,ingreso:0,com:0}); o.visitas++; o.ingreso+=numV(x.t.monto); o.com+=x.com; });
-  const pros=allUsers.filter(u=>(u.role==='profesional'||u.role==='encargado')&&(suc==='todas'||sucursalesDe(u).includes(suc)));
+  const pros=allUsers.filter(u=>(esProf(u))&&(suc==='todas'||sucursalesDe(u).includes(suc)));
   pros.forEach(u=>(u.rubros||[]).forEach(r=>{ porRubro[r]=porRubro[r]||{visitas:0,ingreso:0,com:0}; }));
   fijosAlc.forEach(x=>{ if(x.f.rubro) porRubro[x.f.rubro]=porRubro[x.f.rubro]||{visitas:0,ingreso:0,com:0}; });
   const rids=Object.keys(porRubro);
@@ -3716,15 +3731,18 @@ function renderAdminCuentas(c){
   const grupos=[['profesional','✂️ Profesionales'],['recepcionista','📞 Recepcionistas'],['encargado','📋 Encargado (cuenta vieja)'],['admin','👑 Administrador']];
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🔧 Cuentas del equipo</span></div>
     <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Desde acá podés cambiar todo de cada persona: <b style="color:var(--text)">nombre, rol, sucursales</b> (puede estar en más de una), rubros, comisión y <b style="color:var(--text)">darla de baja</b>. Las cuentas nuevas se aprueban en Estado.</div>
-    ${grupos.map(([rol,tit])=>{ const L=allUsers.filter(u=>u.role===rol); if(!L.length) return ''; return `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${tit}</div>${L.map(u=>`<div class="card" onclick="editarCuenta('${u.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:${(u.color||'#7c6fff')}33;border:1.5px solid ${u.color||'#7c6fff'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${u.emoji||'👤'}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(u.name)} <span style="font-size:11px;font-weight:600;color:var(--muted2)">@${escH(u.username||'')}</span>${u.esEncargado?' <span style="font-size:10px;background:rgba(52,211,153,.18);color:#34d399;border-radius:6px;padding:1px 6px">ENCARGADO</span>':''}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${sucursalesDe(u).map(s=>chipSucursal(s,true)).join('')||'<span style="font-size:10.5px;color:var(--muted)">sin sucursal</span>'}${u.role==='profesional'&&u.rubros&&u.rubros.length?`<span style="font-size:10.5px;color:var(--muted2)">· ${escH(u.rubros.map(nombreRubro).filter(Boolean).join(', '))}</span>`:''}</div></div><span style="color:var(--muted)">✏️</span></div></div>`).join('')}`; }).join('')}
+    ${grupos.map(([rol,tit])=>{ const L=allUsers.filter(u=>u.role===rol); if(!L.length) return ''; return `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${tit}</div>${L.map(u=>`<div class="card" onclick="editarCuenta('${u.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:${(u.color||'#7c6fff')}33;border:1.5px solid ${u.color||'#7c6fff'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${u.emoji||'👤'}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(u.name)} <span style="font-size:11px;font-weight:600;color:var(--muted2)">@${escH(u.username||'')}</span>${u.esEncargado?' <span style="font-size:10px;background:rgba(52,211,153,.18);color:#34d399;border-radius:6px;padding:1px 6px">ENCARGADO</span>':''}${u.role==='admin'&&u.tambienProf?' <span style="font-size:10px;background:rgba(124,111,255,.18);color:#a89fff;border-radius:6px;padding:1px 6px">TAMBIÉN PROFESIONAL</span>':''}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${sucursalesDe(u).map(s=>chipSucursal(s,true)).join('')||'<span style="font-size:10.5px;color:var(--muted)">sin sucursal</span>'}${esProf(u)&&u.rubros&&u.rubros.length?`<span style="font-size:10.5px;color:var(--muted2)">· ${escH(u.rubros.map(nombreRubro).filter(Boolean).join(', '))}</span>`:''}</div></div><span style="color:var(--muted)">✏️</span></div></div>`).join('')}`; }).join('')}
     ${usuariosBaja.length?`<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;font-weight:800;color:var(--muted2)">🗄 Dados de baja (${usuariosBaja.length})</summary>${usuariosBaja.map(u=>`<div class="ln"><span>${escH(u.name)} <i style="color:var(--muted)">· ${ROL_TXT[u.role]||u.role} · baja ${u.baja?fechaCortaStr(u.baja):''}</i></span><button class="lnk" onclick="reactivarCuenta('${u.id}')">Reactivar</button></div>`).join('')}<div style="font-size:10.5px;color:var(--muted);margin-top:6px">Sus cobros y su historia se conservan en los reportes.</div></details>`:''}`;
 }
 function editarCuenta(id){
-  const u=allUsers.find(x=>x.id===id); if(!u) return; const esPro=u.role==='profesional', esRec=u.role==='recepcionista', esAdm=u.role==='admin';
+  const u=allUsers.find(x=>x.id===id); if(!u) return; const esPro=u.role==='profesional'||(u.role==='admin'&&!!u.tambienProf), esRec=u.role==='recepcionista', esAdm=u.role==='admin';
   document.getElementById('registro-content').innerHTML=cabeceraModal('Editar cuenta')+`
     <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 10px">Usuario: <b>@${escH(u.username||'')}</b> (no se cambia)</div>
     <div class="field"><label>Nombre</label><input id="ec-nombre" value="${escH(u.name)}"/></div>
     <div style="display:flex;gap:8px;margin-top:8px"><div class="field" style="flex:1"><label>Emoji</label><input id="ec-emoji" value="${escH(u.emoji||'')}" placeholder="✂️"/></div><div class="field" style="flex:1"><label>Color</label><input id="ec-color" type="color" value="${u.color||'#7c6fff'}" style="height:46px;padding:4px"/></div></div>
+    ${esAdm?`<label class="rub-opt" style="margin-top:8px"><input type="checkbox" id="ec-tprof" ${u.tambienProf?'checked':''}/> ✂️ También trabajo como profesional (atiendo clientes, cobro y tengo comisión como el resto)</label>
+    <div class="field" style="margin-top:8px"><label>Sucursales donde atiendo</label>${sucursales.map(s=>`<label class="rub-opt" style="border-left:5px solid ${s.color}"><input type="checkbox" class="ec-suc" value="${s.id}" ${sucursalesDe(u).includes(s.id)?'checked':''}/> ${escH(s.nombre)}</label>`).join('')}</div>
+    ${u.tambienProf?'':'<div style="font-size:11px;color:var(--muted);margin-top:4px">Tildá la casilla y guardá: después vas a poder elegir tus rubros y tu comisión.</div>'}`:''}
     ${esAdm?'':`<div class="field" style="margin-top:8px"><label>Rol</label><select id="ec-rol" style="${selFin}"><option value="profesional" ${u.role==='profesional'?'selected':''}>Profesional</option><option value="recepcionista" ${u.role==='recepcionista'?'selected':''}>Recepcionista</option>${u.role==='encargado'?'<option value="encargado" selected>Encargado (cuenta vieja)</option>':''}</select></div>
     <div class="field" style="margin-top:8px"><label>Sucursales donde trabaja${esRec?' (a cuáles atiende)':''}</label>${sucursales.map(s=>`<label class="rub-opt" style="border-left:5px solid ${s.color}"><input type="checkbox" class="ec-suc" value="${s.id}" ${sucursalesDe(u).includes(s.id)?'checked':''}/> ${escH(s.nombre)}</label>`).join('')}<div style="font-size:11px;color:var(--muted);margin-top:4px">${esRec?'Si atiende las dos sucursales, le llega todo de las dos y en French los profesionales ya no cierran sus turnos.':'Si trabaja en dos, al cobrar elige en cuál está.'}</div></div>`}
     ${esPro?`<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ghost" style="flex:1" onclick="abrirRubrosProf('${u.id}')">🏷️ Rubros</button><button class="btn btn-ghost" style="flex:1" onclick="abrirComisionUsuario('${u.id}')">💰 Comisión</button></div>
@@ -3746,6 +3764,8 @@ async function guardarCuenta(id){
       patch.role=rolSel.value; if(rolSel.value==='recepcionista') patch.esEncargado=false;
     }
   }
+  const tp=document.getElementById('ec-tprof');
+  if(tp){ patch.tambienProf=tp.checked; const ss=[...document.querySelectorAll('.ec-suc:checked')].map(x=>x.value); patch.sucursales=ss; patch.sucursal=ss[0]||null; }
   const enc=document.getElementById('ec-enc'); if(enc){ patch.esEncargado=enc.checked; if(enc.checked!==!!u.esEncargado) patch.comisionFija=null; }
   if(await editarUsuario(id,patch)){ closeModal('modal-registro'); showToast('Cuenta actualizada ✓'); renderAdmin(); }
 }
@@ -3877,7 +3897,7 @@ function htmlAseguradoProf(a){
 function renderAdminComisiones(c){
   const cfg=comCfg(), T=tramosVigentes(), n=cfg.nuevos;
   const D=adminDatos(); const qk=quincenaKey(hoyStr());
-  const pros=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+  const pros=allUsers.filter(u=>esProf(u));
   const esq=(u)=>comisionFijaDe(u)?'Fija '+comisionFijaDe(u)+'%':(u.esquema==='nuevo'?(esNuevoEn(u)?'Nuevo (hasta '+fechaCortaStr(sumaMeses(u.inicio,n.meses))+')':'Nuevo → ya pasó a tramos'):'Por tramos');
   const filas=pros.map(u=>{ const ts=D.turnos.filter(t=>t.prof.id===u.id); const r=comisionQuincenaDe(u,qk,ts); const a=estadoAsegurado(u,qk,factPorQuincena(ts),r.comision);
     return `<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(u.name)}</div><div style="font-size:11.5px;color:var(--muted2)">${esq(u)}${numV(u.piso)>0?' · piso '+fpk(u.piso):''} · esta quincena ${fp(r.fact)} → <b style="color:var(--text)">${r.pct}%</b> = ${fp(r.comision)}${a&&extraAplicable(a)?' + '+fp(extraAplicable(a))+' asegurado':''}</div></div><button class="lnk" onclick="abrirComisionUsuario('${u.id}')">Cambiar</button></div></div>`; }).join('');
@@ -4057,7 +4077,7 @@ const saldoSena=(s)=>s.estado==='pendiente'?Math.max(0,numV(s.monto)-(s.usos||[]
 const senasPend=()=>senasSt.list.filter(s=>saldoSena(s)>0).sort((a,b)=>String(a.ts).localeCompare(String(b.ts)));
 const senasDeCliente=(cid,nombre)=>senasPend().filter(s=>(cid&&s.clienteId===cid)||(!s.clienteId&&nombre&&nkey(s.clienteNombre)===nkey(nombre)));
 const medioTxt=(m)=>({efectivo:'efectivo',mp:'Mercado Pago',tarjeta:'tarjeta'}[m]||m||'');
-const profesionalesLista=()=>allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+const profesionalesLista=()=>allUsers.filter(u=>esProf(u));
 
 // ---------- registrar una seña ----------
 let senaForm=null;
@@ -4226,6 +4246,7 @@ function renderHub(){
   const gr = h<12?'Buenos días,':h<20?'Buenas tardes,':'Buenas noches,';
   document.getElementById('hub-greeting').textContent = gr;
   document.getElementById('hub-name').textContent = profile.name + ' ' + profile.emoji;
+  { const b=document.getElementById('hub-modo'); if(b) b.style.display=profile.adminReal?'':'none'; }
 
   // Avatar
   const av = document.getElementById('hub-av');
@@ -4997,7 +5018,7 @@ function diasDesdeStr(f){ return Math.max(0,Math.round((new Date(hoyStr()+'T00:0
 // Deudas pendientes de todo el equipo (usa la copia en memoria si es del usuario actual)
 function todasLasDeudas(){
   const out=[];
-  allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista').forEach(u=>{
+  allUsers.filter(u=>esProf(u)||u.role==='recepcionista').forEach(u=>{
     let dd={};
     if(profile&&u.id===profile.id&&dineroData) dd=dineroData;
     else { try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){} normalizarFechas(dd); }
@@ -6665,7 +6686,7 @@ function renderPuntos(){
   const pending = canjesSolicitudes.filter(s=>s.profId===profile.id&&s.estado==='pendiente').length;
 
   // Ranking
-  const ranking = allUsers.filter(p=>p.role==='profesional'||p.role==='encargado').map(p=>({
+  const ranking = allUsers.filter(p=>esProf(p)).map(p=>({
     ...p, pts: getPuntos(p.id).total||0
   })).sort((a,b)=>b.pts-a.pts);
   const myRank = ranking.findIndex(r=>r.id===profile.id)+1;
@@ -6765,6 +6786,7 @@ function pedirCanje(canjeId){
 
 // ============ ADMIN ============
 function enterAdmin(){
+  { const b=document.getElementById('adm-modo'); if(b) b.style.display=(profile&&profile.tambienProf)?'':'none'; }
   loadStoriesData();
   loadPuntosData();
   prefetchAdminTeamData();
@@ -6782,7 +6804,7 @@ function enterAdmin(){
 function prefetchAdminTeamData(){
   cargarCajasAdmin();
   if(!DB) return;
-  const targets = allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista');
+  const targets = allUsers.filter(u=>esProf(u)||u.role==='recepcionista');
   const jobs = targets.map(u=>{
     const cloudKey = u.role==='recepcionista' ? 'luffy/rec_'+u.id : 'luffy/dinero_'+u.id;
     const localKey = u.role==='recepcionista' ? 'luffy_rec_'+u.id : 'luffy_dinero_'+u.id;
@@ -6795,7 +6817,7 @@ function prefetchAdminTeamData(){
       if(r){ try{localStorage.setItem('luffy_dinero_'+u.id, JSON.stringify(r));}catch(e){} }
     }).catch(()=>{}));
   });
-  allUsers.filter(u=>u.role==='profesional').forEach(u=>{
+  allUsers.filter(u=>esProf(u)).forEach(u=>{
     jobs.push(DB.doc('luffy/horario_'+u.id).get().then(r=>{
       if(r){ try{localStorage.setItem('luffy_horario_'+u.id, JSON.stringify(r));}catch(e){} }
     }).catch(()=>{}));
@@ -6901,7 +6923,7 @@ async function procesarIncidente(id, restarPuntos){
 
 function renderAdminEstadoEquipo(body){
   const hoy=ymdLocal(new Date());
-  const profesionales=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+  const profesionales=allUsers.filter(u=>esProf(u));
   const incsPend=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]').filter(i=>!i.procesado);
   const canjesPend=canjesSolicitudes.filter(s=>s.estado==='pendiente');
   body.innerHTML+=`
@@ -6944,7 +6966,7 @@ function renderAdminStories(body){
   const hoy = ymdLocal(new Date());
   const diaKeys=['dom','lun','mar','mie','jue','vie','sab'];
   const hoyKey=diaKeys[new Date().getDay()];
-  const profesionales = allUsers.filter(p=>p.role==='profesional');
+  const profesionales = allUsers.filter(p=>esProf(p));
   const html = profesionales.map(p=>{
     const done = STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[p.id]?.[t.id]?.done).length;
     const color = p.color;
@@ -7014,7 +7036,7 @@ function rangoPeriodo(key){
 
 function adminDatos(){
   const turnos=[], ventas=[], deudas=[], anuladas=[];
-  todosLosUsuarios().filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista').forEach(u=>{
+  todosLosUsuarios().filter(u=>esProf(u)||u.role==='recepcionista').forEach(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     normalizarFechas(dd);
     (dd.turnos||[]).forEach(t=>turnos.push({...t,prof:u}));
@@ -7167,8 +7189,8 @@ function renderAdminPanel(c){
   if(!adminUltAct) adminUltAct=new Date();
 
   const profSel=String(P.prof).startsWith('suc:')?{name:'sucursal '+((sucursalDe(P.prof.slice(4))||{}).nombre||'')}:allUsers.find(u=>u.id===P.prof);
-  const equipo=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
-  const vendedores=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista');
+  const equipo=allUsers.filter(u=>esProf(u));
+  const vendedores=allUsers.filter(u=>esProf(u)||u.role==='recepcionista');
 
   // stock (foto de hoy)
   const stockU=productos.reduce((s,p)=>s+numV(p.stock),0);
@@ -7470,7 +7492,7 @@ function descargarPlantillaServicios(){
 // ---------- rubros ----------
 function abrirRubros(){
   const c=document.getElementById('registro-content');
-  const profs=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+  const profs=allUsers.filter(u=>esProf(u));
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div class="modal-title" style="margin:0">Rubros</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     <div style="font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:10px">Los rubros ordenan los servicios. Cada profesional ve solo los de los rubros que tiene asignados.</div>
     ${rubros.map(r=>{ const ns=servicios.filter(s=>s.rubro===r.id).length, nc=combos.filter(x=>x.rubro===r.id).length, np=profs.filter(u=>(u.rubros||[]).includes(r.id)).length;
@@ -7749,7 +7771,7 @@ async function borrarCumple(recId,id){
 }
 
 function renderAdminPuntos(body){
-  const profesionales = allUsers.filter(p=>p.role==='profesional');
+  const profesionales = allUsers.filter(p=>esProf(p));
   const ranking = profesionales.map(p=>({...p,pts:getPuntos(p.id).total||0})).sort((a,b)=>b.pts-a.pts);
   const medals = ['🥇','🥈','🥉'];
   const pendientes = canjesSolicitudes.filter(s=>s.estado==='pendiente');
@@ -7893,7 +7915,7 @@ function marcarAvisoVisto(key){ /* solo para ventas de mostrador */
 function prefetchRecepcionTeamData(){
   loadCaja();
   if(!DB) return Promise.resolve();
-  const targets=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+  const targets=allUsers.filter(u=>esProf(u));
   const jobs=targets.map(u=>DB.doc('luffy/dinero_'+u.id).get().then(r=>{
     if(r){ try{localStorage.setItem('luffy_dinero_'+u.id, JSON.stringify(r));}catch(e){} }
   }).catch(()=>{}));
@@ -7901,7 +7923,7 @@ function prefetchRecepcionTeamData(){
 }
 function getAvisosPendientes(){
   const hoy=ymdLocal(new Date());
-  const profesionales=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+  const profesionales=allUsers.filter(u=>esProf(u));
   const items=[];
   profesionales.forEach(p=>{
     let dd={turnos:[],ventas:[]};
@@ -8095,7 +8117,7 @@ function renderRecepcion(){
 
     <details class="card" style="margin:16px 0 6px;padding:10px 14px">
       <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted2)">⚠️ Reportar incidente</summary>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">${allUsers.filter(u=>u.role==='profesional'||u.role==='encargado').map(u=>`<button onclick="reportarIncidente('${u.id}','${u.name}')" style="padding:7px 12px;border-radius:16px;border:1.5px solid rgba(244,114,182,.3);background:rgba(244,114,182,.06);color:var(--text);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer">${u.emoji||'✂️'} ${escH(u.name)}</button>`).join('')}</div>
+      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">${allUsers.filter(u=>esProf(u)).map(u=>`<button onclick="reportarIncidente('${u.id}','${u.name}')" style="padding:7px 12px;border-radius:16px;border:1.5px solid rgba(244,114,182,.3);background:rgba(244,114,182,.06);color:var(--text);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer">${u.emoji||'✂️'} ${escH(u.name)}</button>`).join('')}</div>
     </details>
 
     <button onclick="showLogin()" class="btn btn-ghost" style="margin-top:16px">Salir</button>
@@ -8206,6 +8228,7 @@ function menuIr(accion){
   const acc={
     perfil:()=>{ if(profile.role==='profesional') irPerfil(); else abrirMiCuenta(); },
     contenido:()=>{ irPerfil(); setTimeout(()=>{ const e=document.getElementById('perfil-contenido'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },150); },
+    modoProf:()=>cambiarModo('prof'), modoAdmin:()=>cambiarModo('admin'),
     stock:()=>{ enterEncargado(); }, dinero:()=>goTo('dinero'), clientes:()=>goTo('clientes'), banco:()=>goTo('banco'), puntos:()=>goTo('puntos'), kanban:()=>goTo('kanban'),
     stories:()=>{ if(profile.role==='recepcionista') goToRec('stories'); else goTo('stories'); },
     guia:()=>abrirGuia(true), pass:()=>cambiarMiPassword(), salir:()=>showLogin(),
@@ -8220,11 +8243,11 @@ function renderMenu(){
   const rubrosTxt=(p.role==='profesional'&&p.rubros&&p.rubros.length)?p.rubros.map(nombreRubro).filter(Boolean).join(', '):(ROLES[p.role]||'');
   let items='';
   if(p.role==='profesional'){
-    items=it('👤','Mi perfil','perfil')+it('🎬','Contenido','contenido')+(p.esEncargado?it('📦','Control de stock','stock'):'')+it('👥','Mis clientes','clientes')+it('💰','Mi dinero','dinero')+it('📝','Banco de reels','banco')+it('🗂️','Tablero','kanban')+it('📱','Historias','stories')+it('🏆','Mis puntos','puntos');
+    items=it('👤','Mi perfil','perfil')+it('🎬','Contenido','contenido')+(p.esEncargado?it('📦','Control de stock','stock'):'')+it('👥','Mis clientes','clientes')+it('💰','Mi dinero','dinero')+it('📝','Banco de reels','banco')+it('🗂️','Tablero','kanban')+it('📱','Historias','stories')+it('🏆','Mis puntos','puntos')+(p.adminReal?it('👑','Volver a Admin','modoAdmin'):'');
   } else if(p.role==='recepcionista'){
     items=it('👤','Mi cuenta','perfil')+it('📱','Historias','stories');
   } else {
-    items=it('👤','Mi cuenta','perfil');
+    items=it('👤','Mi cuenta','perfil')+(p.role==='admin'&&p.tambienProf?it('✂️','Mi perfil profesional','modoProf'):'');
   }
   items+=it('🧭','Guía rápida','guia')+it('🔑','Cambiar contraseña','pass');
   document.getElementById('mlat-cnt').innerHTML=`
