@@ -30,7 +30,7 @@ async function put(key,value){
     if(k.startsWith('luffy/dinero_')) cambios.push([k,{turnos:[],ventas:[],deudores:[]}]);
     else if(k.startsWith('luffy/yo_')) cambios.push([k,{ingresos:[],gastos:[],deudas:[]}]);
     else if(k.startsWith('luffy/rec_')) cambios.push([k,{...v,reagendamientos:0,incidentes:[]}]);
-    else if(k.startsWith('luffy/clientes_')||k==='luffy/clientes'||k==='luffy/membresias'||k==='luffy/paquetes') cambios.push([k,{list:[]}]);
+    else if(k.startsWith('luffy/clientes_')||k==='luffy/clientes'||k==='luffy/membresias'||k==='luffy/paquetes'||k==='luffy/senas') cambios.push([k,{list:[]}]);
     else if(k.startsWith('luffy/caja_')) cambios.push([k,{sesiones:[]}]);
     else if(k==='luffy/puntos') cambios.push([k,{...v,puntos:{},solicitudes:[]}]);
     else if(k==='luffy/stories'||k==='luffy/tareas_data') cambios.push([k,{}]);
