@@ -1206,7 +1206,7 @@ async function guardarRubrosDe(id,lista){
 
 // Todo lo que se carga de la nube necesita sesion iniciada
 function cargarCatalogos(){
-  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja(); loadTurnosRec(); loadProveedores();
+  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja(); loadTurnosRec(); loadProveedores(); loadDecisionesCom();
   if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
 }
 
@@ -1281,10 +1281,11 @@ let allUsers = [];
 
 async function loadUsers(){
   try { allUsers=JSON.parse(localStorage.getItem('luffy_users')||'[]'); } catch(e){ allUsers=[]; }
+  try { usuariosBaja=JSON.parse(localStorage.getItem('luffy_users_baja')||'[]'); } catch(e){ usuariosBaja=[]; }
   if(DB){
     try{
       const r = await DB.doc('luffy/users').get();
-      if(r && Array.isArray(r.list)){ allUsers=r.list; try{ localStorage.setItem('luffy_users', JSON.stringify(allUsers)); }catch(e){} }
+      if(r && Array.isArray(r.list)){ allUsers=r.list; usuariosBaja=Array.isArray(r.bajas)?r.bajas:[]; try{ localStorage.setItem('luffy_users', JSON.stringify(allUsers)); localStorage.setItem('luffy_users_baja', JSON.stringify(usuariosBaja)); }catch(e){} }
     }catch(e){}
   }
   allUsers.forEach(u=>{ delete u.password; }); // las claves las maneja Supabase Auth; se limpian copias viejas
@@ -1294,7 +1295,8 @@ async function loadUsers(){
 function saveUsers(){
   allUsers.forEach(u=>{ delete u.password; }); // nunca se guardan claves en el listado
   try { localStorage.setItem('luffy_users',JSON.stringify(allUsers)); } catch(e){}
-  if(DB){ try{ DB.doc('luffy/users').set({list:allUsers}); }catch(e){} }
+  try { localStorage.setItem('luffy_users_baja',JSON.stringify(usuariosBaja)); } catch(e){}
+  if(DB){ try{ DB.doc('luffy/users').set({list:allUsers,bajas:usuariosBaja}); }catch(e){} }
 }
 
 function showWelcome(){
@@ -1536,13 +1538,13 @@ function chipSucursal(sid,chico){
 }
 const PALETA_SUC=['#7c6fff','#f59e0b','#34d399','#f472b6','#60a5fa','#fb923c'];
 function renderAdminSucursales(body){
-  const uso=(id)=>allUsers.filter(u=>u.sucursal===id).length;
+  const uso=(id)=>allUsers.filter(u=>sucursalesDe(u).includes(id)).length;
   body.innerHTML=`
     <div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📍 Sucursales</span><button class="lnk" onclick="agregarSucursal()">+ Nueva sucursal</button></div>
-    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Si una sucursal no tiene recepcionista, los profesionales de ahí completan las tareas de cierre (reagendó, reseña, seña…) y suman los puntos. Cada profesional pertenece a una sucursal (se asigna en <b style="color:var(--text)">Estado</b> o al aprobar su cuenta). En recepción, cada cobro se ve con el <b style="color:var(--text)">color y el nombre</b> de su sucursal.</div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Una sucursal tiene recepcionista cuando le asignás una (en Cuentas). Si no tiene, los profesionales de ahí completan las tareas de cierre (reagendó, reseña, seña…) y suman los puntos. Cada profesional pertenece a una sucursal (se asigna en <b style="color:var(--text)">Estado</b> o al aprobar su cuenta). En recepción, cada cobro se ve con el <b style="color:var(--text)">color y el nombre</b> de su sucursal.</div>
     ${sucursales.map(s=>`<div class="prof-card" style="margin-bottom:8px;padding:12px 14px;border-left:5px solid ${s.color}"><div style="display:flex;align-items:center;gap:12px">
       <input type="color" value="${s.color}" onchange="cambiarColorSucursal('${s.id}',this.value)" title="Cambiar color" style="width:38px;height:38px;border:none;background:none;padding:0;cursor:pointer;flex-shrink:0"/>
-      <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(s.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${uso(s.id)} ${uso(s.id)===1?'persona':'personas'} · <a onclick="toggleRecepcionSuc('${s.id}')" style="cursor:pointer;text-decoration:underline;color:${s.recepcion===false?'#f472b6':'#34d399'}">${s.recepcion===false?'Sin recepcionista: los profesionales cierran sus turnos':'Con recepcionista'}</a></div></div>
+      <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(s.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${uso(s.id)} ${uso(s.id)===1?'persona':'personas'} · <span style="color:${sucursalConRecepcion(s.id)?'#34d399':'#f472b6'}">${sucursalConRecepcion(s.id)?'Con recepcionista ('+allUsers.filter(u=>u.role==='recepcionista'&&atiende(u,s.id)).map(u=>escH(u.name.split(' ')[0])).join(', ')+')':'Sin recepcionista: los profesionales cierran sus turnos'}</span></div></div>
       <button onclick="renombrarSucursal('${s.id}')" style="background:none;border:none;color:var(--muted2);font-size:15px;cursor:pointer">✏️</button>
       <button onclick="borrarSucursal('${s.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
     </div></div>`).join('')}`;
@@ -1563,31 +1565,11 @@ function toggleRecepcionSuc(id){ const s=sucursalDe(id); if(!s) return; s.recepc
 function cambiarColorSucursal(id,color){ const s=sucursalDe(id); if(!s) return; s.color=color; saveSucursales(); renderAdmin(); }
 async function borrarSucursal(id){
   const s=sucursalDe(id); if(!s) return;
-  const n=allUsers.filter(u=>u.sucursal===id).length;
+  const n=allUsers.filter(u=>sucursalesDe(u).includes(id)).length;
   if(n){ showToast('Tiene '+n+' personas asignadas: movelas primero'); return; }
   if(!await uiConfirm('¿Borrar "'+s.nombre+'"?','Los cobros ya registrados no cambian.')) return;
   sucursales=sucursales.filter(x=>x.id!==id); saveSucursales(); renderAdmin();
 }
-function abrirSucursalProf(profId){
-  const u=allUsers.find(x=>x.id===profId); if(!u) return;
-  const c=document.getElementById('registro-content');
-  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="modal-title" style="margin:0">Sucursal de ${escH(u.name)}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">En recepción sus cobros se ven con el color de esta sucursal.</div>
-    ${sucursales.map(s=>`<label class="rub-opt" style="border-left:5px solid ${s.color}"><input type="radio" name="suc-prof" class="sp-rad" value="${s.id}" ${u.sucursal===s.id?'checked':''}/> ${escH(s.nombre)}</label>`).join('')}
-    <button class="btn btn-primary" onclick="guardarSucursalProf('${u.id}')" style="margin-top:10px">Guardar</button>`;
-  openModal('modal-registro');
-}
-// Lee la lista de usuarios mas fresca antes de escribir (solo el admin la puede modificar)
-async function guardarSucursalProf(profId){
-  const sel=(document.querySelector('.sp-rad:checked')||{}).value; if(!sel){ showToast('Elegí una sucursal'); return; }
-  let lista=null;
-  if(DB){ try{ const r=await DB.doc('luffy/users').get(); if(r&&Array.isArray(r.list)) lista=r.list; }catch(e){} }
-  if(!lista) lista=allUsers;
-  const u=lista.find(x=>x.id===profId); if(!u){ showToast('No se encontró a la persona'); return; }
-  u.sucursal=sel; allUsers=lista; saveUsers();
-  closeModal('modal-registro'); showToast('Sucursal guardada ✓'); refreshCurrentView();
-}
-
 // Encargado = un profesional que ademas controla el stock. Lo designa el admin (puede ser mas de uno).
 async function toggleEncargado(id){
   const u=allUsers.find(x=>x.id===id); if(!u) return;
@@ -1602,9 +1584,9 @@ async function editarComisionFija(id){
 }
 // Sucursal sin recepcionista: el profesional cierra sus propios turnos (reagendo, resena, sena...) y suma los puntos
 function htmlCierresPendProf(){
-  if(!profile||!sucursalSinRecepcion(profile)) return '';
+  if(!profile||profile.role!=='profesional') return '';
   const hoy=hoyStr(); const cierres=cierresData.byKey||{};
-  const pend=(dineroData.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&!cierres['t:'+profile.id+':'+t.id]);
+  const pend=(dineroData.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&sinRecepcionId(t.sucursal||profile.sucursal)&&!cierres['t:'+profile.id+':'+t.id]);
   return pend.length?`<div class="card" style="margin-bottom:14px;border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.07)"><div style="font-size:13px;font-weight:800;margin-bottom:2px">📝 Turnos por cerrar (${pend.length})</div><div style="font-size:11.5px;color:var(--muted2);margin-bottom:8px">En tu sucursal no hay recepcionista: completá reagendó, reseña, seña… y sumás puntos ⭐</div>${pend.map(t=>`<button onclick="abrirCierreCobro('t:${profile.id}:${t.id}')" style="display:flex;justify-content:space-between;width:100%;padding:10px 12px;margin-top:6px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer"><span>${escH(t.cliente||'Cliente')}</span><span style="color:var(--muted2)">${t.creadoEn?horaDeIso(t.creadoEn):''} · cerrar →</span></button>`).join('')}</div>`:'';
 }
 // Encargado: aviso de productos con poco stock
@@ -1701,7 +1683,7 @@ async function crearCliente(d){
 // ---------- visitas (salen de los cobros) ----------
 function fuentesDinero(){
   if(profile.role==='profesional') return [{dd:dineroData,prof:profile}];
-  return allUsers.filter(u=>u.role==='profesional'||u.role==='encargado').map(u=>{
+  return todosLosUsuarios().filter(u=>u.role==='profesional'||u.role==='encargado').map(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     return {dd,prof:u};
   });
@@ -1955,6 +1937,7 @@ const PROMOS_DEFAULT={
   bloquesRec:[{id:'b1',nombre:'Mañana',desde:'09:00',hasta:'14:30',dias:[1,2,3,4,5,6]},{id:'b2',nombre:'Tarde',desde:'14:30',hasta:'20:30',dias:[1,2,3,4,5,6]}],
   avisoAperturaMin:5, // el admin ve si recepcion ya abrio la caja desde 5 minutos antes de cada bloque
   recPaq:{pct:10,comProf:45}, // recepcion cobra el 10% de la ganancia del salon por cada paquete que vende
+  comisiones:{tramos:[{min:0,pct:45},{min:1000000,pct:50},{min:1200000,pct:55}],oro:{min:1200000,pct:60,reels:3},nuevos:{meses:2,base:50,contenido:5,reels:3,extra:5,extraDesde:800000},asegurado:{pct:50}},
   comision:{t1:30,p1:60,t2:50,p2:95},
   paquetes:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15}],
   membresia:{creditos:4,descPct:20,servicioId:'',rubro:'barberia,barberia-premium'},
@@ -2037,7 +2020,7 @@ function rubroDeLinea(l){
 }
 function ctxCobro(cli){
   const n=new Date(); const hh=/^\d{1,2}:\d{2}$/.test(cobro.hora||'')?cobro.hora.padStart(5,'0'):String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
-  return {dia:n.getDay(), hora:hh, sucursal:(profile&&profile.sucursal)||null, cliente:cli};
+  return {dia:n.getDay(), hora:hh, sucursal:sucursalActual(), cliente:cli};
 }
 function reglaAplica(r,ctx){
   if(r.activo===false) return false;
@@ -2233,7 +2216,7 @@ async function confirmarVentaMembresia(){
   const r=await membresiasSt.cambiar(l=>{
     if(l.some(m=>m.clienteId===c.id&&m.usos.length<m.creditos)) return {error:true};
     const m={id:'mb'+Date.now().toString(36),clienteId:c.id,clienteNombre:c.nombre,clienteNumero:c.numero,servicioId:sv.id,servicioNombre:sv.nombre,rubro:sv.rubro||'',creditos:cfg.creditos,descPct:cfg.descPct,
-      precio,valorCredito:Math.round(precio/cfg.creditos),medio:s.medio,fecha:hoyStr(),sucursal:profile.sucursal||null,vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,usos:[],creadoEn:ahora,upd:ahora};
+      precio,valorCredito:Math.round(precio/cfg.creditos),medio:s.medio,fecha:hoyStr(),sucursal:sucursalActual(),vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,usos:[],creadoEn:ahora,upd:ahora};
     l.push(m); return {m};
   });
   ventaSel=null;
@@ -2285,7 +2268,7 @@ async function confirmarVentaPaquete(){
   const ahora=new Date().toISOString();
   await paquetesSt.cambiar(l=>{ l.push({id:'pq'+Date.now().toString(36),clienteId:c.id,clienteNombre:c.nombre,clienteNumero:c.numero,
     items:items.map((x,i)=>({id:'i'+i,svcId:x.id,nombre:x.nombre,rubro:x.rubro||'',lista:numV(x.precio),final:Math.round(numV(x.precio)*(1-pct/100)),usado:null})),
-    pct,totalLista:lista,total,medio:s.medio,fecha:hoyStr(),sucursal:profile.sucursal||null,vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,creadoEn:ahora,upd:ahora}); });
+    pct,totalLista:lista,total,medio:s.medio,fecha:hoyStr(),sucursal:sucursalActual(),vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,creadoEn:ahora,upd:ahora}); });
   ventaSel=null; closeModal('modal-registro'); showToast('Paquete vendido ✓ '+fp(total)); refreshCurrentView();
 }
 
@@ -2510,15 +2493,9 @@ function comTurno(t,pct){
 }
 function comisionConFijas(turnos,fact,pct){ return (turnos||[]).reduce((s,t)=>s+comTurno(t,pct),0); }
 // Las sucursales sin recepcionista (ej: French): los profesionales cierran ellos mismos el turno y suman los puntos
-function sucursalSinRecepcion(u){ const s=u&&sucursalDe(u.sucursal); return !!s&&s.recepcion===false&&u.role==='profesional'; }
+function sucursalSinRecepcion(u){ return !!u&&u.role==='profesional'&&sinRecepcionId(u.sucursal); }
 // Cambia campos de una persona en el listado de usuarios (solo el admin lo puede hacer)
-async function guardarCampoUsuario(id,patch){
-  let lista=null;
-  if(DB){ try{ const r=await DB.doc('luffy/users').get(); if(r&&Array.isArray(r.list)) lista=r.list; }catch(e){} }
-  if(!lista) lista=allUsers;
-  const u=lista.find(x=>x.id===id); if(!u) return false;
-  Object.assign(u,patch); allUsers=lista; saveUsers(); return true;
-}
+async function guardarCampoUsuario(id,patch){ return editarUsuario(id,patch); }
 
 // ============ PUNTOS: valores que edita el admin ============
 let reglasPuntos={valores:{},extra:[]};
@@ -2587,9 +2564,8 @@ function htmlTareasRec(){
 function estadoRecHoy(u){
   const hoy=hoyStr(), w=ventanaRec(u); const turnos=[];
   allUsers.filter(x=>x.role==='profesional'||x.role==='encargado').forEach(p=>{
-    const s=sucursalDe(p.sucursal); if(s&&s.recepcion===false) return;
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{}'); }catch(e){}
-    (dd.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&enVentana(t.creadoEn,w)).forEach(t=>turnos.push({key:'t:'+p.id+':'+t.id,prof:p,t}));
+    (dd.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&enVentana(t.creadoEn,w)&&atiende(u||profile,t.sucursal||p.sucursal)).forEach(t=>turnos.push({key:'t:'+p.id+':'+t.id,prof:p,t}));
   });
   const cierres=cierresData.byKey||{};
   const cerrados=turnos.filter(x=>cierres[x.key]);
@@ -2603,7 +2579,7 @@ function estadoRecHoy(u){
 // Ultima visita de cada cliente, mirando los cobros de todo el equipo (una sola pasada)
 function ultimasVisitas(){
   const m={};
-  allUsers.filter(u=>u.role==='profesional'||u.role==='encargado').forEach(u=>{
+  todosLosUsuarios().filter(u=>u.role==='profesional'||u.role==='encargado').forEach(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     const add=(x)=>{ if(!x.clienteId) return; const y=m[x.clienteId]||(m[x.clienteId]={fecha:'',n:0,barberos:new Set()}); y.n++; y.barberos.add(u.name); if(x.fecha>y.fecha) y.fecha=x.fecha; };
     (dd.turnos||[]).filter(t=>!t.deudaId).forEach(add); (dd.deudores||[]).forEach(add);
@@ -2669,7 +2645,7 @@ function renderAdminRecepcion(c){
   c.innerHTML=htmlAperturaAdmin()+htmlCalendarioAdmin()+`<div class="sec-hdr" style="margin:18px 0 8px"><span class="sec-title">📞 Recepcionistas</span></div>
     <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Cada recepcionista trabaja en los <b style="color:var(--text)">bloques</b> que le asignás en el calendario de arriba. Solo ve las tareas de su horario y solo se le cuentan los turnos (y reagendamientos) que se hicieron mientras trabaja. Para sumar otra cuenta, aprobala en Equipo y elegí "Recepcionista".</div>
     ${recs.map(u=>{ const e=estadoRecHoy(u); const w=ventanaRec(u); return `<div class="prof-card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(u.name)} <span style="font-size:11px;color:var(--muted2);font-weight:600">@${escH(u.username||'')}</span></div>
-      <div style="font-size:12px;color:var(--muted2)">🕐 Hoy: ${bloquesDe(u).length?bloquesDe(u).map(b=>escH(b.nombre)+' '+b.desde+'–'+b.hasta).join(' + '):(hayCalendario()||(u.bloquesRec||[]).length?'no trabaja':(w.desde==='00:00'&&w.hasta==='24:00'?'sin turnos asignados (todo el día)':w.desde+' a '+w.hasta))}</div></div></div>
+      <div style="font-size:12px;color:var(--muted2)">🕐 Hoy: ${bloquesDe(u).length?bloquesDe(u).map(b=>escH(b.nombre)+' '+b.desde+'–'+b.hasta).join(' + '):(hayCalendario()||(u.bloquesRec||[]).length?'no trabaja':(w.desde==='00:00'&&w.hasta==='24:00'?'sin turnos asignados (todo el día)':w.desde+' a '+w.hasta))}</div></div><button class="lnk" onclick="editarCuenta('${u.id}')">Editar</button></div>
       <div style="font-size:12px;margin-top:8px">Hoy: <b>${e.total}</b> turnos en su horario · reagendaron <b style="color:#60a5fa">${e.reag}</b> (${e.pct}%) · no se les preguntó ${e.sinPreguntar} · no quisieron ${e.noQuiso} · reseñas ${e.resenas}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">📞</div><p>No hay recepcionistas.</p></div>'}
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📋 Tareas por horario</span><button class="lnk" onclick="editarTareasRecepcion()">Editar</button></div>
     ${Object.entries(bloques).map(([r,l])=>`<div class="card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:800;color:#60a5fa;margin-bottom:4px">${r}</div>${l.map(t=>`<div style="font-size:12px;padding:3px 0">${t.emoji||'✅'} ${escH(t.label)}</div>`).join('')}</div>`).join('')}`;
@@ -2760,7 +2736,7 @@ async function cambiarFin(fn){
 }
 
 // ---------- calculo ----------
-function sucDeReg(x,u){ return x.sucursal||(u&&u.sucursal)||((sucursales.find(s=>s.recepcion!==false)||sucursales[0]||{}).id)||'s1'; }
+function sucDeReg(x,u){ return x.sucursal||(u&&u.sucursal)||((sucursales.find(s=>sucursalConRecepcion(s.id))||sucursales[0]||{}).id)||'s1'; }
 function mensualizado(f){ const m=numV(f.monto); return f.frecuencia==='quincenal'?m*2:f.frecuencia==='semanal'?m*52/12:f.frecuencia==='anual'?m/12:m; }
 function costoDia(f,fecha){ const [y,m]=fecha.split('-').map(Number); const mo=numV(f.monto); return f.frecuencia==='quincenal'?mo*2/finMesUTC(y,m):f.frecuencia==='semanal'?mo*52/12/finMesUTC(y,m):f.frecuencia==='anual'?mo/365:mo/finMesUTC(y,m); }
 function fijoDevengado(f,desde,hasta){
@@ -2793,6 +2769,7 @@ function finCalc(desde,hasta,pre){
   });
   membresiasSt.list.filter(m=>m.fecha>=desde&&m.fecha<=hasta).forEach(m=>{ sx(sucDeReg(m,allUsers.find(u=>u.id===m.vendedorId))).ing.membresias+=numV(m.precio); });
   paquetesSt.list.filter(p=>p.fecha>=desde&&p.fecha<=hasta).forEach(p=>{ const s=sx(sucDeReg(p,allUsers.find(u=>u.id===p.vendedorId))); s.ing.paquetes+=numV(p.total); eg(s,'comisiones',comRecPaquete(p)); });
+  extrasAsegurado(D,desde,hasta).forEach(x=>{ const ex=extraAplicable(x); if(ex) eg(sx(sucDeReg({},x.prof)),'comisiones',ex); });
   const ids=sucursales.map(s=>s.id), n=Math.max(1,ids.length);
   const reparto=(suc,cat,v)=>{ if(!v) return; if(suc&&suc!=='todas'&&S[suc]) eg(S[suc],cat,v); else ids.forEach(i=>eg(S[i],cat,v/n)); };
   finData.gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta).forEach(g=>reparto(g.sucursal,g.categoria,numV(g.monto)));
@@ -2975,7 +2952,7 @@ function finEquilibrio(c){
   const totFijo=fijosAlc.reduce((a,x)=>a+x.monto,0);
   const porRubro={};
   T.turnos.forEach(x=>{ const r=x.rubro||'otros'; const o=porRubro[r]||(porRubro[r]={visitas:0,ingreso:0,com:0}); o.visitas++; o.ingreso+=numV(x.t.monto); o.com+=x.com; });
-  const pros=allUsers.filter(u=>(u.role==='profesional'||u.role==='encargado')&&(suc==='todas'||u.sucursal===suc));
+  const pros=allUsers.filter(u=>(u.role==='profesional'||u.role==='encargado')&&(suc==='todas'||sucursalesDe(u).includes(suc)));
   pros.forEach(u=>(u.rubros||[]).forEach(r=>{ porRubro[r]=porRubro[r]||{visitas:0,ingreso:0,com:0}; }));
   fijosAlc.forEach(x=>{ if(x.f.rubro) porRubro[x.f.rubro]=porRubro[x.f.rubro]||{visitas:0,ingreso:0,com:0}; });
   const rids=Object.keys(porRubro);
@@ -3074,19 +3051,19 @@ const ultimoCierre=()=>{ const c=todasSesiones().filter(s=>s.cierre).pop(); retu
 const movsVivos=(s)=>(s.movs||[]).filter(m=>!m.borrado);
 
 // Lo que entro solo durante la caja: cobros de cada profesional (por medio) y membresias/paquetes vendidos
+const enCajaSuc=(s,sid)=>(s.sucursales&&s.sucursales.length)?s.sucursales.includes(sid):sucursalConRecepcion(sid);
 function cajaAuto(s){
   const desde=new Date(s.apertura.ts), hasta=s.cierre?new Date(s.cierre.ts):new Date();
   const dentro=(iso)=>{ if(!iso) return false; const d=new Date(iso); return d>=desde&&d<=hasta; };
   const lin={}; const add=(k,nombre,medio,m)=>{ if(!m) return; const o=lin[k]||(lin[k]={nombre,ef:0,cta:0}); if(medio==='efectivo') o.ef+=m; else o.cta+=m; };
   allUsers.filter(u=>['profesional','encargado','recepcionista'].includes(u.role)).forEach(u=>{
-    const suc=sucursalDe(u.sucursal); if(suc&&suc.recepcion===false) return;
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     if(profile&&u.id===profile.id&&profile.role!=='admin'&&dineroData) dd=dineroData;
-    (dd.turnos||[]).filter(t=>dentro(t.creadoEn)).forEach(t=>add(u.id,u.name,t.medio,numV(t.aCobrar!=null?t.aCobrar:t.monto)));
-    (dd.ventas||[]).filter(v=>dentro(v.creadoEn)).forEach(v=>add(u.id,u.name,v.medio,numV(v.total)));
+    (dd.turnos||[]).filter(t=>dentro(t.creadoEn)&&enCajaSuc(s,t.sucursal||u.sucursal)).forEach(t=>add(u.id,u.name,t.medio,numV(t.aCobrar!=null?t.aCobrar:t.monto)));
+    (dd.ventas||[]).filter(v=>dentro(v.creadoEn)&&enCajaSuc(s,v.sucursal||u.sucursal)).forEach(v=>add(u.id,u.name,v.medio,numV(v.total)));
   });
-  membresiasSt.list.filter(m=>dentro(m.creadoEn)).forEach(m=>add('memb','Membresías vendidas',m.medio,numV(m.precio)));
-  paquetesSt.list.filter(p=>dentro(p.creadoEn)).forEach(p=>add('paq','Paquetes vendidos',p.medio,numV(p.total)));
+  membresiasSt.list.filter(m=>dentro(m.creadoEn)&&(!m.sucursal||enCajaSuc(s,m.sucursal))).forEach(m=>add('memb','Membresías vendidas',m.medio,numV(m.precio)));
+  paquetesSt.list.filter(p=>dentro(p.creadoEn)&&(!p.sucursal||enCajaSuc(s,p.sucursal))).forEach(p=>add('paq','Paquetes vendidos',p.medio,numV(p.total)));
   return Object.values(lin);
 }
 function cajaSaldos(s){
@@ -3132,7 +3109,7 @@ async function confirmarAperturaCaja(){
   const uc=ultimoCierre(); const b=bloqueParaApertura(); const ahora=new Date().toISOString();
   const r=await cambiarCaja(ymHoy(),l=>{
     if(todasSesiones().some(s=>!s.cierre)) return {error:true};
-    const s={id:'cj'+Date.now().toString(36),fecha:hoyStr(),bloque:b?b.id:null,recId:profile.id,recNombre:profile.name,sucursal:profile.sucursal||((sucursales.find(x=>x.recepcion!==false)||{}).id)||null,
+    const s={id:'cj'+Date.now().toString(36),fecha:hoyStr(),bloque:b?b.id:null,recId:profile.id,recNombre:profile.name,sucursal:profile.sucursal||((sucursales.find(x=>sucursalConRecepcion(x.id))||{}).id)||null,sucursales:sucursalesDe(profile).length?sucursalesDe(profile):sucursales.filter(x=>sucursalConRecepcion(x.id)).map(x=>x.id),
       apertura:{efectivo:ef,cuenta:cta,ts:ahora,difEf:uc?ef-numV(uc.efectivo):0,difCta:uc?cta-numV(uc.cuenta):0},movs:[],cierre:null,upd:ahora};
     l.push(s); return {s};
   });
@@ -3681,6 +3658,281 @@ async function ajustarInsumo(id){
   const v=await uiPrompt('Stock de '+x.nombre,{msg:'Poné cuántas unidades hay ahora (contá lo que tenés).',label:'Unidades en stock',type:'number',value:numV(x.stock),ok:'Guardar'});
   if(v===null) return; await cambiarFin(d=>{ const z=d.consumibles.find(k=>k.id===id); if(z){ z.stock=numV(v); z.upd=new Date().toISOString(); } }); renderAdmin();
 }
+// ============ CUENTAS: sucursales multiples, editar todo, dar de baja ============
+// Un profesional o una recepcionista puede trabajar en mas de una sucursal. "sucursales" es la lista; "sucursal" queda como la principal.
+// Una sucursal "tiene recepcion" si hay una recepcionista asignada a ella (asi el admin decide que recepcion atiende las dos).
+let usuariosBaja=[];
+const sucursalesDe=(u)=>!u?[]:(Array.isArray(u.sucursales)&&u.sucursales.length?u.sucursales:(u.sucursal?[u.sucursal]:[]));
+const todosLosUsuarios=()=>[...allUsers,...usuariosBaja];
+function sucursalConRecepcion(sid){
+  const asignadas=allUsers.filter(u=>u.role==='recepcionista'&&sucursalesDe(u).length);
+  if(asignadas.length) return asignadas.some(u=>sucursalesDe(u).includes(sid));
+  const s=sucursalDe(sid); return !(s&&s.recepcion===false);
+}
+const sinRecepcionId=(sid)=>!sucursalConRecepcion(sid);
+// ¿esta persona atiende esa sucursal? (recepcion: las que tiene asignadas; si no tiene, todas las que tienen recepcion)
+function atiende(u,sid){ const ss=sucursalesDe(u||profile); return ss.length?ss.includes(sid):sucursalConRecepcion(sid); }
+// Sucursal en la que esta cobrando un profesional que trabaja en varias: la elegida en el cobro, o la ultima de hoy, o la principal
+function sucursalActual(){
+  const ss=sucursalesDe(profile);
+  if(typeof cobro!=='undefined'&&cobro&&cobro.sucursal&&ss.includes(cobro.sucursal)) return cobro.sucursal;
+  try{ const r=JSON.parse(localStorage.getItem('luffy_suc_hoy')||'null'); if(r&&r.f===hoyStr()&&ss.includes(r.id)) return r.id; }catch(e){}
+  return ss[0]||(profile&&profile.sucursal)||null;
+}
+function cobroSuc(id){ cobro.sucursal=id; try{ localStorage.setItem('luffy_suc_hoy',JSON.stringify({f:hoyStr(),id})); }catch(e){} refreshCobro(); }
+function renderSucCobro(){
+  const el=document.getElementById('cb-suc'); if(!el) return; const ss=sucursalesDe(profile);
+  if(ss.length<2){ el.innerHTML=''; return; }
+  const act=sucursalActual();
+  el.innerHTML=`<div class="field"><label>📍 ¿En qué sucursal estás?</label><div style="display:flex;gap:6px;flex-wrap:wrap">${ss.map(id=>{ const s=sucursalDe(id)||{id,nombre:id,color:'#7c6fff'}; return `<button onclick="cobroSuc('${id}')" style="${pillStyle(act===id,s.color)}">${escH(s.nombre)}</button>`; }).join('')}</div></div>`;
+}
+
+// ---------- guardado seguro del listado de cuentas ----------
+async function leerUsuariosFresco(){
+  let lista=null, bajas=null;
+  if(DB){ try{ const r=await DB.doc('luffy/users').get(); if(r&&Array.isArray(r.list)){ lista=r.list; bajas=r.bajas||[]; } }catch(e){} }
+  if(!lista) lista=allUsers; if(!bajas) bajas=usuariosBaja;
+  return {lista,bajas};
+}
+async function editarUsuario(id,patch){
+  const {lista,bajas}=await leerUsuariosFresco();
+  const u=lista.find(x=>x.id===id); if(!u) return false;
+  Object.assign(u,patch); allUsers=lista; usuariosBaja=bajas; saveUsers(); return true;
+}
+
+// ---------- pantalla Cuentas ----------
+const ROL_TXT={admin:'Administrador',profesional:'Profesional',recepcionista:'Recepcionista',encargado:'Encargado (cuenta vieja)'};
+function renderAdminCuentas(c){
+  const grupos=[['profesional','✂️ Profesionales'],['recepcionista','📞 Recepcionistas'],['encargado','📋 Encargado (cuenta vieja)'],['admin','👑 Administrador']];
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🔧 Cuentas del equipo</span></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Desde acá podés cambiar todo de cada persona: <b style="color:var(--text)">nombre, rol, sucursales</b> (puede estar en más de una), rubros, comisión y <b style="color:var(--text)">darla de baja</b>. Las cuentas nuevas se aprueban en Estado.</div>
+    ${grupos.map(([rol,tit])=>{ const L=allUsers.filter(u=>u.role===rol); if(!L.length) return ''; return `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${tit}</div>${L.map(u=>`<div class="card" onclick="editarCuenta('${u.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:${(u.color||'#7c6fff')}33;border:1.5px solid ${u.color||'#7c6fff'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${u.emoji||'👤'}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(u.name)} <span style="font-size:11px;font-weight:600;color:var(--muted2)">@${escH(u.username||'')}</span>${u.esEncargado?' <span style="font-size:10px;background:rgba(52,211,153,.18);color:#34d399;border-radius:6px;padding:1px 6px">ENCARGADO</span>':''}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${sucursalesDe(u).map(s=>chipSucursal(s,true)).join('')||'<span style="font-size:10.5px;color:var(--muted)">sin sucursal</span>'}${u.role==='profesional'&&u.rubros&&u.rubros.length?`<span style="font-size:10.5px;color:var(--muted2)">· ${escH(u.rubros.map(nombreRubro).filter(Boolean).join(', '))}</span>`:''}</div></div><span style="color:var(--muted)">✏️</span></div></div>`).join('')}`; }).join('')}
+    ${usuariosBaja.length?`<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;font-weight:800;color:var(--muted2)">🗄 Dados de baja (${usuariosBaja.length})</summary>${usuariosBaja.map(u=>`<div class="ln"><span>${escH(u.name)} <i style="color:var(--muted)">· ${ROL_TXT[u.role]||u.role} · baja ${u.baja?fechaCortaStr(u.baja):''}</i></span><button class="lnk" onclick="reactivarCuenta('${u.id}')">Reactivar</button></div>`).join('')}<div style="font-size:10.5px;color:var(--muted);margin-top:6px">Sus cobros y su historia se conservan en los reportes.</div></details>`:''}`;
+}
+function editarCuenta(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return; const esPro=u.role==='profesional', esRec=u.role==='recepcionista', esAdm=u.role==='admin';
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Editar cuenta')+`
+    <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 10px">Usuario: <b>@${escH(u.username||'')}</b> (no se cambia)</div>
+    <div class="field"><label>Nombre</label><input id="ec-nombre" value="${escH(u.name)}"/></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><div class="field" style="flex:1"><label>Emoji</label><input id="ec-emoji" value="${escH(u.emoji||'')}" placeholder="✂️"/></div><div class="field" style="flex:1"><label>Color</label><input id="ec-color" type="color" value="${u.color||'#7c6fff'}" style="height:46px;padding:4px"/></div></div>
+    ${esAdm?'':`<div class="field" style="margin-top:8px"><label>Rol</label><select id="ec-rol" style="${selFin}"><option value="profesional" ${u.role==='profesional'?'selected':''}>Profesional</option><option value="recepcionista" ${u.role==='recepcionista'?'selected':''}>Recepcionista</option>${u.role==='encargado'?'<option value="encargado" selected>Encargado (cuenta vieja)</option>':''}</select></div>
+    <div class="field" style="margin-top:8px"><label>Sucursales donde trabaja${esRec?' (a cuáles atiende)':''}</label>${sucursales.map(s=>`<label class="rub-opt" style="border-left:5px solid ${s.color}"><input type="checkbox" class="ec-suc" value="${s.id}" ${sucursalesDe(u).includes(s.id)?'checked':''}/> ${escH(s.nombre)}</label>`).join('')}<div style="font-size:11px;color:var(--muted);margin-top:4px">${esRec?'Si atiende las dos sucursales, le llega todo de las dos y en French los profesionales ya no cierran sus turnos.':'Si trabaja en dos, al cobrar elige en cuál está.'}</div></div>`}
+    ${esPro?`<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ghost" style="flex:1" onclick="abrirRubrosProf('${u.id}')">🏷️ Rubros</button><button class="btn btn-ghost" style="flex:1" onclick="abrirComisionUsuario('${u.id}')">💰 Comisión</button></div>
+    <label class="rub-opt" style="margin-top:8px"><input type="checkbox" id="ec-enc" ${u.esEncargado?'checked':''}/> 📦 Es encargado (controla el stock, comisión fija)</label>`:''}
+    <button class="btn btn-primary" onclick="guardarCuenta('${u.id}')" style="margin-top:14px">Guardar cambios</button>
+    ${esAdm?'':`<button class="btn btn-ghost" onclick="darDeBaja('${u.id}')" style="margin-top:8px;color:#f472b6">🗄 Dar de baja</button>`}`;
+  openModal('modal-registro');
+}
+async function guardarCuenta(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return;
+  const nombre=document.getElementById('ec-nombre').value.trim(); if(!nombre){ showToast('Poné el nombre'); return; }
+  const patch={name:nombre,emoji:document.getElementById('ec-emoji').value.trim()||u.emoji,color:document.getElementById('ec-color').value};
+  const rolSel=document.getElementById('ec-rol');
+  if(rolSel){
+    const ss=[...document.querySelectorAll('.ec-suc:checked')].map(x=>x.value);
+    patch.sucursales=ss; patch.sucursal=ss[0]||null;
+    if(rolSel.value!==u.role){
+      if(supaClient){ const {error}=await supaClient.from('luffy_roles').update({role:rolSel.value}).eq('app_id',id); if(error){ showToast('No se pudo cambiar el rol: '+error.message); return; } }
+      patch.role=rolSel.value; if(rolSel.value==='recepcionista') patch.esEncargado=false;
+    }
+  }
+  const enc=document.getElementById('ec-enc'); if(enc){ patch.esEncargado=enc.checked; if(enc.checked!==!!u.esEncargado) patch.comisionFija=null; }
+  if(await editarUsuario(id,patch)){ closeModal('modal-registro'); showToast('Cuenta actualizada ✓'); renderAdmin(); }
+}
+async function darDeBaja(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return;
+  if(profile&&profile.id===id){ showToast('No podés dar de baja tu propia cuenta'); return; }
+  if(!await uiConfirm('¿Dar de baja a '+u.name+'?','Deja de poder entrar a la app y desaparece de las listas. Sus cobros y su historia se conservan en los reportes. Después la podés reactivar.',{ok:'Dar de baja',danger:true})) return;
+  let uid=null;
+  if(supaClient){
+    const r=await supaClient.from('luffy_roles').select('uid').eq('app_id',id).maybeSingle(); uid=r.data?r.data.uid:null;
+    const d=await supaClient.from('luffy_roles').delete().eq('app_id',id); if(d.error){ showToast('No se pudo dar de baja: '+d.error.message); return; }
+  }
+  const {lista,bajas}=await leerUsuariosFresco();
+  const x=lista.find(z=>z.id===id); if(!x){ renderAdmin(); return; }
+  allUsers=lista.filter(z=>z.id!==id); usuariosBaja=[...bajas.filter(z=>z.id!==id),{...x,baja:hoyStr(),uid}]; saveUsers();
+  closeModal('modal-registro'); showToast(x.name+' quedó dada de baja'); renderAdmin();
+}
+async function reactivarCuenta(id){
+  const b=usuariosBaja.find(x=>x.id===id); if(!b) return;
+  if(!await uiConfirm('¿Reactivar a '+b.name+'?','Vuelve a poder entrar con su mismo usuario y contraseña.',{ok:'Reactivar'})) return;
+  if(supaClient&&b.uid){ const {error}=await supaClient.from('luffy_roles').upsert({uid:b.uid,app_id:b.id,role:b.role},{onConflict:'uid'}); if(error){ showToast('No se pudo reactivar: '+error.message); return; } }
+  else if(!b.uid){ showToast('No tengo su cuenta guardada: que se registre de nuevo y la aprobás'); return; }
+  const {lista,bajas}=await leerUsuariosFresco(); const {baja,uid,...u}=bajas.find(z=>z.id===id)||b;
+  allUsers=[...lista.filter(z=>z.id!==id),u]; usuariosBaja=bajas.filter(z=>z.id!==id); saveUsers(); showToast(u.name+' reactivada ✓'); renderAdmin();
+}
+// ---------- sucursales de una persona (varias) ----------
+function abrirSucursalProf(profId){
+  const u=allUsers.find(x=>x.id===profId); if(!u) return;
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Sucursales de '+escH(u.name))+`<div style="font-size:12px;color:var(--muted2);margin-bottom:12px">Podés marcar más de una. En recepción sus cobros se ven con el color de la sucursal donde cobró.</div>
+    ${sucursales.map(s=>`<label class="rub-opt" style="border-left:5px solid ${s.color}"><input type="checkbox" class="ec-suc" value="${s.id}" ${sucursalesDe(u).includes(s.id)?'checked':''}/> ${escH(s.nombre)}</label>`).join('')}
+    <button class="btn btn-primary" onclick="guardarSucursalProf('${u.id}')" style="margin-top:10px">Guardar</button>`;
+  openModal('modal-registro');
+}
+async function guardarSucursalProf(profId){
+  const ss=[...document.querySelectorAll('.ec-suc:checked')].map(x=>x.value); if(!ss.length){ showToast('Elegí al menos una sucursal'); return; }
+  if(await editarUsuario(profId,{sucursales:ss,sucursal:ss[0]})){ closeModal('modal-registro'); showToast('Sucursales guardadas ✓'); refreshCurrentView(); }
+}
+
+// ============ COMISIONES: esquemas, tramos editables y monto asegurado ============
+// Tres esquemas por persona:
+//  - "tramos" (el de siempre): 45% base, 50% desde $1.000.000, 55% desde $1.200.000, 60% con 3 reels (todo editable)
+//  - "nuevo": primeros N meses desde su inicio: 50% sin mirar facturacion + 5% por contenido (3 reels) + 5% si supera $800.000
+//  - "fija": un % fijo (el encargado, 60%)
+// Monto asegurado: si tiene un "piso", desde la quincena en que llega a ese piso se le asegura el 50% del piso como minimo.
+// Si en una quincena posterior factura menos que el piso, el admin decide si se lo da igual o no.
+const COMISIONES_DEFAULT={
+  tramos:[{min:0,pct:45},{min:1000000,pct:50},{min:1200000,pct:55}],
+  oro:{min:1200000,pct:60,reels:3},
+  nuevos:{meses:2,base:50,contenido:5,reels:3,extra:5,extraDesde:800000},
+  asegurado:{pct:50},
+};
+const comCfg=()=>{ const d=clonar(COMISIONES_DEFAULT), p=promos.comisiones||{}; return {tramos:p.tramos||d.tramos,oro:{...d.oro,...(p.oro||{})},nuevos:{...d.nuevos,...(p.nuevos||{})},asegurado:{...d.asegurado,...(p.asegurado||{})}}; };
+function tramosVigentes(){
+  const t=comCfg().tramos.slice().sort((a,b)=>a.min-b.min);
+  return t.map((x,i)=>({min:numV(x.min),max:t[i+1]?numV(t[i+1].min)-1:Infinity,pct:numV(x.pct),label:['Base','Bronce','Plata','Plata+','Élite'][i]||('Tramo '+(i+1)),color:TRAMOS[Math.min(i,2)].color,emoji:TRAMOS[Math.min(i,2)].emoji}));
+}
+const tramoOro=()=>({...TRAMO_ORO,pct:comCfg().oro.pct,min:comCfg().oro.min,reels:comCfg().oro.reels});
+function sumaMeses(f,n){ const [y,m,d]=f.split('-').map(Number); const t=new Date(Date.UTC(y,m-1+n,1)); return t.getUTCFullYear()+'-'+pad2(t.getUTCMonth()+1)+'-'+pad2(Math.min(d,finMesUTC(t.getUTCFullYear(),t.getUTCMonth()+1))); }
+function esNuevoEn(u,f){ return !!u&&u.esquema==='nuevo'&&!!u.inicio&&(f||hoyStr())<sumaMeses(u.inicio,comCfg().nuevos.meses); }
+function comisionFijaDe(u){ if(!u) return null; if(u.esquema==='fija'||u.esEncargado) return numV(u.comisionFija)>0?numV(u.comisionFija):60; return null; }
+function calcComision(fact,reelsQ,u,fechaRef){
+  const cfg=comCfg(); const cf=comisionFijaDe(u);
+  if(cf) return {comision:fact*cf/100, pct:cf, esOro:false, fija:true, tramo:{min:0,max:Infinity,pct:cf,label:'Fija',color:'#34d399',emoji:'📦'}};
+  if(esNuevoEn(u,fechaRef)){
+    const n=cfg.nuevos, cont=reelsQ>=n.reels, extra=fact>=n.extraDesde; const pct=n.base+(cont?n.contenido:0)+(extra?n.extra:0);
+    return {comision:fact*pct/100, pct, esOro:false, nuevo:true, detNuevo:{base:n.base,cont,extra,n}, tramo:{min:0,max:Infinity,pct,label:'Nuevo',color:'#60a5fa',emoji:'🌟'}};
+  }
+  const T=tramosVigentes(); let tramo=T[0]; for(const t of T) if(fact>=t.min) tramo=t;
+  const esOro=fact>=cfg.oro.min&&reelsQ>=cfg.oro.reels; const pct=esOro?cfg.oro.pct:tramo.pct;
+  return {comision:fact*pct/100, pct, esOro, tramo, tramos:T};
+}
+// ---------- quincenas ----------
+const qStart=(qk)=>{ const p=qk.split('-'); return p[0]+'-'+p[1]+'-'+(p[2]==='1'?'01':'16'); };
+const qEnd=(qk)=>{ const p=qk.split('-'); return p[0]+'-'+p[1]+'-'+(p[2]==='1'?'15':pad2(finMesUTC(Number(p[0]),Number(p[1])))); };
+function factPorQuincena(turnos){ const m={}; (turnos||[]).forEach(t=>{ if(!t.fecha) return; const k=quincenaKey(t.fecha); m[k]=(m[k]||0)+numV(t.monto); }); return m; }
+function reelsDeQuincena(u,qk){ return reels.filter(r=>r.stage==='publicado'&&u&&r.asignado===u.name&&r.fecha&&quincenaKey(r.fecha)===qk).length; }
+// Comision base de una quincena (sin el asegurado)
+function comisionQuincenaDe(u,qk,turnos){
+  const fm=factPorQuincena(turnos), fact=fm[qk]||0; const c=calcComision(fact,reelsDeQuincena(u,qk),u,qStart(qk));
+  const ts=(turnos||[]).filter(t=>t.fecha&&quincenaKey(t.fecha)===qk);
+  return {fact,pct:c.pct,comision:ts.reduce((s,t)=>s+comTurno(t,c.pct),0)};
+}
+let decisionesCom={};
+function loadDecisionesCom(){
+  try{ decisionesCom=JSON.parse(localStorage.getItem('luffy_decisiones_com')||'{}'); }catch(e){ decisionesCom={}; }
+  if(DB) DB.doc('luffy/decisiones_com').get().then(r=>{ if(r&&JSON.stringify(r)!==JSON.stringify(decisionesCom)){ decisionesCom=r; try{localStorage.setItem('luffy_decisiones_com',JSON.stringify(decisionesCom));}catch(e){} refreshCurrentView(); } }).catch(()=>{});
+}
+async function decidirAsegurado(uid,qk,d){
+  let base=decisionesCom; if(DB){ try{ const r=await DB.doc('luffy/decisiones_com').get(); if(r) base={...r,...base}; }catch(e){} }
+  base[uid+'|'+qk]={d,ts:new Date().toISOString(),por:profile.name}; decisionesCom=base;
+  try{localStorage.setItem('luffy_decisiones_com',JSON.stringify(decisionesCom));}catch(e){}
+  if(DB){ try{ await DB.doc('luffy/decisiones_com').set(decisionesCom); }catch(e){} }
+  showToast(d==='dar'?'Se lo das igual ✓':'No se lo das'); renderAdmin();
+}
+// Estado del monto asegurado de una persona en una quincena. comBase = comision que le toca sin el asegurado.
+function estadoAsegurado(u,qk,factMap,comBase){
+  const piso=numV(u&&u.piso); if(!(piso>0)||comisionFijaDe(u)||esNuevoEn(u,qStart(qk))) return null;
+  if(!Object.keys(factMap).some(k=>k<=qk&&factMap[k]>=piso)) return null; // todavia no llego al piso
+  const garantizado=Math.round(piso*comCfg().asegurado.pct/100); const fact=factMap[qk]||0;
+  if(comBase>=garantizado) return {estado:'ok',garantizado,extra:0,piso,fact};
+  const extra=Math.round(garantizado-comBase);
+  if(fact>=piso) return {estado:'auto',garantizado,extra,piso,fact};
+  if(qk===quincenaKey(hoyStr())) return {estado:'en_curso',garantizado,extra,piso,fact};
+  const d=decisionesCom[u.id+'|'+qk];
+  return {estado:d?(d.d==='dar'?'dado':'no'):'pendiente',garantizado,extra,piso,fact};
+}
+const extraAplicable=(a)=>a&&(a.estado==='auto'||a.estado==='dado')?a.extra:0;
+// Asegurados de todo el equipo cuyo pago (fin de quincena) cae en el rango
+function extrasAsegurado(D,desde,hasta){
+  const out=[]; const porU={};
+  D.turnos.forEach(t=>{ (porU[t.prof.id]=porU[t.prof.id]||{prof:t.prof,turnos:[]}).turnos.push(t); });
+  Object.values(porU).forEach(({prof,turnos})=>{
+    if(!(numV(prof.piso)>0)) return; const fm=factPorQuincena(turnos);
+    Object.keys(fm).forEach(qk=>{ const fin=qEnd(qk); if(fin<desde||fin>hasta) return; const a=estadoAsegurado(prof,qk,fm,comisionQuincenaDe(prof,qk,turnos).comision); if(a&&a.estado!=='ok') out.push({prof,qk,fin,...a});});
+  });
+  return out;
+}
+function pendientesAsegurado(){
+  const D=adminDatos(); const hoy=hoyStr(); return extrasAsegurado(D,addDias(hoy,-120),hoy).filter(x=>x.estado==='pendiente');
+}
+// ---------- pantalla del profesional: su asegurado ----------
+function htmlAseguradoProf(a){
+  if(!a||a.estado==='ok') return a&&a.estado==='ok'?`<div style="font-size:11.5px;color:var(--muted2);margin:6px 2px 10px">🛡 Monto asegurado activo: mínimo ${fp(a.garantizado)} por quincena (${comCfg().asegurado.pct}% de tu piso de ${fp(a.piso)}). Este período lo superaste.</div>`:'';
+  const txt={auto:'Llegaste al piso: se te completa hasta el mínimo asegurado.',dado:'El admin decidió dártelo igual ✓',no:'El admin decidió no completártelo esta vez.',pendiente:'Facturaste menos que el piso: el admin lo revisa y decide.',en_curso:'Si esta quincena no llegás al piso de '+fp(a.piso)+', el admin revisa si te lo da igual.'}[a.estado];
+  const col=a.estado==='no'?'#f472b6':(a.estado==='pendiente'||a.estado==='en_curso'?'#fbbf24':'#34d399');
+  return `<div style="border:1.5px solid ${col}55;background:${col}12;border-radius:14px;padding:10px 12px;margin:6px 0 12px;font-size:12px;line-height:1.5"><b style="color:${col}">🛡 Monto asegurado: ${fp(a.garantizado)}</b> (${comCfg().asegurado.pct}% de tu piso de ${fp(a.piso)})<br>${txt}${a.estado==='auto'||a.estado==='dado'?` Se suman <b>${fp(a.extra)}</b> a tu comisión.`:''}</div>`;
+}
+// ---------- admin: Equipo → Comisiones ----------
+function renderAdminComisiones(c){
+  const cfg=comCfg(), T=tramosVigentes(), n=cfg.nuevos;
+  const D=adminDatos(); const qk=quincenaKey(hoyStr());
+  const pros=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
+  const esq=(u)=>comisionFijaDe(u)?'Fija '+comisionFijaDe(u)+'%':(u.esquema==='nuevo'?(esNuevoEn(u)?'Nuevo (hasta '+fechaCortaStr(sumaMeses(u.inicio,n.meses))+')':'Nuevo → ya pasó a tramos'):'Por tramos');
+  const filas=pros.map(u=>{ const ts=D.turnos.filter(t=>t.prof.id===u.id); const r=comisionQuincenaDe(u,qk,ts); const a=estadoAsegurado(u,qk,factPorQuincena(ts),r.comision);
+    return `<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(u.name)}</div><div style="font-size:11.5px;color:var(--muted2)">${esq(u)}${numV(u.piso)>0?' · piso '+fpk(u.piso):''} · esta quincena ${fp(r.fact)} → <b style="color:var(--text)">${r.pct}%</b> = ${fp(r.comision)}${a&&extraAplicable(a)?' + '+fp(extraAplicable(a))+' asegurado':''}</div></div><button class="lnk" onclick="abrirComisionUsuario('${u.id}')">Cambiar</button></div></div>`; }).join('');
+  const pend=pendientesAsegurado();
+  c.innerHTML=`${pend.length?`<div class="sec-title" style="margin:6px 0 8px;color:#fbbf24">🛡 Asegurados por decidir (${pend.length})</div>${pend.map(x=>`<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.5)"><div style="font-size:13px;font-weight:800">${escH(x.prof.name)} · quincena ${fechaCortaStr(qStart(x.qk))} al ${fechaCortaStr(x.fin)}</div><div style="font-size:12px;color:var(--muted2);margin:3px 0 8px;line-height:1.5">Facturó ${fp(x.fact)} (su piso es ${fpk(x.piso)}). Le corresponde el mínimo asegurado de ${fp(x.garantizado)}: le faltan <b style="color:var(--text)">${fp(x.extra)}</b> para completarlo. Mirá por qué bajó y decidí.</div><div style="display:flex;gap:8px"><button class="btn btn-primary" style="flex:1" onclick="decidirAsegurado('${x.prof.id}','${x.qk}','dar')">Dárselo igual</button><button class="btn btn-ghost" style="flex:1" onclick="decidirAsegurado('${x.prof.id}','${x.qk}','no')">No dárselo</button></div></div>`).join('')}`:''}
+    <div class="sec-hdr" style="margin:10px 0 8px"><span class="sec-title">💰 Cómo se paga a cada uno</span></div>${filas||'<div class="empty"><p>No hay profesionales.</p></div>'}
+    <div class="sec-hdr" style="margin:18px 0 8px"><span class="sec-title">⚙️ Porcentajes</span></div>
+    <div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">Tramos (por quincena)</b><button class="lnk" onclick="editarTramosCom()">Editar</button></div>${T.map(t=>linea(`${t.emoji} ${t.label}`,`desde ${fp(t.min)} → <b>${t.pct}%</b>`)).join('')}${linea(`${TRAMO_ORO.emoji} Oro`,`desde ${fp(cfg.oro.min)} + ${cfg.oro.reels} reels → <b>${cfg.oro.pct}%</b>`)}</div>
+    <div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">🌟 Barberos nuevos</b><button class="lnk" onclick="editarNuevosCom()">Editar</button></div><div style="font-size:12.5px;line-height:1.7">Primeros <b>${n.meses} meses</b>: <b>${n.base}%</b> sin mirar la facturación<br>+ <b>${n.contenido}%</b> por contenido (${n.reels} reels en la quincena)<br>+ <b>${n.extra}%</b> si superan ${fp(n.extraDesde)} en la quincena</div></div>
+    <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">🛡 Monto asegurado</b><button class="lnk" onclick="editarAseguradoCom()">Editar</button></div><div style="font-size:12.5px;line-height:1.7">Al llegar a su <b>piso</b> de facturación, se le asegura el <b>${cfg.asegurado.pct}%</b> del piso como mínimo. Si después factura menos, decidís vos si se lo das. El piso se pone a cada persona en "Cambiar".</div></div>`;
+}
+async function editarTramosCom(){
+  const cfg=comCfg();
+  const v=await uiDialog({title:'Tramos de comisión',msg:'Una línea por tramo: "facturación desde | %". Y el tramo Oro abajo.',fields:[{type:'textarea',value:cfg.tramos.map(t=>t.min+' | '+t.pct).join('\n')},{label:'Oro: facturación desde',type:'number',value:cfg.oro.min},{label:'Oro: reels publicados en la quincena',type:'number',value:cfg.oro.reels},{label:'Oro: %',type:'number',value:cfg.oro.pct}],ok:'Guardar'});
+  if(!v) return;
+  const tr=v[0].split('\n').map(l=>l.split('|').map(s=>numV(s))).filter(a=>a.length===2&&a[1]>0).map(a=>({min:a[0],pct:a[1]})).sort((a,b)=>a.min-b.min);
+  if(!tr.length||tr[0].min!==0){ showToast('El primer tramo tiene que empezar en 0'); return; }
+  promos.comisiones={...cfg,tramos:tr,oro:{min:numV(v[1]),reels:numV(v[2]),pct:numV(v[3])}}; savePromos(); showToast('Tramos guardados ✓'); renderAdmin();
+}
+async function editarNuevosCom(){
+  const n=comCfg().nuevos;
+  const v=await uiDialog({title:'Barberos nuevos',fields:[{label:'Meses con este esquema',type:'number',value:n.meses},{label:'% base (sin mirar facturación)',type:'number',value:n.base},{label:'% extra por contenido',type:'number',value:n.contenido},{label:'Reels en la quincena para el extra de contenido',type:'number',value:n.reels},{label:'% extra por facturar más de…',type:'number',value:n.extra},{label:'…esta facturación (por quincena)',type:'number',value:n.extraDesde}],ok:'Guardar'});
+  if(!v) return; promos.comisiones={...comCfg(),nuevos:{meses:Math.max(1,numV(v[0])),base:numV(v[1]),contenido:numV(v[2]),reels:numV(v[3]),extra:numV(v[4]),extraDesde:numV(v[5])}}; savePromos(); showToast('Guardado ✓'); renderAdmin();
+}
+async function editarAseguradoCom(){
+  const v=await uiPrompt('Monto asegurado',{msg:'Porcentaje del piso de facturación que se le asegura a quien lo alcanzó.',label:'% del piso',type:'number',value:comCfg().asegurado.pct,ok:'Guardar'});
+  if(v===null) return; promos.comisiones={...comCfg(),asegurado:{pct:Math.min(100,Math.max(1,numV(v)))}}; savePromos(); showToast('Guardado ✓'); renderAdmin();
+}
+// ---------- admin: esquema de una persona ----------
+let comUsr=null;
+function abrirComisionUsuario(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return;
+  comUsr={id,esquema:comisionFijaDe(u)?'fija':(u.esquema==='nuevo'?'nuevo':'tramos')};
+  renderComisionUsuario();
+  openModal('modal-registro');
+}
+function comUsrEsq(e){ leerComUsr(); comUsr.esquema=e; renderComisionUsuario(); }
+function leerComUsr(){ const g=(i)=>{ const e=document.getElementById(i); return e?e.value:undefined; }; ['cu-inicio','cu-fija','cu-piso'].forEach(i=>{ const v=g(i); if(v!==undefined) comUsr[i]=v; }); }
+function renderComisionUsuario(){
+  const u=allUsers.find(x=>x.id===comUsr.id); const s=comUsr; const n=comCfg().nuevos;
+  const opt=(v,t,d)=>`<button onclick="comUsrEsq('${v}')" style="display:block;width:100%;text-align:left;padding:11px 14px;margin-bottom:6px;border-radius:12px;border:2px solid ${s.esquema===v?'#7c6fff':'var(--border2)'};background:${s.esquema===v?'rgba(124,111,255,.12)':'var(--s2)'};color:var(--text);font-family:var(--font);cursor:pointer"><div style="font-size:13.5px;font-weight:800">${t}</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${d}</div></button>`;
+  const inicio=s['cu-inicio']!==undefined?s['cu-inicio']:(u.inicio||hoyStr()), fija=s['cu-fija']!==undefined?s['cu-fija']:(comisionFijaDe(u)||60), piso=s['cu-piso']!==undefined?s['cu-piso']:(numV(u.piso)||'');
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Comisión de '+escH(u.name))+`
+    ${opt('tramos','Por tramos','45% → 60% según lo que facture en la quincena')}
+    ${opt('nuevo','🌟 Barbero nuevo',`${n.base}% los primeros ${n.meses} meses sin mirar facturación, +${n.contenido}% por contenido y +${n.extra}% si supera ${fpk(n.extraDesde)}. Después pasa solo a tramos.`)}
+    ${opt('fija','📦 Comisión fija','Un porcentaje fijo, sin importar lo que facture (ej: el encargado)')}
+    ${s.esquema==='nuevo'?`<div class="field"><label>Fecha en que empezó a trabajar</label><input id="cu-inicio" type="date" value="${escH(inicio)}"/></div>`:''}
+    ${s.esquema==='fija'?`<div class="field"><label>Comisión fija (%)</label><input id="cu-fija" type="number" value="${escH(fija)}"/></div>`:''}
+    ${s.esquema!=='fija'?`<div class="field" style="margin-top:8px"><label>🛡 Piso para el monto asegurado (facturación por quincena) — vacío = sin asegurado</label><input id="cu-piso" type="number" inputmode="decimal" value="${escH(piso)}" placeholder="Ej: 1000000"/></div>`:''}
+    <button class="btn btn-primary" onclick="guardarComisionUsuario()" style="margin-top:12px">Guardar</button>`;
+}
+async function guardarComisionUsuario(){
+  leerComUsr(); const s=comUsr; const u=allUsers.find(x=>x.id===s.id); if(!u) return;
+  const patch={esquema:s.esquema};
+  if(s.esquema==='nuevo'){ patch.inicio=s['cu-inicio']||u.inicio||hoyStr(); patch.comisionFija=null; }
+  if(s.esquema==='fija'){ patch.comisionFija=Math.min(100,Math.max(1,numV(s['cu-fija'])||60)); patch.piso=null; }
+  if(s.esquema!=='fija') patch.piso=numV(s['cu-piso'])>0?numV(s['cu-piso']):null;
+  if(s.esquema!=='fija'&&u.esEncargado) patch.esEncargado=false; // salir de "encargado" si se elige otro esquema
+  if(await editarUsuario(s.id,patch)){ closeModal('modal-registro'); showToast('Comisión guardada ✓'); renderAdmin(); }
+}
+function htmlAseguradosPanel(){
+  if(!profile||profile.role!=='admin') return '';
+  const n=pendientesAsegurado().length; if(!n) return '';
+  return `<div class="card" onclick="switchAdminTab('comisiones')" style="cursor:pointer;margin:10px 0;border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.07)"><div style="font-size:13px;font-weight:800;color:#fbbf24">🛡 ${n} ${n===1?'monto asegurado':'montos asegurados'} por decidir</div><div style="font-size:11.5px;color:var(--muted2)">Alguien facturó menos que su piso. Tocá para revisar.</div></div>`;
+}
 // ============ INIT ============
 async function init(){
   try { reels=JSON.parse(localStorage.getItem('luffy_reels')||'[]'); } catch(e){}
@@ -3837,12 +4089,12 @@ function renderTramoBanner(){
     });
     const fact=turnos.reduce((s,t)=>s+(parseFloat(t.monto)||0),0);
     const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&r.fecha&&(()=>{const d=new Date(r.fecha+'T00:00:00');const now2=new Date();return d.getMonth()===now2.getMonth()&&d.getFullYear()===now2.getFullYear()&&(q===1?d.getDate()<=15:d.getDate()>15);})()).length;
-    const {pct,esOro,tramo,fija}=calcComision(fact,reelsQ,profile);
-    const tr=esOro?TRAMO_ORO:tramo;
+    const {pct,esOro,tramo,fija,nuevo}=calcComision(fact,reelsQ,profile);
+    const tr=esOro?tramoOro():tramo;
     banner.style.display='flex';
     banner.style.background=`${tr.color}15`;
     banner.style.border=`1px solid ${tr.color}30`;
-    banner.innerHTML=`<div class="tb-emoji">${tr.emoji}</div><div class="tb-info"><strong style="color:${tr.color}">${tr.pct}% — ${fija?'Comisión fija':'Tramo '+tr.label}</strong><span>${fp(fact)} esta quincena</span></div><div class="tb-pct" style="color:${tr.color}">›</div>`;
+    banner.innerHTML=`<div class="tb-emoji">${tr.emoji}</div><div class="tb-info"><strong style="color:${tr.color}">${tr.pct}% — ${fija?'Comisión fija':(nuevo?'Barbero nuevo':'Tramo '+tr.label)}</strong><span>${fp(fact)} esta quincena</span></div><div class="tb-pct" style="color:${tr.color}">›</div>`;
   } catch(e){ banner.style.display='none'; }
 }
 
@@ -3940,16 +4192,6 @@ function normalizarFechas(dd){
   (dd.ventas||[]).forEach(x=>fix(x,'fecha','creadoEn'));
   (dd.deudores||[]).forEach(x=>{ fix(x,'fecha','creadoEn'); fix(x,'fechaPago','cobradoEn'); });
   return cambio;
-}
-// Comision fija: el encargado cobra 60% siempre (el admin puede cambiar el %). El resto va por tramos.
-function comisionFijaDe(u){ if(!u) return null; if(numV(u.comisionFija)>0) return numV(u.comisionFija); if(u.esEncargado) return 60; return null; }
-function calcComision(fact,reelsQ,u){
-  const cf=comisionFijaDe(u);
-  if(cf) return {comision:fact*cf/100, pct:cf, esOro:false, fija:true, tramo:{min:0,max:Infinity,pct:cf,label:'Fija',color:'#34d399',emoji:'📦'}};
-  let tramo=TRAMOS[0];
-  for(const t of TRAMOS) if(fact>=t.min) tramo=t;
-  const esOro=fact>=1200000&&reelsQ>=3;
-  return {comision:fact*(esOro?60:tramo.pct)/100, pct:esOro?60:tramo.pct, esOro, tramo};
 }
 // ============ REELS: guardado seguro, reglas, plazos y prendas ============
 // La lista de reels es una sola para todo el equipo. Cada dispositivo guarda "uniendo" por id
@@ -4508,9 +4750,12 @@ function detalleDeudaHtml(d,chico){
 
 // ---------- cobrar una deuda ----------
 let cobroDeudaSel=null;
-function puedeCobrarDeuda(profId){ return !!profile&&(profile.role==='recepcionista'||(profile.id===profId&&sucursalSinRecepcion(profile))); }
+function puedeCobrarDeuda(profId,deudaId){
+  if(!profile) return false; if(profile.role==='recepcionista') return true; if(profile.id!==profId) return false;
+  const d=deudaId?buscarDeuda(profId,deudaId):null; return sinRecepcionId((d&&d.sucursal)||profile.sucursal);
+}
 function abrirCobroDeuda(profId,id){
-  if(!puedeCobrarDeuda(profId)){ showToast('Las deudas las cobra recepción'); return; }
+  if(!puedeCobrarDeuda(profId,id)){ showToast('Las deudas las cobra recepción'); return; }
   const d=buscarDeuda(profId,id);
   if(!d){ showToast('Esa deuda ya no está pendiente'); return; }
   cobroDeudaSel={profId,id,medio:'efectivo'};
@@ -4570,7 +4815,7 @@ function aplicarPagoDeuda(dd,deudaId,medio){
   return true;
 }
 function confirmarCobroDeuda(){
-  const s=cobroDeudaSel; if(!s||!puedeCobrarDeuda(s.profId)){ showToast('Las deudas las cobra recepción'); return; }
+  const s=cobroDeudaSel; if(!s||!puedeCobrarDeuda(s.profId,s.id)){ showToast('Las deudas las cobra recepción'); return; }
   const d=buscarDeuda(s.profId,s.id); if(!d){ closeModal('modal-registro'); return; }
   const fin=(ok)=>{
     closeModal('modal-registro');
@@ -4691,8 +4936,8 @@ function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; if(tipo==='turno
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
-let cobro = {cliente:'', clienteId:null, reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''};
-function resetCobro(){ cobro={cliente:'', clienteId:null, reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''}; }
+let cobro = {cliente:'', clienteId:null, sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''};
+function resetCobro(){ cobro={cliente:'', clienteId:null, sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''}; }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
 function ofertasVisibles(){ const rb=rubrosDeUsuario(profile); return ofertasActivas().filter(o=>visiblePorRubro(o,rb)); }
@@ -4752,6 +4997,7 @@ function renderCobroForm(c,back,color){
   const vis=serviciosVisibles();
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="modal-title" style="margin:0">Cobro del turno 💈</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" autocomplete="off" placeholder="Buscá o escribí el nombre..." value="${escH(cobro.cliente)}" oninput="cobroClienteInput(this.value)"/><div id="cb-cli-sug"></div></div>
+    <div id="cb-suc"></div>
     <div id="cb-prepago"></div>
     <div class="field"><label>¿Qué le hiciste?</label>
       ${vis.length>10?`<input id="cb-q" type="search" placeholder="Buscar servicio..." value="${escH(cobro.q)}" oninput="cobro.q=this.value;refreshCobro()" style="margin-bottom:8px"/>`:''}
@@ -4816,7 +5062,7 @@ function refreshCobro(){
     return `<button onclick="cobroMedio('${v}')" style="min-width:0;padding:12px 3px;border-radius:12px;border:1.5px solid ${sel?color:'var(--border2)'};background:${sel?color+'22':'transparent'};cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;color:${sel?color:'var(--muted2)'};transition:all .15s"><div style="font-size:20px;margin-bottom:4px">${e}</div>${l}${sub?`<div style="font-size:9.5px;font-weight:600;opacity:.8;margin-top:2px">${sub}</div>`:''}</button>`;
   }).join('');
 
-  renderPrepagoCobro(r); renderReagCobro();
+  renderSucCobro(); renderPrepagoCobro(r); renderReagCobro();
   const mw=document.getElementById('cb-motivo-wrap'); if(mw) mw.style.display=cobro.medio==='debe'?'':'none';
   const pctServ=r.svcs.length?quincenaActualInfo().pct:0;
   const comServ=r.comFija!=null?Math.round(r.comFija+r.prepTotal*pctServ/100):Math.round(r.servicioNeto*pctServ/100);
@@ -4871,7 +5117,7 @@ async function guardarCobro(){
     const extra=camposDescuento(r,cli);
     const reag=cobro.reag&&cobro.reag.estado?{estado:cobro.reag.estado,motivo:(cobro.reag.motivo||'').trim(),ts:new Date().toISOString()}:null;
     if(reag) extra.reag=reag;
-    const base={clienteId:cli?cli.id:null, clienteNumero:cli?cli.numero:null, sucursal:profile.sucursal||null};
+    const base={clienteId:cli?cli.id:null, clienteNumero:cli?cli.numero:null, sucursal:sucursalActual()};
     let turnoId, esDeuda=cobro.medio==='debe';
     if(esDeuda){
       const idd=Date.now().toString(); turnoId='d'+idd;
@@ -4909,7 +5155,7 @@ async function guardarCobro(){
     if(currentScreenId==='dinero') renderDineroContent();
     await postCobroCliente(cli,r,turnoId);
     if(reag&&reag.estado==='si') addPuntos(profile.id,'reagendamiento',ptsReag(),'Reagendamiento: '+(cli?cli.nombre:'cliente'),'reag:t:'+profile.id+':'+turnoId);
-    if(!esDeuda&&sucursalSinRecepcion(profile)) setTimeout(()=>abrirCierreCobro('t:'+profile.id+':'+turnoId),400);
+    if(!esDeuda&&profile.role==='profesional'&&sinRecepcionId(base.sucursal)) setTimeout(()=>abrirCierreCobro('t:'+profile.id+':'+turnoId),400);
   } finally { guardandoCobro=false; }
 }
 
@@ -4928,7 +5174,7 @@ function guardarVentaProducto(){
   if(!dineroData.ventas) dineroData.ventas=[];
   dineroData.ventas.push({
     id:Date.now().toString(),
-    cliente, clienteId:cli?cli.id:null, sucursal:profile.sucursal||null,
+    cliente, clienteId:cli?cli.id:null, sucursal:sucursalActual(),
     productoId:producto.id,
     productoNombre:producto.nombre,
     cantidad, precioUnitario:producto.precioVenta, total, comision, costoUnitario:producto.costo||0,
@@ -5501,11 +5747,15 @@ function renderTrabajo(wrap){
   const turnos=(dineroData.turnos||[]).filter(t=>enElMes(t.fecha));
   const fact=turnos.reduce((s,t)=>s+num(t.monto),0);
   const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&r.fecha&&enElMes(r.fecha)).length;
-  let {comision,pct,esOro,tramo,fija}=calcComision(fact,reelsQ,profile);
+  const fechaQ=viewDate.getFullYear()+'-'+pad2(viewDate.getMonth()+1)+'-'+(q===1?'01':'16');
+  let {comision,pct,esOro,tramo,fija,nuevo,tramos,detNuevo}=calcComision(fact,reelsQ,profile,fechaQ);
   comision=comisionConFijas(turnos,fact,pct);
-  const tr=esOro?TRAMO_ORO:tramo;
-  const nextT=!esOro&&tramo.max!==Infinity?TRAMOS[TRAMOS.indexOf(tramo)+1]:null;
-  const progressPct=fija?100:(nextT?Math.min(100,(fact/nextT.min)*100):fact>=1200000?Math.min(100,(reelsQ/3)*100):100);
+  const aseg=estadoAsegurado(profile,quincenaKey(fechaQ),factPorQuincena(dineroData.turnos),comision); const extraAseg=extraAplicable(aseg); comision+=extraAseg;
+  const tr=esOro?tramoOro():tramo;
+  const nextT=!esOro&&!fija&&!nuevo&&tramo.max!==Infinity&&tramos?tramos[tramos.indexOf(tramo)+1]:null;
+  const cfgOro=comCfg().oro;
+  const progressPct=(fija||nuevo)?100:(nextT?Math.min(100,(fact/nextT.min)*100):fact>=cfgOro.min?Math.min(100,(reelsQ/cfgOro.reels)*100):100);
+  const msgNuevo=nuevo?('🌟 Barbero nuevo: '+detNuevo.n.base+'% base'+(detNuevo.cont?' +'+detNuevo.n.contenido+'% por contenido ✓':' (+'+detNuevo.n.contenido+'% si publicás '+detNuevo.n.reels+' reels)')+(detNuevo.extra?' +'+detNuevo.n.extra+'% por superar '+fpk(detNuevo.n.extraDesde)+' ✓':' (+'+detNuevo.n.extra+'% si superás '+fpk(detNuevo.n.extraDesde)+')')):'';
   const sortedTurnos=[...turnos].sort(porReciente);
 
   // Ventas de productos: aparte de los cortes, con su propia comision
@@ -5575,7 +5825,7 @@ function renderTrabajo(wrap){
   const rowDeudor=(d)=>`<div class="turno-item" style="border-color:rgba(244,114,182,.25);cursor:default;${d.saldado?'opacity:.7':''}">
         <div class="ti-dot" style="background:${d.anulada?'var(--muted)':(d.saldado?'#34d399':'#f472b6')}"></div>
         <div class="ti-info"><strong>${escH(d.cliente)}</strong><span>${escH(d.servicio||d.motivo||'')}${d.servicio&&d.motivo?' · '+escH(d.motivo):''} · servicio del ${fechaCorta(d.fecha)}${d.saldado?'':' · hace '+diasDesdeStr(d.fecha)+' d'}</span></div>
-        <div style="text-align:right"><div class="ti-monto" style="color:${d.anulada?'var(--muted2)':(d.saldado?'#34d399':'#f472b6')}">${fp(num(d.monto))}</div>${d.saldado?`<div style="font-size:10px;color:${d.anulada?'var(--muted2)':'#34d399'};font-weight:700">${d.anulada?'Anulada':'Cobrado '+fechaCorta(d.fechaPago||d.fecha)+' ✓'}</div>`:(sucursalSinRecepcion(profile)?`<button onclick="abrirCobroDeuda('${profile.id}','${d.id}')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:10px;font-weight:700;cursor:pointer;text-decoration:underline">Ya pagó</button>`:`<div style="font-size:10px;color:var(--muted2);font-weight:700;max-width:90px;line-height:1.3">La cobra recepción</div>`)}</div>
+        <div style="text-align:right"><div class="ti-monto" style="color:${d.anulada?'var(--muted2)':(d.saldado?'#34d399':'#f472b6')}">${fp(num(d.monto))}</div>${d.saldado?`<div style="font-size:10px;color:${d.anulada?'var(--muted2)':'#34d399'};font-weight:700">${d.anulada?'Anulada':'Cobrado '+fechaCorta(d.fechaPago||d.fecha)+' ✓'}</div>`:(sinRecepcionId(d.sucursal||profile.sucursal)?`<button onclick="abrirCobroDeuda('${profile.id}','${d.id}')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:10px;font-weight:700;cursor:pointer;text-decoration:underline">Ya pagó</button>`:`<div style="font-size:10px;color:var(--muted2);font-weight:700;max-width:90px;line-height:1.3">La cobra recepción</div>`)}</div>
       </div>`;
 
   const periodoNav=`
@@ -5625,14 +5875,15 @@ function renderTrabajo(wrap){
       <div style="font-size:40px">${tr.emoji}</div>
       <div style="flex:1">
         <div style="font-size:28px;font-weight:900;line-height:1;color:${tr.color}">${tr.pct}%</div>
-        <div style="font-size:12px;font-weight:700;color:${tr.color}">${fija?'Comisión fija':'Tramo '+tr.label}</div>
-        <div style="font-size:11px;color:var(--muted2);margin-top:2px">${fija?'Sos encargado: tu comisión es siempre del '+pct+'%':(nextT?'Faltan '+fp(nextT.min-fact)+' para '+nextT.pct+'%':esOro?'🏆 Tramo máximo':reelsQ<3?'Publicá '+(3-reelsQ)+' reels más para el 60%':'')}</div>
+        <div style="font-size:12px;font-weight:700;color:${tr.color}">${fija?'Comisión fija':(nuevo?'Barbero nuevo':'Tramo '+tr.label)}</div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:2px">${fija?'Tu comisión es fija: siempre '+pct+'%':(nuevo?msgNuevo:(nextT?'Faltan '+fp(nextT.min-fact)+' para '+nextT.pct+'%':esOro?'🏆 Tramo máximo':reelsQ<cfgOro.reels?'Publicá '+(cfgOro.reels-reelsQ)+' reels más para el '+cfgOro.pct+'%':''))}</div>
       </div>
     </div>
     <div class="progress-bar"><div class="progress-fill" style="width:${progressPct.toFixed(1)}%;background:${tr.color}"></div></div>
+    ${htmlAseguradoProf(aseg)}
     <div class="stat-grid">
       ${card('💈 Facturación cortes',fp(fact),turnos.length+' turnos','',"dineroAbrir('turnos')")}
-      ${card('Comisión cortes',fp(comision),pct+'% de tus cortes',tr.color,"dineroAbrir('turnos')")}
+      ${card('Comisión cortes',fp(comision),pct+'% de tus cortes'+(extraAseg?' + asegurado':''),tr.color,"dineroAbrir('turnos')")}
       ${card('📦 Productos vendidos',fp(totalVentas),ventas.length+' ventas','',"dineroAbrir('ventas')")}
       ${card('Comisión productos',fp(comisionVentas),'Aparte de los cortes','#7c6fff',"dineroAbrir('ventas')")}
       ${card('💵 Efectivo',fp(efect),'Cortes + productos','#34d399',"dineroAbrir('turnos','efectivo')")}
@@ -6357,7 +6608,7 @@ function prefetchAdminTeamData(){
 
 const ADMIN_SECCIONES=[
   {id:'panel',ico:'📊',label:'Panel'},
-  {id:'equipo',ico:'👥',label:'Equipo',subs:[['estado','Estado'],['sucursales','Sucursales'],['stories','Stories'],['puntos','Puntos']]},
+  {id:'equipo',ico:'👥',label:'Equipo',subs:[['estado','Estado'],['cuentas','Cuentas'],['comisiones','Comisiones'],['sucursales','Sucursales'],['stories','Stories'],['puntos','Puntos']]},
   {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Stock (para vender)'],['proveedores','Proveedores'],['insumos','Insumos']]},
   {id:'contenido',ico:'📝',label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
   {id:'clientes',ico:'🧑‍🤝‍🧑',label:'Clientes',subs:[['directorio','Clientes'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas'],['descuentos','Descuentos']]},
@@ -6379,8 +6630,8 @@ function renderAdmin(){
   </div>${sec.subs?`<div class="adm-sub">${sec.subs.map(([id,l])=>`<button class="${id===sub?'on':''}" onclick="switchAdminTab('${id}')">${l}</button>`).join('')}</div>`:''}`;
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
-  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()); }
-  else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='sucursales') renderAdminSucursales(c); else renderAdminEstadoEquipo(c); }
+  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()); }
+  else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='sucursales') renderAdminSucursales(c); else if(sub==='cuentas') renderAdminCuentas(c); else if(sub==='comisiones') renderAdminComisiones(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else if(sub==='proveedores') renderAdminProveedores(c); else if(sub==='insumos') renderAdminInsumos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
   else if(tab==='clientes') renderAdminClientes(c,sub);
@@ -6468,7 +6719,7 @@ function renderAdminEstadoEquipo(body){
         </div>
         <div class="rep-bar"><div class="rep-fill" style="width:${rep}%;background:${repColor}"></div></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">🏷️ ${(p.rubros&&p.rubros.length)?escH(p.rubros.map(nombreRubro).filter(Boolean).join(', ')):'<i>Todos los rubros (sin asignar)</i>'}</span><button class="lnk" onclick="abrirRubrosProf('${p.id}')">Cambiar</button></div>
-        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">${sucursalDe(p.sucursal)?chipSucursal(p.sucursal):'<i>Sin sucursal asignada</i>'}</span><button class="lnk" onclick="abrirSucursalProf('${p.id}')">Cambiar</button></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">${sucursalesDe(p).map(x=>chipSucursal(x)).join(' ')||'<i>Sin sucursal asignada</i>'}</span><button class="lnk" onclick="abrirSucursalProf('${p.id}')">Cambiar</button><button class="lnk" onclick="editarCuenta('${p.id}')">Editar cuenta</button></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">${p.esEncargado?'📦 <b style="color:#34d399">Encargado</b> · controla el stock · comisión fija <b style="color:var(--text)">'+comisionFijaDe(p)+'%</b> <button class="lnk" onclick="editarComisionFija(\''+p.id+'\')">cambiar %</button>':'📦 No es encargado'}</span><button class="lnk" onclick="toggleEncargado('${p.id}')">${p.esEncargado?'Quitar':'Hacer encargado'}</button></div>
       </div>`;
     }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>Sin profesionales.</p></div>'}
@@ -6556,7 +6807,7 @@ function rangoPeriodo(key){
 
 function adminDatos(){
   const turnos=[], ventas=[], deudas=[], anuladas=[];
-  allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista').forEach(u=>{
+  todosLosUsuarios().filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista').forEach(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     normalizarFechas(dd);
     (dd.turnos||[]).forEach(t=>turnos.push({...t,prof:u}));
@@ -6574,9 +6825,9 @@ function pctPorQuincena(D){
   D.turnos.forEach(t=>{ if(!t.fecha) return; const k=t.prof.id+'|'+quincenaKey(t.fecha); fact[k]=(fact[k]||0)+numV(t.monto); });
   const pct={};
   Object.keys(fact).forEach(k=>{
-    const [uid,qk]=k.split('|'); const u=allUsers.find(x=>x.id===uid);
+    const [uid,qk]=k.split('|'); const u=todosLosUsuarios().find(x=>x.id===uid);
     const reelsQ=reels.filter(r=>r.stage==='publicado'&&u&&r.asignado===u.name&&r.fecha&&quincenaKey(r.fecha)===qk).length;
-    pct[k]=calcComision(fact[k],reelsQ,u).pct;
+    pct[k]=calcComision(fact[k],reelsQ,u,qStart(qk)).pct;
   });
   return pct;
 }
@@ -6584,7 +6835,7 @@ function pctPorQuincena(D){
 function costoVenta(v){ return (v.costoUnitario!=null?numV(v.costoUnitario):numV((productos.find(x=>x.id===v.productoId)||{}).costo))*numV(v.cantidad); }
 
 // El filtro del panel puede ser 'todos', el id de una persona o 'suc:ID' (toda una sucursal)
-function coincideProf(u,f){ if(f==='todos') return true; if(String(f).startsWith('suc:')) return !!u&&(u.sucursal||null)===f.slice(4); return !!u&&u.id===f; }
+function coincideProf(u,f){ if(f==='todos') return true; if(String(f).startsWith('suc:')) return !!u&&sucursalesDe(u).includes(f.slice(4)); return !!u&&u.id===f; }
 function panelResumen(D,pctMap,desde,hasta,profF){
   const enR=(f)=>f&&f>=desde&&f<=hasta;
   const T=D.turnos.filter(t=>enR(t.fecha)&&coincideProf(t.prof,profF));
@@ -6592,7 +6843,7 @@ function panelResumen(D,pctMap,desde,hasta,profF){
   const r={T,V};
   r.fact=T.reduce((s,t)=>s+numV(t.monto),0);
   r.nT=T.length;
-  r.comEq=T.reduce((s,t)=>s+comTurno(t,pctMap[t.prof.id+'|'+quincenaKey(t.fecha)]||0),0);
+  r.comEq=T.reduce((s,t)=>s+comTurno(t,pctMap[t.prof.id+'|'+quincenaKey(t.fecha)]||0),0)+extrasAsegurado(D,desde,hasta).filter(x=>coincideProf(x.prof,profF)).reduce((s,x)=>s+extraAplicable(x),0);
   r.quedaCortes=r.fact-r.comEq;
   r.ticket=r.nT?r.fact/r.nT:0;
   r.prodVendido=V.reduce((s,v)=>s+numV(v.total),0);
