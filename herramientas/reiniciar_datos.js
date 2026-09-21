@@ -1,4 +1,4 @@
-// Deja las cuentas en cero: cobros, deudas, dinero personal, puntos, historias, tareas, cierres, avisos,
+// Deja las cuentas en cero: cobros, deudas, dinero personal, clientes, membresias, paquetes, puntos, historias, tareas, cierres, avisos,
 // incidentes, banco de reels, stock y contadores de recepcion. NO toca: usuarios, catalogo (servicios,
 // combos, ofertas, rubros), productos (solo el stock pasa a 0), reglas, canjes disponibles, cumpleaños ni el perfil de contenido.
 // Se puede volver a correr cuando se quiera (por ejemplo la noche antes del lanzamiento).
@@ -30,7 +30,7 @@ async function put(key,value){
     if(k.startsWith('luffy/dinero_')) cambios.push([k,{turnos:[],ventas:[],deudores:[]}]);
     else if(k.startsWith('luffy/yo_')) cambios.push([k,{ingresos:[],gastos:[],deudas:[]}]);
     else if(k.startsWith('luffy/rec_')) cambios.push([k,{...v,reagendamientos:0,incidentes:[]}]);
-    else if(k.startsWith('luffy/clientes_')) cambios.push([k,{list:[]}]);
+    else if(k.startsWith('luffy/clientes_')||k==='luffy/clientes'||k==='luffy/membresias'||k==='luffy/paquetes') cambios.push([k,{list:[]}]);
     else if(k==='luffy/puntos') cambios.push([k,{...v,puntos:{},solicitudes:[]}]);
     else if(k==='luffy/stories'||k==='luffy/tareas_data') cambios.push([k,{}]);
     else if(k==='luffy/cierres_cobro') cambios.push([k,{byKey:{}}]);

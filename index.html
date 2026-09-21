@@ -495,6 +495,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 
     <!-- Tramo banner -->
     <div id="tramo-banner" onclick="goTo('dinero')" style="display:none;border-radius:16px;padding:14px 16px;margin-bottom:14px;cursor:pointer"></div>
+    <div id="hub-cierres"></div>
 
     <!-- HOY: panel del día -->
     <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px">Hoy</div>
@@ -922,20 +923,42 @@ function nomSvc(s){ return s.nombre+(s.opcion?' ('+s.opcion+')':''); }
 
 // ============ TAREAS DE RECEPCION ============
 const TAREAS_RECEPCION_DEFAULT = [
-  {id:'t1', emoji:'🧹', label:'Limpiar piso'},
-  {id:'t2', emoji:'🪟', label:'Limpiar vidrios'},
-  {id:'t3', emoji:'🚽', label:'Limpiar baño'},
-  {id:'t4', emoji:'💰', label:'Hacer caja'},
-  {id:'t5', emoji:'🚽', label:'Limpiar baño'},
+  // Apertura
+  {id:'t1', emoji:'💻', label:'Prender la computadora y abrir la agenda', desde:'08:30', hasta:'10:00'},
+  {id:'t2', emoji:'💡', label:'Prender luces, aire y música', desde:'08:30', hasta:'10:00'},
+  {id:'t3', emoji:'🧹', label:'Ver que el salón esté limpio y ordenado (piso, espejos, sillones)', desde:'08:30', hasta:'10:00'},
+  {id:'t4', emoji:'🚽', label:'Revisar que el baño esté limpio y con papel y jabón', desde:'08:30', hasta:'10:00'},
+  {id:'t5', emoji:'📅', label:'Revisar la agenda del día y confirmar los primeros turnos', desde:'08:30', hasta:'10:00'},
+  {id:'t6', emoji:'💰', label:'Chequear el fondo de caja inicial', desde:'08:30', hasta:'10:00'},
+  // Mañana
+  {id:'t7', emoji:'📲', label:'Responder los mensajes pendientes de WhatsApp e Instagram', desde:'10:00', hasta:'12:30'},
+  {id:'t8', emoji:'🔔', label:'Confirmar por WhatsApp los turnos de la tarde', desde:'10:00', hasta:'12:30'},
+  {id:'t9', emoji:'🧴', label:'Revisar que los productos estén exhibidos y con precio', desde:'10:00', hasta:'12:30'},
+  // Mediodía
+  {id:'t10', emoji:'🔁', label:'Escribir a clientes que hace más de 30 días no vienen', desde:'12:30', hasta:'15:00'},
+  {id:'t11', emoji:'🎂', label:'Revisar cumpleaños de la semana y mandar el saludo', desde:'12:30', hasta:'15:00'},
+  {id:'t12', emoji:'🧾', label:'Registrar las ventas de productos de la mañana', desde:'12:30', hasta:'15:00'},
+  // Tarde
+  {id:'t13', emoji:'📲', label:'Responder los mensajes pendientes', desde:'15:00', hasta:'18:00'},
+  {id:'t14', emoji:'⭐', label:'Pedir reseña de Google a los clientes que se van conformes', desde:'15:00', hasta:'18:00'},
+  {id:'t15', emoji:'🧹', label:'Repasar el salón: barrer pelos y ordenar los puestos', desde:'15:00', hasta:'18:00'},
+  // Cierre
+  {id:'t16', emoji:'📅', label:'Confirmar los turnos de mañana', desde:'18:00', hasta:'21:00'},
+  {id:'t17', emoji:'🧾', label:'Cerrar todos los turnos del día (preguntas de cierre)', desde:'18:00', hasta:'21:00'},
+  {id:'t18', emoji:'💰', label:'Hacer caja y cuadrar efectivo, Mercado Pago y tarjeta', desde:'18:00', hasta:'21:00'},
+  {id:'t19', emoji:'🧹', label:'Limpiar piso, vidrios y espejos', desde:'18:00', hasta:'21:00'},
+  {id:'t20', emoji:'🚽', label:'Limpiar el baño', desde:'18:00', hasta:'21:00'},
+  {id:'t21', emoji:'🔌', label:'Apagar luces, aire, equipos y computadora', desde:'18:00', hasta:'21:00'},
+  {id:'t22', emoji:'🔒', label:'Cerrar el local con llave y alarma', desde:'18:00', hasta:'21:00'},
 ];
 let tareasRecepcion = [...TAREAS_RECEPCION_DEFAULT]; // admin-editable
 let tareasData = {}; // {[fecha]: {[tareaId]: {done, ts}}}
 
 function loadTareasRecepcion(){
-  try{ const t=JSON.parse(localStorage.getItem('luffy_tareas_recepcion')||'null'); if(t) tareasRecepcion=t; }catch(e){}
+  try{ const t=JSON.parse(localStorage.getItem('luffy_tareas_recepcion')||'null'); if(t&&t.length&&t.every(x=>x.desde)) tareasRecepcion=t; }catch(e){}
   if(DB){
     DB.doc('luffy/tareas_recepcion').get().then(r=>{
-      if(r&&r.list&&JSON.stringify(r.list)!==JSON.stringify(tareasRecepcion)){ tareasRecepcion=r.list; try{localStorage.setItem('luffy_tareas_recepcion',JSON.stringify(tareasRecepcion));}catch(e){} refreshCurrentView(); }
+      if(r&&r.list&&r.list.length&&r.list.every(x=>x.desde)&&JSON.stringify(r.list)!==JSON.stringify(tareasRecepcion)){ tareasRecepcion=r.list; try{localStorage.setItem('luffy_tareas_recepcion',JSON.stringify(tareasRecepcion));}catch(e){} refreshCurrentView(); }
     }).catch(()=>{});
   }
 }
@@ -982,6 +1005,9 @@ const PUNTOS_CONFIG = [
   {id:'tramo_oro',  label:'Tramo Oro en quincena',  pts:150, emoji:'🥇', auto:true},
   {id:'cliente',    label:'Cliente nuevo traído',   pts:30,  emoji:'👤', auto:false},
   {id:'quincena',   label:'Quincena sin faltas',    pts:40,  emoji:'⭐', auto:false},
+  {id:'reagendamiento', label:'Cliente reagendó (cierre de turno)', pts:30, emoji:'🔁', auto:true},
+  {id:'resena',     label:'Reseña en Google (cierre de turno)', pts:5, emoji:'⭐', auto:true},
+  {id:'cumple',     label:'Cumpleaños contactado', pts:20, emoji:'🎂', auto:true},
 ];
 const CANJES_DEFAULT = [
   {id:'efectivo',   emoji:'💵', label:'$5.000 en efectivo',  pts:200},
@@ -1177,7 +1203,7 @@ async function guardarRubrosDe(id,lista){
 
 // Todo lo que se carga de la nube necesita sesion iniciada
 function cargarCatalogos(){
-  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadClientes();
+  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas();
   if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
 }
 
@@ -1470,10 +1496,10 @@ async function revisarEpoca(){
   if(!n) return false;
   let mio=null; try{ mio=localStorage.getItem('luffy_epoca'); }catch(e){}
   if(String(n)===mio) return false;
-  const prefijos=['luffy_dinero_','luffy_yo_','luffy_rec_','luffy_clientes_'];
-  const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_cierres','luffy_reels','luffy_reels_del','luffy_productos','luffy_avisos_leidos','luffy_incidentes'];
+  const prefijos=['luffy_dinero_','luffy_yo_','luffy_rec_','luffy_clientes'];
+  const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_cierres','luffy_reels','luffy_reels_del','luffy_productos','luffy_avisos_leidos','luffy_incidentes','luffy_membresias','luffy_paquetes'];
   try{ Object.keys(localStorage).forEach(k=>{ if(prefijos.some(p=>k.startsWith(p))||exactos.includes(k)) localStorage.removeItem(k); }); localStorage.setItem('luffy_epoca',String(n)); }catch(e){}
-  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; productos=[]; misClientes=[];
+  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; productos=[]; clientesDir=[]; membresiasSt.list=[]; paquetesSt.list=[];
   dineroData={turnos:[],ventas:[],deudores:[]}; avisosLeidos=[]; cierresData={byKey:{}};
   return true;
 }
@@ -1486,7 +1512,7 @@ async function chequearEpocaViva(){
 }
 
 // ============ SUCURSALES ============
-const SUCURSALES_DEFAULT=[{id:'s1',nombre:'Sucursal 1',color:'#7c6fff'},{id:'s2',nombre:'Sucursal 2',color:'#f59e0b'}];
+const SUCURSALES_DEFAULT=[{id:'s1',nombre:'Diego Laure',color:'#7c6fff',recepcion:true},{id:'s2',nombre:'French',color:'#f59e0b',recepcion:false}];
 let sucursales=JSON.parse(JSON.stringify(SUCURSALES_DEFAULT));
 function loadSucursales(){
   try{ const r=JSON.parse(localStorage.getItem('luffy_sucursales')||'null'); if(r&&r.length) sucursales=r; }catch(e){}
@@ -1510,10 +1536,10 @@ function renderAdminSucursales(body){
   const uso=(id)=>allUsers.filter(u=>u.sucursal===id).length;
   body.innerHTML=`
     <div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📍 Sucursales</span><button class="lnk" onclick="agregarSucursal()">+ Nueva sucursal</button></div>
-    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cada profesional pertenece a una sucursal (se asigna en <b style="color:var(--text)">Estado</b> o al aprobar su cuenta). En recepción, cada cobro se ve con el <b style="color:var(--text)">color y el nombre</b> de su sucursal.</div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Si una sucursal no tiene recepcionista, los profesionales de ahí completan las tareas de cierre (reagendó, reseña, seña…) y suman los puntos. Cada profesional pertenece a una sucursal (se asigna en <b style="color:var(--text)">Estado</b> o al aprobar su cuenta). En recepción, cada cobro se ve con el <b style="color:var(--text)">color y el nombre</b> de su sucursal.</div>
     ${sucursales.map(s=>`<div class="prof-card" style="margin-bottom:8px;padding:12px 14px;border-left:5px solid ${s.color}"><div style="display:flex;align-items:center;gap:12px">
       <input type="color" value="${s.color}" onchange="cambiarColorSucursal('${s.id}',this.value)" title="Cambiar color" style="width:38px;height:38px;border:none;background:none;padding:0;cursor:pointer;flex-shrink:0"/>
-      <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(s.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${uso(s.id)} ${uso(s.id)===1?'persona':'personas'}</div></div>
+      <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(s.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${uso(s.id)} ${uso(s.id)===1?'persona':'personas'} · <a onclick="toggleRecepcionSuc('${s.id}')" style="cursor:pointer;text-decoration:underline;color:${s.recepcion===false?'#f472b6':'#34d399'}">${s.recepcion===false?'Sin recepcionista: los profesionales cierran sus turnos':'Con recepcionista'}</a></div></div>
       <button onclick="renombrarSucursal('${s.id}')" style="background:none;border:none;color:var(--muted2);font-size:15px;cursor:pointer">✏️</button>
       <button onclick="borrarSucursal('${s.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
     </div></div>`).join('')}`;
@@ -1530,6 +1556,7 @@ async function renombrarSucursal(id){
   if(!n||!n.trim()) return;
   s.nombre=n.trim(); saveSucursales(); renderAdmin();
 }
+function toggleRecepcionSuc(id){ const s=sucursalDe(id); if(!s) return; s.recepcion=(s.recepcion===false); saveSucursales(); renderAdmin(); }
 function cambiarColorSucursal(id,color){ const s=sucursalDe(id); if(!s) return; s.color=color; saveSucursales(); renderAdmin(); }
 async function borrarSucursal(id){
   const s=sucursalDe(id); if(!s) return;
@@ -1558,186 +1585,988 @@ async function guardarSucursalProf(profId){
   closeModal('modal-registro'); showToast('Sucursal guardada ✓'); refreshCurrentView();
 }
 
-// ============ CLIENTES (base propia de cada profesional) ============
-// Cada profesional carga y ve SUS clientes. Cada cliente tiene un numero unico (#) y sus visitas se calculan de sus cobros:
-// una visita = un turno, aunque haya tenido varios servicios (ej: Corte y Barba + Permanente = 1 visita, con su desglose).
-let misClientes=[];
-const claveClientes=()=>'luffy_clientes_'+profile.id;
-function persistClientes(){ try{ localStorage.setItem(claveClientes(),JSON.stringify(misClientes)); }catch(e){} }
+// Sucursal sin recepcionista: el profesional cierra sus propios turnos (reagendo, resena, sena...) y suma los puntos
+function renderCierresPendientesProf(){
+  const el=document.getElementById('hub-cierres'); if(!el) return;
+  if(!profile||!sucursalSinRecepcion(profile)){ el.innerHTML=''; return; }
+  const hoy=hoyStr(); const cierres=cierresData.byKey||{};
+  const pend=(dineroData.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&!cierres['t:'+profile.id+':'+t.id]);
+  el.innerHTML=pend.length?`<div class="card" style="margin-bottom:14px;border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.07)"><div style="font-size:13px;font-weight:800;margin-bottom:2px">📝 Turnos por cerrar (${pend.length})</div><div style="font-size:11.5px;color:var(--muted2);margin-bottom:8px">En tu sucursal no hay recepcionista: completá reagendó, reseña, seña… y sumás puntos ⭐</div>${pend.map(t=>`<button onclick="abrirCierreCobro('t:${profile.id}:${t.id}')" style="display:flex;justify-content:space-between;width:100%;padding:10px 12px;margin-top:6px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer"><span>${escH(t.cliente||'Cliente')}</span><span style="color:var(--muted2)">${t.creadoEn?horaDeIso(t.creadoEn):''} · cerrar →</span></button>`).join('')}</div>`:'';
+}
+// ============ CLIENTES (directorio unico del salon) ============
+// Hay UNA sola lista de clientes para todo el salon: asi no se repiten nombres y recepcion los ve a todos.
+// Cada profesional ve y administra "sus" clientes (los que cargo o atendio); los que ya existen los puede elegir al cobrar.
+// El numero (#) lo ven recepcion y el admin; los profesionales identifican al cliente por nombre, profesion y detalle.
+// Una visita = un turno, aunque haya tenido varios servicios (Corte y Barba + Permanente = 1 visita, con su desglose).
+const PROFESIONES_BASE=['Fuerzas policiales','Bomberos','Maestros / docentes','Personal de salud','Estudiantes'];
+let clientesDir=[];
+let clientesQ='';
+function nkey(s){ return String(s||'').normalize('NFD').replace(/[̀-ͯ]/g,'').toLowerCase().replace(/\s+/g,' ').trim(); }
+function verNumeroCliente(){ return !!profile&&profile.role!=='profesional'; }
+function profesionesLista(){
+  const extra=[...new Set(clientesDir.map(c=>c.profesion).filter(p=>p&&!PROFESIONES_BASE.some(b=>nkey(b)===nkey(p))))];
+  return [...PROFESIONES_BASE,...extra];
+}
+function clienteDe(id){ return id?clientesDir.find(c=>c.id===id)||null:null; }
+function persistClientes(){ try{ localStorage.setItem('luffy_clientes',JSON.stringify(clientesDir)); }catch(e){} }
 function mergeClientes(remote){
   if(!remote||!Array.isArray(remote.list)) return false;
-  let cambio=false; const m=new Map(misClientes.map(c=>[c.id,c]));
-  remote.list.forEach(r=>{ const l=m.get(r.id); if(!l||String(r.upd||'')>String(l.upd||'')){ m.set(r.id,r); cambio=true; } });
-  misClientes=[...m.values()];
-  return cambio;
+  const antes=JSON.stringify(clientesDir);
+  const m=new Map(clientesDir.map(c=>[c.id,c]));
+  remote.list.forEach(r=>{ const l=m.get(r.id); if(!l||String(r.upd||'')>String(l.upd||'')) m.set(r.id,r); });
+  clientesDir=[...m.values()];
+  return antes!==JSON.stringify(clientesDir);
 }
 function loadClientes(){
-  if(!profile||profile.role!=='profesional') return;
-  try{ misClientes=JSON.parse(localStorage.getItem(claveClientes())||'[]'); }catch(e){ misClientes=[]; }
+  if(!profile) return;
+  try{ clientesDir=JSON.parse(localStorage.getItem('luffy_clientes')||'[]'); }catch(e){ clientesDir=[]; }
   if(DB){
-    DB.doc('luffy/clientes_'+profile.id).get().then(r=>{
-      if(mergeClientes(r)){ persistClientes(); refreshCurrentView(); }
-    }).catch(()=>{});
+    DB.doc('luffy/clientes').get().then(r=>{ if(mergeClientes(r)){ persistClientes(); refreshCurrentView(); } }).catch(()=>{});
   }
 }
-async function guardarClientes(){
+// Lee lo ultimo de la nube, aplica el cambio y lo vuelve a guardar (nadie pisa lo que cargo otra persona)
+async function cambiarClientes(fn){
+  if(DB){ try{ mergeClientes(await DB.doc('luffy/clientes').get()); }catch(e){} }
+  const res=fn(clientesDir);
   persistClientes();
-  if(!DB) return;
-  const ref=DB.doc('luffy/clientes_'+profile.id);
-  try{
-    const r=await ref.get(); if(mergeClientes(r)) persistClientes();
-    await ref.set({list:misClientes});
-  }catch(e){ try{ ref.set({list:misClientes}); }catch(x){} }
+  if(DB){ try{ await DB.doc('luffy/clientes').set({list:clientesDir}); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
+  return res;
 }
-async function numeroNuevoCliente(){
-  if(!DB) return misClientes.reduce((m,c)=>Math.max(m,numV(c.numero)),0)+1;
-  let n=0; try{ const r=await DB.doc('luffy/contador_clientes').get(); n=numV(r&&r.n); }catch(e){}
-  n=Math.max(n,misClientes.reduce((m,c)=>Math.max(m,numV(c.numero)),0))+1;
-  try{ await DB.doc('luffy/contador_clientes').set({n}); }catch(e){}
-  return n;
+function misClientesLista(){
+  if(!profile||profile.role!=='profesional') return clientesDir.slice();
+  return clientesDir.filter(c=>c.creadoPor===profile.id||(c.profs||[]).includes(profile.id));
+}
+function buscarClientes(q,lista){
+  const k=nkey(q).replace('#',''); if(!k) return [];
+  return (lista||clientesDir).filter(c=>c.nkey.includes(k)||String(c.numero)===k||(c.tel||'').replace(/\D/g,'').includes(k.replace(/\D/g,'')||'§')||nkey(c.ref).includes(k));
+}
+// Como reconocerlo sin el numero
+function idCorto(c){
+  const p=[c.profesion,c.ref,c.tel?('…'+String(c.tel).replace(/\D/g,'').slice(-4)):''].filter(Boolean);
+  return p.join(' · ');
 }
 async function crearCliente(d){
-  const numero=await numeroNuevoCliente();
-  const ahora=new Date().toISOString();
-  const c={id:'c'+numero+'x'+Date.now().toString(36), numero, nombre:(d.nombre||'').trim(), tel:(d.tel||'').trim(), cumple:(d.cumple||'').trim(), nota:(d.nota||'').trim(), sucursal:profile.sucursal||null, creado:ahora, upd:ahora};
-  misClientes.push(c);
-  await guardarClientes();
-  return c;
+  const nombre=(d.nombre||'').trim().replace(/\s+/g,' ');
+  return cambiarClientes(list=>{
+    const dup=list.find(c=>c.nkey===nkey(nombre));
+    if(dup) return {error:'dup',existente:dup};
+    const numero=list.reduce((m,c)=>Math.max(m,numV(c.numero)),0)+1;
+    const ahora=new Date().toISOString();
+    const c={id:'c'+numero+'x'+Date.now().toString(36), numero, nombre, nkey:nkey(nombre), profesion:d.profesion||'', tel:(d.tel||'').trim(), ref:(d.ref||'').trim(), nota:(d.nota||'').trim(),
+      creadoPor:profile.id, creadoPorNombre:profile.name, profs:profile.role==='profesional'?[profile.id]:[], sucursal:profile.sucursal||null, refPor:d.refPor||null, tarjeta:null, creado:ahora, upd:ahora};
+    if(d.tarjeta) c.tarjeta=nuevaTarjetaCliente(d.tarjeta);
+    list.push(c);
+    return {cliente:c};
+  });
 }
 
+// ---------- visitas (salen de los cobros) ----------
+function fuentesDinero(){
+  if(profile.role==='profesional') return [{dd:dineroData,prof:profile}];
+  return allUsers.filter(u=>u.role==='profesional'||u.role==='encargado').map(u=>{
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    return {dd,prof:u};
+  });
+}
 function visitasDeCliente(cid){
-  const dd=dineroData||{}, V=[];
-  (dd.turnos||[]).filter(t=>t.clienteId===cid&&!t.deudaId).forEach(t=>V.push({
-    fecha:t.fecha, ts:t.creadoEn, monto:numV(t.monto)+(dd.ventas||[]).filter(v=>v.turnoId===t.id).reduce((s,v)=>s+numV(v.total),0), pagado:true, medio:t.medio, estado:'',
-    servicios:(t.servicios&&t.servicios.length?t.servicios.map(s=>({n:nomSvc(s),p:numV(s.precio)})):[{n:t.servicio||'Servicio',p:numV(t.monto)}]),
-    descuento:numV(t.descuento),
-    productos:(dd.ventas||[]).filter(v=>v.turnoId===t.id).map(v=>({n:v.productoNombre+' x'+v.cantidad,p:numV(v.total)}))
-  }));
-  (dd.deudores||[]).filter(d=>d.clienteId===cid).forEach(d=>V.push({
-    fecha:d.fecha, ts:d.creadoEn, monto:numV(d.monto), pagado:!!d.saldado&&!d.anulada, medio:d.saldado?(d.anulada?'anulada':d.medioPago):'debe',
-    estado:d.anulada?'Deuda anulada':(d.saldado?'Debía, ya pagó':'Debe'),
-    servicios:(d.servicios&&d.servicios.length?d.servicios.map(s=>({n:nomSvc(s),p:numV(s.precio)})):[{n:d.servicio||d.motivo||'Servicio',p:numV(d.montoServicios!=null?d.montoServicios:d.monto)}]),
-    descuento:numV(d.descuento),
-    productos:(d.productos||[]).map(p=>({n:p.productoNombre+' x'+p.cantidad,p:numV(p.total)}))
-  }));
+  const V=[];
+  fuentesDinero().forEach(({dd,prof})=>{
+    (dd.turnos||[]).filter(t=>t.clienteId===cid&&!t.deudaId).forEach(t=>{
+      const prods=(dd.ventas||[]).filter(v=>v.turnoId===t.id);
+      const total=(t.aCobrar!=null?numV(t.aCobrar):numV(t.monto))+prods.reduce((s,v)=>s+numV(v.total),0);
+      V.push({fecha:t.fecha, ts:t.creadoEn, prof:prof.name, total, pagado:true, estado:'',
+        servicios:(t.servicios&&t.servicios.length?t.servicios.map(s=>({n:nomSvc(s),p:numV(s.precio)})):[{n:t.servicio||'Servicio',p:numV(t.monto)}]),
+        detalleDesc:t.descDetalle||null, descuento:numV(t.descuento), prepago:numV(t.prepago),
+        productos:prods.map(v=>({n:v.productoNombre+' x'+v.cantidad,p:numV(v.total)}))});
+    });
+    (dd.deudores||[]).filter(d=>d.clienteId===cid).forEach(d=>V.push({
+      fecha:d.fecha, ts:d.creadoEn, prof:prof.name, total:numV(d.monto), pagado:!!d.saldado&&!d.anulada,
+      estado:d.anulada?'Deuda anulada':(d.saldado?'Debía, ya pagó':'Debe'),
+      servicios:(d.servicios&&d.servicios.length?d.servicios.map(s=>({n:nomSvc(s),p:numV(s.precio)})):[{n:d.servicio||d.motivo||'Servicio',p:numV(d.montoServicios!=null?d.montoServicios:d.monto)}]),
+      detalleDesc:d.descDetalle||null, descuento:numV(d.descuento), prepago:0,
+      productos:(d.productos||[]).map(p=>({n:p.productoNombre+' x'+p.cantidad,p:numV(p.total)}))}));
+  });
   return V.sort((a,b)=>String(b.ts||b.fecha).localeCompare(String(a.ts||a.fecha)));
 }
 function statsCliente(c){
   const V=visitasDeCliente(c.id);
   const fechas=[...new Set(V.map(v=>v.fecha))].sort();
-  const gastado=V.filter(v=>v.pagado).reduce((s,v)=>s+v.monto,0);
+  const gastado=V.filter(v=>v.pagado).reduce((s,v)=>s+v.total,0);
+  const nServ=V.reduce((s,v)=>s+v.servicios.length,0);
   let cada=null;
   if(fechas.length>=2) cada=Math.round(diasEntre(fechas[0],fechas[fechas.length-1])/(fechas.length-1));
-  return {visitas:V.length, primera:fechas[0]||null, ultima:fechas[fechas.length-1]||null, cada, gastado, V};
+  return {visitas:V.length, servicios:nServ, primera:fechas[0]||null, ultima:fechas[fechas.length-1]||null, cada, gastado, V, barberos:[...new Set(V.map(v=>v.prof))]};
 }
 
-let clientesQ='';
+// ---------- pantalla "Mis clientes" (profesional) ----------
 function renderClientes(){
   const body=document.getElementById('clientes-body'); if(!body||!profile) return;
-  const hoy=hoyStr(), mesIni=hoy.slice(0,7);
-  const conStats=misClientes.map(c=>({c,s:statsCliente(c)}));
-  const q=clientesQ.trim().toLowerCase().replace('#','');
-  const lista=conStats.filter(({c})=>!q||c.nombre.toLowerCase().includes(q)||String(c.numero)===q||(c.tel||'').includes(q))
-    .sort((a,b)=>String(b.s.ultima||b.c.creado).localeCompare(String(a.s.ultima||a.c.creado)));
-  const nuevos=misClientes.filter(c=>String(c.creado||'').slice(0,7)===mesIni).length;
+  const mesIni=hoyStr().slice(0,7);
+  const mios=misClientesLista();
+  const conStats=mios.map(c=>({c,s:statsCliente(c)}));
+  const q=nkey(clientesQ);
+  const lista=(q?conStats.filter(({c})=>buscarClientes(clientesQ,[c]).length):conStats).sort((a,b)=>String(b.s.ultima||b.c.creado).localeCompare(String(a.s.ultima||a.c.creado)));
+  const nuevos=mios.filter(c=>String(c.creado||'').slice(0,7)===mesIni).length;
   const volvieron=conStats.filter(x=>x.s.visitas>=2).length;
   const color=profile.color;
   body.innerHTML=`
     <div class="stat-grid" style="margin-top:14px;grid-template-columns:repeat(3,1fr)">
-      <div class="stat-card"><div class="sc-lbl">Clientes</div><div class="sc-val">${misClientes.length}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Clientes</div><div class="sc-val">${mios.length}</div></div>
       <div class="stat-card"><div class="sc-lbl">Nuevos este mes</div><div class="sc-val">${nuevos}</div></div>
       <div class="stat-card"><div class="sc-lbl">Volvieron</div><div class="sc-val">${volvieron}</div><div class="sc-sub">2+ visitas</div></div>
     </div>
     <div style="display:flex;gap:8px;margin-bottom:12px">
-      <input type="search" placeholder="Buscar por nombre, # o teléfono..." value="${escH(clientesQ)}" oninput="clientesQ=this.value;renderClientes();var e=document.querySelector('#clientes-body input[type=search]');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="flex:1;min-width:0;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none"/>
+      <input type="search" placeholder="Buscar por nombre, profesión o teléfono..." value="${escH(clientesQ)}" oninput="clientesQ=this.value;renderClientes();var e=document.querySelector('#clientes-body input[type=search]');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="flex:1;min-width:0;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none"/>
       <button onclick="abrirFormCliente()" style="padding:0 16px;border-radius:12px;border:none;background:${color};color:#fff;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">+ Cliente</button>
     </div>
     ${lista.length?lista.map(({c,s})=>`<div class="card" onclick="abrirClienteDetalle('${c.id}')" style="cursor:pointer;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:10px">
-        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2);font-weight:700">#${c.numero}</span></div>
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(c.nombre)}${verNumeroCliente()?` <span style="color:var(--muted2);font-weight:700">#${c.numero}</span>`:''}${c.tarjeta?' <span title="Tarjeta de fidelidad">💳</span>':''}</div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:1px">${escH(idCorto(c))}</div>
           <div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${s.visitas?`${s.visitas} ${s.visitas===1?'visita':'visitas'} · última hace ${diasDesdeStr(s.ultima)} d${s.cada?` · viene cada ~${s.cada} d`:''}`:'Todavía sin visitas'}</div></div>
         <div style="text-align:right"><div style="font-size:13px;font-weight:800">${fp(s.gastado)}</div><div style="font-size:10px;color:var(--muted)">gastó</div></div>
-      </div></div>`).join(''):`<div class="empty"><div class="e-icon">👥</div><p>${misClientes.length?'No hay clientes que coincidan.':'Todavía no cargaste clientes.<br>Se crean solos al cobrar un turno, o con "+ Cliente".'}</p></div>`}`;
+      </div></div>`).join(''):`<div class="empty"><div class="e-icon">👥</div><p>${mios.length?'No hay clientes que coincidan.':'Todavía no cargaste clientes.<br>Se cargan al cobrar un turno, o con "+ Cliente".'}</p></div>`}`;
 }
+
+// ---------- ficha del cliente ----------
 function abrirClienteDetalle(id){
-  const c=misClientes.find(x=>x.id===id); if(!c) return;
+  const c=clienteDe(id); if(!c) return;
   const s=statsCliente(c);
   const cont=document.getElementById('registro-content');
   const fch=(f)=>f?fechaCortaStr(f):'—';
-  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="modal-title" style="margin:0">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.6">${c.tel?'📞 '+escH(c.tel)+'<br>':''}${c.cumple?'🎂 '+escH(c.cumple)+'<br>':''}${c.nota?'📝 '+escH(c.nota):''}${!c.tel&&!c.cumple&&!c.nota?'Sin datos de contacto':''}</div>
+  const todos=profile.role!=='profesional';
+  const m=typeof membresiaActivaDe==='function'?membresiaActivaDe(c.id):null;
+  const paqs=typeof paquetesAbiertosDe==='function'?paquetesAbiertosDe(c.id):[];
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="modal-title" style="margin:0">${escH(c.nombre)}${verNumeroCliente()?` <span style="color:var(--muted2)">#${c.numero}</span>`:''}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.7">🏷️ ${escH(c.profesion||'Sin profesión')}${c.tel?'<br>📞 '+escH(c.tel):''}${c.ref?'<br>🔎 '+escH(c.ref):''}${c.nota?'<br>📝 '+escH(c.nota):''}${todos&&s.barberos.length?'<br>✂️ Se atiende con: '+escH(s.barberos.join(', ')):''}</div>
+    ${typeof htmlTarjetaCliente==='function'?htmlTarjetaCliente(c):''}
+    ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(124,111,255,.4)"><div style="font-size:12px;font-weight:800;color:#7c6fff">💳 Membresía activa</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} cortes · pagó ${fp(m.precio)} el ${fch(m.fecha)}</div></div>`:''}
+    ${paqs.map(p=>`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.4)"><div style="font-size:12px;font-weight:800;color:#34d399">🎁 Paquete pagado (${p.pct}% off)</div><div style="font-size:12.5px;margin-top:3px">Le faltan: ${p.items.filter(i=>!i.usado).map(i=>escH(i.nombre)).join(', ')}</div></div>`).join('')}
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="stat-card"><div class="sc-lbl">Visitas</div><div class="sc-val">${s.visitas}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Visitas</div><div class="sc-val">${s.visitas}</div><div class="sc-sub">${s.servicios} servicios</div></div>
       <div class="stat-card"><div class="sc-lbl">Viene cada</div><div class="sc-val" style="font-size:18px">${s.cada?'~'+s.cada+' d':'—'}</div></div>
       <div class="stat-card"><div class="sc-lbl">Gastó</div><div class="sc-val" style="font-size:16px">${fp(s.gastado)}</div></div>
     </div>
     <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 12px">Primera visita: ${fch(s.primera)} · Última: ${fch(s.ultima)}</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirFormCliente('${c.id}')">✏️ Editar datos</button>
+      <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirVentaMembresia('${c.id}')">💳 Vender membresía</button>
+      <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirVentaPaquete('${c.id}')">🎁 Vender paquete</button>
+      ${!c.tarjeta&&typeof tarjetasDisponibles==='function'&&tarjetasDisponibles().length?`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="activarTarjetaCliente('${c.id}')">⭐ Activar tarjeta</button>`:''}
+    </div>
     <div class="sec-title" style="margin-bottom:8px">Historial</div>
     ${s.V.length?s.V.map(v=>`<div class="card" style="margin-bottom:8px">
-      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><b style="font-size:13px">${fch(v.fecha)}</b><span style="font-size:12px;font-weight:800">${fp(v.monto)}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><b style="font-size:13px">${fch(v.fecha)}${todos?` <span style="font-weight:600;color:var(--muted2);font-size:11.5px">· ${escH(v.prof)}</span>`:''}</b><span style="font-size:12px;font-weight:800">${fp(v.total)}</span></div>
       ${v.servicios.map(x=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0"><span>${escH(x.n)}</span><span style="color:var(--muted2)">${fp(x.p)}</span></div>`).join('')}
-      ${v.descuento>0?`<div style="font-size:11px;color:#34d399;padding:1px 0">Descuento −${fp(v.descuento)}</div>`:''}
+      ${(v.detalleDesc&&v.detalleDesc.length)?v.detalleDesc.map(d=>`<div style="font-size:11px;color:#34d399;padding:1px 0">${escH(d.label)} −${fp(d.monto)}</div>`).join(''):(v.descuento>0?`<div style="font-size:11px;color:#34d399;padding:1px 0">Descuento −${fp(v.descuento)}</div>`:'')}
+      ${v.prepago>0?`<div style="font-size:11px;color:#7c6fff;padding:1px 0">Ya pagado (membresía/paquete): ${fp(v.prepago)}</div>`:''}
       ${v.productos.map(x=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0;color:var(--muted2)"><span>📦 ${escH(x.n)}</span><span>${fp(x.p)}</span></div>`).join('')}
       ${v.estado?`<div style="font-size:11px;color:#f472b6;margin-top:4px;font-weight:700">${v.estado}</div>`:''}
-    </div>`).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:14px">Todavía no tiene visitas.</div>'}
-    <button class="btn btn-ghost" onclick="abrirFormCliente('${c.id}')" style="margin-top:6px">✏️ Editar datos</button>`;
+    </div>`).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:14px">Todavía no tiene visitas.</div>'}`;
   openModal('modal-registro');
 }
-function abrirFormCliente(id){
-  const c=id?misClientes.find(x=>x.id===id):null;
-  const v=(k)=>escH(c?c[k]||'':'');
+
+// ---------- alta / edicion ----------
+let formClienteCtx=null;
+function abrirFormCliente(id,ctx){
+  const c=id?clienteDe(id):null;
+  formClienteCtx=ctx||null;
+  const v=(k)=>escH(c?c[k]||'':(ctx&&ctx[k])||'');
+  const profs=profesionesLista();
+  const actual=c?c.profesion:'';
+  const enLista=!actual||profs.some(p=>nkey(p)===nkey(actual));
+  const conTarjeta=!c&&typeof tarjetasDisponibles==='function'&&tarjetasDisponibles().length;
   const cont=document.getElementById('registro-content');
-  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div class="modal-title" style="margin:0">${c?'Editar cliente':'Cliente nuevo'}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div class="modal-title" style="margin:0">${c?'Editar cliente':'Cliente nuevo'}</div><button onclick="${ctx&&ctx.deCobro?'renderRegistro()':`closeModal('modal-registro')`}" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     <input type="hidden" id="cl-id" value="${c?c.id:''}"/>
-    <div class="field"><label>Nombre y apellido</label><input id="cl-nombre" placeholder="Ej: Federico Cruz" value="${v('nombre')}"/></div>
+    <div class="field"><label>Nombre y apellido *</label><input id="cl-nombre" placeholder="Ej: Federico Cruz" value="${v('nombre')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Profesión * <span style="color:var(--muted);font-weight:500">(define descuentos como el de fuerzas policiales)</span></label>
+      <select id="cl-prof" onchange="document.getElementById('cl-prof-otra').style.display=this.value==='__otra'?'':'none'" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:12px;color:var(--text);font-family:var(--font);font-size:14px">
+        <option value="">Elegí una profesión…</option>
+        ${profs.map(p=>`<option value="${escH(p)}" ${enLista&&nkey(p)===nkey(actual)?'selected':''}>${escH(p)}</option>`).join('')}
+        <option value="Otra profesión / oficio" ${enLista&&nkey(actual)==='otra profesion / oficio'?'selected':''}>Otra profesión / oficio</option>
+        <option value="__otra" ${!enLista?'selected':''}>➕ Escribir otra nueva…</option>
+      </select>
+      <input id="cl-prof-otra" placeholder="Ej: Albañil, Contador…" value="${!enLista?escH(actual):''}" style="margin-top:6px;${enLista?'display:none':''}"/></div>
     <div class="field" style="margin-top:8px"><label>Teléfono (opcional)</label><input id="cl-tel" type="tel" placeholder="11 2345 6789" value="${v('tel')}"/></div>
-    <div class="field" style="margin-top:8px"><label>Cumpleaños (opcional)</label><input id="cl-cumple" placeholder="DD/MM" value="${v('cumple')}"/></div>
+    <div class="field" style="margin-top:8px"><label>¿Cómo reconocerlo? (opcional)</label><input id="cl-ref" placeholder="Ej: el de la moto, trabaja en la farmacia" value="${v('ref')}"/></div>
     <div class="field" style="margin-top:8px"><label>Notas (opcional)</label><input id="cl-nota" placeholder="Ej: le gusta el fade bajo" value="${v('nota')}"/></div>
+    ${conTarjeta?`<label class="rub-opt" style="margin-top:10px"><input type="checkbox" id="cl-tarjeta" checked onchange="document.getElementById('cl-refpor-w').style.display=this.checked?'':'none'"/> ⭐ Quiere la tarjeta de fidelidad</label>
+      <div class="field" id="cl-refpor-w" style="margin-top:8px"><label>¿Lo refirió alguien? (opcional)</label><input id="cl-refpor" list="cl-refpor-l" placeholder="Nombre de quien lo recomendó"/><datalist id="cl-refpor-l">${clientesDir.filter(x=>x.tarjeta).map(x=>`<option value="${escH(x.nombre)}">`).join('')}</datalist></div>`:''}
     <button class="btn btn-primary" onclick="guardarFormCliente()" style="margin-top:14px">${c?'Guardar cambios':'Agregar cliente'}</button>`;
   openModal('modal-registro');
 }
 async function guardarFormCliente(){
   const val=(i)=>(document.getElementById(i)?.value||'').trim();
-  const nombre=val('cl-nombre'); if(!nombre){ showToast('Poné el nombre'); return; }
-  const id=val('cl-id');
+  const nombre=val('cl-nombre').replace(/\s+/g,' ');
+  if(!nombre){ showToast('Poné el nombre'); return; }
+  let prof=val('cl-prof'); if(prof==='__otra') prof=val('cl-prof-otra');
+  if(!prof){ showToast('Elegí la profesión del cliente'); return; }
+  const id=val('cl-id'), ctx=formClienteCtx;
+  const dupMsg=(d)=>{ showToast('Ya existe «'+d.nombre+'»'+(d.profesion?' ('+d.profesion+')':'')+'. Usá ese cliente o agregale algo al nombre para distinguirlo'); };
   if(id){
-    const c=misClientes.find(x=>x.id===id); if(!c) return;
-    Object.assign(c,{nombre,tel:val('cl-tel'),cumple:val('cl-cumple'),nota:val('cl-nota'),upd:new Date().toISOString()});
-    await guardarClientes(); showToast('Cliente actualizado ✓');
-  } else {
-    const c=await crearCliente({nombre,tel:val('cl-tel'),cumple:val('cl-cumple'),nota:val('cl-nota')});
-    showToast('Cliente #'+c.numero+' creado ✓');
+    const r=await cambiarClientes(list=>{
+      const c=list.find(x=>x.id===id); if(!c) return {error:'no'};
+      const dup=list.find(x=>x.id!==id&&x.nkey===nkey(nombre)); if(dup) return {error:'dup',existente:dup};
+      Object.assign(c,{nombre,nkey:nkey(nombre),profesion:prof,tel:val('cl-tel'),ref:val('cl-ref'),nota:val('cl-nota'),upd:new Date().toISOString()});
+      return {cliente:c};
+    });
+    if(r.error==='dup'){ dupMsg(r.existente); return; }
+    showToast('Cliente actualizado ✓'); closeModal('modal-registro'); refreshCurrentView(); return;
   }
-  closeModal('modal-registro'); renderClientes();
+  let refPor=null; const rn=val('cl-refpor');
+  if(rn){ const rc=clientesDir.find(x=>x.nkey===nkey(rn)&&x.tarjeta); if(!rc){ showToast('Quien lo refirió tiene que ser un cliente con tarjeta'); return; } refPor=rc.id; }
+  const tarj=document.getElementById('cl-tarjeta')?.checked?tarjetaParaRubros():null;
+  const r=await crearCliente({nombre,profesion:prof,tel:val('cl-tel'),ref:val('cl-ref'),nota:val('cl-nota'),refPor,tarjeta:tarj});
+  if(r.error==='dup'){
+    if(ctx&&ctx.deCobro){ dupMsg(r.existente); return; }
+    dupMsg(r.existente); return;
+  }
+  showToast('Cliente creado ✓');
+  if(ctx&&ctx.deCobro){ cobro.cliente=r.cliente.nombre; cobro.clienteId=r.cliente.id; formClienteCtx=null; renderRegistro(); return; }
+  closeModal('modal-registro'); refreshCurrentView();
 }
 
-async function resolverClienteCobro(){
-  const nom=(cobro.cliente||'').trim(); if(!nom||!profile||profile.role!=='profesional') return null;
-  let c=cobro.clienteId?misClientes.find(x=>x.id===cobro.clienteId):null;
-  if(!c) c=misClientes.find(x=>x.nombre.toLowerCase()===nom.toLowerCase());
-  if(!c) c=await crearCliente({nombre:nom});
-  return c;
-}
-// ---------- elegir cliente al cobrar ----------
+// ---------- elegir cliente al cobrar (mini buscador) ----------
 function cobroClienteInput(v){
   cobro.cliente=v;
-  if(cobro.clienteId){ const c=misClientes.find(x=>x.id===cobro.clienteId); if(!c||c.nombre!==v){ cobro.clienteId=null; cobro.clienteNumero=null; } }
-  renderSugerenciasCliente();
+  const c=clienteDe(cobro.clienteId); if(c&&c.nombre!==v) cobro.clienteId=null;
+  renderSugerenciasCliente(); if(typeof refreshCobro==='function') refreshCobro();
 }
 function cobroElegirCliente(id){
-  const c=misClientes.find(x=>x.id===id); if(!c) return;
-  cobro.clienteId=c.id; cobro.clienteNumero=c.numero; cobro.cliente=c.nombre;
+  const c=clienteDe(id); if(!c) return;
+  cobro.clienteId=c.id; cobro.cliente=c.nombre;
   const inp=document.getElementById('turno-nombre'); if(inp) inp.value=c.nombre;
-  renderSugerenciasCliente();
+  renderSugerenciasCliente(); refreshCobro();
 }
+function cobroQuitarCliente(){ cobro.clienteId=null; cobro.cliente=''; const i=document.getElementById('turno-nombre'); if(i){ i.value=''; i.focus(); } renderSugerenciasCliente(); refreshCobro(); }
+function cobroAgregarCliente(){ abrirFormCliente(null,{deCobro:true,nombre:(cobro.cliente||'').trim()}); }
 function renderSugerenciasCliente(){
   const el=document.getElementById('cb-cli-sug'); if(!el) return;
-  const q=(cobro.cliente||'').trim().toLowerCase().replace('#','');
-  if(cobro.clienteId){ el.innerHTML=`<div style="font-size:12px;color:#34d399;font-weight:700;margin-top:6px">✓ Cliente #${cobro.clienteNumero} · ${statsCliente(misClientes.find(x=>x.id===cobro.clienteId)||{id:''}).visitas} visitas anteriores</div>`; return; }
-  if(!q){ el.innerHTML=''; return; }
-  const m=misClientes.filter(c=>c.nombre.toLowerCase().includes(q)||String(c.numero)===q||(c.tel||'').includes(q)).slice(0,5);
-  el.innerHTML=(m.length?`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="cobroElegirCliente('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></button>`).join('')}</div>`:'')
-    +(q.length>=2&&!m.some(c=>c.nombre.toLowerCase()===q)?`<div style="font-size:11.5px;color:var(--muted2);margin-top:6px">${m.length?'Si no es ninguno, se':'Se'} crea como <b style="color:var(--text)">cliente nuevo</b> al guardar el cobro.</div>`:'');
+  const sel=clienteDe(cobro.clienteId);
+  if(sel){
+    const s=statsCliente(sel);
+    el.innerHTML=`<div style="font-size:12px;color:#34d399;font-weight:700;margin-top:6px;display:flex;flex-wrap:wrap;gap:6px;align-items:center">✓ ${escH(idCorto(sel))||'Cliente elegido'} · ${s.visitas} ${s.visitas===1?'visita':'visitas'} <button class="lnk" onclick="cobroQuitarCliente()">cambiar</button></div>`;
+    return;
+  }
+  const q=(cobro.cliente||'').trim();
+  if(q.length<2){ el.innerHTML=''; return; }
+  const m=buscarClientes(q).slice(0,5);
+  const exacto=m.some(c=>c.nkey===nkey(q));
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="cobroElegirCliente('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)}${c.tarjeta?' 💳':''}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}
+    ${exacto?'':`<button onclick="cobroAgregarCliente()" style="text-align:left;padding:10px 12px;border-radius:10px;border:1.5px dashed ${profile.color};background:transparent;color:${profile.color};font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">➕ Agregar «${escH(q)}» como cliente nuevo</button>`}</div>`;
+}
+// Al guardar el cobro: si escribio un nombre hay que haber elegido uno de la lista (o agregarlo); asi no se duplican
+function resolverClienteCobro(){
+  const nom=(cobro.cliente||'').trim(); if(!nom) return {cli:null};
+  const c=clienteDe(cobro.clienteId)||clientesDir.find(x=>x.nkey===nkey(nom));
+  if(!c) return {error:'Elegí al cliente de la lista o tocá "➕ Agregar" para cargarlo nuevo'};
+  cobro.clienteId=c.id;
+  return {cli:c};
+}
+
+// ============ PROMOS, FIDELIDAD, MEMBRESIAS Y PAQUETES ============
+// Todo lo que define el admin (descuentos fijos por horario/profesion, tarjeta de fidelidad, membresia,
+// escalera de paquetes y regla de comision con descuentos altos) vive en un solo documento: luffy/promos_cfg.
+const PROMOS_DEFAULT={
+  fijos:[
+    {id:'f1',nombre:'Antes de las 12:30 (lunes a jueves)',pct:20,rubro:'barberia,barberia-premium',dias:[1,2,3,4],horaHasta:'12:30',sucursales:[],profesion:'',activo:true},
+    {id:'f2',nombre:'Fuerzas policiales · Diego Laure',pct:15,rubro:'barberia,barberia-premium',dias:[1,2],horaHasta:'',sucursales:['s1'],profesion:'Fuerzas policiales',activo:true},
+    {id:'f3',nombre:'Fuerzas policiales · French',pct:15,rubro:'barberia,barberia-premium',dias:[2,3],horaHasta:'',sucursales:['s2'],profesion:'Fuerzas policiales',activo:true},
+  ],
+  // Si el descuento total supera "t1" el profesional cobra "p1"% de lo que pagó el cliente; si llega a "t2", cobra "p2"%
+  comision:{t1:30,p1:60,t2:50,p2:95},
+  paquetes:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15}],
+  membresia:{creditos:4,descPct:20,servicioId:'',rubro:'barberia,barberia-premium'},
+  tarjetas:[{id:'tj-barberia',rubro:'barberia,barberia-premium',nombre:'Tarjeta de fidelidad',activa:true,
+    visitas:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15},{n:10,pct:50}],referidos:[10,15,20,25],premio:{visitas:5,refs:4}}],
+};
+const clonar=(o)=>JSON.parse(JSON.stringify(o));
+let promos=clonar(PROMOS_DEFAULT);
+const DIAS_NOM=['dom','lun','mar','mié','jue','vie','sáb'];
+function aplicarPromosRemotas(r){ return r?{...clonar(PROMOS_DEFAULT),...r}:null; }
+function loadPromos(){
+  try{ const r=JSON.parse(localStorage.getItem('luffy_promos_cfg')||'null'); if(r) promos=aplicarPromosRemotas(r); }catch(e){}
+  if(DB){
+    DB.doc('luffy/promos_cfg').get().then(r=>{
+      if(r&&JSON.stringify(r)!==JSON.stringify(promos)){ promos=aplicarPromosRemotas(r); try{localStorage.setItem('luffy_promos_cfg',JSON.stringify(promos));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function savePromos(){
+  try{localStorage.setItem('luffy_promos_cfg',JSON.stringify(promos));}catch(e){}
+  if(DB){ try{DB.doc('luffy/promos_cfg').set(promos);}catch(e){} }
+}
+
+// ---------- listas compartidas (membresias, paquetes): se guardan uniendo por id ----------
+function almacenLista(doc,localKey,unir){
+  const st={list:[]};
+  st.merge=(remote)=>{
+    if(!remote||!Array.isArray(remote.list)) return false;
+    const antes=JSON.stringify(st.list); const m=new Map(st.list.map(x=>[x.id,x]));
+    remote.list.forEach(r=>{ const l=m.get(r.id); m.set(r.id,l?unir(l,r):r); });
+    st.list=[...m.values()]; return antes!==JSON.stringify(st.list);
+  };
+  st.persist=()=>{ try{localStorage.setItem(localKey,JSON.stringify(st.list));}catch(e){} };
+  st.load=()=>{
+    try{ st.list=JSON.parse(localStorage.getItem(localKey)||'[]'); }catch(e){ st.list=[]; }
+    if(DB) DB.doc(doc).get().then(r=>{ if(st.merge(r)){ st.persist(); refreshCurrentView(); } }).catch(()=>{});
+  };
+  st.cambiar=async(fn)=>{
+    if(DB){ try{ st.merge(await DB.doc(doc).get()); }catch(e){} }
+    const res=fn(st.list); st.persist();
+    if(DB){ try{ await DB.doc(doc).set({list:st.list}); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
+    return res;
+  };
+  return st;
+}
+const nuevoMayor=(a,b)=>String(b.upd||'')>String(a.upd||'')?b:a;
+const membresiasSt=almacenLista('luffy/membresias','luffy_membresias',(a,b)=>{
+  const base=nuevoMayor(a,b); const usos=new Map(); [...(a.usos||[]),...(b.usos||[])].forEach(u=>usos.set(u.turnoId,u));
+  return {...base,usos:[...usos.values()]};
+});
+const paquetesSt=almacenLista('luffy/paquetes','luffy_paquetes',(a,b)=>{
+  const base=nuevoMayor(a,b); const bi=new Map((b.items||[]).map(i=>[i.id,i]));
+  return {...base,items:(a.items||[]).map(i=>({...i,usado:i.usado||(bi.get(i.id)||{}).usado||null}))};
+});
+function loadSocial(){ loadClientes(); membresiasSt.load(); paquetesSt.load(); }
+
+// ---------- membresia y paquetes de un cliente ----------
+function membresiaActivaDe(cid){ return membresiasSt.list.filter(m=>m.clienteId===cid&&m.usos.length<m.creditos).sort((a,b)=>String(a.creadoEn).localeCompare(String(b.creadoEn)))[0]||null; }
+function paquetesAbiertosDe(cid){ return paquetesSt.list.filter(p=>p.clienteId===cid&&p.items.some(i=>!i.usado)); }
+function servicioMembresia(){
+  const cfg=promos.membresia||{};
+  let s=servicios.find(x=>x.id===cfg.servicioId);
+  if(!s) s=servicios.filter(x=>rubroEn(cfg.rubro,x.rubro||'')&&/^corte$/i.test(x.nombre.trim()))[0]||servicios.filter(x=>rubroEn(cfg.rubro,x.rubro||'')&&/^corte/i.test(x.nombre.trim())).sort((a,b)=>a.precio-b.precio)[0];
+  return s||null;
+}
+// El corte de la membresia para cada profesional: el configurado si lo ve, o el corte mas barato de su rubro (Barberia / Barberia Premium)
+function servicioMembresiaPara(u){
+  const rb=rubrosDeUsuario(u); const base=servicioMembresia();
+  if(base&&visiblePorRubro(base,rb)) return base;
+  return servicios.filter(x=>visiblePorRubro(x,rb)&&rubroEn(promos.membresia.rubro,x.rubro||'')&&/^corte/i.test(x.nombre.trim())).sort((a,b)=>a.precio-b.precio)[0]||null;
+}
+
+// ============ MOTOR DE DESCUENTOS ============
+// Una regla puede valer para varios rubros: 'barberia,barberia-premium' (vacio = todos)
+function rubroEn(lista,rubro){ return !lista||String(lista).split(',').map(s=>s.trim()).includes(rubro); }
+function rubrosNombres(lista){ return lista?String(lista).split(',').map(s=>nombreRubro(s.trim())||s.trim()).join(' / '):'Todos los rubros'; }
+function rubroDeLinea(l){
+  if(l.tipo==='combo'){ const cb=combos.find(x=>x.id===l.id); return (cb&&cb.rubro)||''; }
+  const s=servicios.find(x=>x.id===l.id); return (s&&s.rubro)||'';
+}
+function ctxCobro(cli){
+  const n=new Date(); const hh=/^\d{1,2}:\d{2}$/.test(cobro.hora||'')?cobro.hora.padStart(5,'0'):String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0');
+  return {dia:n.getDay(), hora:hh, sucursal:(profile&&profile.sucursal)||null, cliente:cli};
+}
+function reglaAplica(r,ctx){
+  if(r.activo===false) return false;
+  if(r.dias&&r.dias.length&&!r.dias.includes(ctx.dia)) return false;
+  if(r.horaHasta&&!(ctx.hora<r.horaHasta)) return false;
+  if(r.sucursales&&r.sucursales.length&&!r.sucursales.includes(ctx.sucursal)) return false;
+  if(r.profesion&&!(ctx.cliente&&nkey(ctx.cliente.profesion)===nkey(r.profesion))) return false;
+  return true;
+}
+function infoTarjeta(cli){
+  const t=cli&&cli.tarjeta; if(!t||!t.snap) return null;
+  const sn=t.snap, ciclo=Math.max(1,...(sn.visitas||[]).map(s=>s.n));
+  const k=(numV(t.visitas)%ciclo)+1;
+  const paso=(sn.visitas||[]).find(s=>s.n===k);
+  const cup=(t.cupones||[]).find(c=>!c.usado);
+  const pr=sn.premio;
+  const regalo=!!pr&&t.regalo!=='usado'&&(t.refs||[]).length>=numV(pr.refs)&&numV(t.visitas)>=numV(pr.visitas);
+  return {rubro:sn.rubro,k,ciclo,pctFid:paso?paso.pct:0,pctRef:cup?cup.pct:0,cuponId:cup?cup.id:null,regalo};
+}
+// Descuento por oferta y por efectivo NO se acumulan: se aplica el mejor. Fidelidad y referidos se suman encima.
+// Los descuentos fijos (por horario o profesion) son exclusivos: si aplica uno, no se suma ningun otro.
+// Los productos van siempre a precio de lista. Lo ya pagado (membresia / paquete) no lleva descuento.
+function calcCobro(){
+  const lineas=lineasCobro();
+  const subtotal=lineas.reduce((a,l)=>a+l.precio,0);
+  const ahorroCombo=lineas.filter(l=>l.tipo==='combo').reduce((a,l)=>a+(l.lista-l.precio),0);
+  const cli=clienteDe(cobro.clienteId);
+  const ctx=ctxCobro(cli);
+  const cubiertas=new Set(), prepagos=[];
+  (cobro.prepagos||[]).forEach(p=>{
+    const l=lineas.find(x=>x.tipo==='servicio'&&x.id===p.svcId&&!cubiertas.has(x.id));
+    if(l){ cubiertas.add(l.id); prepagos.push({...p,linea:l}); }
+  });
+  const normales=lineas.filter(l=>!(l.tipo==='servicio'&&cubiertas.has(l.id)));
+  const subNormal=normales.reduce((a,l)=>a+l.precio,0);
+  const prepTotal=prepagos.reduce((a,p)=>a+p.credito,0);
+  const base=(rubro)=>normales.filter(l=>rubroEn(rubro,rubroDeLinea(l))).reduce((a,l)=>a+l.precio,0);
+  const D=[];
+  const oferta=ofertasVisibles().find(o=>o.id===cobro.ofertaId)||null;
+  let fijo=null, tarj=null, ofertaSinEfecto=false;
+  (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{ if(base(f.rubro)>0&&(!fijo||f.pct>fijo.pct)) fijo=f; });
+  if(fijo){
+    D.push({tipo:'fijo',label:fijo.nombre,pct:fijo.pct,monto:Math.round(base(fijo.rubro)*fijo.pct/100)});
+  } else {
+    tarj=infoTarjeta(cli);
+    const bT=tarj?base(tarj.rubro):0;
+    if(tarj&&tarj.regalo&&bT>0){
+      D.push({tipo:'regalo',label:'Corte de regalo (tarjeta completa)',pct:100,monto:bT});
+    } else {
+      const baseOferta=oferta?normales.filter(l=>ofertaAplicaA(oferta,l.ids)).reduce((a,l)=>a+l.precio,0):0;
+      const descOferta=oferta?Math.round(baseOferta*oferta.pct/100):0;
+      const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
+      ofertaSinEfecto=!!oferta&&descOferta===0;
+      if(descOferta>0&&descOferta>=descEfectivo) D.push({tipo:'oferta',label:'Oferta '+oferta.nombre,pct:oferta.pct,monto:descOferta});
+      else if(descEfectivo>0) D.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:descEfectivo});
+      if(tarj&&bT>0){
+        if(tarj.pctFid>0) D.push({tipo:'fidelidad',label:'Fidelidad · visita n°'+tarj.k,pct:tarj.pctFid,monto:Math.round(bT*tarj.pctFid/100)});
+        if(tarj.pctRef>0) D.push({tipo:'referidos',label:'Referidos',pct:tarj.pctRef,monto:Math.round(bT*tarj.pctRef/100)});
+      }
+    }
+  }
+  const descuento=Math.min(subNormal,D.reduce((a,d)=>a+d.monto,0));
+  const descPct=subNormal>0?descuento/subNormal*100:0;
+  const descTipo=D.length>1?'mixto':(D[0]?D[0].tipo:null);
+  const montoNormal=subNormal-descuento;
+  // Comision con descuentos altos: mas de t1% -> p1% de lo que pago el cliente; t2% o mas -> p2% (nunca menos que sobre la mitad del precio)
+  const cm=promos.comision||PROMOS_DEFAULT.comision;
+  let comFija=null;
+  if(subNormal>0&&descPct>=cm.t2) comFija=Math.round(Math.max(montoNormal,subNormal*0.5)*cm.p2/100);
+  else if(subNormal>0&&descPct>cm.t1) comFija=Math.round(montoNormal*cm.p1/100);
+  const servicioNeto=montoNormal+prepTotal;
+  const prodLineas=productos.filter(p=>(cobro.prods[p.id]||0)>0).map(p=>{
+    const cantidad=cobro.prods[p.id]; const total=p.precioVenta*cantidad;
+    return {producto:p, cantidad, total, comision:Math.round(total*(p.comisionPct||0)/100)};
+  });
+  const prodTotal=prodLineas.reduce((a,l)=>a+l.total,0);
+  const prodComision=prodLineas.reduce((a,l)=>a+l.comision,0);
+  return {svcs:lineas, lineas, subtotal, subNormal, ahorroCombo, oferta, ofertaSinEfecto, descuentos:D, descuento, descPct, descTipo, fijo, tarj, ctx,
+    servicioNeto, aCobrarServ:montoNormal, prepagos, prepTotal, comFija, comFijaBase:comFija!=null?montoNormal:0,
+    prodLineas, prodTotal, prodComision, total:montoNormal+prodTotal};
+}
+function lineaAReg(l){
+  return {id:l.id, nombre:l.nombre, precio:l.precio, opcion:l.opcion||null, combo:l.tipo==='combo'?true:undefined, componentes:l.tipo==='combo'?l.componentes:undefined, lista:l.tipo==='combo'?l.lista:undefined};
+}
+// ---------- lo que se guarda en el turno / deuda ----------
+function camposDescuento(r,cli){
+  return {descDetalle:r.descuentos, descPct:Math.round(r.descPct*10)/10, comFija:r.comFija, comFijaBase:r.comFijaBase, aCobrar:r.aCobrarServ,
+    prepago:r.prepTotal||0, prepagos:r.prepagos.map(p=>({kind:p.kind,refId:p.refId,itemId:p.itemId,nombre:p.nombre,credito:p.credito})),
+    horaTurno:r.ctx.hora, fijoId:r.fijo?r.fijo.id:null, fidK:r.tarj?r.tarj.k:null, clienteProfesion:cli?cli.profesion:null};
+}
+// Despues de guardar el cobro: consume membresia/paquete, suma la visita a la tarjeta, cupones y premio de referidos
+async function postCobroCliente(cli,r,turnoId){
+  for(const p of r.prepagos){
+    if(p.kind==='memb') await membresiasSt.cambiar(l=>{ const m=l.find(x=>x.id===p.refId); if(m&&!m.usos.some(u=>u.turnoId===turnoId)){ m.usos.push({turnoId,fecha:hoyStr(),profId:profile.id,profNombre:profile.name,credito:p.credito}); m.upd=new Date().toISOString(); } });
+    if(p.kind==='paq') await paquetesSt.cambiar(l=>{ const pk=l.find(x=>x.id===p.refId); const it=pk&&pk.items.find(i=>i.id===p.itemId); if(it&&!it.usado){ it.usado={turnoId,fecha:hoyStr(),profId:profile.id,profNombre:profile.name}; pk.upd=new Date().toISOString(); } });
+  }
+  if(!cli) return;
+  const usoCupon=r.descuentos.some(d=>d.tipo==='referidos'), usoRegalo=r.descuentos.some(d=>d.tipo==='regalo');
+  await cambiarClientes(list=>{
+    const c=list.find(x=>x.id===cli.id); if(!c) return;
+    const ahora=new Date().toISOString();
+    if(profile.role==='profesional'&&!(c.profs||[]).includes(profile.id)) c.profs=[...(c.profs||[]),profile.id];
+    if(c.tarjeta){
+      c.tarjeta.visitas=numV(c.tarjeta.visitas)+1;
+      if(usoCupon&&r.tarj&&r.tarj.cuponId){ const cu=(c.tarjeta.cupones||[]).find(x=>x.id===r.tarj.cuponId); if(cu) cu.usado=true; }
+      if(usoRegalo) c.tarjeta.regalo='usado';
+    }
+    // el que lo refirio gana su descuento cuando el referido hace su primera visita
+    if(c.refPor&&!c.refRecompensado){
+      const R=list.find(x=>x.id===c.refPor);
+      if(R&&R.tarjeta&&R.tarjeta.snap){
+        const niveles=R.tarjeta.snap.referidos||[];
+        if(!(R.tarjeta.refs||[]).includes(c.id)&&(R.tarjeta.refs||[]).length<niveles.length){
+          R.tarjeta.refs=[...(R.tarjeta.refs||[]),c.id];
+          R.tarjeta.cupones=[...(R.tarjeta.cupones||[]),{id:'cu'+Date.now().toString(36),pct:niveles[R.tarjeta.refs.length-1],de:c.id,usado:false}];
+          R.upd=ahora;
+        }
+      }
+      c.refRecompensado=true;
+    }
+    c.upd=ahora;
+  });
+}
+
+// ============ TARJETA DE FIDELIDAD ============
+function tarjetasDisponibles(){
+  const rb=profile?rubrosDeUsuario(profile):null;
+  return (promos.tarjetas||[]).filter(t=>t.activa!==false&&(!rb||profile.role!=='profesional'||String(t.rubro).split(',').some(r=>rb.includes(r.trim()))));
+}
+function tarjetaParaRubros(){ return tarjetasDisponibles()[0]||null; }
+function nuevaTarjetaCliente(card){ return {cardId:card.id,snap:clonar(card),desde:hoyStr(),visitas:0,refs:[],cupones:[],regalo:'no'}; }
+async function activarTarjetaCliente(id){
+  const card=tarjetaParaRubros(); if(!card){ showToast('No hay tarjeta para tu rubro'); return; }
+  await cambiarClientes(list=>{ const c=list.find(x=>x.id===id); if(c&&!c.tarjeta){ c.tarjeta=nuevaTarjetaCliente(card); c.upd=new Date().toISOString(); } });
+  showToast('Tarjeta activada ⭐'); abrirClienteDetalle(id);
+}
+function htmlTarjetaCliente(c){
+  const t=c.tarjeta; if(!t||!t.snap) return '';
+  const sn=t.snap, inf=infoTarjeta(c)||{};
+  const ciclo=inf.ciclo||10, hechas=numV(t.visitas)%ciclo||(numV(t.visitas)>0&&numV(t.visitas)%ciclo===0?ciclo:0);
+  const pctDe=(n)=>((sn.visitas||[]).find(s=>s.n===n)||{}).pct;
+  const nombreRubro_=rubrosNombres(sn.rubro);
+  const cir=(n)=>{ const done=n<=hechas, prox=n===hechas+1, pc=pctDe(n);
+    return `<div style="text-align:center"><div style="width:100%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${pc?11:13}px;font-weight:900;${done?'background:#fbbf24;color:#3b2a00;box-shadow:0 0 12px rgba(251,191,36,.55)':prox?'border:2px dashed #fbbf24;color:#fbbf24':'background:rgba(255,255,255,.12);color:rgba(255,255,255,.7)'}">${done?'★':pc?pc+'%':n}</div><div style="font-size:9px;opacity:.75;margin-top:2px">${n}°</div></div>`; };
+  const niveles=sn.referidos||[];
+  const refs=(t.refs||[]).length;
+  const regaloHtml=!sn.premio?'':(t.regalo==='usado'?'🎁 Regalo usado':(inf.regalo?'🎁 ¡Tiene un corte de regalo!':`🎁 Corte gratis: ${sn.premio.refs} referidos + ${sn.premio.visitas} cortes`));
+  return `<div style="margin-bottom:12px;border-radius:20px;padding:16px;color:#fff;background:linear-gradient(135deg,#1b1740 0%,#3d2a7a 55%,#7c6fff 100%);position:relative;overflow:hidden;box-shadow:0 10px 30px rgba(124,111,255,.25)">
+    <div style="position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.07)"></div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+      <div><div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.75">${escH(sn.nombre||'Tarjeta de fidelidad')}${nombreRubro_?' · '+escH(nombreRubro_):''}</div><div style="font-size:18px;font-weight:900;margin-top:2px">${escH(c.nombre)}</div></div>
+      <div style="font-size:24px">⭐</div></div>
+    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:14px 0 12px;position:relative">${Array.from({length:ciclo},(_,i)=>cir(i+1)).join('')}</div>
+    ${niveles.length?`<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.75;margin-bottom:6px;position:relative">Referidos ${refs}/${niveles.length}</div>
+    <div style="display:flex;gap:8px;position:relative;margin-bottom:10px">${niveles.map((p,i)=>{ const got=i<refs, cu=(t.cupones||[])[i], usado=cu&&cu.usado; return `<div style="flex:1;text-align:center;padding:7px 2px;border-radius:12px;font-size:12px;font-weight:900;${got?(usado?'background:rgba(255,255,255,.12);text-decoration:line-through;opacity:.6':'background:#34d399;color:#04241a'):'border:1.5px dashed rgba(255,255,255,.4);opacity:.8'}">${p}%</div>`; }).join('')}</div>`:''}
+    <div style="font-size:12px;font-weight:700;position:relative;${inf.regalo?'color:#fbbf24':'opacity:.85'}">${regaloHtml}</div>
+    <div style="font-size:11px;opacity:.85;margin-top:6px;position:relative">${inf.regalo?'Próximo corte: 100% bonificado':`Próximo corte (n°${inf.k}): ${inf.pctFid?inf.pctFid+'% de fidelidad':'precio normal'}${inf.pctRef?' + '+inf.pctRef+'% por referido':''}`}</div></div>`;
+}
+
+// ============ RECEPCION / PROFESIONAL: vender membresia ============
+let ventaSel=null;
+const MEDIOS_VENTA=[['💵','Efectivo','efectivo'],['📱','Mercado Pago','mp'],['💳','Tarjeta','tarjeta']];
+const htmlMedios=(fn,sel,color)=>`<div style="display:flex;gap:8px;margin-bottom:12px">${MEDIOS_VENTA.map(([e,l,v])=>`<button onclick="${fn}('${v}')" style="flex:1;padding:12px 4px;border-radius:12px;border:1.5px solid ${sel===v?color:'var(--border2)'};background:${sel===v?color+'22':'transparent'};color:${sel===v?color:'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer"><div style="font-size:20px">${e}</div>${l}</button>`).join('')}</div>`;
+const cabeceraModal=(t)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div class="modal-title" style="margin:0">${t}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>`;
+function abrirVentaMembresia(cid){
+  const c=clienteDe(cid); if(!c) return;
+  const sv=servicioMembresia(); const cfg=promos.membresia||{};
+  if(!sv){ showToast('El admin todavía no configuró el servicio de la membresía'); return; }
+  if(membresiaActivaDe(cid)){ showToast('Ya tiene una membresía con cortes disponibles'); return; }
+  ventaSel={tipo:'memb',cid,medio:'efectivo'};
+  renderVentaMembresia(); openModal('modal-registro');
+}
+function ventaMedio(m){ if(ventaSel){ ventaSel.medio=m; ventaSel.tipo==='memb'?renderVentaMembresia():renderVentaPaquete(); } }
+function renderVentaMembresia(){
+  const s=ventaSel; const c=clienteDe(s.cid); const sv=servicioMembresia(); const cfg=promos.membresia;
+  const lista=sv.precio*cfg.creditos, precio=Math.round(lista*(1-cfg.descPct/100)), vc=Math.round(precio/cfg.creditos);
+  const color=(profile&&profile.color)||'#7c6fff';
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Vender membresía 💳')+`
+    <div class="card" style="margin-bottom:12px"><div style="font-size:15px;font-weight:800">${escH(c.nombre)}${verNumeroCliente()?' #'+c.numero:''}</div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:4px;line-height:1.6">${cfg.creditos} cortes (${escH(sv.nombre)}) que se abonan ahora, con ${cfg.descPct}% menos.<br>Precio normal ${fp(lista)} → <b style="color:var(--text)">${fp(precio)}</b><br>Cada corte le suma al profesional ${fp(vc)}.</div></div>
+    <div class="field"><label>¿Cómo paga?</label>${htmlMedios('ventaMedio',s.medio,color)}</div>
+    <button class="btn btn-primary" onclick="confirmarVentaMembresia()" style="background:${color}">Cobrar ${fp(precio)} y activar</button>`;
+}
+async function confirmarVentaMembresia(){
+  const s=ventaSel; if(!s||s.ocupado) return; s.ocupado=true;
+  const c=clienteDe(s.cid), sv=servicioMembresia(), cfg=promos.membresia;
+  const lista=sv.precio*cfg.creditos, precio=Math.round(lista*(1-cfg.descPct/100));
+  const ahora=new Date().toISOString();
+  const r=await membresiasSt.cambiar(l=>{
+    if(l.some(m=>m.clienteId===c.id&&m.usos.length<m.creditos)) return {error:true};
+    const m={id:'mb'+Date.now().toString(36),clienteId:c.id,clienteNombre:c.nombre,clienteNumero:c.numero,servicioId:sv.id,servicioNombre:sv.nombre,rubro:sv.rubro||'',creditos:cfg.creditos,descPct:cfg.descPct,
+      precio,valorCredito:Math.round(precio/cfg.creditos),medio:s.medio,fecha:hoyStr(),sucursal:profile.sucursal||null,vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,usos:[],creadoEn:ahora,upd:ahora};
+    l.push(m); return {m};
+  });
+  ventaSel=null;
+  if(r.error){ showToast('Ya tenía una membresía activa'); return; }
+  closeModal('modal-registro'); showToast('Membresía activada ✓ '+fp(precio)); refreshCurrentView();
+}
+
+// ============ vender paquete (promos cruzadas) ============
+function pctPaquete(n){ let p=0; (promos.paquetes||[]).forEach(s=>{ if(n>=s.n) p=s.pct; }); return p; }
+function abrirVentaPaquete(cid){
+  const c=clienteDe(cid); if(!c) return;
+  ventaSel={tipo:'paq',cid,medio:'efectivo',sel:[]};
+  renderVentaPaquete(); openModal('modal-registro');
+}
+function ventaToggleSvc(id){ const s=ventaSel; if(!s) return; const i=s.sel.indexOf(id); if(i>=0) s.sel.splice(i,1); else s.sel.push(id); renderVentaPaquete(); }
+function renderVentaPaquete(){
+  const s=ventaSel; const c=clienteDe(s.cid); const color=(profile&&profile.color)||'#7c6fff';
+  const box=document.querySelector('#modal-registro .modal-box'); const st=box?box.scrollTop:0;
+  const items=s.sel.map(id=>servicios.find(x=>x.id===id)).filter(Boolean);
+  const pct=pctPaquete(items.length), lista=items.reduce((a,x)=>a+numV(x.precio),0), total=Math.round(lista*(1-pct/100));
+  const grupos={}; servicios.forEach(x=>{ (grupos[x.rubro||'']=grupos[x.rubro||'']||[]).push(x); });
+  const escala=(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ');
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Vender paquete 🎁')+`
+    <div style="font-size:12.5px;font-weight:700;margin-bottom:2px">${escH(c.nombre)}</div>
+    <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">Cuantos más servicios junte, más descuento: 1 = normal · ${escala}</div>
+    ${Object.entries(grupos).map(([rid,list])=>`<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px">${escH(nombreRubro(rid)||'Otros')}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(x=>`<button onclick="ventaToggleSvc('${x.id}')" style="${pillStyle(s.sel.includes(x.id),color)}">${escH(x.nombre)} · ${fp(x.precio)}</button>`).join('')}</div>`).join('')}
+    <div class="card" style="margin:14px 0 10px">
+      ${items.map(x=>`<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0"><span>${escH(x.nombre)}</span><span>${fp(x.precio)}</span></div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Elegí los servicios del paquete.</div>'}
+      ${items.length?`<div style="display:flex;justify-content:space-between;font-size:13px;padding:2px 0;color:#34d399"><span>Descuento por ${items.length} ${items.length===1?'servicio':'servicios'} juntos (${pct}%)</span><span>−${fp(lista-total)}</span></div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;padding-top:6px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">TOTAL</span><span style="font-size:22px;font-weight:900">${fp(total)}</span></div>`:''}
+    </div>
+    <div class="field"><label>¿Cómo paga?</label>${htmlMedios('ventaMedio',s.medio,color)}</div>
+    <button class="btn btn-primary" onclick="confirmarVentaPaquete()" style="background:${color}">${items.length>=2?'Cobrar '+fp(total)+' y vender':'Elegí al menos 2 servicios'}</button>`;
+  if(box) box.scrollTop=st;
+}
+async function confirmarVentaPaquete(){
+  const s=ventaSel; if(!s||s.ocupado) return;
+  const items=s.sel.map(id=>servicios.find(x=>x.id===id)).filter(Boolean);
+  if(items.length<2){ showToast('Un paquete necesita al menos 2 servicios'); return; }
+  s.ocupado=true;
+  const c=clienteDe(s.cid), pct=pctPaquete(items.length), lista=items.reduce((a,x)=>a+numV(x.precio),0), total=Math.round(lista*(1-pct/100));
+  const ahora=new Date().toISOString();
+  await paquetesSt.cambiar(l=>{ l.push({id:'pq'+Date.now().toString(36),clienteId:c.id,clienteNombre:c.nombre,clienteNumero:c.numero,
+    items:items.map((x,i)=>({id:'i'+i,svcId:x.id,nombre:x.nombre,rubro:x.rubro||'',lista:numV(x.precio),final:Math.round(numV(x.precio)*(1-pct/100)),usado:null})),
+    pct,totalLista:lista,total,medio:s.medio,fecha:hoyStr(),sucursal:profile.sucursal||null,vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,creadoEn:ahora,upd:ahora}); });
+  ventaSel=null; closeModal('modal-registro'); showToast('Paquete vendido ✓ '+fp(total)); refreshCurrentView();
+}
+
+// ============ COBRO: lo que el cliente ya pagó ============
+function prepagosDisponibles(){
+  const c=clienteDe(cobro.clienteId); if(!c) return [];
+  const rb=rubrosDeUsuario(profile); const out=[];
+  const m=membresiaActivaDe(c.id);
+  if(m){ const sv=servicioMembresiaPara(profile); if(sv) out.push({kind:'memb',refId:m.id,itemId:m.id,svcId:sv.id,credito:m.valorCredito,nombre:'Membresía · '+sv.nombre+' (quedan '+(m.creditos-m.usos.length)+' de '+m.creditos+')'}); }
+  paquetesAbiertosDe(c.id).forEach(p=>p.items.filter(i=>!i.usado).forEach(i=>{ const sv=servicios.find(x=>x.id===i.svcId); if(sv&&visiblePorRubro(sv,rb)) out.push({kind:'paq',refId:p.id,itemId:i.id,svcId:i.svcId,credito:i.final,nombre:'Paquete · '+i.nombre}); }));
+  return out;
+}
+function cobroTogglePrepago(kind,refId,itemId){
+  const disp=prepagosDisponibles().find(p=>p.kind===kind&&p.refId===refId&&p.itemId===itemId); if(!disp) return;
+  cobro.prepagos=cobro.prepagos||[];
+  const i=cobro.prepagos.findIndex(p=>p.kind===kind&&p.refId===refId&&p.itemId===itemId);
+  if(i>=0) cobro.prepagos.splice(i,1);
+  else { cobro.prepagos=cobro.prepagos.filter(p=>p.svcId!==disp.svcId); cobro.prepagos.push(disp); if(!cobro.servicios.includes(disp.svcId)) cobro.servicios.push(disp.svcId); }
+  refreshCobro();
+}
+function cobroHora(v){ cobro.hora=v; refreshCobro(); }
+function renderPrepagoCobro(r){
+  const el=document.getElementById('cb-prepago'); if(!el) return;
+  const color=profile.color, cli=clienteDe(cobro.clienteId);
+  const disp=prepagosDisponibles();
+  let h='';
+  if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#7c6fff')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
+  if(cli&&cli.tarjeta){ const inf=infoTarjeta(cli); h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`corte n°${inf.k}${inf.pctFid?' · '+inf.pctFid+'% fidelidad':''}${inf.pctRef?' · +'+inf.pctRef+'% referido':''}`}</div>`; }
+  if(r.fijo) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#34d399;font-weight:700">🏷️ Promo fija aplicada: ${escH(r.fijo.nombre)} (−${r.fijo.pct}%). No se suman otros descuentos.</div>`;
+  el.innerHTML=h;
+}
+function htmlDescuentosCobro(r,row){
+  return r.descuentos.map(d=>row(({oferta:'🏷️',efectivo:'💵',fijo:'🏷️',fidelidad:'⭐',referidos:'🤝',regalo:'🎁'}[d.tipo]||'🏷️')+' '+escH(d.label)+' (−'+d.pct+'%)','−'+fp(d.monto),'color:#34d399')).join('')
+    +r.prepagos.map(p=>row('✓ '+escH(p.nombre)+' (ya pagado)','−'+fp(p.linea.precio),'color:#7c6fff')).join('');
+}
+
+// ============ ADMIN: Clientes (directorio, membresias, paquetes, tarjetas, descuentos) ============
+function adminDatosDescuentos(desde,hasta,profF){
+  const filas=[];
+  allUsers.filter(u=>(u.role==='profesional'||u.role==='encargado')&&coincideProf(u,profF||'todos')).forEach(u=>{
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    const add=(t,pend)=>{ if(!(t.fecha>=desde&&t.fecha<=hasta)||numV(t.descuento)<=0) return; filas.push({...t,prof:u,pend}); };
+    (dd.turnos||[]).filter(t=>!t.deudaId).forEach(t=>add(t,false));
+    (dd.turnos||[]).filter(t=>t.deudaId).forEach(t=>add(t,false));
+  });
+  return filas;
+}
+function htmlPerdidaDescuentos(desde,hasta,profF){
+  const F=adminDatosDescuentos(desde,hasta,profF);
+  const porCli={}, porTipo={};
+  F.forEach(t=>{
+    const k=t.clienteId||('n:'+(t.cliente||'Cliente'));
+    const x=porCli[k]||(porCli[k]={nombre:t.cliente||'Cliente',n:0,monto:0,tipos:new Set(),cid:t.clienteId||null}); x.n++; x.monto+=numV(t.descuento);
+    (t.descDetalle&&t.descDetalle.length?t.descDetalle:[{tipo:t.descuentoTipo||'otro',label:t.descuentoTipo==='oferta'?'Oferta':'Efectivo',monto:t.descuento}]).forEach(d=>{ x.tipos.add(d.label); const y=porTipo[d.label]||(porTipo[d.label]={n:0,m:0}); y.n++; y.m+=numV(d.monto); });
+  });
+  const total=F.reduce((s,t)=>s+numV(t.descuento),0);
+  const lista=Object.values(porCli).sort((a,b)=>b.monto-a.monto).slice(0,12);
+  const altos=F.filter(t=>t.comFija!=null).length;
+  return {total,n:F.length,altos,
+    html:`<div style="font-size:22px;font-weight:900;color:#f472b6;margin-bottom:6px">${fp(total)}</div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:8px">${F.length} turnos con descuento${altos?` · ${altos} con comisión fija por descuento alto`:''}</div>
+    ${Object.entries(porTipo).sort((a,b)=>b[1].m-a[1].m).map(([l,y])=>`<div class="ln"><span>${escH(l)} <i style="color:var(--muted)">· ${y.n}</i></span><b>${fp(y.m)}</b></div>`).join('')}
+    <div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 4px">Por cliente</div>
+    <div style="max-height:230px;overflow-y:auto">${lista.map(x=>`<div class="ln"><span>${escH(x.nombre)}${x.cid?` <i style="color:var(--muted)">#${(clienteDe(x.cid)||{}).numero||''}</i>`:''} <i style="color:var(--muted)">· ${x.n}×</i></span><b>${fp(x.monto)}</b></div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Sin descuentos en el período</div>'}</div>`};
+}
+
+let adminCliQ='';
+function renderAdminClientes(c,sub){
+  ({directorio:adminDirectorio,membresias:adminMembresias,paquetes:adminPaquetes,tarjetas:adminTarjetas,descuentos:adminDescuentos}[sub]||adminDirectorio)(c);
+}
+function adminDirectorio(c){
+  const q=nkey(adminCliQ);
+  const lista=clientesDir.filter(x=>!q||buscarClientes(adminCliQ,[x]).length).sort((a,b)=>b.numero-a.numero);
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">👥 Clientes del salón (${clientesDir.length})</span></div>
+    <input type="search" placeholder="Buscar por nombre, #, profesión o teléfono…" value="${escH(adminCliQ)}" oninput="adminCliQ=this.value;renderAdmin();var e=document.querySelector('#adm-content input[type=search]');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
+    ${lista.slice(0,60).map(x=>{ const s=statsCliente(x); const m=membresiaActivaDe(x.id); return `<div class="card" onclick="abrirClienteDetalle('${x.id}')" style="cursor:pointer;margin-bottom:6px"><div style="display:flex;gap:10px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(x.nombre)} <span style="color:var(--muted2)">#${x.numero}</span>${x.tarjeta?' 💳':''}${m?' 🎫':''}</div><div style="font-size:11px;color:var(--muted2)">${escH(idCorto(x))}${s.barberos.length?' · ✂️ '+escH(s.barberos.join(', ')):''}</div></div><div style="text-align:right;font-size:11.5px;color:var(--muted2)">${s.visitas} visitas<br><b style="color:var(--text)">${fp(s.gastado)}</b></div></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>No hay clientes.</p></div>'}
+    ${lista.length>60?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 60 de ${lista.length}. Usá el buscador.</div>`:''}`;
+}
+function adminMembresias(c){
+  const L=membresiasSt.list.slice().sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));
+  const cobrado=L.reduce((s,m)=>s+numV(m.precio),0);
+  const pagadoProf=L.reduce((s,m)=>s+m.usos.reduce((x,u)=>x+numV(u.credito),0),0);
+  const pendiente=L.reduce((s,m)=>s+(m.creditos-m.usos.length)*numV(m.valorCredito),0);
+  const porCli={}; L.forEach(m=>{ porCli[m.clienteId]=(porCli[m.clienteId]||0)+1; });
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">💳 Membresías (${L.length})</span></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card"><div class="sc-lbl">Cobrado</div><div class="sc-val" style="font-size:17px">${fp(cobrado)}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Sumado a los chicos</div><div class="sc-val" style="font-size:17px">${fp(pagadoProf)}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Cortes por usar</div><div class="sc-val" style="font-size:17px">${fp(pendiente)}</div></div>
+    </div>
+    ${L.map(m=>{ const usados=m.usos.length, deb=usados>=m.creditos; return `<div class="card" style="margin-bottom:8px;border-left:4px solid ${deb?'#f472b6':'#34d399'}">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><div style="font-size:13.5px;font-weight:800">${escH(m.clienteNombre)} <span style="color:var(--muted2)">#${m.clienteNumero}</span></div><b>${fp(m.precio)}</b></div>
+      <div style="display:flex;gap:4px;margin:6px 0">${Array.from({length:m.creditos},(_,i)=>`<div style="flex:1;height:8px;border-radius:4px;background:${i<usados?'#7c6fff':'var(--border2)'}"></div>`).join('')}</div>
+      <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">Pagó el ${fechaCortaStr(m.fecha)} (${({efectivo:'efectivo',mp:'Mercado Pago',tarjeta:'tarjeta'}[m.medio]||m.medio)}) · vendió ${escH(m.vendedorNombre||'')} · ${usados}/${m.creditos} cortes usados · membresías pagadas por este cliente: <b style="color:var(--text)">${porCli[m.clienteId]}</b><br>
+      ${deb?'<b style="color:#f472b6">Tiene que renovar</b> (usó todos los cortes)':'<b style="color:#34d399">Al día</b> · le quedan '+(m.creditos-usados)}${m.usos.length?'<br>Cortes: '+m.usos.map(u=>fechaCortaStr(u.fecha)+' con '+escH(u.profNombre)).join(' · '):''}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">💳</div><p>Todavía no se vendió ninguna membresía.<br>Se venden desde la ficha del cliente.</p></div>'}`;
+}
+function adminPaquetes(c){
+  const L=paquetesSt.list.slice().sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));
+  const total=L.reduce((s,p)=>s+numV(p.total),0), desc=L.reduce((s,p)=>s+numV(p.totalLista)-numV(p.total),0);
+  const porVend={}; L.forEach(p=>{ const x=porVend[p.vendedorNombre]||(porVend[p.vendedorNombre]={n:0,m:0}); x.n++; x.m+=numV(p.total); });
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🎁 Paquetes (${L.length})</span></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)"><div class="stat-card"><div class="sc-lbl">Vendido</div><div class="sc-val" style="font-size:18px">${fp(total)}</div></div><div class="stat-card"><div class="sc-lbl">Descuento dado</div><div class="sc-val" style="font-size:18px">${fp(desc)}</div></div></div>
+    ${Object.keys(porVend).length?`<div class="card" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Por vendedor</div>${Object.entries(porVend).map(([n,x])=>`<div class="ln"><span>${escH(n)} <i style="color:var(--muted)">· ${x.n}</i></span><b>${fp(x.m)}</b></div>`).join('')}</div>`:''}
+    ${L.map(p=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:13.5px;font-weight:800">${escH(p.clienteNombre)} <span style="color:var(--muted2)">#${p.clienteNumero}</span></div><b>${fp(p.total)}</b></div>
+      <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${p.pct}% off · ${fechaCortaStr(p.fecha)} · vendió ${escH(p.vendedorNombre||'')}</div>
+      ${p.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0;${i.usado?'color:var(--muted2)':''}"><span>${i.usado?'✓':'○'} ${escH(i.nombre)}${i.usado?' <i>(con '+escH(i.usado.profNombre)+')</i>':''}</span><span>${fp(i.final)}</span></div>`).join('')}</div>`).join('')||'<div class="empty"><div class="e-icon">🎁</div><p>Todavía no se vendió ningún paquete.</p></div>'}`;
+}
+function adminTarjetas(c){
+  const cards=promos.tarjetas||[];
+  const conTarjeta=clientesDir.filter(x=>x.tarjeta);
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">⭐ Tarjetas de fidelidad</span><button class="lnk" onclick="editarTarjetaCfg('')">+ Nueva tarjeta</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cada cliente conserva las reglas con las que empezó su tarjeta: <b style="color:var(--text)">los profesionales no pueden cambiarlas</b>. Si modificás una tarjeta acá, vale para los clientes nuevos; para los que ya están en curso tenés que aprobarlo con "Aplicar a tarjetas en curso".</div>
+    ${cards.map(t=>{ const n=conTarjeta.filter(x=>x.tarjeta.cardId===t.id).length; return `<div class="prof-card" style="margin-bottom:10px;padding:14px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(t.nombre)} · ${escH(rubrosNombres(t.rubro))}</div><div style="font-size:11px;color:var(--muted2)">${n} clientes con esta tarjeta</div></div><button class="lnk" onclick="editarTarjetaCfg('${t.id}')">Editar</button></div>
+      <div style="font-size:12px;line-height:1.7;margin-top:8px">Fidelidad: ${t.visitas.map(v=>`corte ${v.n}° → <b>${v.pct}%</b>`).join(' · ')}<br>Referidos: ${t.referidos.map((p,i)=>`${i+1}° → <b>${p}%</b>`).join(' · ')}<br>${t.premio?`🎁 Corte 100% de regalo al completar ${t.premio.refs} referidos y ${t.premio.visitas} cortes`:'Sin premio final'}</div>
+      <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ghost" style="flex:1" onclick="aplicarTarjetaEnCurso('${t.id}')">Aplicar a tarjetas en curso</button><button class="btn btn-ghost" style="flex:0 0 auto;color:#f472b6" onclick="borrarTarjetaCfg('${t.id}')">Borrar</button></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">⭐</div><p>No hay tarjetas.</p></div>'}`;
+}
+async function editarTarjetaCfg(id){
+  const t=id?promos.tarjetas.find(x=>x.id===id):null;
+  const v=await uiDialog({title:t?'Editar tarjeta':'Nueva tarjeta',msg:'Descuento por número de corte (n:%) y por cada referido.',fields:[
+    {label:'Nombre',value:t?t.nombre:'Tarjeta de fidelidad'},
+    {label:'Rubros (ids separados por coma: '+(rubros.map(r=>r.id).join(', ')||'barberia')+')',value:t?t.rubro:'barberia,barberia-premium'},
+    {label:'Cortes con descuento (ej: 2:5, 3:10, 4:15, 10:50)',value:t?t.visitas.map(x=>x.n+':'+x.pct).join(', '):'2:5, 3:10, 4:15, 10:50'},
+    {label:'Descuento por referido (ej: 10, 15, 20, 25)',value:t?t.referidos.join(', '):'10, 15, 20, 25'},
+    {label:'Premio: cortes necesarios (0 = sin premio)',type:'number',value:t&&t.premio?t.premio.visitas:5},
+    {label:'Premio: referidos necesarios',type:'number',value:t&&t.premio?t.premio.refs:4}],ok:'Guardar'});
+  if(!v) return;
+  const visitas=v[2].split(',').map(s=>s.trim().split(':').map(Number)).filter(a=>a[0]>0&&a[1]>0).map(a=>({n:a[0],pct:a[1]})).sort((a,b)=>a.n-b.n);
+  const referidos=v[3].split(',').map(s=>parseFloat(s)).filter(n=>n>0);
+  if(!v[0].trim()||!visitas.length){ showToast('Revisá el nombre y los descuentos por corte'); return; }
+  const card={id:t?t.id:'tj'+Date.now().toString(36),nombre:v[0].trim(),rubro:v[1].trim()||'barberia,barberia-premium',activa:true,visitas,referidos,premio:numV(v[4])>0?{visitas:numV(v[4]),refs:numV(v[5])}:null};
+  promos.tarjetas=t?promos.tarjetas.map(x=>x.id===t.id?card:x):[...(promos.tarjetas||[]),card];
+  savePromos(); showToast('Tarjeta guardada ✓ (los clientes ya en curso no cambian)'); renderAdmin();
+}
+async function aplicarTarjetaEnCurso(id){
+  const card=promos.tarjetas.find(x=>x.id===id); if(!card) return;
+  const n=clientesDir.filter(x=>x.tarjeta&&x.tarjeta.cardId===id).length;
+  if(!await uiConfirm('¿Aplicar a '+n+' tarjetas en curso?','Los clientes que ya empezaron pasan a tener estas reglas. Ya hecho: los cortes y referidos que llevan se mantienen.',{ok:'Aplicar'})) return;
+  await cambiarClientes(list=>{ list.forEach(c=>{ if(c.tarjeta&&c.tarjeta.cardId===id){ c.tarjeta.snap=clonar(card); c.upd=new Date().toISOString(); } }); });
+  showToast('Tarjetas actualizadas ✓'); renderAdmin();
+}
+async function borrarTarjetaCfg(id){
+  if(!await uiConfirm('¿Borrar esta tarjeta?','No se ofrece más a clientes nuevos. Los que ya la tienen la conservan.',{ok:'Borrar'})) return;
+  promos.tarjetas=promos.tarjetas.filter(x=>x.id!==id); savePromos(); renderAdmin();
+}
+function adminDescuentos(c){
+  const hoy=hoyStr(); const r=rangoPeriodo('quincena'); const P=htmlPerdidaDescuentos(r.desde,r.hasta);
+  const sv=servicioMembresia(); const cm=promos.comision, mb=promos.membresia;
+  const diasTxt=(d)=>d&&d.length?d.map(x=>DIAS_NOM[x]).join(', '):'todos los días';
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🏷️ Descuentos fijos</span><button class="lnk" onclick="editarReglaFija('')">+ Nuevo</button></div>
+    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Se aplican solos según el <b style="color:var(--text)">horario del turno</b>, el día, la sucursal y la profesión del cliente. Si aplica uno, <b style="color:var(--text)">no se suma ningún otro descuento</b>.</div>
+    ${(promos.fijos||[]).map(f=>`<div class="card" style="margin-bottom:8px;${f.activo===false?'opacity:.55':''}"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(f.nombre)} · ${f.pct}%</div>
+      <div style="font-size:11px;color:var(--muted2);line-height:1.6">${escH(rubrosNombres(f.rubro))} · ${diasTxt(f.dias)}${f.horaHasta?' · antes de las '+f.horaHasta:''}${f.sucursales&&f.sucursales.length?' · '+f.sucursales.map(s=>escH((sucursalDe(s)||{}).nombre||s)).join(', '):' · todas las sucursales'}${f.profesion?' · clientes: '+escH(f.profesion):''}</div></div>
+      <button class="lnk" onclick="toggleReglaFija('${f.id}')">${f.activo===false?'Activar':'Pausar'}</button><button class="lnk" onclick="editarReglaFija('${f.id}')">Editar</button><button class="lnk" style="color:#f472b6" onclick="borrarReglaFija('${f.id}')">×</button></div></div>`).join('')}
+    <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">💰 Comisión con descuentos altos</span><button class="lnk" onclick="editarComisionCfg()">Editar</button></div>
+    <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Si el descuento supera el <b>${cm.t1}%</b>: el profesional cobra el <b>${cm.p1}%</b> de lo que pagó el cliente y el salón el ${100-cm.p1}%.<br>Si el descuento llega al <b>${cm.t2}%</b> o más: el profesional cobra el <b>${cm.p2}%</b> y el salón el ${100-cm.p2}%.</div>
+    <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🎁 Paquetes y 💳 membresía</span><button class="lnk" onclick="editarVentasCfg()">Editar</button></div>
+    <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Paquetes (servicios juntos): 1 = normal · ${(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ')}<br>Membresía: ${mb.creditos} cortes de <b>${sv?escH(sv.nombre)+' ('+fp(sv.precio)+')':'— sin servicio configurado —'}</b> con ${mb.descPct}% menos${sv?' = '+fp(Math.round(sv.precio*mb.creditos*(1-mb.descPct/100))):''}</div>
+    <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📉 Plata que dejamos en descuentos</span><span style="font-size:11px;color:var(--muted2)">${r.label}</span></div>
+    <div class="card">${P.html}</div>`;
+}
+function toggleReglaFija(id){ const f=promos.fijos.find(x=>x.id===id); if(f){ f.activo=f.activo===false; savePromos(); renderAdmin(); } }
+async function borrarReglaFija(id){ if(!await uiConfirm('¿Borrar este descuento fijo?','Deja de aplicarse en los cobros nuevos.',{ok:'Borrar'})) return; promos.fijos=promos.fijos.filter(x=>x.id!==id); savePromos(); renderAdmin(); }
+async function editarReglaFija(id){
+  const f=id?promos.fijos.find(x=>x.id===id):null;
+  const v=await uiDialog({title:f?'Editar descuento fijo':'Nuevo descuento fijo',fields:[
+    {label:'Nombre',value:f?f.nombre:''},{label:'Descuento %',type:'number',value:f?f.pct:15},
+    {label:'Rubros (ids separados por coma, vacío = todos)',value:f?f.rubro:'barberia,barberia-premium'},
+    {label:'Días (ej: lun, mar) — vacío = todos',value:f?(f.dias||[]).map(d=>DIAS_NOM[d]).join(', '):''},
+    {label:'Solo antes de la hora (HH:MM) — vacío = todo el día',value:f?f.horaHasta:''},
+    {label:'Sucursales ('+sucursales.map(s=>s.nombre).join(', ')+') — vacío = todas',value:f?(f.sucursales||[]).map(s=>(sucursalDe(s)||{}).nombre||s).join(', '):''},
+    {label:'Profesión del cliente (vacío = cualquiera)',value:f?f.profesion:''}],ok:'Guardar'});
+  if(!v) return;
+  const pct=numV(v[1]); if(!v[0].trim()||pct<=0||pct>100){ showToast('Poné nombre y un descuento entre 1 y 100'); return; }
+  const dk=DIAS_NOM.map(nkey); const dias=v[3].split(',').map(x=>dk.indexOf(nkey(x).slice(0,3))).filter(d=>d>=0);
+  const suc=v[5].split(',').map(s=>nkey(s)).filter(Boolean).map(n=>(sucursales.find(s=>nkey(s.nombre)===n)||{}).id).filter(Boolean);
+  const hh=v[4].trim(); if(hh&&!/^\d{1,2}:\d{2}$/.test(hh)){ showToast('La hora va como HH:MM'); return; }
+  const reg={id:f?f.id:'f'+Date.now().toString(36),nombre:v[0].trim(),pct,rubro:v[2].trim(),dias:[...new Set(dias)],horaHasta:hh?hh.padStart(5,'0'):'',sucursales:suc,profesion:v[6].trim(),activo:f?f.activo!==false:true};
+  promos.fijos=f?promos.fijos.map(x=>x.id===f.id?reg:x):[...(promos.fijos||[]),reg];
+  savePromos(); showToast('Descuento guardado ✓'); renderAdmin();
+}
+async function editarComisionCfg(){
+  const cm=promos.comision;
+  const v=await uiDialog({title:'Comisión con descuentos altos',fields:[{label:'Si el descuento supera (%)',type:'number',value:cm.t1},{label:'…el profesional cobra (% de lo que pagó el cliente)',type:'number',value:cm.p1},{label:'Si el descuento llega a (%)',type:'number',value:cm.t2},{label:'…el profesional cobra (%)',type:'number',value:cm.p2}],ok:'Guardar'});
+  if(!v) return; promos.comision={t1:numV(v[0]),p1:numV(v[1]),t2:numV(v[2]),p2:numV(v[3])}; savePromos(); renderAdmin();
+}
+async function editarVentasCfg(){
+  const sv=servicioMembresia(); const mb=promos.membresia;
+  const v=await uiDialog({title:'Paquetes y membresía',msg:'Escalera de paquetes: "servicios:%" separados por coma.',fields:[
+    {label:'Paquetes (ej: 2:5, 3:10, 4:15)',value:(promos.paquetes||[]).map(x=>x.n+':'+x.pct).join(', ')},
+    {label:'Membresía: cantidad de cortes',type:'number',value:mb.creditos},{label:'Membresía: % más barata',type:'number',value:mb.descPct},
+    {label:'Membresía: nombre exacto del servicio (ej: Corte)',value:sv?sv.nombre:''}],ok:'Guardar'});
+  if(!v) return;
+  const esc=v[0].split(',').map(s=>s.trim().split(':').map(Number)).filter(a=>a[0]>1&&a[1]>=0).map(a=>({n:a[0],pct:a[1]})).sort((a,b)=>a.n-b.n);
+  const nom=nkey(v[3]); const s2=servicios.find(x=>nkey(x.nombre)===nom&&(!mb.rubro||x.rubro===mb.rubro))||servicios.find(x=>nkey(x.nombre)===nom);
+  if(v[3].trim()&&!s2){ showToast('No encontré un servicio con ese nombre'); return; }
+  promos.paquetes=esc.length?esc:promos.paquetes;
+  promos.membresia={...mb,creditos:Math.max(1,Math.round(numV(v[1]))||4),descPct:Math.min(90,Math.max(0,numV(v[2]))),servicioId:s2?s2.id:mb.servicioId};
+  savePromos(); showToast('Guardado ✓'); renderAdmin();
+}
+
+// ============ VARIOS ============
+function horaAhora(){ const n=new Date(); return String(n.getHours()).padStart(2,'0')+':'+String(n.getMinutes()).padStart(2,'0'); }
+function comTurno(t,pct){
+  if(t.comFija==null) return numV(t.monto)*pct/100;
+  return numV(t.comFija)+Math.max(0,numV(t.monto)-numV(t.comFijaBase!=null?t.comFijaBase:t.monto))*pct/100;
+}
+function comisionConFijas(turnos,fact,pct){ return (turnos||[]).reduce((s,t)=>s+comTurno(t,pct),0); }
+// Las sucursales sin recepcionista (ej: French): los profesionales cierran ellos mismos el turno y suman los puntos
+function sucursalSinRecepcion(u){ const s=u&&sucursalDe(u.sucursal); return !!s&&s.recepcion===false&&u.role==='profesional'; }
+// Cambia campos de una persona en el listado de usuarios (solo el admin lo puede hacer)
+async function guardarCampoUsuario(id,patch){
+  let lista=null;
+  if(DB){ try{ const r=await DB.doc('luffy/users').get(); if(r&&Array.isArray(r.list)) lista=r.list; }catch(e){} }
+  if(!lista) lista=allUsers;
+  const u=lista.find(x=>x.id===id); if(!u) return false;
+  Object.assign(u,patch); allUsers=lista; saveUsers(); return true;
+}
+
+// ============ PUNTOS: valores que edita el admin ============
+let reglasPuntos={valores:{},extra:[]};
+function ptsDe(id,def){ const v=reglasPuntos.valores[id]; return v!=null&&v!==''?numV(v):def; }
+function loadPuntosReglas(){
+  try{ const r=JSON.parse(localStorage.getItem('luffy_puntos_reglas')||'null'); if(r) reglasPuntos={valores:{},extra:[],...r}; }catch(e){}
+  if(DB) DB.doc('luffy/puntos_reglas').get().then(r=>{ if(r&&JSON.stringify(r)!==JSON.stringify(reglasPuntos)){ reglasPuntos={valores:{},extra:[],...r}; try{localStorage.setItem('luffy_puntos_reglas',JSON.stringify(reglasPuntos));}catch(e){} refreshCurrentView(); } }).catch(()=>{});
+}
+function savePuntosReglas(){
+  try{localStorage.setItem('luffy_puntos_reglas',JSON.stringify(reglasPuntos));}catch(e){}
+  if(DB){ try{DB.doc('luffy/puntos_reglas').set(reglasPuntos);}catch(e){} }
+}
+function puntosAcciones(){ return [...PUNTOS_CONFIG.map(c=>({...c,pts:ptsDe(c.id,c.pts)})),...(reglasPuntos.extra||[]).map(x=>({...x,auto:false,custom:true}))]; }
+function htmlAdminReglasPuntos(){
+  return `<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">⚙️ Cuánto vale cada acción</span><button class="lnk" onclick="nuevaAccionPuntos()">+ Nueva acción</button></div>
+    <div class="card" style="margin-bottom:14px">${puntosAcciones().map(a=>`<div style="display:flex;align-items:center;gap:8px;padding:6px 0;border-bottom:1px solid var(--border)"><span style="font-size:18px">${a.emoji||'⭐'}</span><div style="flex:1;font-size:13px">${escH(a.label)}<div style="font-size:10.5px;color:var(--muted)">${a.custom?'Se da a mano':(a.auto?'Se suma sola':'Se da a mano')}</div></div><b style="font-size:14px">${a.pts>0?'+':''}${a.pts}</b><button class="lnk" onclick="editarPtsAccion('${a.id}')">Editar</button>${a.custom?`<button class="lnk" style="color:#f472b6" onclick="borrarAccionPuntos('${a.id}')">×</button>`:''}</div>`).join('')}</div>`;
+}
+async function editarPtsAccion(id){
+  const a=puntosAcciones().find(x=>x.id===id); if(!a) return;
+  const v=await uiPrompt('Puntos: '+a.label,{label:'Puntos',type:'number',value:a.pts,ok:'Guardar'});
+  if(v===null) return;
+  const n=parseInt(v); if(isNaN(n)){ showToast('Poné un número'); return; }
+  if(a.custom) reglasPuntos.extra=reglasPuntos.extra.map(x=>x.id===id?{...x,pts:n}:x); else reglasPuntos.valores[id]=n;
+  savePuntosReglas(); renderAdmin();
+}
+async function nuevaAccionPuntos(){
+  const v=await uiDialog({title:'Nueva acción con puntos',msg:'La vas a poder dar a mano desde "Dar/quitar puntos".',fields:[{label:'Nombre',placeholder:'Ej: Cliente trajo un referido'},{label:'Puntos',type:'number',value:'20'},{label:'Emoji (opcional)',placeholder:'⭐'}],ok:'Agregar'});
+  if(!v||!v[0].trim()){ return; }
+  reglasPuntos.extra=[...(reglasPuntos.extra||[]),{id:'x'+Date.now().toString(36),label:v[0].trim(),pts:parseInt(v[1])||0,emoji:(v[2]||'').trim()||'⭐'}];
+  savePuntosReglas(); renderAdmin();
+}
+async function borrarAccionPuntos(id){ if(!await uiConfirm('¿Borrar esta acción?','Los puntos ya dados no cambian.')) return; reglasPuntos.extra=reglasPuntos.extra.filter(x=>x.id!==id); savePuntosReglas(); renderAdmin(); }
+
+// ============ RECEPCION: turnos de trabajo, tareas por horario y tablero ============
+const hh2=(n)=>String(n).padStart(2,'0');
+function ventanaRec(u){ const t=(u||profile)&&(u||profile).turnoRec; return t&&t.desde&&t.hasta?t:{desde:'00:00',hasta:'24:00'}; }
+function horaDeIso(iso){ const d=new Date(iso); return hh2(d.getHours())+':'+hh2(d.getMinutes()); }
+function enVentana(iso,w){ if(!iso) return false; const h=horaDeIso(iso); return h>=w.desde&&h<w.hasta; }
+function tareasDeRec(u){ const w=ventanaRec(u); return tareasRecepcion.filter(t=>t.desde<w.hasta&&t.hasta>w.desde); }
+function hechaTarea(id){ return !!(tareasData&&tareasData[hoyStr()]&&tareasData[hoyStr()][id]&&tareasData[hoyStr()][id].done); }
+function htmlTareasRec(){
+  const ahora=horaAhora(); const todas=tareasDeRec();
+  const actuales=todas.filter(t=>t.desde<=ahora&&ahora<t.hasta);
+  const atrasadas=todas.filter(t=>t.hasta<=ahora&&!hechaTarea(t.id));
+  const futuras=todas.filter(t=>t.desde>ahora).sort((a,b)=>a.desde.localeCompare(b.desde));
+  const prox=futuras.length?futuras.filter(t=>t.desde===futuras[0].desde):[];
+  const fila=(t,atras)=>{ const done=hechaTarea(t.id), por=(tareasData[hoyStr()]||{})[t.id]; return `<div onclick="toggleTarea('${t.id}')" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+    <div style="width:22px;height:22px;border-radius:7px;border:2px solid ${done?'#34d399':(atras?'#f472b6':'var(--border2)')};background:${done?'#34d399':'transparent'};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;color:#0b0b10">${done?'✓':''}</div>
+    <div style="flex:1;font-size:13px;${done?'color:var(--muted2);text-decoration:line-through':''}">${t.emoji||'✅'} ${escH(t.label)}${atras?` <span style="font-size:10px;color:#f472b6;font-weight:700">· era de las ${t.desde}</span>`:''}${done&&por&&por.por?` <span style="font-size:10px;color:var(--muted)">· ${escH(por.por)}</span>`:''}</div></div>`; };
+  const hechasAhora=actuales.filter(t=>hechaTarea(t.id)).length;
+  const rango=actuales.length?actuales[0].desde+' a '+actuales[0].hasta:'';
+  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">📋 Tareas de ahora${rango?' · '+rango:''}${actuales.length?' ('+hechasAhora+'/'+actuales.length+')':''}</span></div>
+    <div class="card" style="margin-bottom:8px">${actuales.length?actuales.map(t=>fila(t,false)).join(''):'<div style="font-size:13px;color:var(--muted2);padding:8px 0">No hay tareas en este horario 🎉</div>'}</div>
+    ${atrasadas.length?`<details class="card" style="margin-bottom:8px;border-color:rgba(244,114,182,.35)"><summary style="cursor:pointer;font-size:13px;font-weight:800;color:#f472b6">⚠️ Atrasadas (${atrasadas.length})</summary>${atrasadas.map(t=>fila(t,true)).join('')}</details>`:''}
+    ${prox.length?`<div style="font-size:11.5px;color:var(--muted2);margin:0 2px 10px">⏭ Próximo bloque a las ${prox[0].desde}: ${prox.length} ${prox.length===1?'tarea':'tareas'}</div>`:''}`;
+}
+// Turnos hechos en mi franja (solo sucursales con recepcion) y cuantos reagendaron
+function estadoRecHoy(u){
+  const hoy=hoyStr(), w=ventanaRec(u); const turnos=[];
+  allUsers.filter(x=>x.role==='profesional'||x.role==='encargado').forEach(p=>{
+    const s=sucursalDe(p.sucursal); if(s&&s.recepcion===false) return;
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{}'); }catch(e){}
+    (dd.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&enVentana(t.creadoEn,w)).forEach(t=>turnos.push({key:'t:'+p.id+':'+t.id,prof:p,t}));
+  });
+  const cierres=cierresData.byKey||{};
+  const cerrados=turnos.filter(x=>cierres[x.key]);
+  const reag=cerrados.filter(x=>cierres[x.key].r&&cierres[x.key].r.reagendo==='si').length;
+  const cnt=(k)=>cerrados.filter(x=>cierres[x.key].r&&cierres[x.key].r[k]==='si').length;
+  return {total:turnos.length,cerrados:cerrados.length,pendientes:turnos.length-cerrados.length,reag,pct:turnos.length?Math.round(reag/turnos.length*100):0,resenas:cnt('resena'),senas:cnt('sena'),fideliza:cnt('fideliza'),agendados:cnt('agendado'),w,
+    porSuc:sucursales.map(s=>({s,n:turnos.filter(x=>(x.t.sucursal||x.prof.sucursal)===s.id).length})).filter(x=>x.n)};
+}
+// Ultima visita de cada cliente, mirando los cobros de todo el equipo (una sola pasada)
+function ultimasVisitas(){
+  const m={};
+  allUsers.filter(u=>u.role==='profesional'||u.role==='encargado').forEach(u=>{
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    const add=(x)=>{ if(!x.clienteId) return; const y=m[x.clienteId]||(m[x.clienteId]={fecha:'',n:0,barberos:new Set()}); y.n++; y.barberos.add(u.name); if(x.fecha>y.fecha) y.fecha=x.fecha; };
+    (dd.turnos||[]).filter(t=>!t.deudaId).forEach(add); (dd.deudores||[]).forEach(add);
+  });
+  return m;
+}
+function linkWhatsApp(tel,txt){ const d=String(tel||'').replace(/\D/g,'').replace(/^0+/,'').replace(/^54/,'').replace(/^9/,''); return d?'https://wa.me/549'+d+(txt?'?text='+encodeURIComponent(txt):''):''; }
+let recQ='';
+function recRenderBusqueda(){
+  const el=document.getElementById('rec-cli-res'); if(!el) return;
+  const uv=ultimasVisitas(); const q=recQ.trim();
+  if(q.length<2){ el.innerHTML=`<div style="font-size:11.5px;color:var(--muted2)">Escribí al menos 2 letras del nombre, el número (#) o el teléfono. Hay ${clientesDir.length} clientes cargados.</div>`; return; }
+  const m=buscarClientes(q).slice(0,8);
+  el.innerHTML=m.length?m.map(c=>{ const u=uv[c.id]; return `<div class="card" onclick="abrirClienteDetalle('${c.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span>${c.tarjeta?' 💳':''}${membresiaActivaDe(c.id)?' 🎫':''}</div>
+    <div style="font-size:11px;color:var(--muted2)">${escH(idCorto(c))}</div><div style="font-size:11px;color:var(--muted2)">${u?`✂️ ${escH([...u.barberos].join(', '))} · ${u.n} ${u.n===1?'visita':'visitas'} · última hace ${diasDesdeStr(u.fecha)} d`:'Sin visitas todavía'}</div></div><span style="color:var(--muted)">›</span></div></div>`; }).join(''):`<div style="font-size:12.5px;color:var(--muted2)">No aparece. Tocá "+ Cliente" para cargarlo.</div>`;
+}
+function htmlReactivar(){
+  const uv=ultimasVisitas(); const hoy=hoyStr();
+  const L=clientesDir.map(c=>({c,u:uv[c.id]})).filter(x=>x.u&&diasDesdeStr(x.u.fecha)>=30&&!membresiaActivaDe(x.c.id)).sort((a,b)=>a.u.fecha.localeCompare(b.u.fecha)).slice(0,5);
+  if(!L.length) return '';
+  return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🔁 Para reactivar (hace +30 días)</span></div>
+    ${L.map(({c,u})=>{ const wa=linkWhatsApp(c.tel,'Hola '+c.nombre.split(' ')[0]+'! Te escribimos de Inda Studio 💈 Hace un tiempo que no te vemos, ¿querés que te reservemos un turno?'); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">hace ${diasDesdeStr(u.fecha)} días · ✂️ ${escH([...u.barberos].join(', '))}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:'<span style="font-size:10.5px;color:var(--muted)">sin teléfono</span>'}</div>`; }).join('')}`;
+}
+function htmlTableroRec(){
+  const e=estadoRecHoy(); const hoy=hoyStr();
+  const ventasHoy=[...membresiasSt.list.filter(m=>m.fecha===hoy&&m.vendedorId===profile.id).map(m=>numV(m.precio)),...paquetesSt.list.filter(p=>p.fecha===hoy&&p.vendedorId===profile.id).map(p=>numV(p.total))];
+  const tile=(l,v,sub,c)=>`<div class="stat-card"><div class="sc-lbl">${l}</div><div class="sc-val" style="font-size:22px;${c?'color:'+c:''}">${v}</div><div class="sc-sub">${sub||''}</div></div>`;
+  const w=e.w, franja=(w.desde==='00:00'&&w.hasta==='24:00')?'todo el día':w.desde+' a '+w.hasta;
+  return `<div class="card" style="margin-top:14px;background:linear-gradient(135deg,rgba(96,165,250,.14),rgba(124,111,255,.10));border-color:rgba(96,165,250,.35)">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:14px;font-weight:800">🕐 Tu turno: ${franja}</div>${e.porSuc.map(x=>chipSucursal(x.s.id,true)+`<span style="font-size:11px;font-weight:800;margin-left:-4px">${x.n}</span>`).join(' ')}</div>
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12px;font-weight:700">🔁 Reagendaron</span><span style="font-size:22px;font-weight:900;color:#60a5fa">${e.reag} <span style="font-size:13px;color:var(--muted2);font-weight:700">de ${e.total} turnos · ${e.pct}%</span></span></div>
+    <div style="height:6px;background:var(--border2);border-radius:3px;margin:8px 0 4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,e.pct)}%;background:#60a5fa;border-radius:3px"></div></div>
+    <div style="font-size:10.5px;color:var(--muted2)">Cuenta solo los turnos que se hicieron en tu horario. Cerrados ${e.cerrados} · pendientes de cierre ${e.pendientes}</div></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr);margin-top:10px">
+      ${tile('Turnos hechos',e.total,'en tu horario')}${tile('Reseñas',e.resenas,'declaradas','#fbbf24')}${tile('Señas',e.senas,'de '+e.cerrados+' cerrados','#34d399')}
+    </div>
+    ${ventasHoy.length?`<div style="font-size:12px;color:var(--muted2);margin:-2px 2px 8px">💳🎁 Vendiste hoy ${ventasHoy.length} ${ventasHoy.length===1?'membresía/paquete':'membresías/paquetes'} por ${fp(ventasHoy.reduce((a,b)=>a+b,0))}</div>`:''}`;
+}
+function htmlClientesRec(){
+  return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">👥 Clientes del salón</span><button class="sec-btn" onclick="abrirFormCliente()" style="background:#7c6fff">+ Cliente</button></div>
+    <input id="rec-busq" type="search" placeholder="Buscar cliente por nombre, # o teléfono…" value="${escH(recQ)}" oninput="recQ=this.value;recRenderBusqueda()" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:12px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;margin-bottom:8px"/>
+    <div id="rec-cli-res"></div>`;
+}
+
+// ---------- admin: recepcion (turnos, tareas por horario, cumpleaños) ----------
+function renderAdminRecepcion(c){
+  const recs=allUsers.filter(u=>u.role==='recepcionista');
+  const bloques={}; tareasRecepcion.slice().sort((a,b)=>a.desde.localeCompare(b.desde)).forEach(t=>{ (bloques[t.desde+'–'+t.hasta]=bloques[t.desde+'–'+t.hasta]||[]).push(t); });
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📞 Recepcionistas</span></div>
+    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Cada recepcionista tiene su <b style="color:var(--text)">horario de trabajo</b>. Solo ve las tareas de su horario y solo se le cuentan los turnos (y reagendamientos) que se hicieron mientras trabaja. Para sumar otra cuenta, aprobala en Equipo y elegí "Recepcionista".</div>
+    ${recs.map(u=>{ const e=estadoRecHoy(u); const w=ventanaRec(u); return `<div class="prof-card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(u.name)} <span style="font-size:11px;color:var(--muted2);font-weight:600">@${escH(u.username||'')}</span></div>
+      <div style="font-size:12px;color:var(--muted2)">🕐 ${w.desde==='00:00'&&w.hasta==='24:00'?'Sin horario (todo el día)':w.desde+' a '+w.hasta}</div></div><button class="lnk" onclick="editarTurnoRec('${u.id}')">Horario</button></div>
+      <div style="font-size:12px;margin-top:8px">Hoy: <b>${e.total}</b> turnos en su horario · reagendaron <b style="color:#60a5fa">${e.reag}</b> (${e.pct}%) · reseñas ${e.resenas}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">📞</div><p>No hay recepcionistas.</p></div>'}
+    <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📋 Tareas por horario</span><button class="lnk" onclick="editarTareasRecepcion()">Editar</button></div>
+    ${Object.entries(bloques).map(([r,l])=>`<div class="card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:800;color:#60a5fa;margin-bottom:4px">${r}</div>${l.map(t=>`<div style="font-size:12px;padding:3px 0">${t.emoji||'✅'} ${escH(t.label)}</div>`).join('')}</div>`).join('')}`;
+  renderAdminCumpleanos(c);
+}
+async function editarTurnoRec(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return; const w=ventanaRec(u);
+  const v=await uiDialog({title:'Horario de '+u.name,msg:'Formato HH:MM. Dejalo vacío para que trabaje todo el día.',fields:[{label:'Entra a las',value:w.desde==='00:00'&&w.hasta==='24:00'?'':w.desde,placeholder:'08:00'},{label:'Sale a las',value:w.desde==='00:00'&&w.hasta==='24:00'?'':w.hasta,placeholder:'15:00'}],ok:'Guardar'});
+  if(!v) return;
+  const a=v[0].trim(), b=v[1].trim();
+  let patch;
+  if(!a&&!b) patch={turnoRec:null};
+  else { if(!/^\d{1,2}:\d{2}$/.test(a)||!/^\d{1,2}:\d{2}$/.test(b)){ showToast('Poné las dos horas como HH:MM'); return; } patch={turnoRec:{desde:a.padStart(5,'0'),hasta:b.padStart(5,'0')}}; if(patch.turnoRec.hasta<=patch.turnoRec.desde){ showToast('La salida tiene que ser después de la entrada'); return; } }
+  if(await guardarCampoUsuario(id,patch)){ showToast('Horario guardado ✓'); renderAdmin(); }
+}
+async function editarTareasRecepcion(){
+  const actuales=tareasRecepcion.map(t=>t.desde+'-'+t.hasta+' | '+(t.emoji||'✅')+' '+t.label).join('\n');
+  const nuevo=await uiPrompt('Tareas por horario',{msg:'Una tarea por línea: "08:30-10:00 | 💻 Prender la computadora". Si dos recepcionistas trabajan en horarios distintos, cada una ve solo lo de su horario.',type:'textarea',value:actuales,ok:'Guardar'});
+  if(nuevo===null) return;
+  const out=[]; let mal=0;
+  nuevo.split('\n').map(l=>l.trim()).filter(Boolean).forEach((l,i)=>{
+    const m=/^(\d{1,2}:\d{2})\s*[-–a]\s*(\d{1,2}:\d{2})\s*\|\s*(.+)$/.exec(l); if(!m){ mal++; return; }
+    let txt=m[3].trim(), emoji='✅'; const e=/^(\p{Extended_Pictographic}️?)\s*(.*)$/u.exec(txt); if(e){ emoji=e[1]; txt=e[2]||txt; }
+    out.push({id:'t'+(i+1),emoji,label:txt,desde:m[1].padStart(5,'0'),hasta:m[2].padStart(5,'0')});
+  });
+  if(mal){ showToast('Hay '+mal+' líneas sin el formato "08:30-10:00 | tarea"'); return; }
+  if(!out.length){ showToast('Necesitás al menos una tarea'); return; }
+  tareasRecepcion=out; saveTareasRecepcion(); showToast('Tareas actualizadas ✓'); renderAdmin();
 }
 
 
@@ -1791,6 +2620,7 @@ function renderHub(){
 
   // Tramo banner
   renderTramoBanner();
+  renderCierresPendientesProf();
 
   // Stories dots
   loadStoriesData();
@@ -2556,15 +3386,16 @@ function buscarDeuda(profId,id){ return todasLasDeudas().find(d=>d.id===id&&d.pr
 function detalleDeudaHtml(d,chico){
   const rr=(a,b,st='')=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:${chico?12:13}px;padding:2px 0;${st}"><span>${a}</span><span style="white-space:nowrap">${b}</span></div>`;
   const svc=(d.servicios&&d.servicios.length)?d.servicios.map(s=>rr(escH(nomSvc(s)),fp(s.precio))).join(''):(d.servicio||d.motivo?rr(escH(d.servicio||d.motivo),fp(numV(d.montoServicios!=null?d.montoServicios:d.monto))):'');
-  const desc=d.descuento>0?rr(d.descuentoTipo==='oferta'?`🏷️ Oferta ${escH(d.oferta?d.oferta.nombre:'')}`:'Descuento','−'+fp(d.descuento),'color:#34d399'):'';
+  const desc=(d.descDetalle&&d.descDetalle.length)?d.descDetalle.map(x=>rr(escH(x.label),'−'+fp(x.monto),'color:#34d399')).join(''):(d.descuento>0?rr(d.descuentoTipo==='oferta'?`🏷️ Oferta ${escH(d.oferta?d.oferta.nombre:'')}`:'Descuento','−'+fp(d.descuento),'color:#34d399'):'');
   const prods=(d.productos||[]).map(p=>rr(`📦 ${escH(p.productoNombre)} x${p.cantidad}`,fp(p.total),'color:var(--muted2)')).join('');
   return svc+desc+prods;
 }
 
 // ---------- cobrar una deuda ----------
 let cobroDeudaSel=null;
+function puedeCobrarDeuda(profId){ return !!profile&&(profile.role==='recepcionista'||(profile.id===profId&&sucursalSinRecepcion(profile))); }
 function abrirCobroDeuda(profId,id){
-  if(!profile||profile.role!=='recepcionista'){ showToast('Las deudas las cobra recepción'); return; }
+  if(!puedeCobrarDeuda(profId)){ showToast('Las deudas las cobra recepción'); return; }
   const d=buscarDeuda(profId,id);
   if(!d){ showToast('Esa deuda ya no está pendiente'); return; }
   cobroDeudaSel={profId,id,medio:'efectivo'};
@@ -2615,7 +3446,7 @@ function aplicarPagoDeuda(dd,deudaId,medio){
   const tid='d'+deudaId;
   if(!dd.turnos.find(t=>t.id===tid)){
     dd.turnos.push({id:tid, cliente:d.cliente, servicio:d.servicio||d.motivo||'Deuda saldada', servicios:d.servicios, oferta:d.oferta||null, descuento:d.descuento||0, descuentoTipo:d.descuentoTipo||null, subtotal:d.subtotal!=null?d.subtotal:numV(d.monto),
-      monto:d.montoServicios!=null?d.montoServicios:d.monto, medio, fecha:hoy, fechaServicio:d.fecha, deudaId, creadoEn:ahora, clienteId:d.clienteId||null, clienteNumero:d.clienteNumero||null, sucursal:d.sucursal||null});
+      monto:d.montoServicios!=null?d.montoServicios:d.monto, medio, fecha:hoy, fechaServicio:d.fecha, deudaId, creadoEn:ahora, clienteId:d.clienteId||null, clienteNumero:d.clienteNumero||null, sucursal:d.sucursal||null, descDetalle:d.descDetalle||null, descPct:d.descPct||0, comFija:d.comFija!=null?d.comFija:null, comFijaBase:d.comFijaBase||0, aCobrar:d.aCobrarServ!=null?d.aCobrarServ:undefined, prepago:d.prepago||0, prepagos:d.prepagos||[], horaTurno:d.horaTurno||null});
   }
   (d.productos||[]).forEach((p,i)=>{
     const vid='d'+deudaId+'p'+i;
@@ -2624,8 +3455,7 @@ function aplicarPagoDeuda(dd,deudaId,medio){
   return true;
 }
 function confirmarCobroDeuda(){
-  if(!profile||profile.role!=='recepcionista'){ showToast('Las deudas las cobra recepción'); return; }
-  const s=cobroDeudaSel; if(!s) return;
+  const s=cobroDeudaSel; if(!s||!puedeCobrarDeuda(s.profId)){ showToast('Las deudas las cobra recepción'); return; }
   const d=buscarDeuda(s.profId,s.id); if(!d){ closeModal('modal-registro'); return; }
   const fin=(ok)=>{
     closeModal('modal-registro');
@@ -2738,8 +3568,8 @@ function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; if(tipo==='turno
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
-let cobro = {cliente:'', clienteId:null, clienteNumero:null, servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''};
-function resetCobro(){ cobro={cliente:'', clienteId:null, clienteNumero:null, servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''}; }
+let cobro = {cliente:'', clienteId:null, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''};
+function resetCobro(){ cobro={cliente:'', clienteId:null, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''}; }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
 function ofertasVisibles(){ const rb=rubrosDeUsuario(profile); return ofertasActivas().filter(o=>visiblePorRubro(o,rb)); }
@@ -2791,32 +3621,6 @@ function lineasCobro(){
   return lineas;
 }
 
-// Descuento por oferta y por efectivo NO se acumulan: se aplica el mejor de los dos.
-// Solo afectan a los servicios; los productos van siempre a precio de lista.
-function calcCobro(){
-  const lineas=lineasCobro();
-  const subtotal=lineas.reduce((a,l)=>a+l.precio,0);
-  const ahorroCombo=lineas.filter(l=>l.tipo==='combo').reduce((a,l)=>a+(l.lista-l.precio),0);
-  const oferta=ofertasVisibles().find(o=>o.id===cobro.ofertaId)||null;
-  const baseOferta=oferta?lineas.filter(l=>ofertaAplicaA(oferta,l.ids)).reduce((a,l)=>a+l.precio,0):0;
-  const descOferta=oferta?Math.round(baseOferta*oferta.pct/100):0;
-  const descEfectivo=cobro.medio==='efectivo'?Math.round(subtotal*DESC_EFECTIVO_PCT/100):0;
-  let descuento=0, descTipo=null;
-  if(descOferta>0&&descOferta>=descEfectivo){ descuento=descOferta; descTipo='oferta'; }
-  else if(descEfectivo>0){ descuento=descEfectivo; descTipo='efectivo'; }
-  const servicioNeto=subtotal-descuento;
-  const prodLineas=productos.filter(p=>(cobro.prods[p.id]||0)>0).map(p=>{
-    const cantidad=cobro.prods[p.id]; const total=p.precioVenta*cantidad;
-    return {producto:p, cantidad, total, comision:Math.round(total*(p.comisionPct||0)/100)};
-  });
-  const prodTotal=prodLineas.reduce((a,l)=>a+l.total,0);
-  const prodComision=prodLineas.reduce((a,l)=>a+l.comision,0);
-  return {svcs:lineas, lineas, subtotal, ahorroCombo, oferta, ofertaSinEfecto:!!oferta&&descOferta===0, descuento, descTipo, servicioNeto, prodLineas, prodTotal, prodComision, total:servicioNeto+prodTotal};
-}
-function lineaAReg(l){
-  return {id:l.id, nombre:l.nombre, precio:l.precio, opcion:l.opcion||null, combo:l.tipo==='combo'?true:undefined, componentes:l.tipo==='combo'?l.componentes:undefined, lista:l.tipo==='combo'?l.lista:undefined};
-}
-
 function pillStyle(sel,color){
   return `padding:9px 14px;border-radius:20px;border:1.5px solid ${sel?color:'var(--border2)'};background:${sel?color+'22':'transparent'};color:${sel?color:'var(--muted2)'};cursor:pointer;font-family:var(--font);font-size:12.5px;font-weight:600;transition:all .15s`;
 }
@@ -2825,6 +3629,7 @@ function renderCobroForm(c,back,color){
   const vis=serviciosVisibles();
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="modal-title" style="margin:0">Cobro del turno 💈</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" autocomplete="off" placeholder="Buscá o escribí el nombre..." value="${escH(cobro.cliente)}" oninput="cobroClienteInput(this.value)"/><div id="cb-cli-sug"></div></div>
+    <div id="cb-prepago"></div>
     <div class="field"><label>¿Qué le hiciste?</label>
       ${vis.length>10?`<input id="cb-q" type="search" placeholder="Buscar servicio..." value="${escH(cobro.q)}" oninput="cobro.q=this.value;refreshCobro()" style="margin-bottom:8px"/>`:''}
       <div id="cb-serv"></div><div id="cb-extra"></div></div>
@@ -2832,6 +3637,7 @@ function renderCobroForm(c,back,color){
     <div class="field"><label>¿Le vendiste algún producto?</label><div id="cb-prods"></div></div>
     <div class="field"><label>Medio de pago</label><div id="cb-medio" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px"></div></div>
     <div class="field" id="cb-motivo-wrap" style="display:none"><label>Motivo (opcional)</label><input id="cb-motivo" type="text" placeholder="Ej: se le olvidó la billetera, paga mañana..." value="${escH(cobro.motivo)}" oninput="cobro.motivo=this.value"/></div>
+    <div class="field" style="display:flex;align-items:center;gap:10px"><label style="margin:0;flex:1">🕐 Hora del turno <span style="color:var(--muted);font-weight:500">(para promos por horario)</span></label><input type="time" value="${escH(cobro.hora||horaAhora())}" onchange="cobroHora(this.value)" style="width:120px"/></div>
     <div id="cb-total"></div>
     <button class="btn btn-primary" onclick="guardarCobro()" style="background:${color};margin-top:12px">Guardar cobro</button>`;
   refreshCobro(); renderSugerenciasCliente();
@@ -2886,20 +3692,21 @@ function refreshCobro(){
     return `<button onclick="cobroMedio('${v}')" style="min-width:0;padding:12px 3px;border-radius:12px;border:1.5px solid ${sel?color:'var(--border2)'};background:${sel?color+'22':'transparent'};cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;color:${sel?color:'var(--muted2)'};transition:all .15s"><div style="font-size:20px;margin-bottom:4px">${e}</div>${l}${sub?`<div style="font-size:9.5px;font-weight:600;opacity:.8;margin-top:2px">${sub}</div>`:''}</button>`;
   }).join('');
 
+  renderPrepagoCobro(r);
   const mw=document.getElementById('cb-motivo-wrap'); if(mw) mw.style.display=cobro.medio==='debe'?'':'none';
   const pctServ=r.svcs.length?quincenaActualInfo().pct:0;
-  const comServ=Math.round(r.servicioNeto*pctServ/100);
+  const comServ=r.comFija!=null?Math.round(r.comFija+r.prepTotal*pctServ/100):Math.round(r.servicioNeto*pctServ/100);
   const row=(a,b,style='')=>`<div style="display:flex;justify-content:space-between;gap:10px;font-size:13px;padding:3px 0;${style}"><span>${a}</span><span style="white-space:nowrap">${b}</span></div>`;
   document.getElementById('cb-total').innerHTML=(r.svcs.length||r.prodLineas.length)?`<div class="card" style="margin-top:4px">
     ${r.svcs.map(l=>row(escH(nomSvc(l)),fp(l.precio))).join('')}
-    ${r.descuento>0?row(r.descTipo==='oferta'?`🏷️ ${escH(r.oferta.nombre)} (−${r.oferta.pct}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(r.descuento),'color:#34d399'):''}
+    ${htmlDescuentosCobro(r,row)}
     ${r.ofertaSinEfecto?`<div style="font-size:11px;color:var(--muted2);padding:2px 0">La oferta elegida no aplica a los servicios seleccionados.</div>`:''}
-    ${r.svcs.length?row('<b>Servicios</b>','<b>'+fp(r.servicioNeto)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
+    ${r.svcs.length?row('<b>Servicios a cobrar</b>','<b>'+fp(r.aCobrarServ)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
     ${r.prodLineas.map(l=>row(`${escH(l.producto.nombre)} x${l.cantidad}`,fp(l.total))).join('')}
     ${r.prodLineas.length?row('<b>Productos</b>','<b>'+fp(r.prodTotal)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
     <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">${cobro.medio==='debe'?'QUEDA DEBIENDO':'TOTAL A COBRAR'}</span><span style="font-size:24px;font-weight:900">${fp(r.total)}</span></div>
     <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.5">
-      ${cobro.medio==='debe'?'⏳ <b>No suma a tu quincena todavía.</b> Cuando pague, se suma a la quincena del día en que pague (no a la de hoy). Recepción lo ve para cobrarle.':r.svcs.length?`Suma a tu quincena: <b>${fp(r.servicioNeto)}</b> → comisión ≈ ${fp(comServ)} (${pctServ}%)<br>`:''}
+      ${cobro.medio==='debe'?'⏳ <b>No suma a tu quincena todavía.</b> Cuando pague, se suma a la quincena del día en que pague (no a la de hoy). Recepción lo ve para cobrarle.':r.svcs.length?`Suma a tu quincena: <b>${fp(r.servicioNeto)}</b> → comisión ≈ ${fp(comServ)} ${r.comFija!=null?'(descuento alto: comisión fija sobre lo que paga el cliente)':'('+pctServ+'%)'}<br>`:''}
       ${cobro.medio!=='debe'&&r.prodLineas.length?`Productos (aparte de tu quincena): comisión <b>${fp(r.prodComision)}</b>`:''}
     </div>
   </div>`:'';
@@ -2929,57 +3736,54 @@ async function guardarCobro(){
   const falta=r.lineas.flatMap(l=>l.faltan)[0];
   if(falta){ showToast('Elegí: '+falta.titulo.toLowerCase()+' ('+falta.servicio+')'); return; }
   for(const l of r.prodLineas){ if(l.cantidad>l.producto.stock){ showToast('No hay stock de '+l.producto.nombre); return; } }
-  const nombresSvc=r.lineas.map(l=>nomSvc(l)).join(' + ');
-  const ofertaReg=r.descTipo==='oferta'?{id:r.oferta.id,nombre:r.oferta.nombre,pct:r.oferta.pct}:null;
-  if(cobro.medio==='debe'){
-    const nombre=(cobro.cliente||'').trim();
-    if(!nombre){ showToast('Poné el nombre del cliente para poder cobrarle después'); return; }
-    guardandoCobro=true; let cli=null; try{ cli=await resolverClienteCobro(); }finally{ guardandoCobro=false; }
-    if(!dineroData.deudores) dineroData.deudores=[];
-    dineroData.deudores.push({
-      id:Date.now().toString(), cliente:nombre, clienteId:cli?cli.id:null, clienteNumero:cli?cli.numero:null, sucursal:profile.sucursal||null, monto:r.total, montoServicios:r.servicioNeto,
-      servicio:nombresSvc,
-      servicios:r.lineas.map(lineaAReg),
-      oferta:ofertaReg,
-      descuento:r.descuento, descuentoTipo:r.descTipo, subtotal:r.subtotal,
-      productos:r.prodLineas.map(l=>({productoId:l.producto.id,productoNombre:l.producto.nombre,cantidad:l.cantidad,precioUnitario:l.producto.precioVenta,total:l.total,comision:l.comision,costoUnitario:l.producto.costo||0})),
-      motivo:(cobro.motivo||'').trim(),
-      fecha:ymdLocal(new Date()), creadoEn:new Date().toISOString(), saldado:false
-    });
-    saveDinero();
+  const rc=resolverClienteCobro(); if(rc.error){ showToast(rc.error); return; }
+  const cli=rc.cli;
+  if(cobro.medio==='debe'&&!cli){ showToast('Poné el nombre del cliente para poder cobrarle después'); return; }
+  guardandoCobro=true;
+  try{
+    const nombresSvc=r.lineas.map(l=>nomSvc(l)).join(' + ');
+    const ofD=r.descuentos.find(d=>d.tipo==='oferta');
+    const ofertaReg=ofD&&r.oferta?{id:r.oferta.id,nombre:r.oferta.nombre,pct:r.oferta.pct}:null;
+    const extra=camposDescuento(r,cli);
+    const base={clienteId:cli?cli.id:null, clienteNumero:cli?cli.numero:null, sucursal:profile.sucursal||null};
+    let turnoId, esDeuda=cobro.medio==='debe';
+    if(esDeuda){
+      const idd=Date.now().toString(); turnoId='d'+idd;
+      if(!dineroData.deudores) dineroData.deudores=[];
+      dineroData.deudores.push({
+        id:idd, cliente:cli.nombre, ...base, monto:r.total, montoServicios:r.servicioNeto, aCobrarServ:r.aCobrarServ,
+        servicio:nombresSvc, servicios:r.lineas.map(lineaAReg), oferta:ofertaReg,
+        descuento:r.descuento, descuentoTipo:r.descTipo, subtotal:r.subtotal, ...extra,
+        productos:r.prodLineas.map(l=>({productoId:l.producto.id,productoNombre:l.producto.nombre,cantidad:l.cantidad,precioUnitario:l.producto.precioVenta,total:l.total,comision:l.comision,costoUnitario:l.producto.costo||0})),
+        motivo:(cobro.motivo||'').trim(), fecha:ymdLocal(new Date()), creadoEn:new Date().toISOString(), saldado:false
+      });
+      saveDinero();
+    } else {
+      const id=Date.now().toString(); turnoId=id;
+      const fecha=ymdLocal(new Date()), creadoEn=new Date().toISOString();
+      const cliente=cli?cli.nombre:((cobro.cliente||'').trim()||'Cliente');
+      if(!dineroData.turnos) dineroData.turnos=[];
+      if(!dineroData.ventas) dineroData.ventas=[];
+      dineroData.turnos.push({
+        id, cliente, ...base, servicio:nombresSvc, servicios:r.lineas.map(lineaAReg), oferta:ofertaReg,
+        descuento:r.descuento, descuentoTipo:r.descTipo, subtotal:r.subtotal, ...extra,
+        monto:r.servicioNeto, // lo unico que suma a la quincena
+        medio:cobro.medio, fecha, creadoEn
+      });
+      r.prodLineas.forEach((l,i)=>{
+        dineroData.ventas.push({id:id+'p'+i, turnoId:id, cliente, clienteId:base.clienteId, sucursal:base.sucursal, productoId:l.producto.id, productoNombre:l.producto.nombre, cantidad:l.cantidad, precioUnitario:l.producto.precioVenta, total:l.total, comision:l.comision, costoUnitario:l.producto.costo||0, medio:cobro.medio, fecha, creadoEn});
+      });
+      saveDinero();
+    }
     if(r.prodLineas.length) ajustarStock(r.prodLineas.map(l=>({id:l.producto.id,delta:-l.cantidad})));
     closeModal('modal-registro');
-    showToast('Anotado como deuda — recepción lo ve para cobrarle');
+    showToast(esDeuda?'Anotado como deuda — recepción lo ve para cobrarle':'Cobro guardado — recepción ya lo ve ✓');
     resetCobro();
-    refreshCurrentView();
-    return;
-  }
-  guardandoCobro=true; let cli=null; try{ cli=await resolverClienteCobro(); }finally{ guardandoCobro=false; }
-  const id=Date.now().toString();
-  const fecha=ymdLocal(new Date());
-  const creadoEn=new Date().toISOString();
-  const cliente=(cobro.cliente||'').trim()||'Cliente';
-  if(!dineroData.turnos) dineroData.turnos=[];
-  if(!dineroData.ventas) dineroData.ventas=[];
-  dineroData.turnos.push({
-    id, cliente, clienteId:cli?cli.id:null, clienteNumero:cli?cli.numero:null, sucursal:profile.sucursal||null,
-    servicio:nombresSvc,
-    servicios:r.lineas.map(lineaAReg),
-    oferta:ofertaReg,
-    descuento:r.descuento, descuentoTipo:r.descTipo, subtotal:r.subtotal,
-    monto:r.servicioNeto, // lo único que suma a la quincena
-    medio:cobro.medio, fecha, creadoEn
-  });
-  r.prodLineas.forEach((l,i)=>{
-    dineroData.ventas.push({id:id+'p'+i, turnoId:id, cliente, clienteId:cli?cli.id:null, sucursal:profile.sucursal||null, productoId:l.producto.id, productoNombre:l.producto.nombre, cantidad:l.cantidad, precioUnitario:l.producto.precioVenta, total:l.total, comision:l.comision, costoUnitario:l.producto.costo||0, medio:cobro.medio, fecha, creadoEn});
-  });
-  saveDinero();
-  if(r.prodLineas.length) ajustarStock(r.prodLineas.map(l=>({id:l.producto.id,delta:-l.cantidad})));
-  closeModal('modal-registro');
-  showToast('Cobro guardado — recepción ya lo ve ✓');
-  resetCobro();
-  renderHub();
-  if(currentScreenId==='dinero') renderDineroContent();
+    renderHub();
+    if(currentScreenId==='dinero') renderDineroContent();
+    await postCobroCliente(cli,r,turnoId);
+    if(!esDeuda&&sucursalSinRecepcion(profile)) setTimeout(()=>abrirCierreCobro('t:'+profile.id+':'+turnoId),400);
+  } finally { guardandoCobro=false; }
 }
 
 function guardarVentaProducto(){
@@ -3568,7 +4372,8 @@ function renderTrabajo(wrap){
   const turnos=(dineroData.turnos||[]).filter(t=>enElMes(t.fecha));
   const fact=turnos.reduce((s,t)=>s+num(t.monto),0);
   const reelsQ=reels.filter(r=>r.stage==='publicado'&&r.asignado===profile.name&&r.fecha&&enElMes(r.fecha)).length;
-  const {comision,pct,esOro,tramo}=calcComision(fact,reelsQ);
+  let {comision,pct,esOro,tramo}=calcComision(fact,reelsQ);
+  comision=comisionConFijas(turnos,fact,pct);
   const tr=esOro?TRAMO_ORO:tramo;
   const nextT=!esOro&&tramo.max!==Infinity?TRAMOS[TRAMOS.indexOf(tramo)+1]:null;
   const progressPct=nextT?Math.min(100,(fact/nextT.min)*100):fact>=1200000?Math.min(100,(reelsQ/3)*100):100;
@@ -3581,7 +4386,7 @@ function renderTrabajo(wrap){
   const sortedVentas=[...ventas].sort(porReciente);
 
   // Cobrado por medio de pago (cortes + productos)
-  const porMedio=(m)=>turnos.filter(t=>t.medio===m).reduce((s,t)=>s+num(t.monto),0)+ventas.filter(v=>v.medio===m).reduce((s,v)=>s+num(v.total),0);
+  const porMedio=(m)=>turnos.filter(t=>t.medio===m).reduce((s,t)=>s+num(t.aCobrar!=null?t.aCobrar:t.monto),0)+ventas.filter(v=>v.medio===m).reduce((s,v)=>s+num(v.total),0);
   const efect=porMedio('efectivo'), mp=porMedio('mp'), tarjeta=porMedio('tarjeta');
 
   // Deudores: no suman a la facturacion
@@ -3641,7 +4446,7 @@ function renderTrabajo(wrap){
   const rowDeudor=(d)=>`<div class="turno-item" style="border-color:rgba(244,114,182,.25);cursor:default;${d.saldado?'opacity:.7':''}">
         <div class="ti-dot" style="background:${d.anulada?'var(--muted)':(d.saldado?'#34d399':'#f472b6')}"></div>
         <div class="ti-info"><strong>${escH(d.cliente)}</strong><span>${escH(d.servicio||d.motivo||'')}${d.servicio&&d.motivo?' · '+escH(d.motivo):''} · servicio del ${fechaCorta(d.fecha)}${d.saldado?'':' · hace '+diasDesdeStr(d.fecha)+' d'}</span></div>
-        <div style="text-align:right"><div class="ti-monto" style="color:${d.anulada?'var(--muted2)':(d.saldado?'#34d399':'#f472b6')}">${fp(num(d.monto))}</div>${d.saldado?`<div style="font-size:10px;color:${d.anulada?'var(--muted2)':'#34d399'};font-weight:700">${d.anulada?'Anulada':'Cobrado '+fechaCorta(d.fechaPago||d.fecha)+' ✓'}</div>`:`<div style="font-size:10px;color:var(--muted2);font-weight:700;max-width:90px;line-height:1.3">La cobra recepción</div>`}</div>
+        <div style="text-align:right"><div class="ti-monto" style="color:${d.anulada?'var(--muted2)':(d.saldado?'#34d399':'#f472b6')}">${fp(num(d.monto))}</div>${d.saldado?`<div style="font-size:10px;color:${d.anulada?'var(--muted2)':'#34d399'};font-weight:700">${d.anulada?'Anulada':'Cobrado '+fechaCorta(d.fechaPago||d.fecha)+' ✓'}</div>`:(sucursalSinRecepcion(profile)?`<button onclick="abrirCobroDeuda('${profile.id}','${d.id}')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:10px;font-weight:700;cursor:pointer;text-decoration:underline">Ya pagó</button>`:`<div style="font-size:10px;color:var(--muted2);font-weight:700;max-width:90px;line-height:1.3">La cobra recepción</div>`)}</div>
       </div>`;
 
   const periodoNav=`
@@ -4239,8 +5044,8 @@ function toggleStory(dateStr, tipoId, esHoy){
 
   // Award points if done and today
   if(nuevoDone && esHoy==='true'){
-    addPuntos(profile.id,'story',5,'Story: '+STORY_TIPOS.find(t=>t.id===tipoId)?.label,'story:'+dateStr+':'+profile.id+':'+tipoId);
-    showToast('+5 puntos ⭐');
+    addPuntos(profile.id,'story',ptsDe('story',5),'Story: '+STORY_TIPOS.find(t=>t.id===tipoId)?.label,'story:'+dateStr+':'+profile.id+':'+tipoId);
+    showToast('+'+ptsDe('story',5)+' puntos ⭐');
     // Check if all 4 done today → bonus week check happens server-side
   }
   renderStories();
@@ -4250,7 +5055,7 @@ function toggleTarea(tareaId){
   const hoy=ymdLocal(new Date());
   if(!tareasData[hoy]) tareasData[hoy]={};
   const current=tareasData[hoy][tareaId]||{done:false};
-  tareasData[hoy][tareaId]={done:!current.done, ts:new Date().toISOString()};
+  tareasData[hoy][tareaId]={done:!current.done, ts:new Date().toISOString(), por:profile.name};
   saveTareasData();
   renderRecepcion();
 }
@@ -4425,6 +5230,7 @@ const ADMIN_SECCIONES=[
   {id:'equipo',ico:'👥',label:'Equipo',subs:[['estado','Estado'],['sucursales','Sucursales'],['stories','Stories'],['puntos','Puntos']]},
   {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Productos y stock']]},
   {id:'contenido',ico:'📝',label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
+  {id:'clientes',ico:'🧑‍🤝‍🧑',label:'Clientes',subs:[['directorio','Clientes'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas'],['descuentos','Descuentos']]},
   {id:'recepcion',ico:'📞',label:'Recepción'},
 ];
 window.adminSub={};
@@ -4446,7 +5252,8 @@ function renderAdmin(){
   else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='sucursales') renderAdminSucursales(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
-  else if(tab==='recepcion') renderAdminCumpleanos(c);
+  else if(tab==='clientes') renderAdminClientes(c,sub);
+  else if(tab==='recepcion') renderAdminRecepcion(c);
   body.scrollTop=st;
 }
 
@@ -4652,7 +5459,7 @@ function panelResumen(D,pctMap,desde,hasta,profF){
   const r={T,V};
   r.fact=T.reduce((s,t)=>s+numV(t.monto),0);
   r.nT=T.length;
-  r.comEq=T.reduce((s,t)=>s+numV(t.monto)*(pctMap[t.prof.id+'|'+quincenaKey(t.fecha)]||0)/100,0);
+  r.comEq=T.reduce((s,t)=>s+comTurno(t,pctMap[t.prof.id+'|'+quincenaKey(t.fecha)]||0),0);
   r.quedaCortes=r.fact-r.comEq;
   r.ticket=r.nT?r.fact/r.nT:0;
   r.prodVendido=V.reduce((s,v)=>s+numV(v.total),0);
@@ -4788,7 +5595,7 @@ function renderAdminPanel(c){
   const rank=equipo.map(p=>{
     const ts=cur.T.filter(t=>t.prof.id===p.id);
     const fact=ts.reduce((s,t)=>s+numV(t.monto),0);
-    const com=ts.reduce((s,t)=>s+numV(t.monto)*(pctMap[p.id+'|'+quincenaKey(t.fecha)]||0)/100,0);
+    const com=ts.reduce((s,t)=>s+comTurno(t,pctMap[p.id+'|'+quincenaKey(t.fecha)]||0),0);
     return {p,fact,com,n:ts.length};
   }).sort((a,b)=>b.fact-a.fact);
   const rankMax=Math.max(1,...rank.map(x=>x.fact));
@@ -4914,10 +5721,7 @@ function renderAdminPanel(c){
       <div class="bars">${horas.slice(hMin,hMax+1).map((n,i)=>`<div class="bcol" data-tip="${hMin+i}:00 hs — ${n} turnos"><div class="bfill" style="height:${n/hMaxV*100}%;background:${COL.cortes}"></div><span>${hMin+i}</span></div>`).join('')}</div>
       <div style="font-size:11px;color:var(--muted2);margin:12px 0 6px">Por día de la semana</div>
       <div class="bars">${[1,2,3,4,5,6,0].map(dn=>`<div class="bcol" data-tip="${DIAS_SEM[dn]} — ${sem[dn]} turnos"><div class="bfill" style="height:${sem[dn]/sMaxV*100}%;background:${COL.prod}"></div><span>${DIAS_SEM[dn]}</span></div>`).join('')}</div>`)}
-    ${pnl('c6','Descuentos otorgados',cur.descTotal?`<div style="display:flex;gap:10px;margin-bottom:10px">
-        <div class="mini" style="flex:1"><div class="kl">💵 Por efectivo</div><div class="mv" style="color:${COL.oro}">${fp(sEf)}</div><div class="ks"><span>${dEf.length} turnos</span></div></div>
-        <div class="mini" style="flex:1"><div class="kl">🏷️ Por ofertas</div><div class="mv" style="color:${COL.oro}">${fp(sOf)}</div><div class="ks"><span>${dOf.length} turnos</span></div></div></div>
-      ${Object.entries(porOferta).sort((a,b)=>b[1].m-a[1].m).map(([n,x])=>hbar(escH(n),fp(x.m),x.m/sOf*100,COL.oro,{sub:x.n+' veces'})).join('')}`:vacio('No se dieron descuentos en el período'))}
+    ${pnl('c6','📉 Plata que dejamos en descuentos',htmlPerdidaDescuentos(rango.desde,rango.hasta,P.prof).html)}
 
     ${pnl('c6','Equipo hoy',`<table class="adm-tbl"><tr><th>Quién</th><th>Turnos</th><th>Facturó</th><th>Stories</th><th>Rep.</th></tr>${equipo.map(p=>{
         const th=D.turnos.filter(t=>t.prof.id===p.id&&t.fecha===hoy);
@@ -5311,12 +6115,6 @@ async function borrarProducto(id){
 
 function renderAdminCumpleanos(body){
   body=body||document.getElementById('admin-body');
-  body.innerHTML+=`
-    <div class="sec-hdr" style="margin:16px 0 10px"><span class="sec-title">📋 Tareas del día (recepción)</span><button onclick="editarTareasRecepcion()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar →</button></div>
-    <div class="card" style="margin-bottom:8px">
-      ${tareasRecepcion.map(t=>`<div style="font-size:12px;padding:4px 0">${t.emoji} ${t.label}</div>`).join('')}
-    </div>
-  `;
   // Admin can load cumpleanos for recepcionista
   const recUsers=allUsers.filter(u=>u.role==='recepcionista');
   if(!recUsers.length) return;
@@ -5334,41 +6132,29 @@ function renderAdminCumpleanos(body){
     </div>`).join('')||'<div style="font-size:13px;color:var(--muted);text-align:center;padding:12px">Sin cumpleaños cargados</div>'}`;
 }
 
-async function editarTareasRecepcion(){
-  const actuales = tareasRecepcion.map(t=>t.label).join('\n');
-  const nuevo = await uiPrompt('Tareas del día de recepción',{msg:'Escribí una tarea por línea.',type:'textarea',value:actuales,ok:'Guardar'});
-  if(nuevo===null) return;
-  const labels = nuevo.split('\n').map(l=>l.trim()).filter(Boolean);
-  if(!labels.length){ showToast('Necesitás al menos una tarea'); return; }
-  tareasRecepcion = labels.map((label,i)=>({id:'t'+i, emoji:'✅', label}));
-  saveTareasRecepcion();
-  showToast('Tareas actualizadas ✓');
-  renderAdmin();
+function leerRecLocal(id){ try{ return JSON.parse(localStorage.getItem('luffy_rec_'+id)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); }catch(e){ return {reagendamientos:0,cumpleanos:[],incidentes:[]}; } }
+async function cambiarCumples(fn){
+  for(const u of allUsers.filter(x=>x.role==='recepcionista')){
+    let recD=leerRecLocal(u.id);
+    if(DB){ try{ const r=await DB.doc('luffy/rec_'+u.id).get(); if(r) recD=r; }catch(e){} }
+    if(!recD.cumpleanos) recD.cumpleanos=[];
+    fn(recD);
+    try{ localStorage.setItem('luffy_rec_'+u.id,JSON.stringify(recD)); }catch(e){}
+    if(DB){ try{ await DB.doc('luffy/rec_'+u.id).set(recD); }catch(e){} }
+  }
 }
-
-async function agregarCumple(recId){
-  const v=await uiDialog({title:'Agregar cumpleaños',fields:[{label:'Nombre del cliente',placeholder:'Nombre'},{label:'Fecha (MM-DD)',value:'01-15',placeholder:'MM-DD'},{label:'Teléfono (opcional)',type:'tel'}],ok:'Agregar'});
+async function agregarCumple(){
+  const v=await uiDialog({title:'Agregar cumpleaños',msg:'Lo ven todas las recepcionistas.',fields:[{label:'Nombre del cliente',placeholder:'Nombre'},{label:'Fecha (MM-DD)',value:'01-15',placeholder:'MM-DD'},{label:'Teléfono (opcional)',type:'tel'}],ok:'Agregar'});
   if(!v) return;
   const nombre=(v[0]||'').trim(), fecha=(v[1]||'').trim(), telefono=(v[2]||'').trim();
   if(!nombre||!fecha){ showToast('Faltan el nombre o la fecha'); return; }
-  let recD={reagendamientos:0,cumpleanos:[],incidentes:[]};
-  try { recD=JSON.parse(localStorage.getItem('luffy_rec_'+recId)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){}
-  if(!recD.cumpleanos) recD.cumpleanos=[];
-  recD.cumpleanos.push({id:Date.now().toString(),nombre,fecha,telefono:telefono||'',contactado:false});
-  localStorage.setItem('luffy_rec_'+recId,JSON.stringify(recD));
-  if(DB){ try{ DB.doc('luffy/rec_'+recId).set(recD); }catch(e){} }
-  showToast('Cumpleaños agregado ✓');
-  renderAdmin();
+  const id=Date.now().toString();
+  await cambiarCumples(r=>{ r.cumpleanos.push({id,nombre,fecha,telefono:telefono||'',contactado:false}); });
+  showToast('Cumpleaños agregado ✓'); renderAdmin();
 }
-
-function borrarCumple(recId,id){
-  let recD={reagendamientos:0,cumpleanos:[],incidentes:[]};
-  try { recD=JSON.parse(localStorage.getItem('luffy_rec_'+recId)||'{"reagendamientos":0,"cumpleanos":[],"incidentes":[]}'); } catch(e){}
-  recD.cumpleanos=(recD.cumpleanos||[]).filter(c=>c.id!==id);
-  localStorage.setItem('luffy_rec_'+recId,JSON.stringify(recD));
-  if(DB){ try{ DB.doc('luffy/rec_'+recId).set(recD); }catch(e){} }
-  showToast('Eliminado ✓');
-  renderAdmin();
+async function borrarCumple(recId,id){
+  await cambiarCumples(r=>{ r.cumpleanos=r.cumpleanos.filter(c=>c.id!==id); });
+  showToast('Eliminado ✓'); renderAdmin();
 }
 
 function renderAdminPuntos(body){
@@ -5394,7 +6180,7 @@ function renderAdminPuntos(body){
     </div>
   </div>`).join('');
 
-  body.innerHTML += `
+  body.innerHTML += htmlAdminReglasPuntos()+`
     <div class="sec-title" style="margin-bottom:12px">🏆 Ranking</div>
     ${rankHtml}
     <div class="sec-hdr" style="margin:16px 0 12px"><span class="sec-title">Dar/quitar puntos</span></div>
@@ -5404,7 +6190,7 @@ function renderAdminPuntos(body){
         <div style="flex:1"><strong style="font-size:13px">${p.name}</strong><div style="font-size:11px;color:var(--muted2)">⭐${getPuntos(p.id).total||0} puntos</div></div>
       </div>
       <div style="display:flex;gap:6px;flex-wrap:wrap">
-        ${PUNTOS_CONFIG.filter(c=>!c.auto).map(c=>`<button onclick="adminDarPuntos('${p.id}','${c.id}',${c.pts},'${c.label}')" style="padding:6px 10px;border-radius:8px;border:1.5px solid rgba(52,211,153,.3);background:rgba(52,211,153,.1);color:#34d399;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">${c.emoji}+${c.pts}</button>`).join('')}
+        ${puntosAcciones().filter(c=>!c.auto).map(c=>`<button onclick="adminDarPuntos('${p.id}','${c.id}',${c.pts},'${escH(c.label)}')" style="padding:6px 10px;border-radius:8px;border:1.5px solid rgba(52,211,153,.3);background:rgba(52,211,153,.1);color:#34d399;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">${c.emoji}+${c.pts}</button>`).join('')}
         <button onclick="adminPuntosNegativos('${p.id}')" style="padding:6px 10px;border-radius:8px;border:1.5px solid rgba(244,114,182,.3);background:rgba(244,114,182,.1);color:#f472b6;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">⚠️ Neg</button>
       </div>
     </div>`).join('')}
@@ -5591,6 +6377,7 @@ function minutosDesde(iso){
 }
 
 function renderRecepcion(){
+  if(document.activeElement&&document.activeElement.id==='rec-busq') return; // no interrumpir mientras escribe en el buscador
   const h=new Date().getHours();
   const gr=h<12?'Buenos días 📞':h<20?'Buenas tardes 📞':'Buenas noches 📞';
   document.getElementById('rec-greeting').textContent=gr;
@@ -5624,6 +6411,7 @@ function renderRecepcion(){
   const avisos=getAvisosPendientes().filter(a=>!a.leido);
   const body=document.getElementById('rec-body');
   body.innerHTML=`
+    ${htmlTableroRec()}
     <!-- Avisos de cobro -->
     ${avisos.length?`
     <div class="sec-hdr" style="margin-top:16px;margin-bottom:8px">
@@ -5636,12 +6424,12 @@ function renderRecepcion(){
       const sucId=(t||v).sucursal||a.prof.sucursal||null, sucCol=(sucursalDe(sucId)||{}).color||'var(--border2)';
       const cliNum=t&&t.clienteNumero?' <span style="color:var(--muted2);font-weight:700">#'+t.clienteNumero+'</span>':'';
       const extrasTotal=(a.extras||[]).reduce((s,e)=>s+(e.total||0),0);
-      const total=(t?t.monto:v.total)+extrasTotal;
+      const total=(t?(t.aCobrar!=null?t.aCobrar:t.monto):v.total)+extrasTotal;
       const medio=t?({efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'}[t.medio]||t.medio):'';
       const rr=(x,y,st='')=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:2px 0;${st}"><span>${x}</span><span style="white-space:nowrap">${y}</span></div>`;
       const detalle=t?(
         (t.servicios&&t.servicios.length?t.servicios.map(s=>rr(nomSvc(s),fp(s.precio))).join(''):rr(t.servicio||'Servicio',fp(t.monto)))
-        +(t.descuento>0?rr(t.descuentoTipo==='oferta'?`🏷️ Oferta ${t.oferta?t.oferta.nombre:''} (−${t.oferta?t.oferta.pct:''}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(t.descuento),'color:#34d399'):'')
+        +(t.descDetalle&&t.descDetalle.length?t.descDetalle.map(d=>rr(escH(d.label)+' (−'+d.pct+'%)','−'+fp(d.monto),'color:#34d399')).join(''):(t.descuento>0?rr(t.descuentoTipo==='oferta'?`🏷️ Oferta ${t.oferta?t.oferta.nombre:''} (−${t.oferta?t.oferta.pct:''}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(t.descuento),'color:#34d399'):''))+(t.prepago>0?rr('✓ Ya pagado (membresía/paquete)','−'+fp(t.prepago),'color:#7c6fff'):'')
       ):rr(`${v.productoNombre} x${v.cantidad}`,fp(v.total));
       return `<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.35);border-left:5px solid ${sucCol};background:rgba(251,191,36,.06)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
@@ -5662,19 +6450,9 @@ function renderRecepcion(){
 
     ${htmlDeudasRecepcion()}
 
-    <!-- Tareas del día -->
-    <div class="sec-hdr" style="margin-top:16px;margin-bottom:8px">
-      <span class="sec-title">📋 Tareas de hoy (${tareasHoy}/${tareasRecepcion.length})</span>
-    </div>
-    <div class="card" style="margin-bottom:10px">
-      ${tareasRecepcion.map(t=>{
-        const done=!!tareasData?.[hoy]?.[t.id]?.done;
-        return `<div onclick="toggleTarea('${t.id}')" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
-          <div style="width:22px;height:22px;border-radius:7px;border:2px solid ${done?'#34d399':'var(--border2)'};background:${done?'#34d399':'transparent'};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0">${done?'✓':''}</div>
-          <div style="flex:1;font-size:13px;${done?'color:var(--muted2);text-decoration:line-through':''}">${t.emoji} ${t.label}</div>
-        </div>`;
-      }).join('')}
-    </div>
+    ${htmlTareasRec()}
+    ${htmlClientesRec()}
+    ${htmlReactivar()}
 
     <!-- Venta de productos -->
     <div class="sec-hdr" style="margin-bottom:8px">
@@ -5686,8 +6464,7 @@ function renderRecepcion(){
       <div class="stat-card"><div class="sc-lbl">Tu comisión (quincena)</div><div class="sc-val" style="font-size:19px;color:#7c6fff">${fp(sumaV(ventasQuinRec,'comision'))}</div><div class="sc-sub">${fp(sumaV(ventasQuinRec,'total'))} vendidos</div></div>
     </div>
     ${ventasHoyRec.slice(0,3).map(v=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:#7c6fff"></div><div class="ti-info"><strong>${v.productoNombre}</strong><span>x${v.cantidad}${v.cliente?' · '+v.cliente:''}${v.creadoEn?' · '+new Date(v.creadoEn).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):''}</span></div><div style="text-align:right"><div class="ti-monto">${fp(v.total)}</div><div class="ti-medio" style="background:#7c6fff22;color:#7c6fff">+${fp(v.comision)}</div></div></div>`).join('')}
-    <div class="card" style="margin:8px 0;display:flex;align-items:center;gap:12px"><div style="font-size:24px">🔁</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Reagendaron hoy</div><div style="font-size:11px;color:var(--muted2)">De los turnos que cerraste</div></div><div style="font-size:22px;font-weight:900">${cierresHoyRec.filter(c=>c.r.reagendo==='si').length}<span style="font-size:13px;color:var(--muted)"> / ${cierresHoyRec.length}</span></div></div>
-    <div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;opacity:.75"><div style="font-size:24px">🎁</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Paquetes</div><div style="font-size:11px;color:var(--muted2)">Muy pronto vas a poder venderlos desde acá</div></div></div>
+    <div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px"><div style="font-size:24px">🎁</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Paquetes y membresías</div><div style="font-size:11px;color:var(--muted2)">Se venden desde la ficha de cada cliente (buscalo arriba)</div></div></div>
     <div style="height:10px"></div>
 
     <!-- Stories: hoy y mañana -->
@@ -5751,6 +6528,7 @@ function renderRecepcion(){
 
     <button onclick="showLogin()" class="btn btn-ghost" style="margin-top:16px">Salir</button>
   `;
+  recRenderBusqueda();
 }
 
 function goToRec(dest){
@@ -5770,10 +6548,10 @@ function marcarCumple(id){
   const c=(recData.cumpleanos||[]).find(x=>x.id===id);
   if(!c) return;
   c.contactado=!c.contactado;
-  if(c.contactado) addPuntos(profile.id,'cumple',20,'Cumpleaños contactado','cumple:'+c.id+':'+new Date().getFullYear());
+  if(c.contactado) addPuntos(profile.id,'cumple',ptsDe('cumple',20),'Cumpleaños contactado','cumple:'+c.id+':'+new Date().getFullYear());
   saveRecData();
   renderRecepcion();
-  if(c.contactado) showToast('+20 puntos ⭐');
+  if(c.contactado) showToast('+'+ptsDe('cumple',20)+' puntos ⭐');
 }
 
 async function reportarIncidente(profId, profName){
@@ -5988,7 +6766,7 @@ const FIDELIZACION_RUBRO={
   'manos':'¿Le contaste que el mantenimiento es cada 15 o 20 días y le ofreciste el próximo turno?',
 };
 const FIDELIZACION_DEFAULT='¿Le contaste los beneficios de seguir viniendo?';
-const PUNTOS_REAGENDO=30, PUNTOS_RESENA=5;
+const ptsReag=()=>ptsDe('reagendamiento',30), ptsResena=()=>ptsDe('resena',5);
 
 let cierresData={byKey:{}};
 function loadCierres(){
@@ -6025,9 +6803,9 @@ function preguntasCierre(a){
   return [
     {id:'agendado',ico:'📅',q:'¿Está agendado para su próximo turno?'},
     {id:'fideliza',ico:'💬',q:FIDELIZACION_RUBRO[rb[0]]||FIDELIZACION_DEFAULT},
-    {id:'reagendo',ico:'🔁',q:'¿Reagendó el cliente?',nota:'Suma +'+PUNTOS_REAGENDO+' puntos ⭐'},
+    {id:'reagendo',ico:'🔁',q:'¿Reagendó el cliente?',nota:'Suma +'+ptsReag()+' puntos ⭐'},
     {id:'sena',ico:'💵',q:'¿Dejó seña?'},
-    {id:'resena',ico:'⭐',q:'¿Dejó una reseña en Google?',nota:'Suma +'+PUNTOS_RESENA+' puntos ⭐'},
+    {id:'resena',ico:'⭐',q:'¿Dejó una reseña en Google?',nota:'Suma +'+ptsResena()+' puntos ⭐'},
   ];
 }
 
@@ -6043,7 +6821,7 @@ function renderCierre(){
   const s=cierreSel; if(!s) return;
   const a=getAvisosPendientes().find(x=>x.key===s.key); if(!a){ closeModal('modal-registro'); return; }
   const t=a.turno, extras=a.extras||[];
-  const total=numV(t.monto)+extras.reduce((x,e)=>x+numV(e.total),0);
+  const total=numV(t.aCobrar!=null?t.aCobrar:t.monto)+extras.reduce((x,e)=>x+numV(e.total),0);
   const medio=({efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'}[t.medio]||t.medio||'');
   const pregs=preguntasCierre(a);
   const listos=pregs.every(p=>s.r[p.id]);
@@ -6073,16 +6851,16 @@ async function guardarCierreCobro(){
   const t=a.turno, extras=a.extras||[];
   const reg={key:s.key, fecha:hoyStr(), ts:new Date().toISOString(), por:profile.name, porId:profile.id,
     cliente:t.cliente||'Cliente', prof:a.prof.name, profId:a.prof.id, rubro:rubrosDelTurno(a).join(','),
-    monto:numV(t.monto)+extras.reduce((x,e)=>x+numV(e.total),0), r:{...s.r}, senaMonto:s.r.sena==='si'?(parseFloat(s.senaMonto)||0):0};
+    monto:numV(t.aCobrar!=null?t.aCobrar:t.monto)+extras.reduce((x,e)=>x+numV(e.total),0), turnoTs:t.creadoEn, sucursal:t.sucursal||a.prof.sucursal||null, r:{...s.r}, senaMonto:s.r.sena==='si'?(parseFloat(s.senaMonto)||0):0};
   await guardarCierreRemoto(reg);
   let pts=0;
-  if(s.r.reagendo==='si'){ addPuntos(profile.id,'reagendamiento',PUNTOS_REAGENDO,'Reagendamiento: '+reg.cliente,'reag:'+s.key); pts+=PUNTOS_REAGENDO; }
-  if(s.r.resena==='si'){ addPuntos(profile.id,'resena',PUNTOS_RESENA,'Reseña en Google: '+reg.cliente,'resena:'+s.key); pts+=PUNTOS_RESENA; }
+  if(s.r.reagendo==='si'){ addPuntos(profile.id,'reagendamiento',ptsReag(),'Reagendamiento: '+reg.cliente,'reag:'+s.key); pts+=ptsReag(); }
+  if(s.r.resena==='si'){ addPuntos(profile.id,'resena',ptsResena(),'Reseña en Google: '+reg.cliente,'resena:'+s.key); pts+=ptsResena(); }
   if(!avisosLeidos.includes(s.key)) avisosLeidos.push(s.key);
   saveAvisosLeidos();
   cierreSel=null; closeModal('modal-registro');
   showToast('Turno cerrado ✓'+(pts?' +'+pts+' puntos ⭐':''));
-  renderRecepcion();
+  if(profile.role==='recepcionista') renderRecepcion(); else refreshCurrentView();
 }
 
 // ---------- panel del admin: como viene el cierre de turnos ----------

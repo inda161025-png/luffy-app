@@ -15,7 +15,7 @@ drop policy if exists "tmp migracion roles select" on public.luffy_roles;
 -- 2) Quien puede LEER cada documento.
 --    - Sin rol aprobado: nada.   - Admin: todo.
 --    - dinero_<id>: su dueño y recepcion (necesita ver los cobros y las deudas).
---    - yo_/perfil_/horario_/rec_/clientes_<id>: solo su dueño (y el admin).
+--    - yo_/perfil_/horario_/rec_<id>: solo su dueño (y el admin).
 --    - todo lo demas (reels, puntos, catalogo, stock...): cualquier persona con rol.
 create or replace function public.luffy_puede_leer(k text)
 returns boolean language sql stable security definer set search_path = public as $$
@@ -27,13 +27,12 @@ returns boolean language sql stable security definer set search_path = public as
     when starts_with(k, 'luffy/perfil_')  then k = 'luffy/perfil_'  || public.luffy_app_id()
     when starts_with(k, 'luffy/horario_') then k = 'luffy/horario_' || public.luffy_app_id()
     when starts_with(k, 'luffy/rec_')     then k = 'luffy/rec_'     || public.luffy_app_id()
-    when starts_with(k, 'luffy/clientes_') then k = 'luffy/clientes_' || public.luffy_app_id()
     else true
   end
 $$;
 
 -- 3) Quien puede ESCRIBIR cada documento.
---    - Solo el admin: usuarios, servicios, ofertas, combos, rubros, reglas de reels, horarios de stories, tareas de recepcion, sucursales.
+--    - Solo el admin: usuarios, servicios, ofertas, combos, rubros, reglas de reels, horarios de stories, tareas de recepcion, sucursales, promociones y reglas de puntos.
 --    - dinero_<id>: su dueño y recepcion (cobra deudas).
 --    - yo_/perfil_/horario_/rec_<id>: solo su dueño.
 --    - todo lo demas: cualquier persona con rol.
@@ -47,9 +46,8 @@ returns boolean language sql stable security definer set search_path = public as
     when starts_with(k, 'luffy/perfil_')  then k = 'luffy/perfil_'  || public.luffy_app_id()
     when starts_with(k, 'luffy/horario_') then k = 'luffy/horario_' || public.luffy_app_id()
     when starts_with(k, 'luffy/rec_')     then k = 'luffy/rec_'     || public.luffy_app_id()
-    when starts_with(k, 'luffy/clientes_') then k = 'luffy/clientes_' || public.luffy_app_id()
     when k in ('luffy/users','luffy/servicios','luffy/ofertas','luffy/combos','luffy/rubros',
-               'luffy/reglas_reels','luffy/story_horarios','luffy/tareas_recepcion','luffy/sucursales','luffy/epoca') then false
+               'luffy/reglas_reels','luffy/story_horarios','luffy/tareas_recepcion','luffy/sucursales','luffy/epoca','luffy/promos_cfg','luffy/puntos_reglas') then false
     else true
   end
 $$;
