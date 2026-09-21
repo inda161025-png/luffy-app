@@ -1710,10 +1710,18 @@ function diasHastaCumple(v){
   let s=new Date(n.getFullYear(),m-1,d); if(s<hoy0) s=new Date(n.getFullYear()+1,m-1,d);
   return Math.round((s-hoy0)/864e5);
 }
-function htmlCumpleSel(v){
-  const [m,d]=(v||'').split('-').map(Number);
+function htmlCumpleSel(v,nac){
+  let [m,d]=(v||'').split('-').map(Number), y='';
+  if(nac){ const p=String(nac).split('-').map(Number); y=p[0]; m=p[1]; d=p[2]; }
   const st='background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:12px;color:var(--text);font-family:var(--font);font-size:14px;flex:1';
-  return `<div style="display:flex;gap:8px"><select id="cl-cd" style="${st}"><option value="">Día</option>${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${d===i+1?'selected':''}>${i+1}</option>`).join('')}</select><select id="cl-cm" style="${st}"><option value="">Mes</option>${MESES.map((n,i)=>`<option value="${i+1}" ${m===i+1?'selected':''}>${n}</option>`).join('')}</select></div>`;
+  return `<div style="display:flex;gap:8px"><select id="cl-cd" style="${st}"><option value="">Día</option>${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${d===i+1?'selected':''}>${i+1}</option>`).join('')}</select><select id="cl-cm" style="${st}"><option value="">Mes</option>${MESES.map((n,i)=>`<option value="${i+1}" ${m===i+1?'selected':''}>${n}</option>`).join('')}</select><input id="cl-ca" type="number" inputmode="numeric" placeholder="Año" min="1900" max="${new Date().getFullYear()}" value="${y||''}" style="${st}"/></div>`;
+}
+// Fecha de nacimiento completa (AAAA-MM-DD) o '' si falta algo o no es una fecha real
+function leerNacimientoForm(){
+  const d=Number(document.getElementById('cl-cd')?.value), m=Number(document.getElementById('cl-cm')?.value), y=Number(document.getElementById('cl-ca')?.value);
+  if(!d||!m||!(y>=1900&&y<=new Date().getFullYear())) return '';
+  const t=new Date(y,m-1,d); if(t.getFullYear()!==y||t.getMonth()!==m-1||t.getDate()!==d) return '';
+  return y+'-'+pad2(m)+'-'+pad2(d);
 }
 function leerCumpleForm(){ const d=document.getElementById('cl-cd')?.value, m=document.getElementById('cl-cm')?.value; return d&&m?pad2(m)+'-'+pad2(d):''; }
 // Clientes que cumplen en los proximos dias (o hoy), para recepcion
@@ -1769,7 +1777,7 @@ async function crearCliente(d){
     if(dup) return {error:'dup',existente:dup};
     const numero=list.reduce((m,c)=>Math.max(m,numV(c.numero)),0)+1;
     const ahora=new Date().toISOString();
-    const c={id:'c'+numero+'x'+Date.now().toString(36), numero, nombre, nkey:nkey(nombre), profesion:d.profesion||'', tel:(d.tel||'').trim(), ref:(d.ref||'').trim(), nota:(d.nota||'').trim(), cumple:d.cumple||'',
+    const c={id:'c'+numero+'x'+Date.now().toString(36), numero, nombre, nkey:nkey(nombre), profesion:d.profesion||'', tel:(d.tel||'').trim(), nacimiento:d.nacimiento||'', email:(d.email||'').trim(), ref:(d.ref||'').trim(), nota:(d.nota||'').trim(), cumple:d.cumple||'',
       creadoPor:profile.id, creadoPorNombre:profile.name, profs:profile.role==='profesional'?[profile.id]:[], sucursal:profile.sucursal||null, refPor:d.refPor||null, tarjeta:null, creado:ahora, upd:ahora};
     if(d.tarjeta) c.tarjeta=nuevaTarjetaCliente(d.tarjeta);
     list.push(c);
@@ -1855,7 +1863,7 @@ function abrirClienteDetalle(id){
   const m=typeof membresiaActivaDe==='function'?membresiaActivaDe(c.id):null;
   const paqs=typeof paquetesAbiertosDe==='function'?paquetesAbiertosDe(c.id):[];
   cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="modal-title" style="margin:0">${escH(c.nombre)}${verNumeroCliente()?` <span style="color:var(--muted2)">#${c.numero}</span>`:''}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.7">🏷️ ${escH(c.profesion||'Sin profesión')}${c.cumple?'<br>🎂 '+cumpleTxt(c.cumple)+(diasHastaCumple(c.cumple)===0?' — <b style="color:#fbbf24">¡es hoy!</b>':''):''}${c.tel?'<br>📞 '+escH(c.tel):''}${c.ref?'<br>🔎 '+escH(c.ref):''}${c.nota?'<br>📝 '+escH(c.nota):''}${todos&&s.barberos.length?'<br>✂️ Se atiende con: '+escH(s.barberos.join(', ')):''}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.7">🏷️ ${escH(c.profesion||'Sin profesión')}${c.cumple?'<br>🎂 '+(c.nacimiento?nacTxt(c):cumpleTxt(c.cumple))+(diasHastaCumple(c.cumple)===0?' — <b style="color:#fbbf24">¡es hoy!</b>':''):''}${c.tel?'<br>📞 '+escH(c.tel):''}${c.email?'<br>✉️ '+escH(c.email):''}${c.ref?'<br>🔎 '+escH(c.ref):''}${c.nota?'<br>📝 '+escH(c.nota):''}${todos&&s.barberos.length?'<br>✂️ Se atiende con: '+escH(s.barberos.join(', ')):''}</div>
     ${typeof htmlTarjetaCliente==='function'?htmlTarjetaCliente(c):''}
     ${htmlDeudaCliente(c)}${htmlSenaCliente(c)}
     ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(124,111,255,.4)"><div style="font-size:12px;font-weight:800;color:#7c6fff">💳 Membresía activa</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} cortes · pagó ${fp(m.precio)} el ${fch(m.fecha)}</div></div>`:''}
@@ -1920,7 +1928,7 @@ function abrirFormCliente(id,ctx){
   const enLista=!actual||profs.some(p=>nkey(p)===nkey(actual));
   const conTarjeta=!c&&typeof tarjetasDisponibles==='function'&&tarjetasDisponibles().length;
   const cont=document.getElementById('registro-content');
-  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div class="modal-title" style="margin:0">${c?'Editar cliente':'Cliente nuevo'}</div><button onclick="${ctx&&(ctx.deCobro||ctx.deProducto)?'renderRegistro()':(ctx&&ctx.deSena?'renderFormSena()':`closeModal('modal-registro')`)}" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div class="modal-title" style="margin:0">${c?'Editar cliente':'Cliente nuevo'}</div><button onclick="${ctx&&(ctx.deCobro||ctx.deProducto)?'renderRegistro()':(ctx&&ctx.deSena?'renderFormSena()':(ctx&&ctx.deCierre?'renderCierre()':`closeModal('modal-registro')`))}" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     <input type="hidden" id="cl-id" value="${c?c.id:''}"/>
     <div class="field"><label>Nombre y apellido *</label><input id="cl-nombre" placeholder="Ej: Federico Cruz" value="${v('nombre')}"/></div>
     <div class="field" style="margin-top:8px"><label>Profesión * <span style="color:var(--muted);font-weight:500">(define descuentos como el de fuerzas policiales)</span></label>
@@ -1931,8 +1939,9 @@ function abrirFormCliente(id,ctx){
         <option value="__otra" ${!enLista?'selected':''}>➕ Escribir otra nueva…</option>
       </select>
       <input id="cl-prof-otra" placeholder="Ej: Albañil, Contador…" value="${!enLista?escH(actual):''}" style="margin-top:6px;${enLista?'display:none':''}"/></div>
-    <div class="field" style="margin-top:8px"><label>Teléfono (opcional)</label><input id="cl-tel" type="tel" placeholder="11 2345 6789" value="${v('tel')}"/></div>
-    <div class="field" style="margin-top:8px"><label>🎂 Cumpleaños (opcional, así le podemos saludar)</label>${htmlCumpleSel(c?c.cumple:'')}</div>
+    <div class="field" style="margin-top:8px"><label>Teléfono * <span style="color:var(--muted);font-weight:500">(recepción lo necesita para AgendaPro)</span></label><input id="cl-tel" type="tel" placeholder="11 2345 6789" value="${v('tel')}"/></div>
+    <div class="field" style="margin-top:8px"><label>🎂 Fecha de nacimiento * <span style="color:var(--muted);font-weight:500">(día, mes y año)</span></label>${htmlCumpleSel(c?c.cumple:'',c?c.nacimiento:'')}</div>
+    <div class="field" style="margin-top:8px"><label>✉️ Mail <span style="color:var(--muted);font-weight:500">(opcional: lo pide recepción)</span></label><input id="cl-email" type="email" placeholder="nombre@mail.com" value="${v('email')}"/></div>
     <div class="field" style="margin-top:8px"><label>¿Cómo reconocerlo? (opcional)</label><input id="cl-ref" placeholder="Ej: el de la moto, trabaja en la farmacia" value="${v('ref')}"/></div>
     <div class="field" style="margin-top:8px"><label>Notas (opcional)</label><input id="cl-nota" placeholder="Ej: le gusta el fade bajo" value="${v('nota')}"/></div>
     ${conTarjeta?`<label class="rub-opt" style="margin-top:10px"><input type="checkbox" id="cl-tarjeta" checked onchange="document.getElementById('cl-refpor-w').style.display=this.checked?'':'none'"/> ⭐ Quiere la tarjeta de fidelidad</label>
@@ -1948,21 +1957,27 @@ async function guardarFormCliente(){
   let prof=val('cl-prof'); if(prof==='__otra') prof=val('cl-prof-otra');
   if(!prof){ showToast('Elegí la profesión del cliente'); return; }
   const id=val('cl-id'), ctx=formClienteCtx;
+  const tel=val('cl-tel'); if(tel.replace(/\D/g,'').length<8){ showToast('Poné el teléfono del cliente (con característica)'); return; }
+  const nac=leerNacimientoForm(); if(!nac){ showToast('Poné la fecha de nacimiento completa: día, mes y año'); return; }
+  const email=val('cl-email').toLowerCase(); if(email&&!/^\S+@\S+\.\S+$/.test(email)){ showToast('El mail no parece válido'); return; }
   const dupMsg=(d)=>{ showToast('Ya existe «'+d.nombre+'»'+(d.profesion?' ('+d.profesion+')':'')+'. Usá ese cliente o agregale algo al nombre para distinguirlo'); };
   if(id){
     const r=await cambiarClientes(list=>{
       const c=list.find(x=>x.id===id); if(!c) return {error:'no'};
       const dup=list.find(x=>x.id!==id&&x.nkey===nkey(nombre)); if(dup) return {error:'dup',existente:dup};
-      Object.assign(c,{nombre,nkey:nkey(nombre),profesion:prof,tel:val('cl-tel'),ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),upd:new Date().toISOString()});
+      Object.assign(c,{nombre,nkey:nkey(nombre),profesion:prof,tel,nacimiento:nac,email,ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),upd:new Date().toISOString()});
       return {cliente:c};
     });
     if(r.error==='dup'){ dupMsg(r.existente); return; }
-    showToast('Cliente actualizado ✓'); closeModal('modal-registro'); refreshCurrentView(); return;
+    showToast('Cliente actualizado ✓');
+    if(ctx&&ctx.deCobro){ formClienteCtx=null; renderRegistro(); return; }
+    if(ctx&&ctx.deCierre){ formClienteCtx=null; renderCierre(); refreshCurrentView(); return; }
+    closeModal('modal-registro'); refreshCurrentView(); return;
   }
   let refPor=null; const rn=val('cl-refpor');
   if(rn){ const rc=clientesDir.find(x=>x.nkey===nkey(rn)&&x.tarjeta); if(!rc){ showToast('Quien lo refirió tiene que ser un cliente con tarjeta'); return; } refPor=rc.id; }
   const tarj=document.getElementById('cl-tarjeta')?.checked?tarjetaParaRubros((document.getElementById('cl-tarjeta-sel')||{}).value):null;
-  const r=await crearCliente({nombre,profesion:prof,tel:val('cl-tel'),ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),refPor,tarjeta:tarj});
+  const r=await crearCliente({nombre,profesion:prof,tel,nacimiento:nac,email,ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),refPor,tarjeta:tarj});
   if(r.error==='dup'){
     if(ctx&&ctx.deCobro){ dupMsg(r.existente); return; }
     dupMsg(r.existente); return;
@@ -2314,6 +2329,61 @@ function htmlTarjetaCliente(c){
     <div style="font-size:12px;font-weight:700;position:relative;${inf.regalo?'color:#fbbf24':'opacity:.85'}">${regaloHtml}</div>
     <div style="font-size:11px;opacity:.85;margin-top:6px;position:relative">${inf.regalo?'Próximo corte: 100% bonificado':`Próximo ${un} (n°${inf.k}): ${inf.pasoLabel?'🎁 '+escH(inf.pasoLabel):(inf.pctFid?inf.pctFid+'% de fidelidad':'precio normal')}${inf.pctRef?' + '+inf.pctRef+'% por referido':''}`}</div></div>`;
 }
+
+// ---------- datos del cliente para pasar a AgendaPro ----------
+// El profesional carga nombre y apellido, telefono y fecha de nacimiento; el mail lo pide recepcion (si tiene).
+function nacTxt(c){ if(c.nacimiento){ const [y,m,d]=c.nacimiento.split('-'); return d+'/'+m+'/'+y; } return c.cumple?cumpleTxt(c.cumple)+' (falta el año)':''; }
+function faltanDatosCliente(c){ const f=[]; if(String(c.tel||'').replace(/\D/g,'').length<8) f.push('el teléfono'); if(!c.nacimiento) f.push('la fecha de nacimiento'); return f; }
+function clienteDeTurno(t){ return clienteDe(t.clienteId)||(t.cliente?clientesDir.find(x=>x.nkey===nkey(t.cliente)):null)||null; }
+function copiarDatosCliente(id){
+  const c=clienteDe(id); if(!c) return;
+  copyText('Nombre y apellido: '+c.nombre+'\nTeléfono: '+(c.tel||'')+'\nFecha de nacimiento: '+(c.nacimiento?nacTxt(c):'')+(c.email?'\nMail: '+c.email:''));
+}
+function htmlDatosClienteRec(t,enCierre){
+  const c=clienteDeTurno(t);
+  if(!c) return `<div style="background:rgba(244,114,182,.08);border:1px solid rgba(244,114,182,.3);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:12px;color:#f472b6;font-weight:700">⚠️ Este turno no tiene ficha de cliente: pedile los datos al profesional.</div>`;
+  const rojo=(x)=>`<span style="color:#f472b6;font-weight:700">${x}</span>`;
+  const ctxArg=enCierre?",{deCierre:true}":"";
+  return `<div style="background:var(--s2);border-radius:10px;padding:8px 10px;margin:6px 0;font-size:12px;line-height:1.75">
+    <div style="display:flex;justify-content:space-between;align-items:center;gap:8px"><b style="font-size:11.5px">📋 Datos para AgendaPro</b><button class="lnk" onclick="copiarDatosCliente('${c.id}')">Copiar todo</button></div>
+    👤 ${escH(c.nombre)}<br>📞 ${c.tel?escH(c.tel):rojo('falta el teléfono')}<br>🎂 ${c.nacimiento?nacTxt(c):rojo(c.cumple?'falta el año de nacimiento':'falta la fecha de nacimiento')}<br>✉️ ${c.email?escH(c.email):'<span style="color:var(--muted)">sin mail — pedilo</span>'}
+    <button class="lnk" onclick="abrirFormCliente('${c.id}'${ctxArg})">✏️ ${c.email?'Editar datos':'Agregar mail'}</button></div>`;
+}
+
+// ---------- cobrado en el dia (lo que ya cerro recepcion, o los profesionales de sucursales sin recepcion) ----------
+let recCobDia='hoy';
+function cobradosDelDia(fecha){
+  const cierres=(cierresData&&cierresData.byKey)||{}; const L=[];
+  allUsers.filter(u=>esProf(u)||u.role==='recepcionista').forEach(u=>{
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    normalizarFechas(dd);
+    const ventas=(dd.ventas||[]).filter(v=>v.fecha===fecha&&!v.deudaId); const usadas=new Set();
+    (dd.turnos||[]).filter(t=>t.fecha===fecha).forEach(t=>{
+      const key='t:'+u.id+':'+t.id, c=cierres[key];
+      if(!(c||avisosLeidos.includes(key)||t.deudaId||u.role==='recepcionista')) return; // los que faltan cobrar estan arriba, en "Para cobrar"
+      const ex=ventas.filter(v=>v.turnoId===t.id); ex.forEach(v=>usadas.add(v.id));
+      const desc=(t.descDetalle&&t.descDetalle.length)?t.descDetalle.map(d=>d.label+' −'+d.pct+'%').join(' · '):(numV(t.descuento)>0?'descuento −'+fp(t.descuento):'');
+      L.push({ts:t.creadoEn,suc:t.sucursal||u.sucursal,cliente:t.cliente||'Cliente',num:t.clienteNumero,prof:u.name,detalle:t.servicio||'Servicio',extras:ex.map(v=>v.productoNombre+' x'+v.cantidad),
+        monto:numV(t.aCobrar!=null?t.aCobrar:t.monto)+ex.reduce((a,v)=>a+numV(v.total),0),medio:t.medio,desc,deuda:!!t.deudaId,cierre:c});
+    });
+    ventas.filter(v=>!usadas.has(v.id)).forEach(v=>{
+      if(u.role!=='recepcionista'&&!avisosLeidos.includes('v:'+u.id+':'+v.id)) return;
+      L.push({ts:v.creadoEn,suc:v.sucursal||u.sucursal,cliente:v.cliente||'Venta de mostrador',prof:u.name,detalle:v.productoNombre+' x'+v.cantidad,extras:[],monto:numV(v.total),medio:v.medio,venta:true});
+    });
+  });
+  return L.sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+}
+function htmlCobradosInner(){
+  const hoy=hoyStr(), fecha=recCobDia==='ayer'?addDias(hoy,-1):hoy; const L=cobradosDelDia(fecha); const total=L.reduce((a,x)=>a+x.monto,0);
+  const MED={efectivo:'💵 efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 tarjeta'};
+  const tab=(k,l)=>`<button onclick="recCobDia='${k}';document.getElementById('rec-cob').innerHTML=htmlCobradosInner()" style="${pillStyle(recCobDia===k,'#34d399')}">${l}</button>`;
+  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">✅ Cobrado ${recCobDia==='ayer'?'ayer':'hoy'} (${L.length})</span><span style="font-size:14px;font-weight:900;color:#34d399">${fp(total)}</span></div>
+    <div style="display:flex;gap:6px;margin-bottom:8px">${tab('hoy','Hoy')}${tab('ayer','Ayer')}</div>
+    ${L.length?L.slice(0,40).map(x=>`<div class="card" style="margin-bottom:6px;padding:10px 12px;border-left:5px solid ${(sucursalDe(x.suc)||{}).color||'var(--border2)'}">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-size:13px;font-weight:800;min-width:0">${escH(x.cliente)}${x.num&&verNumeroCliente()?' <span style="color:var(--muted2);font-weight:700">#'+x.num+'</span>':''}</div><div style="font-size:16px;font-weight:900;white-space:nowrap">${fp(x.monto)}</div></div>
+      <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">${horaDeIso(x.ts)} · ${escH(x.detalle)}${x.extras.length?' + '+escH(x.extras.join(', ')):''}<br>${x.venta?'🛍️ Venta':'✂️'} ${escH(x.prof)} · ${MED[x.medio]||escH(x.medio||'')}${x.deuda?' · <b style="color:#fbbf24">pago de deuda</b>':''}${x.desc?' · <span style="color:#34d399">'+escH(x.desc)+'</span>':''}${x.cierre&&x.cierre.por?' · cerró '+escH(x.cierre.por):''}</div></div>`).join(''):'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay cobros registrados</div>'}`;
+}
+function htmlCobradosRec(){ return `<div id="rec-cob">${htmlCobradosInner()}</div>`; }
 
 // ============ RECEPCION / PROFESIONAL: vender membresia ============
 let ventaSel=null;
@@ -5481,7 +5551,7 @@ function pillStyle(sel,color){
 function renderCobroForm(c,back,color){
   const vis=serviciosVisibles();
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="modal-title" style="margin:0">Cobro del turno 💈</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-    <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" autocomplete="off" placeholder="Buscá o escribí el nombre..." value="${escH(cobro.cliente)}" oninput="cobroClienteInput(this.value)"/><div id="cb-cli-sug"></div></div>
+    <div class="field"><label>Cliente * <span style="color:var(--muted);font-weight:500">(nombre y apellido, teléfono y nacimiento: recepción los necesita)</span></label><input id="turno-nombre" type="text" autocomplete="off" placeholder="Buscá o escribí el nombre..." value="${escH(cobro.cliente)}" oninput="cobroClienteInput(this.value)"/><div id="cb-cli-sug"></div></div>
     <div id="cb-suc"></div>
     <div id="cb-prepago"></div>
     <div class="field"><label>¿Qué le hiciste?</label>
@@ -5595,7 +5665,9 @@ async function guardarCobro(){
   for(const l of r.prodLineas){ if(l.cantidad>l.producto.stock){ showToast('No hay stock de '+l.producto.nombre); return; } }
   const rc=resolverClienteCobro(); if(rc.error){ showToast(rc.error); return; }
   const cli=rc.cli;
-  if(cobro.medio==='debe'&&!cli){ showToast('Poné el nombre del cliente para poder cobrarle después'); return; }
+  if(!cli){ showToast(cobro.medio==='debe'?'Poné el nombre del cliente para poder cobrarle después':'Elegí o cargá al cliente: recepción necesita sus datos'); return; }
+  const faltan=faltanDatosCliente(cli);
+  if(faltan.length){ showToast('Completá '+faltan.join(' y ')+' de '+cli.nombre); abrirFormCliente(cli.id,{deCobro:true}); return; }
   guardandoCobro=true;
   try{
     const nombresSvc=r.lineas.map(l=>nomSvc(l)).join(' + ');
@@ -8321,6 +8393,7 @@ function renderRecepcion(){
             <div style="font-size:14px;font-weight:800">Cliente: ${cliente}${cliNum}</div>
           </div>
         </div>
+        ${t?htmlDatosClienteRec(t):''}
         ${detalle}
         ${(a.extras||[]).map(e=>rr(`📦 ${e.productoNombre} x${e.cantidad}`,fp(e.total),'color:var(--muted2)')).join('')}
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;padding-top:6px;border-top:1px solid var(--border2)"><span style="font-size:12px;font-weight:700">COBRAR${medio?' · '+medio:''}</span><span style="font-size:20px;font-weight:900">${fp(total)}</span></div>
@@ -8331,6 +8404,7 @@ function renderRecepcion(){
     ${htmlCajaRec()}
     ${htmlTableroRec()}
     ${htmlMisTurnosRec()}
+    ${htmlCobradosRec()}
 
     ${htmlDeudasRecepcion()}
     ${htmlSenasRec()}
@@ -8682,6 +8756,7 @@ function renderCierre(){
       <div style="margin-bottom:4px">${chipSucursal(t.sucursal||a.prof.sucursal,true)}</div>
       <div style="font-size:15px;font-weight:800">Cliente: ${escH(t.cliente||'Cliente')}${t.clienteNumero?' #'+t.clienteNumero:''}</div>
       <div style="font-size:11.5px;color:var(--muted2);margin-bottom:6px">Profesional: ${escH(a.prof.name)} · ${escH(t.servicio||'')}${extras.length?' + '+extras.map(e=>escH(e.productoNombre)).join(', '):''}</div>
+      ${htmlDatosClienteRec(t,true)}
       <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--border2);padding-top:6px"><span style="font-size:12px;font-weight:700">COBRAR${medio?' · '+medio:''}</span><span style="font-size:22px;font-weight:900">${fp(total)}</span></div>
     </div>
     ${pregs.map((p,i)=>`<div style="margin-bottom:14px">
