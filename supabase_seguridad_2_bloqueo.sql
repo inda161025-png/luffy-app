@@ -22,7 +22,7 @@ returns boolean language sql stable security definer set search_path = public as
   select case
     when public.luffy_role() is null then false
     when public.luffy_role() = 'admin' then true
-    when k = 'luffy/finanzas' then false
+    when k in ('luffy/finanzas','luffy/proveedores') then false
     when starts_with(k, 'luffy/caja_') then public.luffy_role() = 'recepcionista'
     when starts_with(k, 'luffy/dinero_')  then (public.luffy_role() = 'recepcionista' or k = 'luffy/dinero_'  || public.luffy_app_id())
     when starts_with(k, 'luffy/yo_')      then k = 'luffy/yo_'      || public.luffy_app_id()
@@ -50,7 +50,7 @@ returns boolean language sql stable security definer set search_path = public as
     when starts_with(k, 'luffy/rec_')     then k = 'luffy/rec_'     || public.luffy_app_id()
     when starts_with(k, 'luffy/caja_') then public.luffy_role() = 'recepcionista'
     when k in ('luffy/users','luffy/servicios','luffy/ofertas','luffy/combos','luffy/rubros',
-               'luffy/reglas_reels','luffy/story_horarios','luffy/tareas_recepcion','luffy/sucursales','luffy/epoca','luffy/promos_cfg','luffy/puntos_reglas','luffy/finanzas') then false
+               'luffy/reglas_reels','luffy/story_horarios','luffy/tareas_recepcion','luffy/sucursales','luffy/epoca','luffy/promos_cfg','luffy/puntos_reglas','luffy/finanzas','luffy/proveedores','luffy/turnos_rec') then false
     else true
   end
 $$;

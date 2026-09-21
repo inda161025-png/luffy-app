@@ -832,7 +832,7 @@ function persistProductosLocal(){ try{localStorage.setItem('luffy_productos',JSO
 // Suma/resta unidades. Se ve al instante en pantalla y despues se aplica sobre la lista MAS FRESCA de la nube,
 // asi dos personas vendiendo a la vez no se pisan (antes cada una escribia su copia entera).
 function ajustarStock(items){
-  const aplicar=(lista)=>items.forEach(i=>{ const p=lista.find(x=>x.id===i.id); if(p) p.stock=numV(p.stock)+i.delta; });
+  const aplicar=(lista)=>items.forEach(i=>{ const p=lista.find(x=>x.id===i.id); if(p){ p.stock=numV(p.stock)+i.delta; if(i.costo!=null) p.costo=i.costo; } });
   aplicar(productos); persistProductosLocal();
   if(!DB) return;
   const ref=DB.doc('luffy/productos');
@@ -1207,7 +1207,7 @@ async function guardarRubrosDe(id,lista){
 
 // Todo lo que se carga de la nube necesita sesion iniciada
 function cargarCatalogos(){
-  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja();
+  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja(); loadTurnosRec(); loadProveedores();
   if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
 }
 
@@ -2549,18 +2549,15 @@ async function borrarAccionPuntos(id){ if(!await uiConfirm('¿Borrar esta acció
 
 // ============ RECEPCION: turnos de trabajo, tareas por horario y tablero ============
 const hh2=(n)=>String(n).padStart(2,'0');
-// Ventana de trabajo de una recepcionista: sus bloques del dia (o el horario libre viejo, o todo el dia)
+// Ventana de trabajo de una recepcionista: sus bloques de hoy segun el calendario (o los bloques fijos viejos / todo el dia)
 function ventanaRec(u){
   const uu=u||profile; if(!uu) return {desde:'00:00',hasta:'24:00'};
-  const bl=(promos.bloquesRec||[]).filter(b=>(uu.bloquesRec||[]).includes(b.id));
-  if(bl.length){
-    const dw=new Date().getDay(); const hoy=bl.filter(b=>!b.dias||!b.dias.length||b.dias.includes(dw));
-    if(!hoy.length) return {desde:'00:00',hasta:'00:00'};
-    return {desde:hoy.map(b=>b.desde).sort()[0],hasta:hoy.map(b=>b.hasta).sort().slice(-1)[0]};
-  }
+  const bl=bloquesDeUsuarioEn(uu,hoyStr());
+  if(bl.length) return {desde:bl.map(b=>b.desde).sort()[0],hasta:bl.map(b=>b.hasta).sort().slice(-1)[0]};
+  if(hayCalendario()||(uu.bloquesRec||[]).length) return {desde:'00:00',hasta:'00:00'};
   const t=uu.turnoRec; return t&&t.desde&&t.hasta?t:{desde:'00:00',hasta:'24:00'};
 }
-function bloquesDe(u){ return (promos.bloquesRec||[]).filter(b=>((u&&u.bloquesRec)||[]).includes(b.id)); }
+function bloquesDe(u){ return bloquesDeUsuarioEn(u,hoyStr()); }
 function horaDeIso(iso){ const d=new Date(iso); return hh2(d.getHours())+':'+hh2(d.getMinutes()); }
 function enVentana(iso,w){ if(!iso) return false; const h=horaDeIso(iso); return h>=w.desde&&h<w.hasta; }
 function tareasDeRec(u){ const w=ventanaRec(u); return tareasRecepcion.filter(t=>t.desde<w.hasta&&t.hasta>w.desde); }
@@ -2642,9 +2639,9 @@ function htmlTableroRec(){
   const e=estadoRecHoy(); const hoy=hoyStr();
   const ventasHoy=[...membresiasSt.list.filter(m=>m.fecha===hoy&&m.vendedorId===profile.id).map(m=>numV(m.precio)),...paquetesSt.list.filter(p=>p.fecha===hoy&&p.vendedorId===profile.id).map(p=>numV(p.total))];
   const tile=(l,v,sub,c)=>`<div class="stat-card"><div class="sc-lbl">${l}</div><div class="sc-val" style="font-size:22px;${c?'color:'+c:''}">${v}</div><div class="sc-sub">${sub||''}</div></div>`;
-  const w=e.w, franja=(w.desde==='00:00'&&w.hasta==='24:00')?'todo el día':w.desde+' a '+w.hasta;
+  const w=e.w, franja=(w.desde==='00:00'&&w.hasta==='24:00')?'todo el día':(w.desde===w.hasta?'hoy no tenés turno':w.desde+' a '+w.hasta);
   return `<div class="card" style="margin-top:14px;background:linear-gradient(135deg,rgba(96,165,250,.14),rgba(124,111,255,.10));border-color:rgba(96,165,250,.35)">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:14px;font-weight:800">🕐 Tu turno: ${franja}</div>${e.porSuc.map(x=>chipSucursal(x.s.id,true)+`<span style="font-size:11px;font-weight:800;margin-left:-4px">${x.n}</span>`).join(' ')}</div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:14px;font-weight:800">🕐 ${franja==='hoy no tenés turno'?'Hoy no tenés turno':'Tu turno: '+franja}</div>${e.porSuc.map(x=>chipSucursal(x.s.id,true)+`<span style="font-size:11px;font-weight:800;margin-left:-4px">${x.n}</span>`).join(' ')}</div>
     <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12px;font-weight:700">🔁 Reagendaron</span><span style="font-size:22px;font-weight:900;color:#60a5fa">${e.reag} <span style="font-size:13px;color:var(--muted2);font-weight:700">de ${e.total} turnos · ${e.pct}%</span></span></div>
     <div style="height:6px;background:var(--border2);border-radius:3px;margin:8px 0 4px;overflow:hidden"><div style="height:100%;width:${Math.min(100,e.pct)}%;background:#60a5fa;border-radius:3px"></div></div>
     <div style="font-size:10.5px;color:var(--muted2)">Cuenta solo los turnos que se hicieron en tu horario. Cerrados ${e.cerrados} · pendientes de cierre ${e.pendientes}</div></div>
@@ -2664,10 +2661,10 @@ function htmlClientesRec(){
 function renderAdminRecepcion(c){
   const recs=allUsers.filter(u=>u.role==='recepcionista');
   const bloques={}; tareasRecepcion.slice().sort((a,b)=>a.desde.localeCompare(b.desde)).forEach(t=>{ (bloques[t.desde+'–'+t.hasta]=bloques[t.desde+'–'+t.hasta]||[]).push(t); });
-  c.innerHTML=htmlAperturaAdmin()+`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📞 Recepcionistas</span><button class="lnk" onclick="editarBloquesRec()">Editar bloques</button></div>
-    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Cada recepcionista trabaja en uno o más <b style="color:var(--text)">bloques</b> (de 9:00 a 14:30 y de 14:30 a 20:30). Solo ve las tareas de su horario y solo se le cuentan los turnos (y reagendamientos) que se hicieron mientras trabaja. Para sumar otra cuenta, aprobala en Equipo y elegí "Recepcionista".</div>
+  c.innerHTML=htmlAperturaAdmin()+htmlCalendarioAdmin()+`<div class="sec-hdr" style="margin:18px 0 8px"><span class="sec-title">📞 Recepcionistas</span></div>
+    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Cada recepcionista trabaja en los <b style="color:var(--text)">bloques</b> que le asignás en el calendario de arriba. Solo ve las tareas de su horario y solo se le cuentan los turnos (y reagendamientos) que se hicieron mientras trabaja. Para sumar otra cuenta, aprobala en Equipo y elegí "Recepcionista".</div>
     ${recs.map(u=>{ const e=estadoRecHoy(u); const w=ventanaRec(u); return `<div class="prof-card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(u.name)} <span style="font-size:11px;color:var(--muted2);font-weight:600">@${escH(u.username||'')}</span></div>
-      <div style="font-size:12px;color:var(--muted2)">🕐 ${bloquesDe(u).length?bloquesDe(u).map(b=>escH(b.nombre)+' '+b.desde+'–'+b.hasta).join(' + '):(w.desde==='00:00'&&w.hasta==='24:00'?'Sin bloque asignado (todo el día)':w.desde+' a '+w.hasta)}</div></div><button class="lnk" onclick="abrirBloquesUsuario('${u.id}')">Bloques</button></div>
+      <div style="font-size:12px;color:var(--muted2)">🕐 Hoy: ${bloquesDe(u).length?bloquesDe(u).map(b=>escH(b.nombre)+' '+b.desde+'–'+b.hasta).join(' + '):(hayCalendario()||(u.bloquesRec||[]).length?'no trabaja':(w.desde==='00:00'&&w.hasta==='24:00'?'sin turnos asignados (todo el día)':w.desde+' a '+w.hasta))}</div></div></div>
       <div style="font-size:12px;margin-top:8px">Hoy: <b>${e.total}</b> turnos en su horario · reagendaron <b style="color:#60a5fa">${e.reag}</b> (${e.pct}%) · no se les preguntó ${e.sinPreguntar} · no quisieron ${e.noQuiso} · reseñas ${e.resenas}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">📞</div><p>No hay recepcionistas.</p></div>'}
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📋 Tareas por horario</span><button class="lnk" onclick="editarTareasRecepcion()">Editar</button></div>
     ${Object.entries(bloques).map(([r,l])=>`<div class="card" style="margin-bottom:8px"><div style="font-size:12px;font-weight:800;color:#60a5fa;margin-bottom:4px">${r}</div>${l.map(t=>`<div style="font-size:12px;padding:3px 0">${t.emoji||'✅'} ${escH(t.label)}</div>`).join('')}</div>`).join('')}`;
@@ -3215,8 +3212,9 @@ function estadoApertura(){
   return bloquesHoy().map(b=>{
     const limite=restarMin(b.desde,antes);
     const ses=todasSesiones().find(s=>s.fecha===hoy&&s.bloque===b.id);
-    const asignadas=allUsers.filter(u=>u.role==='recepcionista'&&(u.bloquesRec||[]).includes(b.id));
-    return {b,limite,ses,asignadas,pasado:ahora>=limite,fin:ahora>=b.hasta};
+    const asignadas=hayCalendario()?allUsers.filter(u=>u.id===asignadoEn(hoy,b.id)):allUsers.filter(u=>u.role==='recepcionista'&&(u.bloquesRec||[]).includes(b.id));
+    const sinAsignar=hayCalendario()&&!asignadas.length;
+    return {b,limite,ses,asignadas,sinAsignar,pasado:ahora>=limite,fin:ahora>=b.hasta};
   });
 }
 function htmlAperturaAdmin(){
@@ -3225,12 +3223,13 @@ function htmlAperturaAdmin(){
     const q=x.asignadas.length?' · '+escH(x.asignadas.map(u=>u.name).join(', ')):'';
     let ico,txt,col;
     if(x.ses){ ico='🟢'; col='#34d399'; txt=`Abrió a las <b>${horaDeIso(x.ses.apertura.ts)}</b> (${escH(x.ses.recNombre)})${horaDeIso(x.ses.apertura.ts)>x.b.desde?' · tarde':''}`; }
+    else if(x.sinAsignar){ ico='⚪'; col='var(--muted2)'; txt='Nadie asignada en este bloque (mirá el calendario)'; }
     else if(x.fin){ ico='⚫'; col='#94a3b8'; txt='No abrió la caja en este turno'; }
     else if(x.pasado){ ico='🔴'; col='#f472b6'; txt=`<b>Todavía no abrió</b> — tenía que abrir a las ${x.limite} (son las ${horaAhora()})`; }
     else { ico='⚪'; col='var(--muted2)'; txt=`Todavía no es la hora (avisa a las ${x.limite})`; }
     return `<div style="display:flex;gap:8px;align-items:center;font-size:12.5px;padding:3px 0"><span>${ico}</span><span style="flex:1;color:${col}">${escH(x.b.nombre)} ${x.b.desde}–${x.b.hasta}${q}<br><span style="font-size:12px">${txt}</span></span></div>`;
   };
-  const alerta=L.some(x=>!x.ses&&x.pasado&&!x.fin);
+  const alerta=L.some(x=>!x.ses&&x.pasado&&!x.fin&&!x.sinAsignar);
   return `<div class="card" style="margin:10px 0;${alerta?'border-color:rgba(244,114,182,.6);background:rgba(244,114,182,.07)':''}"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">📞 Apertura de recepción (solo lo ves vos)</div>${L.map(fila).join('')}</div>`;
 }
 function cargarCajasAdmin(){ loadCaja(); }
@@ -3293,11 +3292,11 @@ function finCostos(c){
 }
 async function editarConsumible(id){
   const x=id?finData.consumibles.find(z=>z.id===id):null;
-  const v=await uiDialog({title:x?'Editar insumo':'Nuevo insumo',fields:[{label:'Nombre',placeholder:'Ej: Gel de afeitar',value:x?x.nombre:''},{label:'Precio de compra',type:'number',value:x?x.precio:''},{label:'Cuántos servicios rinde',type:'number',value:x?x.rinde:'',placeholder:'Ej: 200'},{label:'Rubros (ids separados por coma, vacío = todos)',value:x?x.rubro:'barberia,barberia-premium'}],ok:'Guardar'});
+  const v=await uiDialog({title:x?'Editar insumo':'Nuevo insumo',fields:[{label:'Nombre',placeholder:'Ej: Gel de afeitar',value:x?x.nombre:''},{label:'Precio de compra (por unidad)',type:'number',value:x?x.precio:''},{label:'Cuántos servicios rinde cada unidad',type:'number',value:x?x.rinde:'',placeholder:'Ej: 200'},{label:'Rubros (ids separados por coma, vacío = todos)',value:x?x.rubro:'barberia,barberia-premium'},{label:'Unidad (bidón, rollo, caja…)',value:x?x.unidad||'unidad':'unidad'},{label:'Unidades en stock',type:'number',value:x?numV(x.stock):0},{label:'Avisarme cuando queden',type:'number',value:x&&x.alerta!=null?x.alerta:2}],ok:'Guardar'});
   if(!v) return; const nombre=v[0].trim(), precio=numV(v[1]), rinde=numV(v[2]);
   if(!nombre||precio<=0||rinde<=0){ showToast('Poné nombre, precio y cuántos servicios rinde'); return; }
   const ahora=new Date().toISOString();
-  await cambiarFin(d=>{ if(!d.consumibles) d.consumibles=[]; const z=id?d.consumibles.find(k=>k.id===id):null; const dato={nombre,precio,rinde,rubro:v[3].trim(),upd:ahora}; if(z) Object.assign(z,dato); else d.consumibles.push({id:'c'+Date.now().toString(36),...dato}); });
+  await cambiarFin(d=>{ if(!d.consumibles) d.consumibles=[]; const z=id?d.consumibles.find(k=>k.id===id):null; const dato={nombre,precio,rinde,rubro:v[3].trim(),unidad:v[4].trim()||'unidad',stock:numV(v[5]),alerta:numV(v[6]),upd:ahora}; if(z) Object.assign(z,dato); else d.consumibles.push({id:'c'+Date.now().toString(36),...dato}); });
   showToast('Guardado ✓'); renderAdmin();
 }
 async function borrarConsumible(id){ if(!await uiConfirm('¿Borrar este insumo?','',{ok:'Borrar'})) return; await cambiarFin(d=>{ d.consumibles=d.consumibles.filter(x=>x.id!==id); d.borrados=[...(d.borrados||[]),id]; }); renderAdmin(); }
@@ -3342,6 +3341,340 @@ function finFlujo(c){
       ${fila('<b>SALDO NETO</b>',neto,TI,'font-weight:800;bold;background:var(--s2)')}
     </tbody></table></div>
     <div style="font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5">Reservas, inversiones y retiros se calculan sobre el resultado de cada mes (solo si es positivo) con los porcentajes de "Costo por servicio". El % de cada gasto es sobre el total de gastos; el de cada ingreso, sobre el total de ingresos.</div>`;
+}
+// ============ CALENDARIO DE TURNOS DE RECEPCION ============
+// El admin arma el calendario: cada dia esta dividido en bloques (mañana / tarde) y en cada bloque va una recepcionista.
+// Se puede fijar para todas las semanas (plantilla por dia de la semana) o cambiar un dia puntual (excepcion).
+// Cada recepcionista ve sus turnos en su pantalla, con un calendario interactivo.
+let turnosRec={plantilla:{},exc:{}};
+let calRec={mes:null,sel:null,ctx:'admin'};
+const PALETA_REC=['#34d399','#60a5fa','#f472b6','#fbbf24','#a78bfa','#fb923c'];
+const dowDe=(f)=>new Date(f+'T00:00:00Z').getUTCDay();
+const diaActivo=(b,f)=>!b.dias||!b.dias.length||b.dias.includes(dowDe(f));
+function persistTurnosRec(){ try{ localStorage.setItem('luffy_turnos_rec',JSON.stringify(turnosRec)); }catch(e){} }
+function loadTurnosRec(){
+  try{ const r=JSON.parse(localStorage.getItem('luffy_turnos_rec')||'null'); if(r) turnosRec={plantilla:{},exc:{},...r}; }catch(e){}
+  if(DB) DB.doc('luffy/turnos_rec').get().then(r=>{ if(r&&JSON.stringify({plantilla:{},exc:{},...r})!==JSON.stringify(turnosRec)){ turnosRec={plantilla:{},exc:{},...r}; persistTurnosRec(); refreshCurrentView(); } }).catch(()=>{});
+}
+function saveTurnosRec(){ persistTurnosRec(); if(DB){ try{ DB.doc('luffy/turnos_rec').set(turnosRec); }catch(e){} } }
+function asignadoEn(f,bid){
+  const e=turnosRec.exc[f]; if(e&&Object.prototype.hasOwnProperty.call(e,bid)) return e[bid]||null;
+  return (turnosRec.plantilla[dowDe(f)]||{})[bid]||null;
+}
+function hayCalendario(){ return Object.values(turnosRec.plantilla).some(o=>Object.values(o).some(Boolean))||Object.values(turnosRec.exc).some(o=>Object.values(o).some(Boolean)); }
+// Bloques que tiene una persona en una fecha (con el calendario; si todavia no hay calendario, los "bloques fijos" viejos)
+function bloquesDeUsuarioEn(u,f){
+  if(!u) return [];
+  const L=(promos.bloquesRec||[]).filter(b=>diaActivo(b,f));
+  return hayCalendario()?L.filter(b=>asignadoEn(f,b.id)===u.id):L.filter(b=>(u.bloquesRec||[]).includes(b.id));
+}
+function colorRec(u){ const L=allUsers.filter(x=>x.role==='recepcionista'); const i=L.findIndex(x=>x.id===u.id); return PALETA_REC[(i<0?0:i)%PALETA_REC.length]; }
+function proximosTurnosDe(u,dias){ const out=[]; const hoy=hoyStr(); for(let i=0;i<dias;i++){ const f=addDias(hoy,i); bloquesDeUsuarioEn(u,f).forEach(b=>out.push({f,b})); } return out; }
+const DIAS_CORTO=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
+const fechaLarga=(f)=>DIAS_LARGO[dowDe(f)]+' '+fechaCortaStr(f);
+
+// ---------- grilla del mes ----------
+function celdasMes(mes){
+  const [y,m]=mes.split('-').map(Number); const n=finMesUTC(y,m); const primero=(new Date(Date.UTC(y,m-1,1)).getUTCDay()+6)%7;
+  const c=[]; for(let i=0;i<primero;i++) c.push(null); for(let d=1;d<=n;d++) c.push(mes+'-'+pad2(d)); while(c.length%7) c.push(null); return c;
+}
+function calNav(d){ const [y,m]=(calRec.mes||hoyStr().slice(0,7)).split('-').map(Number); const n=new Date(Date.UTC(y,m-1+d,1)); calRec.mes=n.getUTCFullYear()+'-'+pad2(n.getUTCMonth()+1); calRec.sel=null; refrescarCal(); }
+function calHoy(){ calRec.mes=hoyStr().slice(0,7); calRec.sel=hoyStr(); refrescarCal(); }
+function calSel(f){ calRec.sel=(calRec.sel===f?null:f); refrescarCal(); }
+function refrescarCal(){ if(calRec.ctx==='rec') renderCalendarioRec(); else renderAdmin(); }
+function htmlGridMes(modo){
+  const mes=calRec.mes||(calRec.mes=hoyStr().slice(0,7)); const hoy=hoyStr(); const [y,m]=mes.split('-').map(Number);
+  const bl=promos.bloquesRec||[]; const yo=profile;
+  const celdas=celdasMes(mes);
+  const head=['Lun','Mar','Mié','Jue','Vie','Sáb','Dom'].map(d=>`<div style="text-align:center;font-size:10px;font-weight:800;color:var(--muted);text-transform:uppercase;padding:4px 0">${d}</div>`).join('');
+  const cel=celdas.map(f=>{
+    if(!f) return '<div></div>';
+    const esHoy=f===hoy, sel=calRec.sel===f;
+    const pills=bl.map(b=>{
+      if(!diaActivo(b,f)) return `<div style="margin-top:3px;height:17px;border-radius:6px;background:var(--s2);opacity:.35"></div>`;
+      const uid=asignadoEn(f,b.id), u=allUsers.find(x=>x.id===uid); const col=u?colorRec(u):null; const mio=modo==='rec'&&yo&&uid===yo.id;
+      const fondo=!u?'transparent':(modo==='rec'&&!mio?col+'18':col+'44');
+      const borde=!u?'1.5px dashed var(--border2)':`1.5px solid ${modo==='rec'&&!mio?col+'55':col}`;
+      const txt=u?escH(u.name.split(' ')[0]):'—';
+      const click=modo==='admin'?`onclick="event.stopPropagation();asignarTurnoRec('${f}','${b.id}')"`:'';
+      return `<div ${click} title="${escH(b.nombre)}" style="margin-top:3px;background:${fondo};border:${borde};color:${u?(mio||modo==='admin'?'var(--text)':'var(--muted2)'):'var(--muted)'};border-radius:6px;font-size:9.5px;font-weight:${mio?900:700};padding:2px 2px;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;${modo==='admin'?'cursor:pointer':''}">${txt}</div>`;
+    }).join('');
+    return `<div onclick="calSel('${f}')" style="cursor:pointer;border:1.5px solid ${sel?'#7c6fff':(esHoy?'#fbbf24':'var(--border)')};background:${sel?'rgba(124,111,255,.10)':'var(--s1)'};border-radius:10px;padding:4px;min-height:${bl.length*20+24}px"><div style="font-size:11px;font-weight:${esHoy?900:700};color:${esHoy?'#fbbf24':'var(--muted2)'}">${Number(f.slice(8))}</div>${pills}</div>`;
+  }).join('');
+  return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button onclick="calNav(-1)" style="background:var(--s2);border:none;color:var(--text);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:16px">‹</button><div style="flex:1;text-align:center;font-size:14px;font-weight:800">${MESES[m-1].charAt(0).toUpperCase()+MESES[m-1].slice(1)} ${y}</div><button onclick="calHoy()" style="background:var(--s2);border:none;color:var(--muted2);padding:0 12px;height:34px;border-radius:17px;cursor:pointer;font-family:var(--font);font-size:11.5px;font-weight:800">Hoy</button><button onclick="calNav(1)" style="background:var(--s2);border:none;color:var(--text);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:16px">›</button></div>
+    <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">${head}${cel}</div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:8px;font-size:10.5px;color:var(--muted2)">${bl.map(b=>`<span>${escH(b.nombre)} ${b.desde}–${b.hasta}</span>`).join(' · ')}</div>`;
+}
+function htmlDetalleDia(f,modo){
+  const bl=(promos.bloquesRec||[]).filter(b=>diaActivo(b,f));
+  const filas=bl.map(b=>{ const u=allUsers.find(x=>x.id===asignadoEn(f,b.id)); const cs=todasSesiones().find(s=>s.fecha===f&&s.bloque===b.id);
+    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="width:10px;height:36px;border-radius:4px;background:${u?colorRec(u):'var(--border2)'}"></div><div style="flex:1"><div style="font-size:13px;font-weight:800">${escH(b.nombre)} · ${b.desde} a ${b.hasta}</div><div style="font-size:12px;color:var(--muted2)">${u?escH(u.name)+(modo==='rec'&&profile&&u.id===profile.id?' (vos)':''):'Sin recepcionista asignada'}${modo==='admin'&&cs?` · abrió la caja a las ${horaDeIso(cs.apertura.ts)}${cs.cierre?' y cerró '+horaDeIso(cs.cierre.ts):''}`:''}</div></div>${modo==='admin'?`<button class="lnk" onclick="asignarTurnoRec('${f}','${b.id}')">Cambiar</button>`:''}</div>`; }).join('');
+  return `<div class="card" style="margin-top:10px"><div style="font-size:13px;font-weight:800;margin-bottom:2px">${fechaLarga(f)}${f===hoyStr()?' · hoy':''}</div>${filas||'<div style="font-size:12px;color:var(--muted)">No hay bloques ese día.</div>'}</div>`;
+}
+function htmlLeyendaRec(){
+  const mes=calRec.mes||hoyStr().slice(0,7); const dias=celdasMes(mes).filter(Boolean); const bl=promos.bloquesRec||[];
+  return `<div style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px">${allUsers.filter(u=>u.role==='recepcionista').map(u=>{ const n=dias.reduce((a,f)=>a+bl.filter(b=>diaActivo(b,f)&&asignadoEn(f,b.id)===u.id).length,0); return `<span style="display:inline-flex;align-items:center;gap:6px;background:${colorRec(u)}22;border:1.5px solid ${colorRec(u)};border-radius:14px;padding:4px 10px;font-size:11.5px;font-weight:800">${escH(u.name)} <span style="color:var(--muted2);font-weight:700">${n} turnos</span></span>`; }).join('')}</div>`;
+}
+
+// ---------- admin: calendario ----------
+function htmlCalendarioAdmin(){
+  calRec.ctx='admin';
+  return `<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🗓 Calendario de turnos de recepción</span><button class="lnk" onclick="editarBloquesRec()">Editar bloques</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Tocá un bloque de cualquier día para elegir quién lo hace. Podés dejarlo <b style="color:var(--text)">fijo todas las semanas</b> o cambiar solo ese día. Cada recepcionista ve sus turnos en su pantalla${hayCalendario()?'':'. <b style="color:#fbbf24">Todavía no cargaste ningún turno</b>: mientras tanto valen los bloques fijos de cada persona'}.</div>
+    ${htmlGridMes('admin')}${htmlLeyendaRec()}${calRec.sel?htmlDetalleDia(calRec.sel,'admin'):''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:10px"><button class="btn btn-ghost" style="flex:1;min-width:140px" onclick="copiarSemanaTurnos()">↻ Repetir una semana en el mes</button><button class="btn btn-ghost" style="flex:1;min-width:140px;color:#f472b6" onclick="limpiarTurnosMes()">Vaciar este mes</button></div>`;
+}
+function asignarTurnoRec(f,bid){
+  const b=(promos.bloquesRec||[]).find(x=>x.id===bid); if(!b) return;
+  const recs=allUsers.filter(u=>u.role==='recepcionista'); const act=asignadoEn(f,bid);
+  window.__asig={f,bid};
+  document.getElementById('registro-content').innerHTML=cabeceraModal(fechaLarga(f))+`<div style="font-size:12.5px;color:var(--muted2);margin-bottom:10px">${escH(b.nombre)} · ${b.desde} a ${b.hasta}</div>
+    <div style="display:flex;flex-direction:column;gap:8px">${recs.map(u=>`<button onclick="confirmarAsignacion('${u.id}')" style="display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:14px;border:2px solid ${act===u.id?colorRec(u):'var(--border2)'};background:${act===u.id?colorRec(u)+'22':'var(--s2)'};color:var(--text);font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer"><span style="width:14px;height:14px;border-radius:50%;background:${colorRec(u)}"></span>${escH(u.name)}${act===u.id?' <span style="margin-left:auto;font-size:11px;color:var(--muted2)">asignada</span>':''}</button>`).join('')||'<div style="font-size:12.5px;color:var(--muted)">No hay recepcionistas. Aprobá una cuenta en Equipo.</div>'}
+      <button onclick="confirmarAsignacion('')" style="padding:12px 14px;border-radius:14px;border:2px dashed var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Sin asignar</button></div>
+    <label class="rub-opt" style="margin-top:12px"><input type="checkbox" id="asig-rep"/> 🔁 Repetir todos los ${DIAS_LARGO[dowDe(f)].toLowerCase()}s</label>`;
+  openModal('modal-registro');
+}
+function migrarLegacyCalendario(){
+  if(hayCalendario()) return;
+  allUsers.filter(u=>u.role==='recepcionista').forEach(u=>(u.bloquesRec||[]).forEach(bid=>{ const b=(promos.bloquesRec||[]).find(x=>x.id===bid); if(!b) return; (b.dias||[0,1,2,3,4,5,6]).forEach(d=>{ turnosRec.plantilla[d]=turnosRec.plantilla[d]||{}; if(!turnosRec.plantilla[d][bid]) turnosRec.plantilla[d][bid]=u.id; }); }));
+}
+function confirmarAsignacion(uid){
+  const {f,bid}=window.__asig||{}; if(!f) return; const rep=document.getElementById('asig-rep')?.checked;
+  migrarLegacyCalendario();
+  if(rep){ const d=dowDe(f); turnosRec.plantilla[d]=turnosRec.plantilla[d]||{}; if(uid) turnosRec.plantilla[d][bid]=uid; else delete turnosRec.plantilla[d][bid]; if(turnosRec.exc[f]) delete turnosRec.exc[f][bid]; }
+  else { turnosRec.exc[f]=turnosRec.exc[f]||{}; turnosRec.exc[f][bid]=uid||''; }
+  saveTurnosRec(); closeModal('modal-registro'); renderAdmin();
+}
+async function copiarSemanaTurnos(){
+  const mes=calRec.mes||hoyStr().slice(0,7); const lunes=celdasMes(mes).filter(Boolean).filter(f=>dowDe(f)===1);
+  const v=await uiPrompt('Repetir una semana',{msg:'Elegí el lunes de la semana que querés copiar (día del mes: '+lunes.map(f=>Number(f.slice(8))).join(', ')+'). Se repite todas las semanas de ese día en adelante.',label:'Lunes (número de día)',type:'number',value:lunes.length?Number(lunes[0].slice(8)):1,ok:'Repetir'});
+  if(v===null) return; const f0=mes+'-'+pad2(parseInt(v)||1); if(dowDe(f0)!==1){ showToast('Ese día no es lunes'); return; }
+  migrarLegacyCalendario();
+  for(let i=0;i<7;i++){ const f=addDias(f0,i), d=dowDe(f); turnosRec.plantilla[d]={}; (promos.bloquesRec||[]).forEach(b=>{ const u=asignadoEn(f,b.id); if(u) turnosRec.plantilla[d][b.id]=u; }); }
+  Object.keys(turnosRec.exc).forEach(f=>{ if(f>=f0) delete turnosRec.exc[f]; });
+  saveTurnosRec(); showToast('Semana repetida ✓'); renderAdmin();
+}
+async function limpiarTurnosMes(){
+  const mes=calRec.mes||hoyStr().slice(0,7);
+  if(!await uiConfirm('¿Vaciar los turnos de '+mes+'?','Deja sin asignar todos los bloques de este mes (no toca los otros meses ni los turnos fijos de cada semana).',{ok:'Vaciar'})) return;
+  celdasMes(mes).filter(Boolean).forEach(f=>{ turnosRec.exc[f]={}; (promos.bloquesRec||[]).forEach(b=>{ turnosRec.exc[f][b.id]=''; }); });
+  saveTurnosRec(); renderAdmin();
+}
+
+// ---------- recepcionista: sus turnos ----------
+function htmlMisTurnosRec(){
+  const u=profile; if(!u||!hayCalendario()) return '';
+  const hoy=hoyStr(), ahora=horaAhora(); const mios=bloquesDeUsuarioEn(u,hoy); const prox=proximosTurnosDe(u,21).filter(x=>!(x.f===hoy)).slice(0,6);
+  const trabajando=mios.find(b=>b.desde<=ahora&&ahora<b.hasta);
+  const otros=(promos.bloquesRec||[]).filter(b=>diaActivo(b,hoy)&&!mios.includes(b)).map(b=>({b,u:allUsers.find(x=>x.id===asignadoEn(hoy,b.id))})).filter(x=>x.u);
+  return `<div class="card" style="margin-top:14px"><div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="font-size:22px">🗓</div><div style="flex:1"><div style="font-size:14px;font-weight:800">Mis turnos</div><div style="font-size:11.5px;color:${trabajando?'#34d399':'var(--muted2)'}">${trabajando?'🟢 Estás en turno ('+escH(trabajando.nombre)+' hasta las '+trabajando.hasta+')':(mios.length?'Hoy: '+mios.map(b=>escH(b.nombre)+' '+b.desde+'–'+b.hasta).join(' + '):'Hoy no tenés turno')}${otros.length?' · '+otros.map(x=>escH(x.b.nombre)+': '+escH(x.u.name.split(' ')[0])).join(' · '):''}</div></div><button onclick="abrirCalendarioRec()" style="padding:9px 14px;border-radius:12px;border:none;background:${colorRec(u)};color:#0b0b10;font-family:var(--font);font-size:12.5px;font-weight:800;cursor:pointer">Ver calendario</button></div>
+    <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:2px">${prox.map(x=>`<button onclick="abrirCalendarioRec('${x.f}')" style="flex:0 0 auto;padding:8px 12px;border-radius:12px;border:1.5px solid ${colorRec(u)}66;background:${colorRec(u)}14;color:var(--text);font-family:var(--font);font-size:11.5px;font-weight:700;cursor:pointer;text-align:left"><div style="font-weight:900">${DIAS_CORTO[dowDe(x.f)]} ${fechaCortaStr(x.f)}</div><div style="color:var(--muted2)">${escH(x.b.nombre)} ${x.b.desde}–${x.b.hasta}</div></button>`).join('')||'<div style="font-size:12px;color:var(--muted)">No tenés turnos asignados en las próximas 3 semanas.</div>'}</div></div>`;
+}
+function abrirCalendarioRec(f){
+  calRec.ctx='rec'; calRec.mes=(f||hoyStr()).slice(0,7); calRec.sel=f||hoyStr();
+  renderCalendarioRec(); openModal('modal-registro');
+}
+function renderCalendarioRec(){
+  const n=proximosTurnosDe(profile,31).length;
+  document.getElementById('registro-content').innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="modal-title" style="margin:0">Mis turnos 🗓</div><button onclick="calRec.ctx='admin';closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px">Tu color: <span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${colorRec(profile)};vertical-align:middle"></span> · próximos 30 días: <b style="color:var(--text)">${n} ${n===1?'turno':'turnos'}</b>. Tocá un día para ver el detalle.</div>
+    ${htmlGridMes('rec')}${calRec.sel?htmlDetalleDia(calRec.sel,'rec'):''}`;
+}
+
+// ============ PROVEEDORES, STOCK E INSUMOS ============
+// Cada proveedor tiene su lista de productos con precio. Cada item es de uno de dos tipos, y van a lugares separados:
+//   📦 Stock (para vender): se crea en Catálogo → Stock, con su costo y precio de venta.
+//   🧴 Insumo (de trabajo): va a Catálogo → Insumos (geles, ceras, filos, café…), con cuánto rinde cada unidad.
+// Al registrar una compra, se suma al stock o a los insumos. Las compras de insumos se cuentan como gasto en Finanzas;
+// la mercadería para vender no (su costo se descuenta cuando se vende).
+const PRECARGA=[
+  // Para vender
+  {n:'Cera para cabello (mate)',t:'stock',u:'unidad',pv:9000},{n:'Cera para cabello (brillo)',t:'stock',u:'unidad',pv:9000},{n:'Pomada fijación fuerte',t:'stock',u:'unidad',pv:10000},
+  {n:'Gel fijador',t:'stock',u:'unidad',pv:6000},{n:'Aceite de barba',t:'stock',u:'unidad',pv:12000},{n:'Bálsamo de barba',t:'stock',u:'unidad',pv:12000},
+  {n:'Shampoo profesional',t:'stock',u:'unidad',pv:14000},{n:'Acondicionador',t:'stock',u:'unidad',pv:14000},{n:'Crema de afeitar',t:'stock',u:'unidad',pv:8000},
+  {n:'Loción post afeitado',t:'stock',u:'unidad',pv:9000},{n:'Tónico capilar',t:'stock',u:'unidad',pv:15000},{n:'Peine de barbero',t:'stock',u:'unidad',pv:4000},
+  {n:'Cepillo para barba',t:'stock',u:'unidad',pv:9000},{n:'Mascarilla capilar',t:'stock',u:'unidad',pv:16000},{n:'Protector solar facial',t:'stock',u:'unidad',pv:15000},
+  // Insumos de trabajo
+  {n:'Gel de afeitar',t:'insumo',u:'bidón',r:200},{n:'Papel de cuello',t:'insumo',u:'rollo',r:200},{n:'Filos de navaja',t:'insumo',u:'caja x100',r:100},
+  {n:'Café en cápsulas',t:'insumo',u:'cápsula',r:1},{n:'Cera de uso en el salón',t:'insumo',u:'unidad',r:80},{n:'Talco',t:'insumo',u:'frasco',r:150},
+  {n:'Alcohol / desinfectante',t:'insumo',u:'litro',r:100},{n:'Capas descartables',t:'insumo',u:'pack x100',r:100},{n:'Toallas descartables',t:'insumo',u:'pack x100',r:100},
+  {n:'Guantes descartables',t:'insumo',u:'caja x100',r:50},{n:'Algodón',t:'insumo',u:'paquete',r:120},{n:'Colorante',t:'insumo',u:'tubo',r:4},{n:'Oxidante',t:'insumo',u:'litro',r:12},
+  {n:'Esmalte semipermanente',t:'insumo',u:'frasco',r:15},{n:'Limas descartables',t:'insumo',u:'pack x50',r:50},{n:'Aceite para máquinas',t:'insumo',u:'frasco',r:300},
+  {n:'Cera depilatoria',t:'insumo',u:'lata',r:25},{n:'Hoja de bisturí (podología)',t:'insumo',u:'caja x100',r:100},{n:'Crema de masaje',t:'insumo',u:'pote',r:30},
+];
+let provData={list:[],compras:[],borrados:[]};
+let provSel={paso:'',q:'',item:null,provId:'',compra:null};
+const persistProv=()=>{ try{ localStorage.setItem('luffy_proveedores',JSON.stringify(provData)); }catch(e){} };
+function mergeProv(remote){
+  if(!remote) return false; const antes=JSON.stringify(provData);
+  const del=new Set([...(provData.borrados||[]),...(remote.borrados||[])]);
+  ['list','compras'].forEach(k=>{ const m=new Map((provData[k]||[]).map(x=>[x.id,x])); (remote[k]||[]).forEach(r=>{ const l=m.get(r.id); if(!l||String(r.upd||r.creadoEn||'')>String(l.upd||l.creadoEn||'')) m.set(r.id,r); }); provData[k]=[...m.values()].filter(x=>!del.has(x.id)); });
+  provData.borrados=[...del]; return antes!==JSON.stringify(provData);
+}
+function loadProveedores(){
+  if(!profile||profile.role!=='admin') return;
+  try{ provData={list:[],compras:[],borrados:[],...JSON.parse(localStorage.getItem('luffy_proveedores')||'{}')}; }catch(e){}
+  if(DB) DB.doc('luffy/proveedores').get().then(r=>{ if(mergeProv(r)){ persistProv(); refreshCurrentView(); } }).catch(()=>{});
+}
+async function cambiarProv(fn){
+  if(DB){ try{ mergeProv(await DB.doc('luffy/proveedores').get()); }catch(e){} }
+  const res=fn(provData); persistProv();
+  if(DB){ try{ await DB.doc('luffy/proveedores').set(provData); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
+  return res;
+}
+const provDe=(id)=>provData.list.find(p=>p.id===id)||null;
+const stockDeItem=(it)=>it.tipo==='stock'?productos.find(p=>p.id===it.linkId)||null:null;
+const insumoDeItem=(it)=>it.tipo==='insumo'?(finData.consumibles||[]).find(c=>c.id===it.linkId)||null:null;
+
+// ---------- lista de proveedores ----------
+function renderAdminProveedores(c){
+  const L=provData.list.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const gastado=(pid)=>provData.compras.filter(k=>k.provId===pid).reduce((s,k)=>s+numV(k.total),0);
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🚚 Proveedores (${L.length})</span><button class="lnk" onclick="editarProveedor('')">+ Proveedor</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cargá a quién le comprás y qué. Cada producto puede ser <b style="color:var(--text)">📦 stock para vender</b> (va a Catálogo → Stock) o <b style="color:var(--text)">🧴 insumo de trabajo</b> (va a Catálogo → Insumos). Elegís de una lista ya cargada o lo creás nuevo, y al registrar una compra se suma solo.</div>
+    ${L.map(p=>{ const st=p.items.filter(i=>i.tipo==='stock').length, ins=p.items.filter(i=>i.tipo==='insumo').length; const ult=provData.compras.filter(k=>k.provId===p.id).sort((a,b)=>b.fecha.localeCompare(a.fecha))[0];
+      return `<div class="card" onclick="abrirProveedor('${p.id}')" style="cursor:pointer;margin-bottom:8px"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:26px">🚚</div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(p.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">${st} para vender · ${ins} insumos${p.tel?' · 📞 '+escH(p.tel):''}</div><div style="font-size:11px;color:var(--muted)">${ult?'Última compra '+fechaCortaStr(ult.fecha)+' · ':''}Comprado en total ${fp(gastado(p.id))}</div></div><span style="color:var(--muted)">›</span></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">🚚</div><p>Todavía no cargaste proveedores.</p></div>'}`;
+}
+async function editarProveedor(id){
+  const p=id?provDe(id):null;
+  const v=await uiDialog({title:p?'Editar proveedor':'Nuevo proveedor',fields:[{label:'Nombre',placeholder:'Ej: Distribuidora Barber Pro',value:p?p.nombre:''},{label:'Teléfono (opcional)',type:'tel',value:p?p.tel||'':''},{label:'Notas (opcional)',placeholder:'Ej: entrega los martes',value:p?p.notas||'':''}],ok:'Guardar'});
+  if(!v||!v[0].trim()){ return; }
+  const ahora=new Date().toISOString(); let nuevoId=id;
+  await cambiarProv(d=>{ const x=id?d.list.find(z=>z.id===id):null; if(x) Object.assign(x,{nombre:v[0].trim(),tel:v[1].trim(),notas:v[2].trim(),upd:ahora}); else { nuevoId='pv'+Date.now().toString(36); d.list.push({id:nuevoId,nombre:v[0].trim(),tel:v[1].trim(),notas:v[2].trim(),items:[],creadoEn:ahora,upd:ahora}); } });
+  showToast('Guardado ✓'); if(!id) abrirProveedor(nuevoId); else renderAdmin();
+}
+async function borrarProveedor(id){
+  if(!await uiConfirm('¿Borrar este proveedor?','No borra los productos del stock ni los insumos ya cargados.',{ok:'Borrar'})) return;
+  await cambiarProv(d=>{ d.list=d.list.filter(x=>x.id!==id); d.borrados=[...(d.borrados||[]),id]; }); closeModal('modal-registro'); renderAdmin();
+}
+
+// ---------- ficha del proveedor ----------
+function abrirProveedor(id){
+  const p=provDe(id); if(!p) return; provSel.provId=id;
+  const fila=(it)=>{ const st=stockDeItem(it), ins=insumoDeItem(it); return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${escH(it.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${fp(it.precio)} por ${escH(it.unidad||'unidad')}${it.tipo==='stock'?` · se vende a ${fp(it.precioVenta||0)}${st?' · stock '+st.stock:''}`:` · rinde ${it.rinde||1} servicios${ins?' · en stock '+numV(ins.stock):''}`}</div></div><button class="lnk" onclick="abrirItemProv('${id}','${it.id}')">✏️</button><button class="lnk" style="color:#f472b6" onclick="borrarItemProv('${id}','${it.id}')">×</button></div>`; };
+  const st=p.items.filter(i=>i.tipo==='stock'), ins=p.items.filter(i=>i.tipo==='insumo');
+  const compras=provData.compras.filter(k=>k.provId===id).sort((a,b)=>b.fecha.localeCompare(a.fecha)||String(b.creadoEn).localeCompare(String(a.creadoEn))).slice(0,5);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🚚 '+escH(p.nombre))+`
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px">${p.tel?'📞 '+escH(p.tel)+' · ':''}${escH(p.notas||'')||'Sin notas'} <button class="lnk" onclick="editarProveedor('${id}')">Editar</button></div>
+    <div style="display:flex;gap:8px;margin-bottom:12px"><button class="btn btn-primary" style="flex:1" onclick="abrirItemProv('${id}','')">+ Producto o insumo</button><button class="btn btn-ghost" style="flex:1" onclick="abrirCompra('${id}')">🛒 Registrar compra</button></div>
+    <div class="sec-title" style="margin:6px 0 4px">📦 Para vender (stock)</div>${st.map(fila).join('')||'<div style="font-size:12px;color:var(--muted);padding:6px 0">Ninguno todavía.</div>'}
+    <div class="sec-title" style="margin:14px 0 4px">🧴 Insumos de trabajo</div>${ins.map(fila).join('')||'<div style="font-size:12px;color:var(--muted);padding:6px 0">Ninguno todavía.</div>'}
+    ${compras.length?`<div class="sec-title" style="margin:14px 0 4px">Últimas compras</div>${compras.map(k=>`<div class="ln"><span>${fechaCortaStr(k.fecha)} · ${k.items.map(i=>escH(i.nombre)+' x'+i.cant).join(', ')}</span><b>${fp(k.total)}</b></div>`).join('')}`:''}
+    <button class="btn btn-ghost" onclick="borrarProveedor('${id}')" style="margin-top:14px;color:#f472b6">Borrar proveedor</button>`;
+  openModal('modal-registro');
+}
+
+// ---------- agregar / editar un producto o insumo del proveedor ----------
+function abrirItemProv(provId,itemId){
+  const p=provDe(provId); if(!p) return; provSel.provId=provId;
+  if(itemId){ provSel.item={...p.items.find(i=>i.id===itemId)}; provSel.paso='form'; }
+  else { provSel.item=null; provSel.paso='elegir'; provSel.q=''; }
+  renderItemProv();
+}
+function renderItemProv(){
+  const p=provDe(provSel.provId); if(!p) return; const c=document.getElementById('registro-content');
+  const volver=`abrirProveedor('${p.id}')`;
+  if(provSel.paso==='elegir'){
+    const q=nkey(provSel.q); const yaTiene=new Set(p.items.map(i=>nkey(i.nombre)));
+    const L=PRECARGA.filter(x=>!yaTiene.has(nkey(x.n))&&(!q||nkey(x.n).includes(q)));
+    const grupo=(t,titulo)=>{ const l=L.filter(x=>x.t===t); return l.length?`<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px">${titulo}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${l.map(x=>`<button onclick="elegirPrecarga('${PRECARGA.indexOf(x)}')" style="${pillStyle(false,'#7c6fff')}">${escH(x.n)}</button>`).join('')}</div>`:''; };
+    c.innerHTML=cabeceraModal('Agregar a '+escH(p.nombre))+`<button class="btn btn-ghost" onclick="nuevoItemProv()" style="margin-bottom:10px">➕ Cargar uno nuevo</button>
+      <input type="search" placeholder="Buscar en la lista ya cargada…" value="${escH(provSel.q)}" oninput="provSel.q=this.value;renderItemProv();var e=document.querySelector('#registro-content input[type=search]');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px"/>
+      ${grupo('stock','📦 Para vender')}${grupo('insumo','🧴 Insumos de trabajo')}${!L.length?'<div style="font-size:12.5px;color:var(--muted);padding:12px 0">No hay coincidencias. Usá "Cargar uno nuevo".</div>':''}
+      <button class="btn btn-ghost" onclick="${volver}" style="margin-top:14px">← Volver</button>`;
+    return;
+  }
+  const it=provSel.item; const esStock=it.tipo!=='insumo';
+  c.innerHTML=cabeceraModal(it.id?'Editar':'Producto o insumo')+`
+    <div class="field"><label>Nombre</label><input id="pi-nombre" value="${escH(it.nombre||'')}" placeholder="Ej: Cera para cabello"/></div>
+    <div class="field" style="margin-top:8px"><label>¿Qué es?</label><div style="display:flex;gap:8px">${[['stock','📦 Para vender'],['insumo','🧴 Insumo de trabajo']].map(([v,l])=>`<button onclick="itemProvTipo('${v}')" style="flex:1;${pillStyle((it.tipo||'stock')===v,'#7c6fff')}">${l}</button>`).join('')}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${esStock?'Se crea en Catálogo → Stock, listo para venderse en los cobros.':'Se crea en Catálogo → Insumos y se usa para calcular el costo de cada servicio.'}</div></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><div class="field" style="flex:1"><label>Precio de compra</label><input id="pi-precio" type="number" inputmode="decimal" value="${it.precio||''}" placeholder="0"/></div><div class="field" style="flex:1"><label>Unidad</label><input id="pi-unidad" value="${escH(it.unidad||'unidad')}" placeholder="unidad, caja, litro…"/></div></div>
+    ${esStock?`<div style="display:flex;gap:8px;margin-top:8px"><div class="field" style="flex:1"><label>Precio de venta</label><input id="pi-pv" type="number" inputmode="decimal" value="${it.precioVenta||''}" placeholder="0"/></div><div class="field" style="flex:1"><label>Comisión del profesional %</label><input id="pi-com" type="number" value="${it.comisionPct!=null?it.comisionPct:10}"/></div></div>`
+      :`<div class="field" style="margin-top:8px"><label>¿Para cuántos servicios rinde cada unidad?</label><input id="pi-rinde" type="number" inputmode="numeric" value="${it.rinde||''}" placeholder="Ej: 200"/></div><div class="field" style="margin-top:8px"><label>Rubros que lo usan (ids con coma, vacío = todos)</label><input id="pi-rubro" value="${escH(it.rubro||'')}" placeholder="barberia,barberia-premium"/></div>`}
+    <div class="field" style="margin-top:8px"><label>Avisarme cuando queden (unidades)</label><input id="pi-alerta" type="number" value="${it.alerta!=null?it.alerta:2}"/></div>
+    <button class="btn btn-primary" onclick="guardarItemProv()" style="margin-top:14px">Guardar</button>
+    <button class="btn btn-ghost" onclick="abrirProveedor('${p.id}')" style="margin-top:8px">← Volver</button>`;
+}
+function itemProvTipo(t){ leerItemForm(); provSel.item.tipo=t; renderItemProv(); }
+function leerItemForm(){ const v=(i)=>{ const e=document.getElementById(i); return e?e.value:undefined; }; const it=provSel.item; const set=(k,val)=>{ if(val!==undefined) it[k]=val; };
+  set('nombre',v('pi-nombre')); if(v('pi-precio')!==undefined) it.precio=numV(v('pi-precio')); set('unidad',v('pi-unidad')); if(v('pi-pv')!==undefined) it.precioVenta=numV(v('pi-pv')); if(v('pi-com')!==undefined) it.comisionPct=numV(v('pi-com')); if(v('pi-rinde')!==undefined) it.rinde=numV(v('pi-rinde')); set('rubro',v('pi-rubro')); if(v('pi-alerta')!==undefined) it.alerta=numV(v('pi-alerta')); }
+function elegirPrecarga(i){ const x=PRECARGA[Number(i)]; provSel.item={nombre:x.n,tipo:x.t,unidad:x.u,precio:'',precioVenta:x.pv||'',rinde:x.r||'',rubro:x.t==='insumo'?'barberia,barberia-premium':'',comisionPct:10,alerta:2}; provSel.paso='form'; renderItemProv(); }
+function nuevoItemProv(){ provSel.item={nombre:'',tipo:'stock',unidad:'unidad',precio:'',precioVenta:'',comisionPct:10,alerta:2}; provSel.paso='form'; renderItemProv(); }
+async function guardarItemProv(){
+  leerItemForm(); const it=provSel.item; const p=provDe(provSel.provId); if(!p) return;
+  if(!it.nombre.trim()||numV(it.precio)<=0){ showToast('Poné el nombre y el precio de compra'); return; }
+  if(it.tipo==='insumo'&&numV(it.rinde)<=0){ showToast('Poné para cuántos servicios rinde'); return; }
+  if(it.tipo==='stock'&&numV(it.precioVenta)<=0){ showToast('Poné el precio de venta'); return; }
+  const ahora=new Date().toISOString(); it.nombre=it.nombre.trim();
+  let linkId=it.linkId||'';
+  if(it.tipo==='stock'){
+    const ex=productos.find(x=>x.id===linkId)||productos.find(x=>nkey(x.nombre)===nkey(it.nombre));
+    if(ex){ linkId=ex.id; productosCambiar(l=>l.map(x=>x.id===ex.id?{...x,costo:numV(it.precio),precioVenta:numV(it.precioVenta),comisionPct:numV(it.comisionPct),alertaStock:numV(it.alerta)}:x)); }
+    else { const nid='pr'+Date.now().toString(36); linkId=nid; productosCambiar(l=>l.some(x=>x.id===nid)?l:[...l,{id:nid,nombre:it.nombre,costo:numV(it.precio),precioVenta:numV(it.precioVenta),comisionPct:numV(it.comisionPct),stock:0,alertaStock:numV(it.alerta),proveedorId:p.id,creado:ahora}]); }
+  } else {
+    const ex=(finData.consumibles||[]).find(x=>x.id===linkId)||(finData.consumibles||[]).find(x=>nkey(x.nombre)===nkey(it.nombre));
+    if(ex){ linkId=ex.id; await cambiarFin(d=>{ const z=d.consumibles.find(k=>k.id===ex.id); if(z) Object.assign(z,{precio:numV(it.precio),rinde:numV(it.rinde),rubro:it.rubro||'',unidad:it.unidad,alerta:numV(it.alerta),proveedorId:p.id,upd:ahora}); }); }
+    else { linkId='c'+Date.now().toString(36); await cambiarFin(d=>{ d.consumibles.push({id:linkId,nombre:it.nombre,precio:numV(it.precio),rinde:numV(it.rinde),rubro:it.rubro||'',unidad:it.unidad,stock:0,alerta:numV(it.alerta),proveedorId:p.id,upd:ahora}); }); }
+  }
+  const dato={nombre:it.nombre,tipo:it.tipo,precio:numV(it.precio),unidad:it.unidad||'unidad',precioVenta:numV(it.precioVenta),comisionPct:numV(it.comisionPct),rinde:numV(it.rinde),rubro:it.rubro||'',alerta:numV(it.alerta),linkId};
+  await cambiarProv(d=>{ const x=d.list.find(z=>z.id===p.id); if(!x) return; if(it.id){ const k=x.items.find(z=>z.id===it.id); if(k) Object.assign(k,dato); } else x.items.push({id:'it'+Date.now().toString(36),...dato}); x.upd=ahora; });
+  showToast('Guardado ✓ '+(it.tipo==='stock'?'está en Stock':'está en Insumos')); abrirProveedor(p.id); refreshCurrentView();
+}
+async function borrarItemProv(pid,iid){
+  if(!await uiConfirm('¿Sacar este producto del proveedor?','Sigue existiendo en Stock o Insumos; solo se quita de la lista de este proveedor.',{ok:'Sacar'})) return;
+  await cambiarProv(d=>{ const x=d.list.find(z=>z.id===pid); if(x){ x.items=x.items.filter(i=>i.id!==iid); x.upd=new Date().toISOString(); } }); abrirProveedor(pid);
+}
+
+// ---------- registrar una compra ----------
+function abrirCompra(pid){
+  const p=provDe(pid); if(!p||!p.items.length){ showToast('Primero cargá productos a este proveedor'); return; }
+  provSel.provId=pid; provSel.compra={items:{},sucursal:'todas',fecha:hoyStr()}; p.items.forEach(i=>{ provSel.compra.items[i.id]={cant:0,precio:i.precio}; }); renderCompra();
+}
+function compraQty(iid,d){ const x=provSel.compra.items[iid]; x.cant=Math.max(0,numV(x.cant)+d); renderCompra(); }
+function compraPrecio(iid,v){ provSel.compra.items[iid].precio=numV(v); renderCompra(); }
+function renderCompra(){
+  const p=provDe(provSel.provId), cp=provSel.compra; const keep=document.querySelector('#modal-registro .modal-box'); const st=keep?keep.scrollTop:0;
+  const total=p.items.reduce((s,i)=>s+numV(cp.items[i.id].cant)*numV(cp.items[i.id].precio),0), totIns=p.items.filter(i=>i.tipo==='insumo').reduce((s,i)=>s+numV(cp.items[i.id].cant)*numV(cp.items[i.id].precio),0);
+  const fila=(i)=>{ const x=cp.items[i.id]; return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${i.tipo==='stock'?'📦':'🧴'} ${escH(i.nombre)}</div><div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted2)">$<input type="number" value="${x.precio}" onchange="compraPrecio('${i.id}',this.value)" style="width:78px;padding:3px 6px;font-size:12px"/> por ${escH(i.unidad||'unidad')}</div></div>
+    <button onclick="compraQty('${i.id}',-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-size:18px;cursor:pointer">−</button><div style="min-width:22px;text-align:center;font-size:15px;font-weight:800;${x.cant?'color:#7c6fff':'color:var(--muted)'}">${x.cant}</div><button onclick="compraQty('${i.id}',1)" style="width:32px;height:32px;border-radius:50%;border:none;background:#7c6fff;color:#fff;font-size:18px;cursor:pointer">+</button></div>`; };
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🛒 Compra a '+escH(p.nombre))+`${p.items.map(fila).join('')}
+    <div class="card" style="margin:12px 0"><div class="ln"><span>Total de la compra</span><b style="font-size:16px">${fp(total)}</b></div>${totIns>0?`<div style="font-size:11px;color:var(--muted2);margin-top:4px">${fp(totIns)} de insumos se cuentan como gasto en Finanzas. La mercadería para vender no: su costo se descuenta cuando se vende.</div>`:''}</div>
+    <div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Fecha</label><input type="date" value="${cp.fecha}" onchange="provSel.compra.fecha=this.value"/></div><div class="field" style="flex:1"><label>Sucursal</label><select onchange="provSel.compra.sucursal=this.value" style="${selFin}"><option value="todas">Compartido</option>${sucursales.map(s=>`<option value="${s.id}" ${cp.sucursal===s.id?'selected':''}>${escH(s.nombre)}</option>`).join('')}</select></div></div>
+    <button class="btn btn-primary" onclick="confirmarCompra()" style="margin-top:12px">${total>0?'Registrar compra de '+fp(total):'Elegí cantidades'}</button>
+    <button class="btn btn-ghost" onclick="abrirProveedor('${p.id}')" style="margin-top:8px">← Volver</button>`;
+  if(keep) keep.scrollTop=st;
+}
+async function confirmarCompra(){
+  const p=provDe(provSel.provId), cp=provSel.compra; if(!p||!cp||cp.ocupado) return;
+  const elegidos=p.items.filter(i=>numV(cp.items[i.id].cant)>0); if(!elegidos.length){ showToast('Elegí cuántas unidades compraste'); return; }
+  cp.ocupado=true; const ahora=new Date().toISOString();
+  const lin=elegidos.map(i=>({itemId:i.id,nombre:i.nombre,tipo:i.tipo,cant:numV(cp.items[i.id].cant),precio:numV(cp.items[i.id].precio)}));
+  const total=lin.reduce((s,l)=>s+l.cant*l.precio,0), totIns=lin.filter(l=>l.tipo==='insumo').reduce((s,l)=>s+l.cant*l.precio,0);
+  // stock: suma unidades y actualiza el costo
+  const stk=elegidos.filter(i=>i.tipo==='stock'&&stockDeItem(i));
+  if(stk.length) ajustarStock(stk.map(i=>({id:i.linkId,delta:numV(cp.items[i.id].cant),costo:numV(cp.items[i.id].precio)})));
+  // insumos: suma unidades, actualiza el precio y (si corresponde) anota el gasto
+  await cambiarFin(d=>{
+    elegidos.filter(i=>i.tipo==='insumo').forEach(i=>{ const z=(d.consumibles||[]).find(k=>k.id===i.linkId); if(z){ z.stock=numV(z.stock)+numV(cp.items[i.id].cant); z.precio=numV(cp.items[i.id].precio); z.upd=ahora; } });
+    if(totIns>0) d.gastos.push({id:'g'+Date.now().toString(36),fecha:cp.fecha,monto:totIns,categoria:'insumos',sucursal:cp.sucursal,desc:'Compra a '+p.nombre,origen:'proveedor',upd:ahora,creadoEn:ahora});
+  });
+  await cambiarProv(d=>{ d.compras.push({id:'cm'+Date.now().toString(36),provId:p.id,provNombre:p.nombre,fecha:cp.fecha,sucursal:cp.sucursal,items:lin,total,creadoEn:ahora,upd:ahora}); const x=d.list.find(z=>z.id===p.id); if(x){ x.items.forEach(i=>{ const l=lin.find(k=>k.itemId===i.id); if(l) i.precio=l.precio; }); x.upd=ahora; } });
+  provSel.compra=null; showToast('Compra registrada ✓'); abrirProveedor(p.id); refreshCurrentView();
+}
+
+// ---------- Insumos (catalogo) ----------
+function renderAdminInsumos(c){
+  const L=(finData.consumibles||[]).slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🧴 Insumos de trabajo (${L.length})</span><button class="lnk" onclick="editarConsumible('')">+ Insumo</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Lo que se gasta en el salón para trabajar (no se vende). Se cargan desde <b style="color:var(--text)">Proveedores</b> y ahí se registran las compras, que suman al stock de acá. Cada uno rinde para cierta cantidad de servicios: con eso se calcula el costo por servicio en Finanzas.</div>
+    ${L.map(x=>{ const pv=provData.list.find(p=>p.id===x.proveedorId); const bajo=numV(x.stock)<=numV(x.alerta||0)&&x.alerta!=null; const cps=numV(x.precio)/Math.max(1,numV(x.rinde));
+      return `<div class="card" style="margin-bottom:8px;${bajo?'border-color:#f472b6':''}"><div style="display:flex;align-items:center;gap:10px"><div style="font-size:24px">🧴</div><div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(x.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">${fp(x.precio)} por ${escH(x.unidad||'unidad')} · rinde ${x.rinde} servicios = <b style="color:var(--text)">${fp(cps)}</b> por servicio${pv?' · '+escH(pv.nombre):''}</div><div style="font-size:11.5px;font-weight:700;margin-top:2px;color:${bajo?'#f472b6':'var(--muted2)'}">En stock: ${numV(x.stock)} ${escH(x.unidad||'unidad')}${bajo?' ⚠️ queda poco':''} · alcanza para ~${Math.round(numV(x.stock)*numV(x.rinde))} servicios</div></div></div>
+      <div style="display:flex;gap:12px;margin-top:6px;padding-left:34px"><button class="lnk" onclick="ajustarInsumo('${x.id}')">Ajustar stock</button><button class="lnk" onclick="editarConsumible('${x.id}')">Editar</button><button class="lnk" style="color:#f472b6" onclick="borrarConsumible('${x.id}')">Borrar</button></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">🧴</div><p>Todavía no hay insumos.<br>Cargalos desde un proveedor o con "+ Insumo".</p></div>'}`;
+}
+async function ajustarInsumo(id){
+  const x=(finData.consumibles||[]).find(z=>z.id===id); if(!x) return;
+  const v=await uiPrompt('Stock de '+x.nombre,{msg:'Poné cuántas unidades hay ahora (contá lo que tenés).',label:'Unidades en stock',type:'number',value:numV(x.stock),ok:'Guardar'});
+  if(v===null) return; await cambiarFin(d=>{ const z=d.consumibles.find(k=>k.id===id); if(z){ z.stock=numV(v); z.upd=new Date().toISOString(); } }); renderAdmin();
 }
 // ============ INIT ============
 async function init(){
@@ -6016,7 +6349,7 @@ function prefetchAdminTeamData(){
 const ADMIN_SECCIONES=[
   {id:'panel',ico:'📊',label:'Panel'},
   {id:'equipo',ico:'👥',label:'Equipo',subs:[['estado','Estado'],['sucursales','Sucursales'],['stories','Stories'],['puntos','Puntos']]},
-  {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Productos y stock']]},
+  {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Stock (para vender)'],['proveedores','Proveedores'],['insumos','Insumos']]},
   {id:'contenido',ico:'📝',label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
   {id:'clientes',ico:'🧑‍🤝‍🧑',label:'Clientes',subs:[['directorio','Clientes'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas'],['descuentos','Descuentos']]},
   {id:'finanzas',ico:'💼',label:'Finanzas',subs:[['balance','Balance'],['gastos','Gastos'],['fijos','Gastos fijos'],['costos','Costo por servicio'],['equilibrio','Punto de equilibrio'],['flujo','Flujo anual'],['caja','Caja']]},
@@ -6039,7 +6372,7 @@ function renderAdmin(){
   const c=document.getElementById('adm-content');
   if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()); }
   else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='sucursales') renderAdminSucursales(c); else renderAdminEstadoEquipo(c); }
-  else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else renderAdminServicios(c); }
+  else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else if(sub==='proveedores') renderAdminProveedores(c); else if(sub==='insumos') renderAdminInsumos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
   else if(tab==='clientes') renderAdminClientes(c,sub);
   else if(tab==='finanzas') renderAdminFinanzas(c,sub);
@@ -6049,7 +6382,7 @@ function renderAdmin(){
 
 // Acepta el id de una seccion o de una sub-seccion (y los ids viejos de las 9 pestañas)
 function switchAdminTab(tab){
-  const legacy={dashboard:'panel',finanzas:'panel',banco:'contenido',cumples:'recepcion'};
+  const legacy={dashboard:'panel',banco:'contenido',cumples:'recepcion'};
   tab=legacy[tab]||tab;
   const sec=ADMIN_SECCIONES.find(s=>s.id===tab);
   if(sec){ window.adminTab=sec.id; }
@@ -7204,6 +7537,7 @@ function renderRecepcion(){
   const body=document.getElementById('rec-body');
   body.innerHTML=`
     ${htmlTableroRec()}
+    ${htmlMisTurnosRec()}
     ${htmlCajaRec()}
     <!-- Avisos de cobro -->
     ${avisos.length?`
