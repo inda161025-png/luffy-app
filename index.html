@@ -1936,6 +1936,7 @@ function abrirFormCliente(id,ctx){
     <div class="field" style="margin-top:8px"><label>¿Cómo reconocerlo? (opcional)</label><input id="cl-ref" placeholder="Ej: el de la moto, trabaja en la farmacia" value="${v('ref')}"/></div>
     <div class="field" style="margin-top:8px"><label>Notas (opcional)</label><input id="cl-nota" placeholder="Ej: le gusta el fade bajo" value="${v('nota')}"/></div>
     ${conTarjeta?`<label class="rub-opt" style="margin-top:10px"><input type="checkbox" id="cl-tarjeta" checked onchange="document.getElementById('cl-refpor-w').style.display=this.checked?'':'none'"/> ⭐ Quiere la tarjeta de fidelidad</label>
+      ${conTarjeta&&tarjetasDisponibles().length>1?`<select id="cl-tarjeta-sel" style="${selFin};margin-top:6px">${tarjetasDisponibles().map(t=>`<option value="${t.id}">${escH(t.nombre)} · ${escH(rubrosNombres(t.rubro))}</option>`).join('')}</select>`:''}
       <div class="field" id="cl-refpor-w" style="margin-top:8px"><label>¿Lo refirió alguien? (opcional)</label><input id="cl-refpor" list="cl-refpor-l" placeholder="Nombre de quien lo recomendó"/><datalist id="cl-refpor-l">${clientesDir.filter(x=>x.tarjeta).map(x=>`<option value="${escH(x.nombre)}">`).join('')}</datalist></div>`:''}
     <button class="btn btn-primary" onclick="guardarFormCliente()" style="margin-top:14px">${c?'Guardar cambios':'Agregar cliente'}</button>`;
   openModal('modal-registro');
@@ -1960,7 +1961,7 @@ async function guardarFormCliente(){
   }
   let refPor=null; const rn=val('cl-refpor');
   if(rn){ const rc=clientesDir.find(x=>x.nkey===nkey(rn)&&x.tarjeta); if(!rc){ showToast('Quien lo refirió tiene que ser un cliente con tarjeta'); return; } refPor=rc.id; }
-  const tarj=document.getElementById('cl-tarjeta')?.checked?tarjetaParaRubros():null;
+  const tarj=document.getElementById('cl-tarjeta')?.checked?tarjetaParaRubros((document.getElementById('cl-tarjeta-sel')||{}).value):null;
   const r=await crearCliente({nombre,profesion:prof,tel:val('cl-tel'),ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),refPor,tarjeta:tarj});
   if(r.error==='dup'){
     if(ctx&&ctx.deCobro){ dupMsg(r.existente); return; }
@@ -2032,6 +2033,9 @@ const PROMOS_DEFAULT={
     {id:'f1',nombre:'De 9:00 a 12:30 (lunes a jueves)',pct:20,rubro:'barberia,barberia-premium',dias:[1,2,3,4],horaDesde:'09:00',horaHasta:'12:30',sucursales:[],profesion:'',activo:true},
     {id:'f2',nombre:'Fuerzas policiales · Diego Laure',pct:15,rubro:'barberia,barberia-premium',dias:[1,2],horaHasta:'',sucursales:['s1'],profesion:'Fuerzas policiales',activo:true},
     {id:'f3',nombre:'Fuerzas policiales · French',pct:15,rubro:'barberia,barberia-premium',dias:[2,3],horaHasta:'',sucursales:['s2'],profesion:'Fuerzas policiales',activo:true},
+    // Peluqueria (Dai): lunes a miercoles. El 15% adicional para fuerzas SE SUMA a la promo (es el unico descuento acumulativo)
+    {id:'f4',nombre:'Tratamientos capilares · lun a mié',pct:15,rubro:'peluqueria',servicioIds:['ap2673649','ap2796310','ap2673655','ap2673652'],dias:[1,2,3],horaHasta:'',sucursales:[],profesion:'',extra:{profesion:'Fuerzas policiales',pct:15},activo:true},
+    {id:'f5',nombre:'Coloración y baño de luz · lun a mié',pct:10,rubro:'peluqueria',servicioIds:['ap2706066','ap2673675','ap2673670'],dias:[1,2,3],horaHasta:'',sucursales:[],profesion:'',extra:{profesion:'Fuerzas policiales',pct:15},activo:true},
   ],
   // Si el descuento total supera "t1" el profesional cobra "p1"% de lo que pagó el cliente; si llega a "t2", cobra "p2"%
   bloquesRec:[{id:'b1',nombre:'Mañana',desde:'09:00',hasta:'14:30',dias:[1,2,3,4,5,6]},{id:'b2',nombre:'Tarde',desde:'14:30',hasta:'20:30',dias:[1,2,3,4,5,6]}],
@@ -2043,12 +2047,18 @@ const PROMOS_DEFAULT={
   paquetes:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15}],
   membresia:{creditos:4,descPct:20,servicioId:'',rubro:'barberia,barberia-premium'},
   tarjetas:[{id:'tj-barberia',rubro:'barberia,barberia-premium',nombre:'Tarjeta de fidelidad',activa:true,
-    visitas:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15},{n:10,pct:50}],referidos:[10,15,20,25],premio:{visitas:5,refs:4}}],
+    visitas:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15},{n:10,pct:50}],referidos:[10,15,20,25],premio:{visitas:5,refs:4}},
+    // Tarjeta de Dai: 1.° y 2.° servicio normales, 3.° con 10% en cualquier servicio, 6.° tratamiento de hidratacion gratis
+    {id:'tj-dai',rubro:'peluqueria,cejas',nombre:'Tarjeta de fidelidad · Dai',activa:true,profs:['1789996303677'],
+    visitas:[{n:3,pct:10},{n:6,pct:100,servicioIds:['ap2673649'],label:'Hidratación gratis'}],referidos:[],premio:null}],
 };
 const clonar=(o)=>JSON.parse(JSON.stringify(o));
 const nocheCfg=()=>({desde:'21:00',pct:70,...(promos.noche||{})});
 let promos=clonar(PROMOS_DEFAULT);
 const DIAS_NOM=['dom','lun','mar','mié','jue','vie','sáb'];
+const nombreSvcId=(id)=>((typeof servicios!=='undefined'?servicios:[]).find(x=>x.id===id)||{}).nombre||id;
+// nombres (o pedazos de nombre) separados por coma -> ids de servicios
+function idsServiciosPorNombre(txt,sep){ const out=[]; String(txt||'').split(sep||',').map(x=>nkey(x)).filter(Boolean).forEach(fr=>servicios.filter(sv=>nkey(sv.nombre).includes(fr)).forEach(sv=>{ if(!out.includes(sv.id)) out.push(sv.id); })); return out; }
 function aplicarPromosRemotas(r){ return r?{...clonar(PROMOS_DEFAULT),...r}:null; }
 function loadPromos(){
   try{ const r=JSON.parse(localStorage.getItem('luffy_promos_cfg')||'null'); if(r) promos=aplicarPromosRemotas(r); }catch(e){}
@@ -2133,6 +2143,7 @@ function reglaAplica(r,ctx){
   if(r.profesion&&!(ctx.cliente&&nkey(ctx.cliente.profesion)===nkey(r.profesion))) return false;
   return true;
 }
+const unidadTarj=(t)=>/barberia/.test(String((t&&t.rubro)||''))?'corte':'servicio';
 function infoTarjeta(cli){
   const t=cli&&cli.tarjeta; if(!t||!t.snap) return null;
   const sn=t.snap, ciclo=Math.max(1,...(sn.visitas||[]).map(s=>s.n));
@@ -2141,7 +2152,7 @@ function infoTarjeta(cli){
   const cupones=(t.cupones||[]).filter(c=>!c.usado&&numV(c.pct)>0.01);
   const pr=sn.premio;
   const regalo=!!pr&&t.regalo!=='usado'&&(t.refs||[]).length>=numV(pr.refs)&&numV(t.visitas)>=numV(pr.visitas);
-  return {rubro:sn.rubro,k,ciclo,pctFid:paso?paso.pct:0,cupones,pctRef:cupones.reduce((a,c)=>a+numV(c.pct),0),regalo};
+  return {rubro:sn.rubro,k,ciclo,pctFid:paso?paso.pct:0,pasoSvcs:(paso&&paso.servicioIds)||null,pasoLabel:(paso&&paso.label)||'',cupones,pctRef:cupones.reduce((a,c)=>a+numV(c.pct),0),regalo};
 }
 // UN SOLO DESCUENTO por cobro: el MAS ALTO de los que aplican (promo fija por horario o profesion, oferta, efectivo,
 // fidelidad, cupon de referidos o corte de regalo). Nunca se suman entre si.
@@ -2168,17 +2179,25 @@ function calcCobro(){
   let fijo=null, ofertaSinEfecto=false;
   const tarjUso={cupones:[],fidSobra:0};
   const tarj=infoTarjeta(cli);
-  (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{ if(base(f.rubro)>0&&(!fijo||f.pct>fijo.pct)) fijo=f; });
+  // Promo fija: puede valer solo para ciertos servicios y sumar un adicional segun la profesion del cliente (ej: fuerzas +15%). Gana la que mas descuenta.
+  const baseF=(f)=>normales.filter(l=>rubroEn(f.rubro,rubroDeLinea(l))&&(!(f.servicioIds&&f.servicioIds.length)||l.ids.some(id=>f.servicioIds.includes(id)))).reduce((a,l)=>a+l.precio,0);
+  const extraFijo=(f)=>!!(f.extra&&f.extra.profesion&&cli&&nkey(cli.profesion)===nkey(f.extra.profesion));
+  const pctFijo=(f)=>numV(f.pct)+(extraFijo(f)?numV(f.extra.pct):0);
+  (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{ const b=baseF(f); if(b<=0) return; const m=Math.round(b*pctFijo(f)/100); if(!fijo||m>fijo._m) fijo={...f,_m:m}; });
   const bT=tarj?base(tarj.rubro):0;
   // candidatos (en este orden se desempata: el primero gana si hay igualdad)
   const cand=[];
   if(tarj&&tarj.regalo&&bT>0) cand.push({tipo:'regalo',label:'Corte de regalo (tarjeta completa)',pct:100,monto:bT});
-  if(fijo) cand.push({tipo:'fijo',label:fijo.nombre,pct:fijo.pct,monto:Math.round(base(fijo.rubro)*fijo.pct/100)});
+  if(fijo) cand.push({tipo:'fijo',label:fijo.nombre+(extraFijo(fijo)?' + '+fijo.extra.profesion+' '+numV(fijo.extra.pct)+'%':''),pct:pctFijo(fijo),monto:fijo._m});
   const baseOferta=oferta?normales.filter(l=>ofertaAplicaA(oferta,l.ids)).reduce((a,l)=>a+l.precio,0):0;
   const descOferta=oferta?Math.round(baseOferta*oferta.pct/100):0;
   ofertaSinEfecto=!!oferta&&descOferta===0&&!esNoche;
   if(descOferta>0) cand.push({tipo:'oferta',label:'Oferta '+oferta.nombre,pct:oferta.pct,monto:descOferta});
-  if(tarj&&bT>0&&tarj.pctFid>0) cand.push({tipo:'fidelidad',label:'Fidelidad · visita n°'+tarj.k,pct:tarj.pctFid,monto:Math.round(bT*tarj.pctFid/100)});
+  if(tarj&&tarj.pctFid>0){
+    // el escalon puede ser sobre un servicio concreto (ej: la hidratacion gratis); si no, sobre todo el rubro de la tarjeta
+    const bF=(tarj.pasoSvcs&&tarj.pasoSvcs.length)?normales.filter(l=>rubroEn(tarj.rubro,rubroDeLinea(l))&&l.ids.some(id=>tarj.pasoSvcs.includes(id))).reduce((a,l)=>a+l.precio,0):bT;
+    if(bF>0) cand.push({tipo:'fidelidad',label:tarj.pasoLabel?tarj.pasoLabel+' · visita n°'+tarj.k:'Fidelidad · visita n°'+tarj.k,pct:tarj.pctFid,monto:Math.round(bF*tarj.pctFid/100)});
+  }
   let mejorCupon=null;
   if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
   const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
@@ -2256,23 +2275,30 @@ async function postCobroCliente(cli,r,turnoId){
 // ============ TARJETA DE FIDELIDAD ============
 function tarjetasDisponibles(){
   const rb=profile?rubrosDeUsuario(profile):null;
-  return (promos.tarjetas||[]).filter(t=>t.activa!==false&&(!rb||profile.role!=='profesional'||String(t.rubro).split(',').some(r=>rb.includes(r.trim()))));
+  // una tarjeta puede ser solo de ciertos profesionales (ej: la de Dai); recepcion y admin ven todas y eligen
+  return (promos.tarjetas||[]).filter(t=>t.activa!==false&&(!rb||profile.role!=='profesional'||String(t.rubro).split(',').some(r=>rb.includes(r.trim())))&&(!profile||profile.role!=='profesional'||!(t.profs&&t.profs.length)||t.profs.includes(profile.id)));
 }
-function tarjetaParaRubros(){ return tarjetasDisponibles()[0]||null; }
+function tarjetaParaRubros(cardId){ const L=tarjetasDisponibles(); return (cardId&&L.find(t=>t.id===cardId))||L[0]||null; }
 function nuevaTarjetaCliente(card){ return {cardId:card.id,snap:clonar(card),desde:hoyStr(),visitas:0,refs:[],cupones:[],regalo:'no'}; }
-async function activarTarjetaCliente(id){
-  const card=tarjetaParaRubros(); if(!card){ showToast('No hay tarjeta para tu rubro'); return; }
+async function activarTarjetaCliente(id,cardId){
+  const L=tarjetasDisponibles();
+  if(!cardId&&L.length>1){
+    document.getElementById('registro-content').innerHTML=cabeceraModal('¿Qué tarjeta?')+L.map(t=>`<button class="btn btn-ghost" style="margin-bottom:8px;text-align:left" onclick="closeModal('modal-registro');activarTarjetaCliente('${id}','${t.id}')">⭐ ${escH(t.nombre)} <span style="color:var(--muted2);font-weight:600">· ${escH(rubrosNombres(t.rubro))}</span></button>`).join('');
+    openModal('modal-registro'); return;
+  }
+  const card=tarjetaParaRubros(cardId); if(!card){ showToast('No hay tarjeta para tu rubro'); return; }
   await cambiarClientes(list=>{ const c=list.find(x=>x.id===id); if(c&&!c.tarjeta){ c.tarjeta=nuevaTarjetaCliente(card); c.upd=new Date().toISOString(); } });
   showToast('Tarjeta activada ⭐'); abrirClienteDetalle(id);
 }
 function htmlTarjetaCliente(c){
   const t=c.tarjeta; if(!t||!t.snap) return '';
-  const sn=t.snap, inf=infoTarjeta(c)||{};
+  const sn=t.snap, inf=infoTarjeta(c)||{}, un=unidadTarj(sn);
   const ciclo=inf.ciclo||10, hechas=numV(t.visitas)%ciclo||(numV(t.visitas)>0&&numV(t.visitas)%ciclo===0?ciclo:0);
   const pctDe=(n)=>((sn.visitas||[]).find(s=>s.n===n)||{}).pct;
+  const regaloDe=(n)=>{ const x=(sn.visitas||[]).find(v=>v.n===n); return !!(x&&x.servicioIds&&x.servicioIds.length); };
   const nombreRubro_=rubrosNombres(sn.rubro);
   const cir=(n)=>{ const done=n<=hechas, prox=n===hechas+1, pc=pctDe(n);
-    return `<div style="text-align:center"><div style="width:100%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${pc?11:13}px;font-weight:900;${done?'background:#fbbf24;color:#3b2a00;box-shadow:0 0 12px rgba(251,191,36,.55)':prox?'border:2px dashed #fbbf24;color:#fbbf24':'background:rgba(255,255,255,.12);color:rgba(255,255,255,.7)'}">${done?'★':pc?pc+'%':n}</div><div style="font-size:9px;opacity:.75;margin-top:2px">${n}°</div></div>`; };
+    return `<div style="text-align:center"><div style="width:100%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${pc?11:13}px;font-weight:900;${done?'background:#fbbf24;color:#3b2a00;box-shadow:0 0 12px rgba(251,191,36,.55)':prox?'border:2px dashed #fbbf24;color:#fbbf24':'background:rgba(255,255,255,.12);color:rgba(255,255,255,.7)'}">${done?'★':pc?(regaloDe(n)?'🎁':pc+'%'):n}</div><div style="font-size:9px;opacity:.75;margin-top:2px">${n}°</div></div>`; };
   const niveles=sn.referidos||[];
   const refs=(t.refs||[]).length;
   const regaloHtml=!sn.premio?'':(t.regalo==='usado'?'🎁 Regalo usado':(inf.regalo?'🎁 ¡Tiene un corte de regalo!':`🎁 Corte gratis: ${sn.premio.refs} referidos + ${sn.premio.visitas} cortes`));
@@ -2281,12 +2307,12 @@ function htmlTarjetaCliente(c){
     <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
       <div><div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.75">${escH(sn.nombre||'Tarjeta de fidelidad')}${nombreRubro_?' · '+escH(nombreRubro_):''}</div><div style="font-size:18px;font-weight:900;margin-top:2px">${escH(c.nombre)}</div></div>
       <div style="font-size:24px">⭐</div></div>
-    <div style="display:grid;grid-template-columns:repeat(5,1fr);gap:7px;margin:14px 0 12px;position:relative">${Array.from({length:ciclo},(_,i)=>cir(i+1)).join('')}</div>
+    <div style="display:grid;grid-template-columns:repeat(${ciclo<=6?ciclo:5},1fr);gap:7px;margin:14px 0 12px;position:relative">${Array.from({length:ciclo},(_,i)=>cir(i+1)).join('')}</div>
     ${niveles.length?`<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.75;margin-bottom:6px;position:relative">Referidos ${refs}/${niveles.length}</div>
     <div style="display:flex;gap:8px;position:relative;margin-bottom:10px">${niveles.map((p,i)=>{ const got=i<refs, cu=(t.cupones||[]).filter(x=>x.de!=='fidelidad')[i], usado=cu&&cu.usado; const resta=cu&&!cu.usado&&numV(cu.pct)<p?Math.round(numV(cu.pct)*10)/10:p; return `<div style="flex:1;text-align:center;padding:7px 2px;border-radius:12px;font-size:12px;font-weight:900;${got?(usado?'background:rgba(255,255,255,.12);text-decoration:line-through;opacity:.6':'background:#34d399;color:#04241a'):'border:1.5px dashed rgba(255,255,255,.4);opacity:.8'}">${resta}%</div>`; }).join('')}</div>`:''}
     ${(t.cupones||[]).some(x=>x.de==='fidelidad'&&!x.usado)?`<div style="font-size:11.5px;font-weight:700;position:relative;margin-bottom:6px;color:#a7f3d0">💰 Saldo de descuento guardado: ${Math.round((t.cupones||[]).filter(x=>x.de==='fidelidad'&&!x.usado).reduce((a,x)=>a+numV(x.pct),0)*10)/10}%</div>`:''}
     <div style="font-size:12px;font-weight:700;position:relative;${inf.regalo?'color:#fbbf24':'opacity:.85'}">${regaloHtml}</div>
-    <div style="font-size:11px;opacity:.85;margin-top:6px;position:relative">${inf.regalo?'Próximo corte: 100% bonificado':`Próximo corte (n°${inf.k}): ${inf.pctFid?inf.pctFid+'% de fidelidad':'precio normal'}${inf.pctRef?' + '+inf.pctRef+'% por referido':''}`}</div></div>`;
+    <div style="font-size:11px;opacity:.85;margin-top:6px;position:relative">${inf.regalo?'Próximo corte: 100% bonificado':`Próximo ${un} (n°${inf.k}): ${inf.pasoLabel?'🎁 '+escH(inf.pasoLabel):(inf.pctFid?inf.pctFid+'% de fidelidad':'precio normal')}${inf.pctRef?' + '+inf.pctRef+'% por referido':''}`}</div></div>`;
 }
 
 // ============ RECEPCION / PROFESIONAL: vender membresia ============
@@ -2409,7 +2435,7 @@ function renderPrepagoCobro(r){
   const disp=prepagosDisponibles();
   let h='';
   if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#7c6fff')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
-  if(cli&&cli.tarjeta){ const inf=infoTarjeta(cli); h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`corte n°${inf.k}${inf.pctFid?' · '+inf.pctFid+'% fidelidad':''}${inf.pctRef?' · '+inf.pctRef+'% en cupones de referidos':''}`}</div>`; }
+  if(cli&&cli.tarjeta){ const inf=infoTarjeta(cli); h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(cli.tarjeta.snap)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones de referidos':''}`}</div>`; }
   const debeC=cli?saldoDeCliente(cli.id,cli.nombre):0;
   if(debeC>0) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#f472b6;font-weight:800">⚠️ Este cliente debe ${fp(debeC)} de turnos anteriores.</div>`;
   h+=htmlSenasCobro(r);
@@ -2502,8 +2528,8 @@ function adminTarjetas(c){
   const conTarjeta=clientesDir.filter(x=>x.tarjeta);
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">⭐ Tarjetas de fidelidad</span><button class="lnk" onclick="editarTarjetaCfg('')">+ Nueva tarjeta</button></div>
     <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cada cliente conserva las reglas con las que empezó su tarjeta: <b style="color:var(--text)">los profesionales no pueden cambiarlas</b>. Si modificás una tarjeta acá, vale para los clientes nuevos; para los que ya están en curso tenés que aprobarlo con "Aplicar a tarjetas en curso".</div>
-    ${cards.map(t=>{ const n=conTarjeta.filter(x=>x.tarjeta.cardId===t.id).length; return `<div class="prof-card" style="margin-bottom:10px;padding:14px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(t.nombre)} · ${escH(rubrosNombres(t.rubro))}</div><div style="font-size:11px;color:var(--muted2)">${n} clientes con esta tarjeta</div></div><button class="lnk" onclick="editarTarjetaCfg('${t.id}')">Editar</button></div>
-      <div style="font-size:12px;line-height:1.7;margin-top:8px">Fidelidad: ${t.visitas.map(v=>`corte ${v.n}° → <b>${v.pct}%</b>`).join(' · ')}<br>Referidos: ${t.referidos.map((p,i)=>`${i+1}° → <b>${p}%</b>`).join(' · ')}<br>${t.premio?`🎁 Corte 100% de regalo al completar ${t.premio.refs} referidos y ${t.premio.visitas} cortes`:'Sin premio final'}</div>
+    ${cards.map(t=>{ const n=conTarjeta.filter(x=>x.tarjeta.cardId===t.id).length; return `<div class="prof-card" style="margin-bottom:10px;padding:14px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(t.nombre)} · ${escH(rubrosNombres(t.rubro))}</div>${t.profs&&t.profs.length?`<div style="font-size:11px;color:#fbbf24">Solo para: ${t.profs.map(id=>escH((allUsers.find(u=>u.id===id)||{name:id}).name)).join(', ')}</div>`:''}<div style="font-size:11px;color:var(--muted2)">${n} clientes con esta tarjeta</div></div><button class="lnk" onclick="editarTarjetaCfg('${t.id}')">Editar</button></div>
+      <div style="font-size:12px;line-height:1.7;margin-top:8px">Fidelidad: ${t.visitas.map(v=>`${unidadTarj(t)} ${v.n}° → <b>${v.servicioIds&&v.servicioIds.length?'🎁 '+escH(v.label||'gratis'):v.pct+'%'}</b>`).join(' · ')}<br>${t.referidos.length?'Referidos: '+t.referidos.map((p,i)=>`${i+1}° → <b>${p}%</b>`).join(' · ')+'<br>':''}${t.premio?`🎁 Corte 100% de regalo al completar ${t.premio.refs} referidos y ${t.premio.visitas} cortes`:'Sin premio final'}</div>
       <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ghost" style="flex:1" onclick="aplicarTarjetaEnCurso('${t.id}')">Aplicar a tarjetas en curso</button><button class="btn btn-ghost" style="flex:0 0 auto;color:#f472b6" onclick="borrarTarjetaCfg('${t.id}')">Borrar</button></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">⭐</div><p>No hay tarjetas.</p></div>'}`;
 }
 async function editarTarjetaCfg(id){
@@ -2511,15 +2537,17 @@ async function editarTarjetaCfg(id){
   const v=await uiDialog({title:t?'Editar tarjeta':'Nueva tarjeta',msg:'Descuento por número de corte (n:%) y por cada referido.',fields:[
     {label:'Nombre',value:t?t.nombre:'Tarjeta de fidelidad'},
     {label:'Rubros (ids separados por coma: '+(rubros.map(r=>r.id).join(', ')||'barberia')+')',value:t?t.rubro:'barberia,barberia-premium'},
-    {label:'Cortes con descuento (ej: 2:5, 3:10, 4:15, 10:50)',value:t?t.visitas.map(x=>x.n+':'+x.pct).join(', '):'2:5, 3:10, 4:15, 10:50'},
+    {label:'Descuento por número de visita (ej: 2:5, 3:10, 10:50). Para un servicio gratis o con descuento: 6:100:Nutricion Capilar',value:t?t.visitas.map(x=>x.n+':'+x.pct+(x.servicioIds&&x.servicioIds.length?':'+x.servicioIds.map(nombreSvcId).join(' / '):'')).join(', '):'2:5, 3:10, 4:15, 10:50'},
     {label:'Descuento por referido (ej: 10, 15, 20, 25)',value:t?t.referidos.join(', '):'10, 15, 20, 25'},
     {label:'Premio: cortes necesarios (0 = sin premio)',type:'number',value:t&&t.premio?t.premio.visitas:5},
-    {label:'Premio: referidos necesarios',type:'number',value:t&&t.premio?t.premio.refs:4}],ok:'Guardar'});
+    {label:'Premio: referidos necesarios',type:'number',value:t&&t.premio?t.premio.refs:4},
+    {label:'Solo para estos profesionales (nombres separados por coma) — vacío = todos los del rubro',value:t&&t.profs?t.profs.map(id=>(allUsers.find(u=>u.id===id)||{name:id}).name).join(', '):''}],ok:'Guardar'});
   if(!v) return;
-  const visitas=v[2].split(',').map(s=>s.trim().split(':').map(Number)).filter(a=>a[0]>0&&a[1]>0).map(a=>({n:a[0],pct:a[1]})).sort((a,b)=>a.n-b.n);
+  const visitas=v[2].split(',').map(s=>s.trim().split(':')).map(a=>({n:Number(a[0]),pct:Number(a[1]),svc:(a[2]||'').trim()})).filter(a=>a.n>0&&a.pct>0).map(a=>{ const ids=a.svc?idsServiciosPorNombre(a.svc,'/'):[]; const prev=t&&t.visitas.find(x=>x.n===a.n&&x.servicioIds&&ids.length===x.servicioIds.length&&ids.every(i=>x.servicioIds.includes(i))); return ids.length?{n:a.n,pct:a.pct,servicioIds:ids,label:(prev&&prev.label)||(a.svc.split('/')[0].trim()+(a.pct>=100?' gratis':' '+a.pct+'%'))}:{n:a.n,pct:a.pct}; }).sort((a,b)=>a.n-b.n);
   const referidos=v[3].split(',').map(s=>parseFloat(s)).filter(n=>n>0);
   if(!v[0].trim()||!visitas.length){ showToast('Revisá el nombre y los descuentos por corte'); return; }
   const card={id:t?t.id:'tj'+Date.now().toString(36),nombre:v[0].trim(),rubro:v[1].trim()||'barberia,barberia-premium',activa:true,visitas,referidos,premio:numV(v[4])>0?{visitas:numV(v[4]),refs:numV(v[5])}:null};
+  const pids=String(v[6]||'').split(',').map(x=>nkey(x)).filter(Boolean).map(fr=>(allUsers.find(u=>nkey(u.name).includes(fr))||{}).id).filter(Boolean); if(pids.length) card.profs=pids;
   promos.tarjetas=t?promos.tarjetas.map(x=>x.id===t.id?card:x):[...(promos.tarjetas||[]),card];
   savePromos(); showToast('Tarjeta guardada ✓ (los clientes ya en curso no cambian)'); renderAdmin();
 }
@@ -2539,9 +2567,9 @@ function adminDescuentos(c){
   const sv=servicioMembresia(); const cm=promos.comision, mb=promos.membresia, nc=nocheCfg();
   const diasTxt=(d)=>d&&d.length?d.map(x=>DIAS_NOM[x]).join(', '):'todos los días';
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🏷️ Descuentos fijos</span><button class="lnk" onclick="editarReglaFija('')">+ Nuevo</button></div>
-    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Se aplican solos según el <b style="color:var(--text)">horario del turno</b>, el día, la sucursal y la profesión del cliente. En cada cobro se aplica <b style="color:var(--text)">un solo descuento: el más alto</b> entre estas promos, el efectivo, las ofertas, la fidelidad y los referidos. Nunca se suman.</div>
+    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Se aplican solos según el <b style="color:var(--text)">horario del turno</b>, el día, la sucursal y la profesión del cliente. En cada cobro se aplica <b style="color:var(--text)">un solo descuento: el más alto</b> entre estas promos, el efectivo, las ofertas, la fidelidad y los referidos. Nunca se suman, <b style="color:var(--text)">salvo el adicional que tenga configurada una promo</b> (hoy: +15% para fuerzas en las promos de peluquería).</div>
     ${(promos.fijos||[]).map(f=>`<div class="card" style="margin-bottom:8px;${f.activo===false?'opacity:.55':''}"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(f.nombre)} · ${f.pct}%</div>
-      <div style="font-size:11px;color:var(--muted2);line-height:1.6">${escH(rubrosNombres(f.rubro))} · ${diasTxt(f.dias)}${f.horaDesde||f.horaHasta?' · de '+(f.horaDesde||'apertura')+' a '+(f.horaHasta||'cierre'):''}${f.sucursales&&f.sucursales.length?' · '+f.sucursales.map(s=>escH((sucursalDe(s)||{}).nombre||s)).join(', '):' · todas las sucursales'}${f.profesion?' · clientes: '+escH(f.profesion):''}</div></div>
+      <div style="font-size:11px;color:var(--muted2);line-height:1.6">${escH(rubrosNombres(f.rubro))}${f.servicioIds&&f.servicioIds.length?' ('+f.servicioIds.map(id=>escH(nombreSvcId(id))).join(', ')+')':''} · ${diasTxt(f.dias)}${f.horaDesde||f.horaHasta?' · de '+(f.horaDesde||'apertura')+' a '+(f.horaHasta||'cierre'):''}${f.sucursales&&f.sucursales.length?' · '+f.sucursales.map(s=>escH((sucursalDe(s)||{}).nombre||s)).join(', '):' · todas las sucursales'}${f.profesion?' · clientes: '+escH(f.profesion):''}${f.extra&&f.extra.profesion?' · <b style="color:#34d399">+'+numV(f.extra.pct)+'% adicional si es '+escH(f.extra.profesion)+' (se suma)</b>':''}</div></div>
       <button class="lnk" onclick="toggleReglaFija('${f.id}')">${f.activo===false?'Activar':'Pausar'}</button><button class="lnk" onclick="editarReglaFija('${f.id}')">Editar</button><button class="lnk" style="color:#f472b6" onclick="borrarReglaFija('${f.id}')">×</button></div></div>`).join('')}
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">💰 Comisión con descuentos altos</span><button class="lnk" onclick="editarComisionCfg()">Editar</button></div>
     <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Se aplica un solo descuento por cobro (el más alto). Si el descuento supera el <b>${cm.t1}%</b>: el profesional cobra el <b>${cm.p1}%</b> de lo que pagó el cliente y el salón el ${100-cm.p1}%.<br>Si el descuento llega al <b>${cm.t2}%</b> o más: el profesional cobra el <b>${cm.p2}%</b> y el salón el ${100-cm.p2}%.</div>
@@ -2563,13 +2591,18 @@ async function editarReglaFija(id){
     {label:'Desde la hora (HH:MM) — vacío = desde que abre',value:f?f.horaDesde||'':''},
     {label:'Hasta la hora (HH:MM) — vacío = hasta que cierra',value:f?f.horaHasta:''},
     {label:'Sucursales ('+sucursales.map(s=>s.nombre).join(', ')+') — vacío = todas',value:f?(f.sucursales||[]).map(s=>(sucursalDe(s)||{}).nombre||s).join(', '):''},
-    {label:'Profesión del cliente (vacío = cualquiera)',value:f?f.profesion:''}],ok:'Guardar'});
+    {label:'Profesión del cliente (vacío = cualquiera)',value:f?f.profesion:''},
+    {label:'Servicios que incluye (nombres separados por coma) — vacío = todos los del rubro',value:f&&f.servicioIds?f.servicioIds.map(nombreSvcId).join(', '):''},
+    {label:'Adicional para esta profesión (se suma al descuento) — vacío = ninguno',value:f&&f.extra?f.extra.profesion:''},
+    {label:'Ese adicional es de (%)',type:'number',value:f&&f.extra?f.extra.pct:15}],ok:'Guardar'});
   if(!v) return;
   const pct=numV(v[1]); if(!v[0].trim()||pct<=0||pct>100){ showToast('Poné nombre y un descuento entre 1 y 100'); return; }
   const dk=DIAS_NOM.map(nkey); const dias=v[3].split(',').map(x=>dk.indexOf(nkey(x).slice(0,3))).filter(d=>d>=0);
   const suc=v[6].split(',').map(s=>nkey(s)).filter(Boolean).map(n=>(sucursales.find(s=>nkey(s.nombre)===n)||{}).id).filter(Boolean);
   const hd=v[4].trim(), hh=v[5].trim(); if((hh&&!/^\d{1,2}:\d{2}$/.test(hh))||(hd&&!/^\d{1,2}:\d{2}$/.test(hd))){ showToast('Las horas van como HH:MM'); return; }
   const reg={id:f?f.id:'f'+Date.now().toString(36),nombre:v[0].trim(),pct,rubro:v[2].trim(),dias:[...new Set(dias)],horaDesde:hd?hd.padStart(5,'0'):'',horaHasta:hh?hh.padStart(5,'0'):'',sucursales:suc,profesion:v[7].trim(),activo:f?f.activo!==false:true};
+  const sids=idsServiciosPorNombre(v[8]); if(sids.length) reg.servicioIds=sids;
+  if(v[9].trim()&&numV(v[10])>0) reg.extra={profesion:v[9].trim(),pct:numV(v[10])};
   promos.fijos=f?promos.fijos.map(x=>x.id===f.id?reg:x):[...(promos.fijos||[]),reg];
   savePromos(); showToast('Descuento guardado ✓'); renderAdmin();
 }
