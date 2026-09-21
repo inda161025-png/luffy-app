@@ -6,6 +6,8 @@
 <meta http-equiv="Cache-Control" content="no-cache">
   <meta name="ak" content="PLACEHOLDER">
 <title>Luffy</title>
+<meta name="theme-color" content="#09090f">
+<script>try{ if(localStorage.getItem('luffy_theme')==='light') document.documentElement.setAttribute('data-theme','light'); }catch(e){}</script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
@@ -260,6 +262,29 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 .rub-opt:has(input:checked){border-color:var(--accent);background:rgba(124,111,255,.12)}
 #ver-nueva{position:fixed;top:0;left:0;right:0;z-index:2000;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 14px;background:#7c6fff;color:#fff;font-size:13px;font-weight:700;box-shadow:0 4px 18px rgba(0,0,0,.4)}
 #ver-nueva button{background:#fff;color:#4b3fd0;border:none;border-radius:10px;padding:7px 14px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer}
+:root[data-theme="light"]{--bg:#f4f4f9;--s1:#ffffff;--s2:#f0f0f6;--s3:#e4e4ee;--text:#15151f;--muted:#8b8b9e;--muted2:#5a5a70;--border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.16)}
+.hub-menu{margin-left:auto;background:none;border:none;color:var(--muted2);cursor:pointer;padding:6px;display:flex;align-items:center;flex-shrink:0}
+.mlat{position:fixed;inset:0;z-index:900;pointer-events:none}
+.mlat-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .2s}
+.mlat-panel{position:absolute;top:0;right:0;bottom:0;width:min(84vw,330px);background:var(--s1);border-left:1px solid var(--border2);transform:translateX(100%);transition:transform .25s cubic-bezier(.4,0,.2,1)}
+.mlat.open .mlat-panel{box-shadow:-10px 0 40px rgba(0,0,0,.35)}
+.mlat.open{pointer-events:all}.mlat.open .mlat-bg{opacity:1}.mlat.open .mlat-panel{transform:none}
+#mlat-cnt{display:flex;flex-direction:column;height:100%;padding:max(18px,env(safe-area-inset-top)) 14px max(14px,env(safe-area-inset-bottom))}
+.mlat-hd{display:flex;align-items:center;gap:12px;padding:4px 6px 16px;border-bottom:1px solid var(--border)}
+.mlat-av{width:46px;height:46px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.mlat-x{background:var(--s3);border:none;color:var(--muted2);font-size:20px;width:32px;height:32px;border-radius:50%;cursor:pointer;flex-shrink:0}
+.mlat-lista{flex:1;overflow-y:auto;padding:10px 0}
+.mlat-pie{border-top:1px solid var(--border);padding-top:8px}
+.mlat-it{display:flex;align-items:center;gap:14px;width:100%;padding:13px 12px;border:none;background:transparent;color:var(--text);font-family:var(--font);font-size:14.5px;font-weight:600;border-radius:12px;cursor:pointer;text-align:left}
+.mlat-it:active,.mlat-it:hover{background:var(--s2)}
+.mlat-it span{font-size:19px;width:24px;text-align:center}
+.mlat-salir{color:#f472b6}
+.mlat-sw{margin-left:auto;width:42px;height:24px;border-radius:12px;background:var(--s3);position:relative;transition:background .2s;flex-shrink:0}
+.mlat-sw b{position:absolute;top:3px;left:3px;width:18px;height:18px;border-radius:50%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.35);transition:transform .2s}
+.mlat-sw.on{background:var(--accent)}.mlat-sw.on b{transform:translateX(18px)}
+.guia-ov{position:fixed;inset:0;z-index:950;display:flex;align-items:center;justify-content:center;padding:20px;background:rgba(0,0,0,.66);backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity .15s}
+.guia-ov.open{opacity:1;pointer-events:all}
+.guia-card{width:100%;max-width:380px;background:var(--s1);border:1px solid var(--border2);border-radius:22px;padding:22px 20px 20px;box-shadow:0 20px 60px rgba(0,0,0,.6)}
 .stat-card:active{transform:scale(.98)}
 .stat-card .sc-sub{font-size:11px;color:var(--muted2);margin-top:2px}
 
@@ -463,7 +488,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
       <div class="hub-greeting" id="hub-greeting" style="font-size:11px;color:var(--muted2);font-weight:600;letter-spacing:.03em"></div>
       <div class="hub-name" id="hub-name" style="font-size:19px;font-weight:900;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
-    <button class="hub-salir" onclick="showLogin()" style="font-size:10px;letter-spacing:.08em;opacity:.5">SALIR</button>
+    <button class="hub-menu" onclick="abrirMenu()" aria-label="Menú"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
 
   <div style="flex:1;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:none;padding:0 16px 100px" id="hub-scroll">
@@ -569,7 +594,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
       <div style="font-size:12px;color:var(--muted2)">Recepción</div>
       <div style="font-size:20px;font-weight:900" id="rec-greeting">Buenos días 📞</div>
     </div>
-    <button class="hub-salir" onclick="cambiarMiPassword()" title="Cambiar contraseña">🔑</button><button class="hub-salir" onclick="showLogin()">SALIR</button>
+    <button class="hub-menu" onclick="abrirMenu()" aria-label="Menú"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
   <div class="scroll" id="rec-body"></div>
 </div>
@@ -581,7 +606,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
       <div style="font-size:12px;color:var(--muted2)">Encargado</div>
       <div style="font-size:20px;font-weight:900">📦 Control de stock</div>
     </div>
-    <button class="hub-salir" onclick="cambiarMiPassword()" title="Cambiar contraseña">🔑</button><button class="hub-salir" onclick="showLogin()">SALIR</button>
+    <button class="hub-menu" onclick="abrirMenu()" aria-label="Menú"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
   <div class="scroll" id="encargado-body"></div>
 </div>
@@ -597,7 +622,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 <div id="admin" class="screen">
   <div class="hub-hdr" style="padding-bottom:16px">
     <div><div style="font-size:12px;color:var(--muted2)">Panel de control</div><div style="font-size:20px;font-weight:900">Inda Studio 👑</div></div>
-    <button class="hub-salir" onclick="cambiarMiPassword()" title="Cambiar contraseña">🔑</button><button class="hub-salir" onclick="showLogin()">SALIR</button>
+    <button class="hub-menu" onclick="abrirMenu()" aria-label="Menú"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
   <div class="scroll" id="admin-body"></div>
 </div>
@@ -637,7 +662,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
   <div style="padding:14px 20px;flex-shrink:0;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
     <div id="ob-av" style="width:36px;height:36px;border-radius:50%;background:var(--accent)33;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🐟</div>
     <div style="flex:1"><div style="font-size:13px;font-weight:700">Luffy</div><div style="font-size:11px;color:var(--muted2)" id="ob-progreso">Estratega de contenido · Inda Studio</div></div>
-    <button onclick="showLogin()" style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">Saltar</button>
+    <button onclick="salirOnboarding()" style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">Salir</button>
   </div>
   <div class="ob-chat" id="ob-chat"></div>
   <div class="ob-input-wrap">
@@ -683,6 +708,8 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
   </div>
 </div>
 
+<div class="mlat" id="menu-lat"><div class="mlat-bg" onclick="cerrarMenu()"></div><aside class="mlat-panel"><div id="mlat-cnt"></div></aside></div>
+<div class="guia-ov" id="guia-ov"><div class="guia-card" id="guia-cnt"></div></div>
 <div class="ui-dlg" id="ui-dlg"><div class="ui-dlg-box" role="dialog" aria-modal="true">
   <div class="ui-dlg-title" id="ui-dlg-title"></div>
   <div class="ui-dlg-msg" id="ui-dlg-msg"></div>
@@ -1144,7 +1171,7 @@ async function guardarRubrosDe(id,lista){
 
 // Todo lo que se carga de la nube necesita sesion iniciada
 function cargarCatalogos(){
-  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion();
+  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres();
   if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
 }
 
@@ -1346,6 +1373,7 @@ async function loginAs(id){
   profile={...u};
   try{ localStorage.setItem('luffy_session_id', id); }catch(e){}
   cargarCatalogos();
+  setTimeout(guiaInicial,1500);
   if(u.role==='admin'){ enterAdmin(); return; }
   if(u.role==='encargado'){ enterEncargado(); return; }
   if(u.role==='recepcionista'){ enterRecepcionista(); return; }
@@ -1368,11 +1396,9 @@ async function loginAs(id){
     if(ho){ horarioData=ho; try{localStorage.setItem('luffy_horario_'+id,JSON.stringify(horarioData));}catch(e){} }
     if(cp){ Object.assign(profile,cp); try{localStorage.setItem('luffy_perfil_'+id,JSON.stringify(cp));}catch(e){} }
   }
-  // Si no tiene perfil, usar perfil de prueba para poder probar el generador
-  if(!profile.onboardingDone){
-    Object.assign(profile, PERFIL_PRUEBA);
-    try { localStorage.setItem('luffy_perfil_'+id, JSON.stringify({...PERFIL_PRUEBA, id})); } catch(e){}
-  }
+  // Si quedo guardado el perfil de prueba de una version anterior, se descarta: el perfil de creador es solo el que cada persona arma en Contenido.
+  try{ const ep0=JSON.parse(localStorage.getItem('luffy_perfil_'+id)||'null'); if(ep0&&ep0.nicho===PERFIL_PRUEBA.nicho) localStorage.removeItem('luffy_perfil_'+id); }catch(e){}
+  if(profile.nicho===PERFIL_PRUEBA.nicho){ ['onboardingDone','nicho','voz','palabrasSi','palabrasNo'].forEach(k=>delete profile[k]); }
   if(dineroPollTimer) clearInterval(dineroPollTimer);
   if(u.role==='profesional') dineroPollTimer=setInterval(()=>{ if(currentScreenId==='hub'||currentScreenId==='dinero') refrescarDineroPropio(); if(['hub','kanban','banco'].includes(currentScreenId)) refrescarReels(); if(currentScreenId==='hub') refrescarRubrosPropios(); }, 45000);
   showHub();
@@ -3730,7 +3756,7 @@ function renderPerfil(){
   </div>
   ${profile.role==='profesional'?`<div class="card" style="margin-top:10px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">🏷️</span><div style="flex:1"><div style="font-size:14px;font-weight:700">Mis rubros</div><div style="font-size:11px;color:var(--muted2)">${(profile.rubros&&profile.rubros.length)?escH(profile.rubros.map(nombreRubro).filter(Boolean).join(', ')):'Sin elegir: ves todos los servicios'}</div></div><button onclick="abrirRubrosProf('${profile.id}')" style="padding:8px 14px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Cambiar</button></div>`:''}
   <div class="card" style="margin-top:10px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">🔑</span><div style="flex:1"><div style="font-size:14px;font-weight:700">Contraseña</div><div style="font-size:11px;color:var(--muted2)">Cambiala cuando quieras</div></div><button onclick="cambiarMiPassword()" style="padding:8px 14px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Cambiar</button></div>
-  ${getPerfilCreadorHTML(color)}
+  <div id="perfil-contenido">${getPerfilCreadorHTML(color)}</div>
   ${getHorarioHTML(color)}`;
 }
 
@@ -3755,9 +3781,9 @@ function getPerfilCreadorHTML(color){
         </div>
       </div>`;
     }
-    if(!ep||!ep.onboardingDone) return '<div onclick="reHacerOnboarding()" style="background:var(--s1);border:1.5px dashed var(--border2);border-radius:14px;padding:16px;display:flex;align-items:center;gap:10px;cursor:pointer;margin-top:10px"><span style="font-size:24px">🎯</span><div style="flex:1"><div style="font-size:14px;font-weight:700">Perfil de creador</div><div style="font-size:11px;color:var(--muted2)">Sin perfil — ideas genéricas</div></div></div>';
+    if(!ep||!ep.onboardingDone) return '<div style="background:linear-gradient(135deg,'+color+'22,'+color+'08);border:1.5px solid '+color+'44;border-radius:16px;padding:18px;margin-top:10px"><div style="font-size:28px;margin-bottom:6px">🎬</div><div style="font-size:16px;font-weight:900;margin-bottom:6px">Contenido</div><div style="font-size:13px;line-height:1.6;color:var(--muted2);margin-bottom:14px">¡Bienvenido/a a nuestro onboarding de contenido! Con 10 preguntas (unos 5 minutos) definimos tu <b style="color:var(--text)">nicho, tu voz y tus pilares</b>. Así la IA te arma ideas de reels que suenan a vos y no genéricas.</div><button onclick="reHacerOnboarding()" style="width:100%;padding:13px;border-radius:12px;border:none;background:'+color+';color:#fff;font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer">Empezar onboarding →</button></div>';
     return '<div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:10px">'
-      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:13px;font-weight:700">🎯 Perfil de creador</div><div style="display:flex;gap:12px"><button onclick="empezarEdicionPerfil()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar</button><button onclick="reHacerOnboarding()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Rehacer con IA →</button></div></div>'
+      +'<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px"><div style="font-size:13px;font-weight:700">🎬 Contenido · tu perfil de creador</div><div style="display:flex;gap:12px"><button onclick="empezarEdicionPerfil()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar</button><button onclick="reHacerOnboarding()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Rehacer con IA →</button></div></div>'
       +(ep.nicho?'<div style="margin-bottom:8px"><div style="font-size:10px;font-weight:700;color:'+color+'">NICHO</div><div style="font-size:12px">'+ep.nicho+'</div></div>':'')
       +(ep.voz?'<div style="margin-bottom:4px"><div style="font-size:10px;font-weight:700;color:'+color+'">VOZ</div><div style="font-size:11px;color:var(--muted2)">'+ep.voz+'</div></div>':'')
       +(ep.palabrasSi?'<div style="margin-bottom:4px"><div style="font-size:10px;font-weight:700;color:#34d399">Usás</div><div style="font-size:11px;color:var(--muted2)">'+ep.palabrasSi+'</div></div>':'')
@@ -3840,6 +3866,7 @@ function guardarHorarioManual(){
   renderPerfil();
 }
 
+function salirOnboarding(){ goTo(profile&&profile.role==="profesional"?"perfil":"hub"); }
 function reHacerOnboarding(){
   show('onboarding');
   document.getElementById('nav').style.display='none';
@@ -4073,6 +4100,9 @@ function prefetchAdminTeamData(){
   jobs.push(DB.doc('luffy/productos').get().then(r=>{
     if(r && Array.isArray(r.list)){ productos=r.list; try{localStorage.setItem('luffy_productos', JSON.stringify(productos));}catch(e){} }
   }).catch(()=>{}));
+  jobs.push(DB.doc('luffy/cierres_cobro').get().then(r=>{
+    if(r && r.byKey){ try{localStorage.setItem('luffy_cierres', JSON.stringify(r));}catch(e){} }
+  }).catch(()=>{}));
   jobs.push(DB.doc('luffy/incidentes').get().then(r=>{
     if(r && Array.isArray(r.list)){ try{localStorage.setItem('luffy_incidentes', JSON.stringify(r.list));}catch(e){} }
   }).catch(()=>{}));
@@ -4098,7 +4128,7 @@ function renderAdmin(){
   const sub=sec.subs?(window.adminSub[tab]||sec.subs[0][0]):null;
   const nav=`<div class="adm-nav">
     ${ADMIN_SECCIONES.map(s=>`<button class="${s.id===tab?'on':''}" onclick="switchAdminTab('${s.id}')"><span>${s.ico}</span>${s.label}</button>`).join('')}
-    <button class="adm-out" onclick="showLogin()">Salir</button>
+    
   </div>${sec.subs?`<div class="adm-sub">${sec.subs.map(([id,l])=>`<button class="${id===sub?'on':''}" onclick="switchAdminTab('${id}')">${l}</button>`).join('')}</div>`:''}`;
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
@@ -4480,7 +4510,8 @@ function renderAdminPanel(c){
   // equipo hoy
   const incsPend=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]').filter(i=>!i.procesado);
   const canjesPend=canjesSolicitudes.filter(s=>s.estado==='pendiente');
-  let reagHoy=0; allUsers.filter(u=>u.role==='recepcionista').forEach(u=>{ try{ reagHoy+=(JSON.parse(localStorage.getItem('luffy_rec_'+u.id)||'{}').reagendamientos)||0; }catch(e){} });
+  const cierresHoy=cierresLista().filter(c=>c.fecha===hoy&&(P.prof==='todos'||c.profId===P.prof));
+  const reagHoy=cierresHoy.filter(c=>c.r.reagendo==='si').length;
 
   // actividad
   const hora=(iso)=>iso?new Date(iso).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
@@ -4537,7 +4568,7 @@ function renderAdminPanel(c){
     ${mini('Pagan en efectivo',pctEf+'%','del total cobrado',COL.prod)}
     ${mini('Descuentos dados',fp(cur.descTotal),(cur.subtotalLista?Math.round(cur.descTotal/cur.subtotalLista*100):0)+'% del precio de lista',COL.oro)}
     ${mini('Clientes que deben',fp(totalDeuda),deudas.length+' pendientes',deudas.length?COL.rosa:'')}
-    ${mini('Reagendamientos hoy',reagHoy+'/10','recepción',COL.azul)}
+    ${mini('Reagendaron hoy',reagHoy,'de '+cierresHoy.length+' turnos cerrados',COL.azul)}
   </div>
 
   <div class="adm-grid">
@@ -4581,6 +4612,7 @@ function renderAdminPanel(c){
         const rep=getReputacion(p.id);
         return `<tr><td>${p.emoji||'✂️'} ${escH(p.name)}</td><td>${th.length}</td><td>${fp(th.reduce((s,t)=>s+numV(t.monto),0))}</td><td style="color:${sd>=STORY_TIPOS.length?COL.prod:COL.oro}">${sd}/${STORY_TIPOS.length}</td><td style="color:${getRepColor(rep)}">${rep}%</td></tr>`; }).join('')||'<tr><td colspan="5">Sin equipo</td></tr>'}</table>`)}
     ${pnl('c6','Actividad reciente',actividad.length?actividad.map(a=>`<div class="ln"><span>${a.ico} ${a.txt}<i style="color:var(--muted);font-size:10.5px"> · ${a.extra}</i></span><b>${fp(a.m)}</b></div>`).join(''):vacio('Todavía no hay movimientos'))}
+    ${(()=>{ const ci=htmlCierresPanel(rango.desde,rango.hasta,P.prof); return pnl('c6','🧾 Cierre de turnos (recepción)',ci.n?ci.cierre:vacio('Todavía no se cerró ningún turno en este período'))+pnl('c6','⭐ Reseñas de Google declaradas',ci.resenas.length?ci.resenas.slice(0,8).map(c=>`<div class="ln"><span>${escH(c.cliente)} <i style="color:var(--muted)">· atendió ${escH(c.prof)} · cerró ${escH(c.por)} · ${fechaCortaStr(c.fecha)}</i></span></div>`).join('')+'<div style="font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5">Las declara recepción y suman +5 puntos. Para controlarlas, compará esta cantidad con las reseñas nuevas que aparecen en Google.</div>':vacio('Ninguna declarada en este período')); })()}
   </div>`;
 }
 
@@ -4777,6 +4809,7 @@ async function guardarRubrosProf(profId){
   const u=allUsers.find(x=>x.id===profId); if(!u){ showToast('No se encontró a la persona'); return; }
   await guardarRubrosDe(profId,sel);
   closeModal('modal-registro'); showToast('Rubros guardados ✓'); refreshCurrentView();
+  if(profile&&profile.id===profId) setTimeout(guiaInicial,500);
 }
 function refrescarRubrosPropios(){
   if(!DB||!profile||profile.role!=='profesional') return;
@@ -5159,7 +5192,7 @@ function saveAvisosLeidos(){
   try { localStorage.setItem('luffy_avisos_leidos',JSON.stringify(avisosLeidos)); } catch(e){}
   if(DB){ try{ DB.doc('luffy/avisos_leidos').set({list:avisosLeidos}); }catch(e){} }
 }
-function marcarAvisoVisto(key){
+function marcarAvisoVisto(key){ /* solo para ventas de mostrador */
   if(!avisosLeidos.includes(key)) avisosLeidos.push(key);
   saveAvisosLeidos();
   showToast('Marcado como cobrado ✓');
@@ -5254,8 +5287,6 @@ function renderRecepcion(){
   const manana=ymdLocal(mananaDate);
   const storiesDoneHoy=STORY_TIPOS.filter(t=>storiesData?.[hoy]?.[profile.id]?.[t.id]?.done).length;
   const storiesDoneManana=STORY_TIPOS.filter(t=>storiesData?.[manana]?.[profile.id]?.[t.id]?.done).length;
-  const meta=10;
-  const reag=recData.reagendamientos||0;
 
   // Próximos cumpleaños (3 días)
   const today=new Date();
@@ -5276,6 +5307,7 @@ function renderRecepcion(){
   const qRec=today.getDate()<=15?1:2;
   const ventasQuinRec=misVentas.filter(v=>{ if(!v.fecha) return false; const d=new Date(v.fecha+'T00:00:00'); return d.getMonth()===today.getMonth()&&d.getFullYear()===today.getFullYear()&&(qRec===1?d.getDate()<=15:d.getDate()>15); });
   const sumaV=(arr,k)=>arr.reduce((s,v)=>s+(parseFloat(v[k])||0),0);
+  const cierresHoyRec=cierresLista().filter(c=>c.fecha===hoy&&c.porId===profile.id);
   const avisos=getAvisosPendientes().filter(a=>!a.leido);
   const body=document.getElementById('rec-body');
   body.innerHTML=`
@@ -5307,7 +5339,7 @@ function renderRecepcion(){
         ${detalle}
         ${(a.extras||[]).map(e=>rr(`📦 ${e.productoNombre} x${e.cantidad}`,fp(e.total),'color:var(--muted2)')).join('')}
         <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:6px;padding-top:6px;border-top:1px solid var(--border2)"><span style="font-size:12px;font-weight:700">COBRAR${medio?' · '+medio:''}</span><span style="font-size:20px;font-weight:900">${fp(total)}</span></div>
-        <button onclick="marcarAvisoVisto('${a.key}')" style="width:100%;margin-top:10px;padding:11px;border-radius:12px;border:none;background:#fbbf24;color:#1a1a1a;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">✓ Ya cobrado</button>
+        <button onclick="${t?`abrirCierreCobro('${a.key}')`:`marcarAvisoVisto('${a.key}')`}" style="width:100%;margin-top:10px;padding:11px;border-radius:12px;border:none;background:#fbbf24;color:#1a1a1a;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">${t?'Abrir turno y cobrar →':'✓ Ya cobrado'}</button>
       </div>`;
     }).join('')}
     `:''}
@@ -5330,7 +5362,7 @@ function renderRecepcion(){
 
     <!-- Venta de productos -->
     <div class="sec-hdr" style="margin-bottom:8px">
-      <span class="sec-title">📦 Venta de productos</span>
+      <span class="sec-title">💰 Ventas</span>
       <button class="sec-btn" onclick="abrirVentaProducto()" style="background:#7c6fff">+ Venta</button>
     </div>
     <div class="stat-grid" style="margin-bottom:8px">
@@ -5338,6 +5370,8 @@ function renderRecepcion(){
       <div class="stat-card"><div class="sc-lbl">Tu comisión (quincena)</div><div class="sc-val" style="font-size:19px;color:#7c6fff">${fp(sumaV(ventasQuinRec,'comision'))}</div><div class="sc-sub">${fp(sumaV(ventasQuinRec,'total'))} vendidos</div></div>
     </div>
     ${ventasHoyRec.slice(0,3).map(v=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:#7c6fff"></div><div class="ti-info"><strong>${v.productoNombre}</strong><span>x${v.cantidad}${v.cliente?' · '+v.cliente:''}${v.creadoEn?' · '+new Date(v.creadoEn).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):''}</span></div><div style="text-align:right"><div class="ti-monto">${fp(v.total)}</div><div class="ti-medio" style="background:#7c6fff22;color:#7c6fff">+${fp(v.comision)}</div></div></div>`).join('')}
+    <div class="card" style="margin:8px 0;display:flex;align-items:center;gap:12px"><div style="font-size:24px">🔁</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Reagendaron hoy</div><div style="font-size:11px;color:var(--muted2)">De los turnos que cerraste</div></div><div style="font-size:22px;font-weight:900">${cierresHoyRec.filter(c=>c.r.reagendo==='si').length}<span style="font-size:13px;color:var(--muted)"> / ${cierresHoyRec.length}</span></div></div>
+    <div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px;opacity:.75"><div style="font-size:24px">🎁</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Paquetes</div><div style="font-size:11px;color:var(--muted2)">Muy pronto vas a poder venderlos desde acá</div></div></div>
     <div style="height:10px"></div>
 
     <!-- Stories: hoy y mañana -->
@@ -5365,25 +5399,6 @@ function renderRecepcion(){
       </div>
       <div style="height:4px;background:var(--border2);border-radius:2px;margin-top:10px;overflow:hidden">
         <div style="height:100%;width:${Math.round((storiesDoneManana/STORY_TIPOS.length)*100)}%;background:#60a5fa;border-radius:2px"></div>
-      </div>
-    </div>
-
-    <!-- Reagendamientos -->
-    <div class="card" style="margin-bottom:10px">
-      <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px">
-        <div style="font-size:28px">📞</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700">Reagendamientos</div>
-          <div style="font-size:12px;color:var(--muted2)">Meta diaria: ${meta}</div>
-        </div>
-        <div style="font-size:36px;font-weight:900;color:${reag>=meta?'#34d399':reag>=meta/2?'#fbbf24':'var(--text)'}">${reag}</div>
-      </div>
-      <div style="height:6px;background:var(--border2);border-radius:3px;overflow:hidden;margin-bottom:12px">
-        <div style="height:100%;width:${Math.min(100,Math.round((reag/meta)*100))}%;background:${reag>=meta?'#34d399':reag>=meta/2?'#fbbf24':'#60a5fa'};border-radius:3px;transition:width .3s"></div>
-      </div>
-      <div style="display:flex;gap:8px">
-        <button onclick="reagendar()" style="flex:1;padding:14px;border-radius:12px;border:none;background:#34d399;color:#fff;font-family:var(--font);font-size:15px;font-weight:800;cursor:pointer">+ Reagendé uno</button>
-        ${reag>0?`<button onclick="desreagen()" style="padding:14px 16px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer">−</button>`:''}
       </div>
     </div>
 
@@ -5432,22 +5447,6 @@ function goToRec(dest){
       renderRecepcion();
     };
     show('stories');
-  }
-}
-
-function reagendar(){
-  recData.reagendamientos=(recData.reagendamientos||0)+1;
-  saveRecData();
-  addPuntos(profile.id,'reagendamiento',30,'Reagendamiento exitoso');
-  renderRecepcion();
-  showToast('+30 puntos ⭐');
-}
-
-function desreagen(){
-  if(recData.reagendamientos>0){
-    recData.reagendamientos--;
-    saveRecData();
-    renderRecepcion();
   }
 }
 
@@ -5518,6 +5517,269 @@ async function reponerStock(id){
   ajustarStock([{id:p.id,delta:cant}]);
   showToast('Stock actualizado ✓');
   renderEncargado();
+}
+
+// ============ MENU LATERAL, TEMA CLARO/OSCURO Y GUIA RAPIDA ============
+function temaActual(){ return document.documentElement.getAttribute('data-theme')==='light'?'light':'dark'; }
+function aplicarTema(t){
+  if(t==='light') document.documentElement.setAttribute('data-theme','light'); else document.documentElement.removeAttribute('data-theme');
+  try{ localStorage.setItem('luffy_theme',t); }catch(e){}
+  const m=document.querySelector('meta[name="theme-color"]'); if(m) m.setAttribute('content',t==='light'?'#f4f4f9':'#09090f');
+}
+function alternarTema(){ aplicarTema(temaActual()==='light'?'dark':'light'); renderMenu(); }
+
+const ICONO_MENU='<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>';
+
+function abrirMenu(){ if(!profile) return; renderMenu(); document.getElementById('menu-lat').classList.add('open'); }
+function cerrarMenu(){ document.getElementById('menu-lat').classList.remove('open'); }
+
+function menuIr(accion){
+  cerrarMenu();
+  const irPerfil=()=>{ goTo('perfil'); };
+  const acc={
+    perfil:()=>{ if(profile.role==='profesional') irPerfil(); else abrirMiCuenta(); },
+    contenido:()=>{ irPerfil(); setTimeout(()=>{ const e=document.getElementById('perfil-contenido'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },150); },
+    dinero:()=>goTo('dinero'), banco:()=>goTo('banco'), puntos:()=>goTo('puntos'), kanban:()=>goTo('kanban'),
+    stories:()=>{ if(profile.role==='recepcionista') goToRec('stories'); else goTo('stories'); },
+    guia:()=>abrirGuia(true), pass:()=>cambiarMiPassword(), salir:()=>showLogin(),
+  };
+  (acc[accion]||(()=>{}))();
+}
+
+function renderMenu(){
+  const p=profile; if(!p) return;
+  const claro=temaActual()==='light';
+  const it=(ico,txt,accion)=>`<button class="mlat-it" onclick="menuIr('${accion}')"><span>${ico}</span>${txt}</button>`;
+  const rubrosTxt=(p.role==='profesional'&&p.rubros&&p.rubros.length)?p.rubros.map(nombreRubro).filter(Boolean).join(', '):(ROLES[p.role]||'');
+  let items='';
+  if(p.role==='profesional'){
+    items=it('👤','Mi perfil','perfil')+it('🎬','Contenido','contenido')+it('💰','Mi dinero','dinero')+it('📝','Banco de reels','banco')+it('🗂️','Tablero','kanban')+it('📱','Historias','stories')+it('🏆','Mis puntos','puntos');
+  } else if(p.role==='recepcionista'){
+    items=it('👤','Mi cuenta','perfil')+it('📱','Historias','stories');
+  } else {
+    items=it('👤','Mi cuenta','perfil');
+  }
+  items+=it('🧭','Guía rápida','guia')+it('🔑','Cambiar contraseña','pass');
+  document.getElementById('mlat-cnt').innerHTML=`
+    <div class="mlat-hd">
+      <div class="mlat-av" style="background:${p.color||'#7c6fff'}33;border-color:${p.color||'#7c6fff'}">${p.emoji||'👤'}</div>
+      <div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(p.name)}</div><div style="font-size:11.5px;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(rubrosTxt)}</div></div>
+      <button class="mlat-x" onclick="cerrarMenu()" aria-label="Cerrar">×</button>
+    </div>
+    <div class="mlat-lista">${items}</div>
+    <div class="mlat-pie">
+      <button class="mlat-it" onclick="alternarTema()"><span>${claro?'☀️':'🌙'}</span>Modo claro<i class="mlat-sw ${claro?'on':''}"><b></b></i></button>
+      <button class="mlat-it mlat-salir" onclick="menuIr('salir')"><span>🚪</span>Salir</button>
+    </div>`;
+}
+
+// Ficha de cuenta para los roles que no tienen pantalla de perfil (recepcion, encargado, admin)
+function abrirMiCuenta(){
+  const p=profile; if(!p) return;
+  const c=document.getElementById('registro-content');
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">Mi cuenta</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="text-align:center;padding:6px 0 18px"><div style="width:72px;height:72px;border-radius:50%;background:${p.color||'#7c6fff'}33;border:3px solid ${p.color||'#7c6fff'};display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 10px">${p.emoji||'👤'}</div>
+      <div style="font-size:20px;font-weight:900">${escH(p.name)}</div>
+      <div style="font-size:12px;color:var(--muted2);margin-top:2px">@${escH(p.username||'')} · ${escH(ROLES[p.role]||p.role)}</div></div>
+    <button class="btn btn-ghost" onclick="closeModal('modal-registro');cambiarMiPassword()">🔑 Cambiar contraseña</button>`;
+  openModal('modal-registro');
+}
+
+// ---------- guia rapida ("consejo 1 de N") ----------
+const GUIAS={
+  profesional:[
+    {e:'👋',t:'Bienvenido/a a Luffy',x:'Acá tenés tu día a día en un solo lugar: cobros, plata, contenido y puntos. Estos consejos te muestran cómo usarlo. Podés saltearlos y volver a verlos cuando quieras desde el menú ☰ → Guía rápida.'},
+    {e:'➕',t:'Cobrar un turno',x:'En el Inicio tocá "+ Registrar turno". Elegí qué le hiciste, si tiene una oferta, si se llevó algún producto y cómo pagó. El total se arma solo y recepción lo ve al instante para cobrarle.'},
+    {e:'✨',t:'Combos y descuentos automáticos',x:'Si elegís Corte + Barba se cobra el precio del combo sin que hagas nada. Pagando en efectivo hay 10% de descuento en los servicios (si el cliente además tiene una oferta, se aplica la que más descuenta). En la barba elegís el largo.'},
+    {e:'⏳',t:'Cuando el cliente paga después',x:'Elegí "Paga después" como medio de pago y poné su nombre. Queda anotado en rojo y NO suma a tu quincena hasta que pague. El día que pague, suma a la quincena de ese día.'},
+    {e:'📦',t:'Vender productos',x:'Los productos se cargan en el mismo cobro con los botones + y −. Tu comisión por productos va aparte de la de los cortes, y el stock se descuenta solo.'},
+    {e:'🐷',t:'Mi dinero',x:'Ahí ves tu facturación, tu comisión, los productos y el efectivo/Mercado Pago de la quincena. Tocá cualquier tarjeta para ver el detalle, y usá ‹ › para ver quincenas anteriores.'},
+    {e:'📱',t:'Historias del día',x:'Marcá las historias que vas publicando. Cada una suma +5 puntos, y el admin ve cómo va cada uno del equipo.'},
+    {e:'📝',t:'Banco de reels',x:'Elegí un reel del banco, mirá todo el detalle (con el link de inspiración) y decidí si lo tomás. Pasa a tu Tablero con un plazo: a tiempo suma +50 ⭐, si no llegás resta −50 y te toca una prenda.'},
+    {e:'🏆',t:'Puntos y premios',x:'Tus puntos salen de historias, reels y otras acciones. En Mis puntos ves el ranking del equipo y podés canjearlos por premios.'},
+    {e:'🎬',t:'Tu perfil y tu contenido',x:'En el menú ☰ → Mi perfil podés cambiar tus rubros (ves solo los servicios de lo que hacés). Y en la sección Contenido armás tu nicho y tus pilares con nuestro onboarding, cuando quieras. También podés cambiar a modo claro u oscuro desde el menú.'},
+  ],
+  recepcionista:[
+    {e:'👋',t:'Bienvenida a Luffy',x:'Esta es tu pantalla de trabajo. Estos consejos te muestran cómo usarla; podés saltearlos y volver a verlos desde el menú ☰ → Guía rápida.'},
+    {e:'🔔',t:'Para cobrar',x:'Cuando un profesional termina un turno te aparece acá con todo el detalle: qué se hizo, el descuento, los productos y cómo paga. Tocá "Abrir turno" para cobrarlo.'},
+    {e:'✅',t:'Al cerrar cada turno',x:'Te vamos guiando con unas preguntas: si está agendado, si le contaste los beneficios de seguir viniendo, si reagendó, si dejó seña y si dejó reseña en Google (esa suma puntos). Así no se olvida nada.'},
+    {e:'🚫',t:'Clientes que deben',x:'Si un cliente se fue sin pagar, aparece en "Clientes que deben" con quién lo dejó y hace cuánto. Cuando pague, tocá Cobrar: suma a la quincena del profesional del día en que pagó.'},
+    {e:'📋',t:'Tareas del día',x:'Tu lista de tareas (limpieza, caja, etc.). Tocá cada una para tildarla.'},
+    {e:'💰',t:'Ventas',x:'Vendé productos con el botón "+ Venta": ganás la comisión de cada producto y el stock se descuenta solo. Ves lo vendido de hoy y tu comisión de la quincena.'},
+    {e:'🎂',t:'Cumpleaños e incidentes',x:'Te avisamos los cumpleaños de los próximos días para contactar a los clientes (suma puntos). Y si pasa algo con un profesional, lo reportás desde "Reportar incidente". Modo claro/oscuro en el menú ☰.'},
+  ],
+  encargado:[
+    {e:'👋',t:'Bienvenido/a a Luffy',x:'Acá controlás el stock de los productos. Podés volver a ver estos consejos desde el menú ☰ → Guía rápida.'},
+    {e:'📦',t:'El stock baja solo',x:'Cada venta que hacen los profesionales o recepción descuenta las unidades automáticamente, así que el número que ves es el real.'},
+    {e:'⚠️',t:'Alertas de poco stock',x:'Cuando un producto llega al mínimo que definió el admin, se marca en rojo para que repongas a tiempo.'},
+    {e:'➕',t:'Reponer',x:'Cuando llegan productos, tocá "Reponer" en el producto y poné cuántas unidades sumaste. Solo podés tocar cantidades, no precios.'},
+  ],
+  admin:[
+    {e:'👋',t:'Bienvenido al panel',x:'Desde acá ves y manejás todo el negocio. Podés volver a ver estos consejos desde el menú ☰ → Guía rápida.'},
+    {e:'📊',t:'El Panel',x:'Facturación, lo que queda al local, comisiones, ganancia y stock, con comparación contra el período anterior. Filtrá por período o por persona, y tocá los gráficos para ver el detalle.'},
+    {e:'👥',t:'Equipo y cuentas nuevas',x:'En Equipo → Estado ves cómo va cada uno. Las cuentas nuevas quedan esperando tu aprobación ahí mismo: podés aprobarlas y elegir su rol, o rechazarlas.'},
+    {e:'🏷️',t:'Catálogo',x:'Cargá servicios por rubro, combos con precio propio, ofertas y productos con su stock. Cada profesional ve solo lo de sus rubros.'},
+    {e:'📝',t:'Contenido y reglas de reels',x:'Cargá reels de a uno o en masa desde una planilla. En Reglas y prendas definís el plazo, los puntos y las prendas por no cumplir.'},
+    {e:'💵',t:'Deudas y cobros',x:'En el Panel ves los clientes que no pagaron: podés cobrarlos o anularlos si no se van a cobrar. Modo claro/oscuro y cambio de contraseña, en el menú ☰.'},
+  ],
+};
+let guiaEstado={lista:[],i:0,inicial:false};
+function claveGuia(){ return 'luffy_guia_'+((profile&&profile.id)||''); }
+function guiaInicial(){
+  if(!profile) return;
+  if(profile.role==='profesional'&&!(profile.rubros&&profile.rubros.length)) return; // primero eligen sus rubros
+  let vista=false; try{ vista=!!localStorage.getItem(claveGuia()); }catch(e){}
+  if(vista) return;
+  if(!['hub','recepcion','encargado','admin'].includes(currentScreenId)) return;
+  abrirGuia(false);
+}
+function abrirGuia(manual){
+  const lista=GUIAS[(profile&&profile.role)||'profesional']||GUIAS.profesional;
+  guiaEstado={lista,i:0,inicial:!manual};
+  renderGuia();
+  document.getElementById('guia-ov').classList.add('open');
+}
+function renderGuia(){
+  const {lista,i}=guiaEstado, g=lista[i], ult=i===lista.length-1;
+  document.getElementById('guia-cnt').innerHTML=`
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px"><span style="font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;color:var(--muted2)">Consejo ${i+1} de ${lista.length}</span><button onclick="cerrarGuia()" style="margin-left:auto;background:none;border:none;color:var(--muted);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Saltar</button></div>
+    <div style="height:4px;background:var(--s3);border-radius:2px;overflow:hidden;margin-bottom:20px"><div style="height:100%;width:${Math.round((i+1)/lista.length*100)}%;background:var(--accent);border-radius:2px;transition:width .25s"></div></div>
+    <div style="font-size:44px;text-align:center;margin-bottom:10px">${g.e}</div>
+    <div style="font-size:19px;font-weight:900;text-align:center;margin-bottom:10px">${g.t}</div>
+    <div style="font-size:13.5px;line-height:1.65;color:var(--muted2);text-align:center;margin-bottom:22px;min-height:88px">${g.x}</div>
+    <div style="display:flex;gap:8px">
+      ${i>0?`<button class="ui-b ghost" onclick="guiaPaso(-1)" style="flex:1">← Anterior</button>`:''}
+      <button class="ui-b" onclick="${ult?'cerrarGuia()':'guiaPaso(1)'}" style="flex:2">${ult?'¡Listo!':'Siguiente →'}</button>
+    </div>`;
+}
+function guiaPaso(d){ guiaEstado.i=Math.max(0,Math.min(guiaEstado.lista.length-1,guiaEstado.i+d)); renderGuia(); }
+function cerrarGuia(){
+  document.getElementById('guia-ov').classList.remove('open');
+  try{ localStorage.setItem(claveGuia(),'1'); }catch(e){}
+}
+
+// ============ RECEPCION: CIERRE DE TURNO (preguntas al cobrar) ============
+// Cada rubro tiene su forma de fidelizar y vender. Estos textos son el punto de partida.
+const FIDELIZACION_RUBRO={
+  'barberia':'¿Le contaste los beneficios de seguir viniendo (cada 2 o 3 semanas) y, si corresponde, el paquete?',
+  'barberia-premium':'¿Le contaste los beneficios de seguir viniendo y de sumar la experiencia completa (barba, limpieza facial)?',
+  'peluqueria':'¿Le recomendaste el cuidado en casa y le contaste cuándo conviene volver (retoque o mantenimiento)?',
+  'cosmetologia':'¿Le explicaste que los resultados llegan con un plan de sesiones y le ofreciste el paquete?',
+  'cejas':'¿Le contaste cada cuánto conviene mantener el diseño y le ofreciste el próximo turno?',
+  'podologia':'¿Le explicaste por qué conviene venir seguido para el mantenimiento y le ofreciste el próximo turno?',
+  'masajes':'¿Le contaste los beneficios de hacerlo seguido y le ofreciste el paquete de sesiones?',
+  'manos':'¿Le contaste que el mantenimiento es cada 15 o 20 días y le ofreciste el próximo turno?',
+};
+const FIDELIZACION_DEFAULT='¿Le contaste los beneficios de seguir viniendo?';
+const PUNTOS_REAGENDO=30, PUNTOS_RESENA=5;
+
+let cierresData={byKey:{}};
+function loadCierres(){
+  try{ cierresData=JSON.parse(localStorage.getItem('luffy_cierres')||'{"byKey":{}}'); }catch(e){ cierresData={byKey:{}}; }
+  if(!cierresData.byKey) cierresData.byKey={};
+  if(DB){
+    DB.doc('luffy/cierres_cobro').get().then(r=>{
+      if(r&&r.byKey&&JSON.stringify(r.byKey)!==JSON.stringify(cierresData.byKey)){ cierresData=r; try{localStorage.setItem('luffy_cierres',JSON.stringify(cierresData));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+// Lee la version mas fresca y agrega solo este cierre, asi nadie pisa el cierre de otra persona
+async function guardarCierreRemoto(reg){
+  let base={byKey:{}};
+  if(DB){ try{ const r=await DB.doc('luffy/cierres_cobro').get(); if(r&&r.byKey) base=r; }catch(e){} }
+  base.byKey[reg.key]=reg; cierresData=base;
+  try{localStorage.setItem('luffy_cierres',JSON.stringify(cierresData));}catch(e){}
+  if(DB){ try{ await DB.doc('luffy/cierres_cobro').set(base); }catch(e){} }
+}
+function cierresLista(){ let d={byKey:{}}; try{ d=JSON.parse(localStorage.getItem('luffy_cierres')||'{"byKey":{}}'); }catch(e){} return Object.values(d.byKey||{}); }
+
+// Rubro(s) del turno: el de los servicios cobrados; si no se puede saber, los del profesional
+function rubrosDelTurno(a){
+  const ids=new Set();
+  ((a.turno&&a.turno.servicios)||[]).forEach(s=>{
+    const sv=servicios.find(x=>x.id===s.id); if(sv&&sv.rubro) ids.add(sv.rubro);
+    const cb=combos.find(x=>x.id===s.id); if(cb&&cb.rubro) ids.add(cb.rubro);
+  });
+  if(!ids.size) ((a.prof&&a.prof.rubros)||[]).forEach(r=>ids.add(r));
+  return [...ids];
+}
+function preguntasCierre(a){
+  const rb=rubrosDelTurno(a);
+  return [
+    {id:'agendado',ico:'📅',q:'¿Está agendado para su próximo turno?'},
+    {id:'fideliza',ico:'💬',q:FIDELIZACION_RUBRO[rb[0]]||FIDELIZACION_DEFAULT},
+    {id:'reagendo',ico:'🔁',q:'¿Reagendó el cliente?',nota:'Suma +'+PUNTOS_REAGENDO+' puntos ⭐'},
+    {id:'sena',ico:'💵',q:'¿Dejó seña?'},
+    {id:'resena',ico:'⭐',q:'¿Dejó una reseña en Google?',nota:'Suma +'+PUNTOS_RESENA+' puntos ⭐'},
+  ];
+}
+
+let cierreSel=null;
+function abrirCierreCobro(key){
+  const a=getAvisosPendientes().find(x=>x.key===key);
+  if(!a||a.tipo!=='turno'){ showToast('Ese turno ya no está'); return; }
+  cierreSel={key,r:{},senaMonto:''};
+  renderCierre(); openModal('modal-registro');
+}
+function cierreResp(id,v){ cierreSel.r[id]=v; renderCierre(); }
+function renderCierre(){
+  const s=cierreSel; if(!s) return;
+  const a=getAvisosPendientes().find(x=>x.key===s.key); if(!a){ closeModal('modal-registro'); return; }
+  const t=a.turno, extras=a.extras||[];
+  const total=numV(t.monto)+extras.reduce((x,e)=>x+numV(e.total),0);
+  const medio=({efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'}[t.medio]||t.medio||'');
+  const pregs=preguntasCierre(a);
+  const listos=pregs.every(p=>s.r[p.id]);
+  const c=document.getElementById('registro-content');
+  const box=document.querySelector('#modal-registro .modal-box'); const st=box?box.scrollTop:0;
+  const opt=(id,v,l)=>{ const sel=s.r[id]===v; const col=v==='si'?'#34d399':'#f472b6'; return `<button onclick="cierreResp('${id}','${v}')" style="flex:1;padding:11px;border-radius:12px;border:1.5px solid ${sel?col:'var(--border2)'};background:${sel?col+'22':'transparent'};color:${sel?col:'var(--muted2)'};font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer">${l}</button>`; };
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div class="modal-title" style="margin:0">Cerrar turno</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div class="card" style="margin-bottom:14px;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.06)">
+      <div style="font-size:15px;font-weight:800">${escH(t.cliente||'Cliente')}</div>
+      <div style="font-size:11.5px;color:var(--muted2);margin-bottom:6px">${escH(a.prof.name)} · ${escH(t.servicio||'')}${extras.length?' + '+extras.map(e=>escH(e.productoNombre)).join(', '):''}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--border2);padding-top:6px"><span style="font-size:12px;font-weight:700">COBRAR${medio?' · '+medio:''}</span><span style="font-size:22px;font-weight:900">${fp(total)}</span></div>
+    </div>
+    ${pregs.map((p,i)=>`<div style="margin-bottom:14px">
+      <div style="font-size:13.5px;font-weight:700;line-height:1.45;margin-bottom:8px">${i+1}. ${p.ico} ${escH(p.q)}${p.nota?` <span style="font-size:11px;font-weight:700;color:#fbbf24">· ${p.nota}</span>`:''}</div>
+      <div style="display:flex;gap:8px">${opt(p.id,'si','Sí')}${opt(p.id,'no','No')}</div>
+      ${p.id==='sena'&&s.r.sena==='si'?`<input type="number" inputmode="decimal" placeholder="¿De cuánto? (opcional)" value="${escH(s.senaMonto)}" oninput="cierreSel.senaMonto=this.value" style="width:100%;margin-top:8px;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none"/>`:''}
+    </div>`).join('')}
+    <button class="btn btn-primary" onclick="guardarCierreCobro()" style="background:${listos?'#34d399':'var(--s3)'};color:${listos?'#0b0b10':'var(--muted2)'};margin-top:4px">${listos?'✓ Cobrado y turno cerrado':'Respondé las 5 preguntas para cerrar'}</button>`;
+  if(box) box.scrollTop=st;
+}
+async function guardarCierreCobro(){
+  const s=cierreSel; if(!s) return;
+  const a=getAvisosPendientes().find(x=>x.key===s.key); if(!a){ closeModal('modal-registro'); return; }
+  const pregs=preguntasCierre(a);
+  if(!pregs.every(p=>s.r[p.id])){ showToast('Falta responder alguna pregunta'); return; }
+  const t=a.turno, extras=a.extras||[];
+  const reg={key:s.key, fecha:hoyStr(), ts:new Date().toISOString(), por:profile.name, porId:profile.id,
+    cliente:t.cliente||'Cliente', prof:a.prof.name, profId:a.prof.id, rubro:rubrosDelTurno(a).join(','),
+    monto:numV(t.monto)+extras.reduce((x,e)=>x+numV(e.total),0), r:{...s.r}, senaMonto:s.r.sena==='si'?(parseFloat(s.senaMonto)||0):0};
+  await guardarCierreRemoto(reg);
+  let pts=0;
+  if(s.r.reagendo==='si'){ addPuntos(profile.id,'reagendamiento',PUNTOS_REAGENDO,'Reagendamiento: '+reg.cliente,'reag:'+s.key); pts+=PUNTOS_REAGENDO; }
+  if(s.r.resena==='si'){ addPuntos(profile.id,'resena',PUNTOS_RESENA,'Reseña en Google: '+reg.cliente,'resena:'+s.key); pts+=PUNTOS_RESENA; }
+  if(!avisosLeidos.includes(s.key)) avisosLeidos.push(s.key);
+  saveAvisosLeidos();
+  cierreSel=null; closeModal('modal-registro');
+  showToast('Turno cerrado ✓'+(pts?' +'+pts+' puntos ⭐':''));
+  renderRecepcion();
+}
+
+// ---------- panel del admin: como viene el cierre de turnos ----------
+function htmlCierresPanel(desde,hasta,profId){
+  const L=cierresLista().filter(c=>c.fecha>=desde&&c.fecha<=hasta&&(profId==='todos'||c.profId===profId));
+  const n=L.length, pc=(k)=>n?Math.round(L.filter(c=>c.r[k]==='si').length/n*100):0;
+  const senas=L.filter(c=>c.r.sena==='si'), senaTot=senas.reduce((s,c)=>s+numV(c.senaMonto),0);
+  const resenas=L.filter(c=>c.r.resena==='si').sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+  const fila=(l,v,sub)=>`<div class="ln"><span>${l}</span><span><b>${v}</b>${sub?` <span style="color:var(--muted);font-size:10.5px">${sub}</span>`:''}</span></div>`;
+  const cierre=n?`${fila('📅 Quedaron agendados',pc('agendado')+'%',L.filter(c=>c.r.agendado==='si').length+' de '+n)}
+    ${fila('💬 Se les contó de seguir viniendo',pc('fideliza')+'%',L.filter(c=>c.r.fideliza==='si').length+' de '+n)}
+    ${fila('🔁 Reagendaron',pc('reagendo')+'%',L.filter(c=>c.r.reagendo==='si').length+' de '+n)}
+    ${fila('💵 Dejaron seña',senas.length+(senas.length?' · '+fp(senaTot):''),pc('sena')+'%')}
+    ${fila('⭐ Reseñas en Google (declaradas)',resenas.length,pc('resena')+'%')}`:'';
+  return {cierre, resenas, n};
 }
 
 // ============ AVISO DE VERSION NUEVA ============
