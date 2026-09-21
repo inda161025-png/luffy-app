@@ -460,7 +460,6 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
       <select id="reg-rol" onchange="regRolCambio()" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:13px 15px;color:var(--text);font-family:var(--font);font-size:15px;outline:none">
         <option value="profesional">Profesional</option>
         <option value="recepcionista">Recepcionista</option>
-        <option value="encargado">Encargado</option>
       </select>
     </div>
     <div class="field" id="reg-rubros-wrap"><label>¿En qué rubros trabajás? (podés elegir más de uno)</label><div id="reg-rubros"></div></div>
@@ -1255,7 +1254,7 @@ function htmlCuentasPendientes(){
     <div style="font-size:11.5px;color:var(--muted2);margin:3px 0 10px">Pidió ser ${escH(ROLES[p.role]||p.role)}${(p.rubros&&p.rubros.length)?' · '+escH(p.rubros.map(nombreRubro).filter(Boolean).join(', ')):''}</div>
     <div style="display:flex;gap:8px;align-items:center">
       <select id="ap-suc-${p.uid}" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px;max-width:130px">${sucursales.map((s,i)=>`<option value="${s.id}">${escH(s.nombre)}</option>`).join('')}</select>
-      <select id="ap-rol-${p.uid}" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px">${['profesional','recepcionista','encargado'].map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLES[r]}</option>`).join('')}</select>
+      <select id="ap-rol-${p.uid}" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px">${['profesional','recepcionista'].map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLES[r]}</option>`).join('')}</select>
       <button onclick="aprobarCuenta('${p.uid}')" style="padding:10px 16px;border-radius:10px;border:none;background:#34d399;color:#0b0b10;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">Aprobar</button>
       <button onclick="rechazarCuenta('${p.uid}')" style="padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">✕</button>
     </div></div>`).join('')}`;
@@ -1589,13 +1588,28 @@ async function guardarSucursalProf(profId){
   closeModal('modal-registro'); showToast('Sucursal guardada ✓'); refreshCurrentView();
 }
 
+// Encargado = un profesional que ademas controla el stock. Lo designa el admin (puede ser mas de uno).
+async function toggleEncargado(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return;
+  if(!u.esEncargado&&!await uiConfirm('¿Hacer encargado a '+u.name+'?','Sigue siendo profesional y suma a su menú "Control de stock" para reponer productos y ver el que queda poco.',{ok:'Hacer encargado'})) return;
+  if(await guardarCampoUsuario(id,{esEncargado:!u.esEncargado})){ showToast(u.esEncargado?u.name+' ya es encargado ✓':'Listo, ya no es encargado'); renderAdmin(); }
+}
 // Sucursal sin recepcionista: el profesional cierra sus propios turnos (reagendo, resena, sena...) y suma los puntos
-function renderCierresPendientesProf(){
-  const el=document.getElementById('hub-cierres'); if(!el) return;
-  if(!profile||!sucursalSinRecepcion(profile)){ el.innerHTML=''; return; }
+function htmlCierresPendProf(){
+  if(!profile||!sucursalSinRecepcion(profile)) return '';
   const hoy=hoyStr(); const cierres=cierresData.byKey||{};
   const pend=(dineroData.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&!cierres['t:'+profile.id+':'+t.id]);
-  el.innerHTML=pend.length?`<div class="card" style="margin-bottom:14px;border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.07)"><div style="font-size:13px;font-weight:800;margin-bottom:2px">📝 Turnos por cerrar (${pend.length})</div><div style="font-size:11.5px;color:var(--muted2);margin-bottom:8px">En tu sucursal no hay recepcionista: completá reagendó, reseña, seña… y sumás puntos ⭐</div>${pend.map(t=>`<button onclick="abrirCierreCobro('t:${profile.id}:${t.id}')" style="display:flex;justify-content:space-between;width:100%;padding:10px 12px;margin-top:6px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer"><span>${escH(t.cliente||'Cliente')}</span><span style="color:var(--muted2)">${t.creadoEn?horaDeIso(t.creadoEn):''} · cerrar →</span></button>`).join('')}</div>`:'';
+  return pend.length?`<div class="card" style="margin-bottom:14px;border-color:rgba(251,191,36,.45);background:rgba(251,191,36,.07)"><div style="font-size:13px;font-weight:800;margin-bottom:2px">📝 Turnos por cerrar (${pend.length})</div><div style="font-size:11.5px;color:var(--muted2);margin-bottom:8px">En tu sucursal no hay recepcionista: completá reagendó, reseña, seña… y sumás puntos ⭐</div>${pend.map(t=>`<button onclick="abrirCierreCobro('t:${profile.id}:${t.id}')" style="display:flex;justify-content:space-between;width:100%;padding:10px 12px;margin-top:6px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer"><span>${escH(t.cliente||'Cliente')}</span><span style="color:var(--muted2)">${t.creadoEn?horaDeIso(t.creadoEn):''} · cerrar →</span></button>`).join('')}</div>`:'';
+}
+// Encargado: aviso de productos con poco stock
+function htmlStockBajoEnc(){
+  if(!profile||!profile.esEncargado) return '';
+  const bajos=productos.filter(p=>numV(p.stock)<=numV(p.alertaStock));
+  return bajos.length?`<div class="card" onclick="enterEncargado()" style="cursor:pointer;margin-bottom:14px;border-color:rgba(244,114,182,.5);background:rgba(244,114,182,.07)"><div style="font-size:13px;font-weight:800;color:#f472b6">📦 Queda poco stock (${bajos.length})</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${bajos.slice(0,4).map(p=>escH(p.nombre)+' ('+numV(p.stock)+')').join(' · ')}${bajos.length>4?' …':''} · tocá para reponer</div></div>`:'';
+}
+function renderCierresPendientesProf(){
+  const el=document.getElementById('hub-cierres'); if(!el) return;
+  el.innerHTML=htmlCierresPendProf()+htmlStockBajoEnc();
 }
 // ============ CLIENTES (directorio unico del salon) ============
 // Hay UNA sola lista de clientes para todo el salon: asi no se repiten nombres y recepcion los ve a todos.
@@ -6445,6 +6459,7 @@ function renderAdminEstadoEquipo(body){
         <div class="rep-bar"><div class="rep-fill" style="width:${rep}%;background:${repColor}"></div></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">🏷️ ${(p.rubros&&p.rubros.length)?escH(p.rubros.map(nombreRubro).filter(Boolean).join(', ')):'<i>Todos los rubros (sin asignar)</i>'}</span><button class="lnk" onclick="abrirRubrosProf('${p.id}')">Cambiar</button></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">${sucursalDe(p.sucursal)?chipSucursal(p.sucursal):'<i>Sin sucursal asignada</i>'}</span><button class="lnk" onclick="abrirSucursalProf('${p.id}')">Cambiar</button></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">${p.esEncargado?'📦 <b style="color:#34d399">Encargado</b> · controla el stock':'📦 No es encargado'}</span><button class="lnk" onclick="toggleEncargado('${p.id}')">${p.esEncargado?'Quitar':'Hacer encargado'}</button></div>
       </div>`;
     }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>Sin profesionales.</p></div>'}
 
@@ -7670,6 +7685,7 @@ function renderEncargado(){
   const body=document.getElementById('encargado-body');
   if(!body) return;
   body.innerHTML=`
+    ${profile&&profile.role==='profesional'?'<button onclick="goTo(\'hub\')" style="background:var(--s2);border:none;color:var(--text);padding:9px 14px;border-radius:12px;cursor:pointer;font-family:var(--font);font-size:12.5px;font-weight:700;margin-top:12px">← Volver al inicio</button>':''}
     <div class="sec-title" style="margin:16px 0 12px">Stock actual</div>
     ${!productos.length?'<div class="empty"><div class="e-icon">📦</div><p>Todavía no hay productos cargados por el admin.</p></div>':
     productos.map(p=>{
@@ -7721,7 +7737,7 @@ function menuIr(accion){
   const acc={
     perfil:()=>{ if(profile.role==='profesional') irPerfil(); else abrirMiCuenta(); },
     contenido:()=>{ irPerfil(); setTimeout(()=>{ const e=document.getElementById('perfil-contenido'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },150); },
-    dinero:()=>goTo('dinero'), clientes:()=>goTo('clientes'), banco:()=>goTo('banco'), puntos:()=>goTo('puntos'), kanban:()=>goTo('kanban'),
+    stock:()=>{ enterEncargado(); }, dinero:()=>goTo('dinero'), clientes:()=>goTo('clientes'), banco:()=>goTo('banco'), puntos:()=>goTo('puntos'), kanban:()=>goTo('kanban'),
     stories:()=>{ if(profile.role==='recepcionista') goToRec('stories'); else goTo('stories'); },
     guia:()=>abrirGuia(true), pass:()=>cambiarMiPassword(), salir:()=>showLogin(),
   };
@@ -7735,7 +7751,7 @@ function renderMenu(){
   const rubrosTxt=(p.role==='profesional'&&p.rubros&&p.rubros.length)?p.rubros.map(nombreRubro).filter(Boolean).join(', '):(ROLES[p.role]||'');
   let items='';
   if(p.role==='profesional'){
-    items=it('👤','Mi perfil','perfil')+it('🎬','Contenido','contenido')+it('👥','Mis clientes','clientes')+it('💰','Mi dinero','dinero')+it('📝','Banco de reels','banco')+it('🗂️','Tablero','kanban')+it('📱','Historias','stories')+it('🏆','Mis puntos','puntos');
+    items=it('👤','Mi perfil','perfil')+it('🎬','Contenido','contenido')+(p.esEncargado?it('📦','Control de stock','stock'):'')+it('👥','Mis clientes','clientes')+it('💰','Mi dinero','dinero')+it('📝','Banco de reels','banco')+it('🗂️','Tablero','kanban')+it('📱','Historias','stories')+it('🏆','Mis puntos','puntos');
   } else if(p.role==='recepcionista'){
     items=it('👤','Mi cuenta','perfil')+it('📱','Historias','stories');
   } else {
