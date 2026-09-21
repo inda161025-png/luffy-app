@@ -1932,7 +1932,6 @@ const PROMOS_DEFAULT={
     {id:'f3',nombre:'Fuerzas policiales · French',pct:15,rubro:'barberia,barberia-premium',dias:[2,3],horaHasta:'',sucursales:['s2'],profesion:'Fuerzas policiales',activo:true},
   ],
   // Si el descuento total supera "t1" el profesional cobra "p1"% de lo que pagó el cliente; si llega a "t2", cobra "p2"%
-  tope:30, // los descuentos se suman hasta este maximo (%); lo que sobra de cupones queda para la proxima
   bloquesRec:[{id:'b1',nombre:'Mañana',desde:'09:00',hasta:'14:30',dias:[1,2,3,4,5,6]},{id:'b2',nombre:'Tarde',desde:'14:30',hasta:'20:30',dias:[1,2,3,4,5,6]}],
   avisoAperturaMin:5, // el admin ve si recepcion ya abrio la caja desde 5 minutos antes de cada bloque
   recPaq:{pct:10,comProf:45}, // recepcion cobra el 10% de la ganancia del salon por cada paquete que vende
@@ -2039,9 +2038,9 @@ function infoTarjeta(cli){
   const regalo=!!pr&&t.regalo!=='usado'&&(t.refs||[]).length>=numV(pr.refs)&&numV(t.visitas)>=numV(pr.visitas);
   return {rubro:sn.rubro,k,ciclo,pctFid:paso?paso.pct:0,cupones,pctRef:cupones.reduce((a,c)=>a+numV(c.pct),0),regalo};
 }
-// Todos los descuentos se SUMAN (fijo por horario o profesion + efectivo u oferta + fidelidad + referidos) hasta un tope (promos.tope, 30%).
-// Lo que no entra por el tope no se pierde: los cupones de referidos quedan para la proxima visita.
-// El premio grande de la tarjeta (50% en el corte 10) y el corte de regalo van solos, sin sumar otros descuentos.
+// UN SOLO DESCUENTO por cobro: el MAS ALTO de los que aplican (promo fija por horario o profesion, oferta, efectivo,
+// fidelidad, cupon de referidos o corte de regalo). Nunca se suman entre si.
+// Los cupones de referidos que no se usan quedan guardados para otra visita.
 // Los productos van siempre a precio de lista. Lo ya pagado (membresia / paquete) no lleva descuento.
 function calcCobro(){
   const lineas=lineasCobro();
@@ -2060,40 +2059,27 @@ function calcCobro(){
   const base=(rubro)=>normales.filter(l=>rubroEn(rubro,rubroDeLinea(l))).reduce((a,l)=>a+l.precio,0);
   const D=[];
   const oferta=ofertasVisibles().find(o=>o.id===cobro.ofertaId)||null;
-  const tope=numV(promos.tope)>0?numV(promos.tope):30;
-  const capMonto=Math.round(subNormal*tope/100);
-  const cabe=(m)=>Math.max(0,Math.min(m,capMonto-D.reduce((a,d)=>a+d.monto,0)));
-  let fijo=null, ofertaSinEfecto=false, topeAlcanzado=false;
-  let tarjUso={cupones:[],fidSobra:0};
+  let fijo=null, ofertaSinEfecto=false;
+  const tarjUso={cupones:[],fidSobra:0};
   const tarj=infoTarjeta(cli);
   (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{ if(base(f.rubro)>0&&(!fijo||f.pct>fijo.pct)) fijo=f; });
   const bT=tarj?base(tarj.rubro):0;
-  const suma=(tipo,label,pct,montoNominal)=>{
-    const m=cabe(montoNominal); if(m<montoNominal) topeAlcanzado=true;
-    if(m>0) D.push({tipo,label:label+(m<montoNominal?' (hasta el tope)':''),pct:Math.round(pct*(m/montoNominal)*10)/10,monto:m});
-    return montoNominal>0?m/montoNominal:0;
-  };
-  if(tarj&&tarj.regalo&&bT>0){
-    D.push({tipo:'regalo',label:'Corte de regalo (tarjeta completa)',pct:100,monto:bT});
-  } else if(tarj&&bT>0&&tarj.pctFid>=tope){
-    D.push({tipo:'fidelidad',label:'Fidelidad · visita n°'+tarj.k,pct:tarj.pctFid,monto:Math.round(bT*tarj.pctFid/100)});
-  } else {
-    if(fijo) suma('fijo',fijo.nombre,fijo.pct,Math.round(base(fijo.rubro)*fijo.pct/100));
-    const baseOferta=oferta?normales.filter(l=>ofertaAplicaA(oferta,l.ids)).reduce((a,l)=>a+l.precio,0):0;
-    const descOferta=oferta?Math.round(baseOferta*oferta.pct/100):0;
-    const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
-    ofertaSinEfecto=!!oferta&&descOferta===0;
-    if(descOferta>0&&descOferta>=descEfectivo) suma('oferta','Oferta '+oferta.nombre,oferta.pct,descOferta);
-    else if(descEfectivo>0) suma('efectivo','Pago en efectivo',DESC_EFECTIVO_PCT,descEfectivo);
-    if(tarj&&bT>0){
-      if(tarj.pctFid>0){ const frac=suma('fidelidad','Fidelidad · visita n°'+tarj.k,tarj.pctFid,Math.round(bT*tarj.pctFid/100)); tarjUso.fidSobra=Math.round(tarj.pctFid*(1-frac)*100)/100; }
-      tarj.cupones.forEach(c=>{
-        const nominal=Math.round(bT*numV(c.pct)/100); if(nominal<=0) return;
-        const frac=suma('referidos','Referidos',numV(c.pct),nominal);
-        if(frac>0) tarjUso.cupones.push({id:c.id,pct:Math.round(numV(c.pct)*frac*100)/100});
-      });
-    }
-  }
+  // candidatos (en este orden se desempata: el primero gana si hay igualdad)
+  const cand=[];
+  if(tarj&&tarj.regalo&&bT>0) cand.push({tipo:'regalo',label:'Corte de regalo (tarjeta completa)',pct:100,monto:bT});
+  if(fijo) cand.push({tipo:'fijo',label:fijo.nombre,pct:fijo.pct,monto:Math.round(base(fijo.rubro)*fijo.pct/100)});
+  const baseOferta=oferta?normales.filter(l=>ofertaAplicaA(oferta,l.ids)).reduce((a,l)=>a+l.precio,0):0;
+  const descOferta=oferta?Math.round(baseOferta*oferta.pct/100):0;
+  ofertaSinEfecto=!!oferta&&descOferta===0;
+  if(descOferta>0) cand.push({tipo:'oferta',label:'Oferta '+oferta.nombre,pct:oferta.pct,monto:descOferta});
+  if(tarj&&bT>0&&tarj.pctFid>0) cand.push({tipo:'fidelidad',label:'Fidelidad · visita n°'+tarj.k,pct:tarj.pctFid,monto:Math.round(bT*tarj.pctFid/100)});
+  let mejorCupon=null;
+  if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
+  const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
+  if(descEfectivo>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:descEfectivo});
+  let ganador=null; cand.forEach(c=>{ if(c.monto>0&&(!ganador||c.monto>ganador.monto)) ganador=c; });
+  if(ganador){ D.push(ganador); if(ganador.tipo==='referidos'&&mejorCupon) tarjUso.cupones.push({id:mejorCupon.id,pct:numV(mejorCupon.pct)}); }
+  const topeAlcanzado=false, tope=null;
   const descuento=Math.min(subNormal,D.reduce((a,d)=>a+d.monto,0));
   const descPct=subNormal>0?descuento/subNormal*100:0;
   const descTipo=D.length>1?'mixto':(D[0]?D[0].tipo:null);
@@ -2316,8 +2302,7 @@ function renderPrepagoCobro(r){
   let h='';
   if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#7c6fff')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
   if(cli&&cli.tarjeta){ const inf=infoTarjeta(cli); h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`corte n°${inf.k}${inf.pctFid?' · '+inf.pctFid+'% fidelidad':''}${inf.pctRef?' · '+inf.pctRef+'% en cupones de referidos':''}`}</div>`; }
-  if(r.topeAlcanzado) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#60a5fa;font-weight:700">🔒 Tope de descuentos: ${r.tope}%. Lo que sobra de la tarjeta queda guardado para la próxima visita.</div>`;
-  if(r.fijo) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#34d399;font-weight:700">🏷️ Promo fija: ${escH(r.fijo.nombre)} (−${r.fijo.pct}%). Se suma con los demás descuentos hasta el tope de ${r.tope}%.</div>`;
+  if(r.descuentos[0]&&r.descuentos[0].tipo!=='efectivo') h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#34d399;font-weight:700">🏷️ Se aplica un solo descuento, el más alto: ${escH(r.descuentos[0].label)} (−${r.descuentos[0].pct}%).</div>`;
   el.innerHTML=h;
 }
 function htmlDescuentosCobro(r,row){
@@ -2442,12 +2427,12 @@ function adminDescuentos(c){
   const sv=servicioMembresia(); const cm=promos.comision, mb=promos.membresia;
   const diasTxt=(d)=>d&&d.length?d.map(x=>DIAS_NOM[x]).join(', '):'todos los días';
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🏷️ Descuentos fijos</span><button class="lnk" onclick="editarReglaFija('')">+ Nuevo</button></div>
-    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Se aplican solos según el <b style="color:var(--text)">horario del turno</b>, el día, la sucursal y la profesión del cliente. Se <b style="color:var(--text)">suman</b> con el efectivo, la oferta, la fidelidad y los referidos, hasta el tope de <b style="color:var(--text)">${promos.tope||30}%</b>. Si algo no entra por el tope, los cupones de referidos quedan para la próxima visita.</div>
+    <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Se aplican solos según el <b style="color:var(--text)">horario del turno</b>, el día, la sucursal y la profesión del cliente. En cada cobro se aplica <b style="color:var(--text)">un solo descuento: el más alto</b> entre estas promos, el efectivo, las ofertas, la fidelidad y los referidos. Nunca se suman.</div>
     ${(promos.fijos||[]).map(f=>`<div class="card" style="margin-bottom:8px;${f.activo===false?'opacity:.55':''}"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(f.nombre)} · ${f.pct}%</div>
       <div style="font-size:11px;color:var(--muted2);line-height:1.6">${escH(rubrosNombres(f.rubro))} · ${diasTxt(f.dias)}${f.horaDesde||f.horaHasta?' · de '+(f.horaDesde||'apertura')+' a '+(f.horaHasta||'cierre'):''}${f.sucursales&&f.sucursales.length?' · '+f.sucursales.map(s=>escH((sucursalDe(s)||{}).nombre||s)).join(', '):' · todas las sucursales'}${f.profesion?' · clientes: '+escH(f.profesion):''}</div></div>
       <button class="lnk" onclick="toggleReglaFija('${f.id}')">${f.activo===false?'Activar':'Pausar'}</button><button class="lnk" onclick="editarReglaFija('${f.id}')">Editar</button><button class="lnk" style="color:#f472b6" onclick="borrarReglaFija('${f.id}')">×</button></div></div>`).join('')}
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">💰 Comisión con descuentos altos</span><button class="lnk" onclick="editarComisionCfg()">Editar</button></div>
-    <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Tope de descuentos acumulados: <b>${promos.tope||30}%</b>. Si un descuento supera el <b>${cm.t1}%</b>: el profesional cobra el <b>${cm.p1}%</b> de lo que pagó el cliente y el salón el ${100-cm.p1}%.<br>Si el descuento llega al <b>${cm.t2}%</b> o más: el profesional cobra el <b>${cm.p2}%</b> y el salón el ${100-cm.p2}%.</div>
+    <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Se aplica un solo descuento por cobro (el más alto). Si el descuento supera el <b>${cm.t1}%</b>: el profesional cobra el <b>${cm.p1}%</b> de lo que pagó el cliente y el salón el ${100-cm.p1}%.<br>Si el descuento llega al <b>${cm.t2}%</b> o más: el profesional cobra el <b>${cm.p2}%</b> y el salón el ${100-cm.p2}%.</div>
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🎁 Paquetes y 💳 membresía</span><button class="lnk" onclick="editarVentasCfg()">Editar</button></div>
     <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Paquetes (servicios juntos): 1 = normal · ${(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ')} · quien los vende cobra el ${recPaq().pct}% de la ganancia del salón<br>Membresía: ${mb.creditos} cortes de <b>${sv?escH(sv.nombre)+' ('+fp(sv.precio)+')':'— sin servicio configurado —'}</b> con ${mb.descPct}% menos${sv?' = '+fp(Math.round(sv.precio*mb.creditos*(1-mb.descPct/100))):''}</div>
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📉 Plata que dejamos en descuentos</span><span style="font-size:11px;color:var(--muted2)">${r.label}</span></div>
@@ -2476,8 +2461,8 @@ async function editarReglaFija(id){
 }
 async function editarComisionCfg(){
   const cm=promos.comision;
-  const v=await uiDialog({title:'Tope y comisión con descuentos altos',fields:[{label:'Tope de descuentos acumulados (%)',type:'number',value:promos.tope||30},{label:'Si el descuento supera (%)',type:'number',value:cm.t1},{label:'…el profesional cobra (% de lo que pagó el cliente)',type:'number',value:cm.p1},{label:'Si el descuento llega a (%)',type:'number',value:cm.t2},{label:'…el profesional cobra (%)',type:'number',value:cm.p2}],ok:'Guardar'});
-  if(!v) return; promos.tope=Math.min(100,Math.max(1,numV(v[0])||30)); promos.comision={t1:numV(v[1]),p1:numV(v[2]),t2:numV(v[3]),p2:numV(v[4])}; savePromos(); renderAdmin();
+  const v=await uiDialog({title:'Comisión con descuentos altos',fields:[{label:'Si el descuento supera (%)',type:'number',value:cm.t1},{label:'…el profesional cobra (% de lo que pagó el cliente)',type:'number',value:cm.p1},{label:'Si el descuento llega a (%)',type:'number',value:cm.t2},{label:'…el profesional cobra (%)',type:'number',value:cm.p2}],ok:'Guardar'});
+  if(!v) return; promos.comision={t1:numV(v[0]),p1:numV(v[1]),t2:numV(v[2]),p2:numV(v[3])}; savePromos(); renderAdmin();
 }
 async function editarVentasCfg(){
   const sv=servicioMembresia(); const mb=promos.membresia; const rp=recPaq();
