@@ -642,6 +642,12 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
   <div class="scroll" id="banco-body"></div>
 </div>
 
+<!-- CLIENTES -->
+<div id="clientes" class="screen">
+  <div class="inner-hdr"><button class="back" onclick="goTo('hub')">←</button><h2>Mis clientes 👥</h2></div>
+  <div class="scroll" id="clientes-body"></div>
+</div>
+
 <!-- PUNTOS -->
 <div id="puntos" class="screen">
   <div class="inner-hdr">
@@ -789,7 +795,7 @@ let currentScreenId = null;
 function refreshCurrentView(){
   try{
     if(!profile) return;
-    ({hub:renderHub, admin:renderAdmin, stories:renderStories, puntos:renderPuntos, recepcion:renderRecepcion, perfil:renderPerfil, encargado:renderEncargado, dinero:renderDineroContent, banco:renderBancoProf, kanban:renderKanban}[currentScreenId]||(()=>{}))();
+    ({hub:renderHub, admin:renderAdmin, stories:renderStories, puntos:renderPuntos, recepcion:renderRecepcion, perfil:renderPerfil, encargado:renderEncargado, dinero:renderDineroContent, banco:renderBancoProf, kanban:renderKanban, clientes:renderClientes}[currentScreenId]||(()=>{}))();
   }catch(e){}
 }
 
@@ -1171,7 +1177,7 @@ async function guardarRubrosDe(id,lista){
 
 // Todo lo que se carga de la nube necesita sesion iniciada
 function cargarCatalogos(){
-  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres();
+  loadStoryHorarios(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadCierres(); loadSucursales(); loadClientes();
   if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
 }
 
@@ -1188,6 +1194,7 @@ async function cargarPendientes(){
 async function aprobarCuenta(uid){
   const p=cuentasPendientes.find(x=>x.uid===uid); if(!p) return;
   const rol=(document.getElementById('ap-rol-'+uid)||{}).value||p.role;
+  const sucElegida=(document.getElementById('ap-suc-'+uid)||{}).value||null;
   const appId=String(Date.parse(p.creado)||Date.now()); // fijo: si se reintenta, no duplica
   let lista=allUsers;
   if(DB){ try{ const r=await DB.doc('luffy/users').get(); if(r&&Array.isArray(r.list)) lista=r.list; }catch(e){} }
@@ -1195,7 +1202,7 @@ async function aprobarCuenta(uid){
   const {error}=await supaClient.from('luffy_roles').upsert({uid,app_id:appId,role:rol},{onConflict:'uid'});
   if(error){ showToast('No se pudo aprobar: '+error.message); return; }
   if(!lista.some(u=>u.id===appId)){
-    lista.push({id:appId,name:p.name,username:p.username,role:rol,color:p.color,emoji:p.emoji,profesion:rol==='profesional'?(p.profesion||'Profesional'):(ROLES[rol]||rol),onboardingDone:false});
+    lista.push({id:appId,name:p.name,username:p.username,role:rol,color:p.color,emoji:p.emoji,profesion:rol==='profesional'?(p.profesion||'Profesional'):(ROLES[rol]||rol),sucursal:sucElegida,onboardingDone:false});
     allUsers=lista; saveUsers();
   }
   if(rol==='profesional'&&p.rubros&&p.rubros.length) await guardarRubrosDe(appId,p.rubros);
@@ -1217,6 +1224,7 @@ function htmlCuentasPendientes(){
     <div style="font-size:14px;font-weight:800">${escH(p.name)} <span style="font-size:12px;font-weight:600;color:var(--muted2)">@${escH(p.username)}</span></div>
     <div style="font-size:11.5px;color:var(--muted2);margin:3px 0 10px">Pidió ser ${escH(ROLES[p.role]||p.role)}${(p.rubros&&p.rubros.length)?' · '+escH(p.rubros.map(nombreRubro).filter(Boolean).join(', ')):''}</div>
     <div style="display:flex;gap:8px;align-items:center">
+      <select id="ap-suc-${p.uid}" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px;max-width:130px">${sucursales.map((s,i)=>`<option value="${s.id}">${escH(s.nombre)}</option>`).join('')}</select>
       <select id="ap-rol-${p.uid}" style="flex:1;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px">${['profesional','recepcionista','encargado'].map(r=>`<option value="${r}" ${p.role===r?'selected':''}>${ROLES[r]}</option>`).join('')}</select>
       <button onclick="aprobarCuenta('${p.uid}')" style="padding:10px 16px;border-radius:10px;border:none;background:#34d399;color:#0b0b10;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">Aprobar</button>
       <button onclick="rechazarCuenta('${p.uid}')" style="padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">✕</button>
@@ -1380,6 +1388,8 @@ async function loginAs(id){
   if(myToken!==sessionToken) return;
   if(!rol||rol.app_id!==id){ showLogin(); return; }
   u.role=rol.role; // el rol no se toma del listado: viene de la tabla protegida
+  await revisarEpoca();
+  if(myToken!==sessionToken) return;
   await cargarRubrosProf();
   if(myToken!==sessionToken) return;
   profile={...u};
@@ -1451,6 +1461,286 @@ document.addEventListener('touchmove', function(e){
 }, {passive:false});
 document.addEventListener('touchend', function(){ __touchStartY = null; }, {passive:true});
 
+// ============ REINICIO DE DATOS: descartar copias locales viejas ============
+// Cuando el admin reinicia las cuentas, se guarda una "epoca" nueva en la nube. Cada dispositivo la compara con la que
+// tiene guardada; si cambio, borra sus copias locales para que no vuelvan a subirse datos de prueba.
+async function revisarEpoca(){
+  if(!DB) return false;
+  let n=null; try{ const r=await DB.doc('luffy/epoca').get(); n=r&&r.n; }catch(e){}
+  if(!n) return false;
+  let mio=null; try{ mio=localStorage.getItem('luffy_epoca'); }catch(e){}
+  if(String(n)===mio) return false;
+  const prefijos=['luffy_dinero_','luffy_yo_','luffy_rec_','luffy_clientes_'];
+  const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_cierres','luffy_reels','luffy_reels_del','luffy_productos','luffy_avisos_leidos','luffy_incidentes'];
+  try{ Object.keys(localStorage).forEach(k=>{ if(prefijos.some(p=>k.startsWith(p))||exactos.includes(k)) localStorage.removeItem(k); }); localStorage.setItem('luffy_epoca',String(n)); }catch(e){}
+  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; productos=[]; misClientes=[];
+  dineroData={turnos:[],ventas:[],deudores:[]}; avisosLeidos=[]; cierresData={byKey:{}};
+  return true;
+}
+async function chequearEpocaViva(){
+  if(!DB||!profile) return;
+  try{
+    const r=await DB.doc('luffy/epoca').get();
+    if(r&&r.n&&String(r.n)!==localStorage.getItem('luffy_epoca')) location.reload();
+  }catch(e){}
+}
+
+// ============ SUCURSALES ============
+const SUCURSALES_DEFAULT=[{id:'s1',nombre:'Sucursal 1',color:'#7c6fff'},{id:'s2',nombre:'Sucursal 2',color:'#f59e0b'}];
+let sucursales=JSON.parse(JSON.stringify(SUCURSALES_DEFAULT));
+function loadSucursales(){
+  try{ const r=JSON.parse(localStorage.getItem('luffy_sucursales')||'null'); if(r&&r.length) sucursales=r; }catch(e){}
+  if(DB){
+    DB.doc('luffy/sucursales').get().then(r=>{
+      if(r&&r.list&&r.list.length&&JSON.stringify(r.list)!==JSON.stringify(sucursales)){ sucursales=r.list; try{localStorage.setItem('luffy_sucursales',JSON.stringify(sucursales));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveSucursales(){
+  try{localStorage.setItem('luffy_sucursales',JSON.stringify(sucursales));}catch(e){}
+  if(DB){ try{DB.doc('luffy/sucursales').set({list:sucursales});}catch(e){} }
+}
+function sucursalDe(id){ return sucursales.find(s=>s.id===id)||null; }
+function chipSucursal(sid,chico){
+  const s=sucursalDe(sid); if(!s) return '';
+  return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:${chico?10:11}px;font-weight:800;padding:3px 9px;border-radius:10px;background:${s.color}22;color:${s.color};border:1px solid ${s.color}55;white-space:nowrap">📍 ${escH(s.nombre)}</span>`;
+}
+const PALETA_SUC=['#7c6fff','#f59e0b','#34d399','#f472b6','#60a5fa','#fb923c'];
+function renderAdminSucursales(body){
+  const uso=(id)=>allUsers.filter(u=>u.sucursal===id).length;
+  body.innerHTML=`
+    <div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📍 Sucursales</span><button class="lnk" onclick="agregarSucursal()">+ Nueva sucursal</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cada profesional pertenece a una sucursal (se asigna en <b style="color:var(--text)">Estado</b> o al aprobar su cuenta). En recepción, cada cobro se ve con el <b style="color:var(--text)">color y el nombre</b> de su sucursal.</div>
+    ${sucursales.map(s=>`<div class="prof-card" style="margin-bottom:8px;padding:12px 14px;border-left:5px solid ${s.color}"><div style="display:flex;align-items:center;gap:12px">
+      <input type="color" value="${s.color}" onchange="cambiarColorSucursal('${s.id}',this.value)" title="Cambiar color" style="width:38px;height:38px;border:none;background:none;padding:0;cursor:pointer;flex-shrink:0"/>
+      <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(s.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${uso(s.id)} ${uso(s.id)===1?'persona':'personas'}</div></div>
+      <button onclick="renombrarSucursal('${s.id}')" style="background:none;border:none;color:var(--muted2);font-size:15px;cursor:pointer">✏️</button>
+      <button onclick="borrarSucursal('${s.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
+    </div></div>`).join('')}`;
+}
+async function agregarSucursal(){
+  const n=await uiPrompt('Nueva sucursal',{label:'Nombre',placeholder:'Ej: Ezeiza Centro',ok:'Agregar'});
+  if(!n||!n.trim()) return;
+  sucursales.push({id:'s'+Date.now(),nombre:n.trim(),color:PALETA_SUC[sucursales.length%PALETA_SUC.length]});
+  saveSucursales(); renderAdmin();
+}
+async function renombrarSucursal(id){
+  const s=sucursalDe(id); if(!s) return;
+  const n=await uiPrompt('Renombrar sucursal',{label:'Nombre',value:s.nombre,ok:'Guardar'});
+  if(!n||!n.trim()) return;
+  s.nombre=n.trim(); saveSucursales(); renderAdmin();
+}
+function cambiarColorSucursal(id,color){ const s=sucursalDe(id); if(!s) return; s.color=color; saveSucursales(); renderAdmin(); }
+async function borrarSucursal(id){
+  const s=sucursalDe(id); if(!s) return;
+  const n=allUsers.filter(u=>u.sucursal===id).length;
+  if(n){ showToast('Tiene '+n+' personas asignadas: movelas primero'); return; }
+  if(!await uiConfirm('¿Borrar "'+s.nombre+'"?','Los cobros ya registrados no cambian.')) return;
+  sucursales=sucursales.filter(x=>x.id!==id); saveSucursales(); renderAdmin();
+}
+function abrirSucursalProf(profId){
+  const u=allUsers.find(x=>x.id===profId); if(!u) return;
+  const c=document.getElementById('registro-content');
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="modal-title" style="margin:0">Sucursal de ${escH(u.name)}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px">En recepción sus cobros se ven con el color de esta sucursal.</div>
+    ${sucursales.map(s=>`<label class="rub-opt" style="border-left:5px solid ${s.color}"><input type="radio" name="suc-prof" class="sp-rad" value="${s.id}" ${u.sucursal===s.id?'checked':''}/> ${escH(s.nombre)}</label>`).join('')}
+    <button class="btn btn-primary" onclick="guardarSucursalProf('${u.id}')" style="margin-top:10px">Guardar</button>`;
+  openModal('modal-registro');
+}
+// Lee la lista de usuarios mas fresca antes de escribir (solo el admin la puede modificar)
+async function guardarSucursalProf(profId){
+  const sel=(document.querySelector('.sp-rad:checked')||{}).value; if(!sel){ showToast('Elegí una sucursal'); return; }
+  let lista=null;
+  if(DB){ try{ const r=await DB.doc('luffy/users').get(); if(r&&Array.isArray(r.list)) lista=r.list; }catch(e){} }
+  if(!lista) lista=allUsers;
+  const u=lista.find(x=>x.id===profId); if(!u){ showToast('No se encontró a la persona'); return; }
+  u.sucursal=sel; allUsers=lista; saveUsers();
+  closeModal('modal-registro'); showToast('Sucursal guardada ✓'); refreshCurrentView();
+}
+
+// ============ CLIENTES (base propia de cada profesional) ============
+// Cada profesional carga y ve SUS clientes. Cada cliente tiene un numero unico (#) y sus visitas se calculan de sus cobros:
+// una visita = un turno, aunque haya tenido varios servicios (ej: Corte y Barba + Permanente = 1 visita, con su desglose).
+let misClientes=[];
+const claveClientes=()=>'luffy_clientes_'+profile.id;
+function persistClientes(){ try{ localStorage.setItem(claveClientes(),JSON.stringify(misClientes)); }catch(e){} }
+function mergeClientes(remote){
+  if(!remote||!Array.isArray(remote.list)) return false;
+  let cambio=false; const m=new Map(misClientes.map(c=>[c.id,c]));
+  remote.list.forEach(r=>{ const l=m.get(r.id); if(!l||String(r.upd||'')>String(l.upd||'')){ m.set(r.id,r); cambio=true; } });
+  misClientes=[...m.values()];
+  return cambio;
+}
+function loadClientes(){
+  if(!profile||profile.role!=='profesional') return;
+  try{ misClientes=JSON.parse(localStorage.getItem(claveClientes())||'[]'); }catch(e){ misClientes=[]; }
+  if(DB){
+    DB.doc('luffy/clientes_'+profile.id).get().then(r=>{
+      if(mergeClientes(r)){ persistClientes(); refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+async function guardarClientes(){
+  persistClientes();
+  if(!DB) return;
+  const ref=DB.doc('luffy/clientes_'+profile.id);
+  try{
+    const r=await ref.get(); if(mergeClientes(r)) persistClientes();
+    await ref.set({list:misClientes});
+  }catch(e){ try{ ref.set({list:misClientes}); }catch(x){} }
+}
+async function numeroNuevoCliente(){
+  if(!DB) return misClientes.reduce((m,c)=>Math.max(m,numV(c.numero)),0)+1;
+  let n=0; try{ const r=await DB.doc('luffy/contador_clientes').get(); n=numV(r&&r.n); }catch(e){}
+  n=Math.max(n,misClientes.reduce((m,c)=>Math.max(m,numV(c.numero)),0))+1;
+  try{ await DB.doc('luffy/contador_clientes').set({n}); }catch(e){}
+  return n;
+}
+async function crearCliente(d){
+  const numero=await numeroNuevoCliente();
+  const ahora=new Date().toISOString();
+  const c={id:'c'+numero+'x'+Date.now().toString(36), numero, nombre:(d.nombre||'').trim(), tel:(d.tel||'').trim(), cumple:(d.cumple||'').trim(), nota:(d.nota||'').trim(), sucursal:profile.sucursal||null, creado:ahora, upd:ahora};
+  misClientes.push(c);
+  await guardarClientes();
+  return c;
+}
+
+function visitasDeCliente(cid){
+  const dd=dineroData||{}, V=[];
+  (dd.turnos||[]).filter(t=>t.clienteId===cid&&!t.deudaId).forEach(t=>V.push({
+    fecha:t.fecha, ts:t.creadoEn, monto:numV(t.monto)+(dd.ventas||[]).filter(v=>v.turnoId===t.id).reduce((s,v)=>s+numV(v.total),0), pagado:true, medio:t.medio, estado:'',
+    servicios:(t.servicios&&t.servicios.length?t.servicios.map(s=>({n:nomSvc(s),p:numV(s.precio)})):[{n:t.servicio||'Servicio',p:numV(t.monto)}]),
+    descuento:numV(t.descuento),
+    productos:(dd.ventas||[]).filter(v=>v.turnoId===t.id).map(v=>({n:v.productoNombre+' x'+v.cantidad,p:numV(v.total)}))
+  }));
+  (dd.deudores||[]).filter(d=>d.clienteId===cid).forEach(d=>V.push({
+    fecha:d.fecha, ts:d.creadoEn, monto:numV(d.monto), pagado:!!d.saldado&&!d.anulada, medio:d.saldado?(d.anulada?'anulada':d.medioPago):'debe',
+    estado:d.anulada?'Deuda anulada':(d.saldado?'Debía, ya pagó':'Debe'),
+    servicios:(d.servicios&&d.servicios.length?d.servicios.map(s=>({n:nomSvc(s),p:numV(s.precio)})):[{n:d.servicio||d.motivo||'Servicio',p:numV(d.montoServicios!=null?d.montoServicios:d.monto)}]),
+    descuento:numV(d.descuento),
+    productos:(d.productos||[]).map(p=>({n:p.productoNombre+' x'+p.cantidad,p:numV(p.total)}))
+  }));
+  return V.sort((a,b)=>String(b.ts||b.fecha).localeCompare(String(a.ts||a.fecha)));
+}
+function statsCliente(c){
+  const V=visitasDeCliente(c.id);
+  const fechas=[...new Set(V.map(v=>v.fecha))].sort();
+  const gastado=V.filter(v=>v.pagado).reduce((s,v)=>s+v.monto,0);
+  let cada=null;
+  if(fechas.length>=2) cada=Math.round(diasEntre(fechas[0],fechas[fechas.length-1])/(fechas.length-1));
+  return {visitas:V.length, primera:fechas[0]||null, ultima:fechas[fechas.length-1]||null, cada, gastado, V};
+}
+
+let clientesQ='';
+function renderClientes(){
+  const body=document.getElementById('clientes-body'); if(!body||!profile) return;
+  const hoy=hoyStr(), mesIni=hoy.slice(0,7);
+  const conStats=misClientes.map(c=>({c,s:statsCliente(c)}));
+  const q=clientesQ.trim().toLowerCase().replace('#','');
+  const lista=conStats.filter(({c})=>!q||c.nombre.toLowerCase().includes(q)||String(c.numero)===q||(c.tel||'').includes(q))
+    .sort((a,b)=>String(b.s.ultima||b.c.creado).localeCompare(String(a.s.ultima||a.c.creado)));
+  const nuevos=misClientes.filter(c=>String(c.creado||'').slice(0,7)===mesIni).length;
+  const volvieron=conStats.filter(x=>x.s.visitas>=2).length;
+  const color=profile.color;
+  body.innerHTML=`
+    <div class="stat-grid" style="margin-top:14px;grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card"><div class="sc-lbl">Clientes</div><div class="sc-val">${misClientes.length}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Nuevos este mes</div><div class="sc-val">${nuevos}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Volvieron</div><div class="sc-val">${volvieron}</div><div class="sc-sub">2+ visitas</div></div>
+    </div>
+    <div style="display:flex;gap:8px;margin-bottom:12px">
+      <input type="search" placeholder="Buscar por nombre, # o teléfono..." value="${escH(clientesQ)}" oninput="clientesQ=this.value;renderClientes();var e=document.querySelector('#clientes-body input[type=search]');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="flex:1;min-width:0;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none"/>
+      <button onclick="abrirFormCliente()" style="padding:0 16px;border-radius:12px;border:none;background:${color};color:#fff;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer;white-space:nowrap">+ Cliente</button>
+    </div>
+    ${lista.length?lista.map(({c,s})=>`<div class="card" onclick="abrirClienteDetalle('${c.id}')" style="cursor:pointer;margin-bottom:8px">
+      <div style="display:flex;align-items:center;gap:10px">
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2);font-weight:700">#${c.numero}</span></div>
+          <div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${s.visitas?`${s.visitas} ${s.visitas===1?'visita':'visitas'} · última hace ${diasDesdeStr(s.ultima)} d${s.cada?` · viene cada ~${s.cada} d`:''}`:'Todavía sin visitas'}</div></div>
+        <div style="text-align:right"><div style="font-size:13px;font-weight:800">${fp(s.gastado)}</div><div style="font-size:10px;color:var(--muted)">gastó</div></div>
+      </div></div>`).join(''):`<div class="empty"><div class="e-icon">👥</div><p>${misClientes.length?'No hay clientes que coincidan.':'Todavía no cargaste clientes.<br>Se crean solos al cobrar un turno, o con "+ Cliente".'}</p></div>`}`;
+}
+function abrirClienteDetalle(id){
+  const c=misClientes.find(x=>x.id===id); if(!c) return;
+  const s=statsCliente(c);
+  const cont=document.getElementById('registro-content');
+  const fch=(f)=>f?fechaCortaStr(f):'—';
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="modal-title" style="margin:0">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.6">${c.tel?'📞 '+escH(c.tel)+'<br>':''}${c.cumple?'🎂 '+escH(c.cumple)+'<br>':''}${c.nota?'📝 '+escH(c.nota):''}${!c.tel&&!c.cumple&&!c.nota?'Sin datos de contacto':''}</div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
+      <div class="stat-card"><div class="sc-lbl">Visitas</div><div class="sc-val">${s.visitas}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Viene cada</div><div class="sc-val" style="font-size:18px">${s.cada?'~'+s.cada+' d':'—'}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Gastó</div><div class="sc-val" style="font-size:16px">${fp(s.gastado)}</div></div>
+    </div>
+    <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 12px">Primera visita: ${fch(s.primera)} · Última: ${fch(s.ultima)}</div>
+    <div class="sec-title" style="margin-bottom:8px">Historial</div>
+    ${s.V.length?s.V.map(v=>`<div class="card" style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><b style="font-size:13px">${fch(v.fecha)}</b><span style="font-size:12px;font-weight:800">${fp(v.monto)}</span></div>
+      ${v.servicios.map(x=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0"><span>${escH(x.n)}</span><span style="color:var(--muted2)">${fp(x.p)}</span></div>`).join('')}
+      ${v.descuento>0?`<div style="font-size:11px;color:#34d399;padding:1px 0">Descuento −${fp(v.descuento)}</div>`:''}
+      ${v.productos.map(x=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0;color:var(--muted2)"><span>📦 ${escH(x.n)}</span><span>${fp(x.p)}</span></div>`).join('')}
+      ${v.estado?`<div style="font-size:11px;color:#f472b6;margin-top:4px;font-weight:700">${v.estado}</div>`:''}
+    </div>`).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:14px">Todavía no tiene visitas.</div>'}
+    <button class="btn btn-ghost" onclick="abrirFormCliente('${c.id}')" style="margin-top:6px">✏️ Editar datos</button>`;
+  openModal('modal-registro');
+}
+function abrirFormCliente(id){
+  const c=id?misClientes.find(x=>x.id===id):null;
+  const v=(k)=>escH(c?c[k]||'':'');
+  const cont=document.getElementById('registro-content');
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div class="modal-title" style="margin:0">${c?'Editar cliente':'Cliente nuevo'}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <input type="hidden" id="cl-id" value="${c?c.id:''}"/>
+    <div class="field"><label>Nombre y apellido</label><input id="cl-nombre" placeholder="Ej: Federico Cruz" value="${v('nombre')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Teléfono (opcional)</label><input id="cl-tel" type="tel" placeholder="11 2345 6789" value="${v('tel')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Cumpleaños (opcional)</label><input id="cl-cumple" placeholder="DD/MM" value="${v('cumple')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Notas (opcional)</label><input id="cl-nota" placeholder="Ej: le gusta el fade bajo" value="${v('nota')}"/></div>
+    <button class="btn btn-primary" onclick="guardarFormCliente()" style="margin-top:14px">${c?'Guardar cambios':'Agregar cliente'}</button>`;
+  openModal('modal-registro');
+}
+async function guardarFormCliente(){
+  const val=(i)=>(document.getElementById(i)?.value||'').trim();
+  const nombre=val('cl-nombre'); if(!nombre){ showToast('Poné el nombre'); return; }
+  const id=val('cl-id');
+  if(id){
+    const c=misClientes.find(x=>x.id===id); if(!c) return;
+    Object.assign(c,{nombre,tel:val('cl-tel'),cumple:val('cl-cumple'),nota:val('cl-nota'),upd:new Date().toISOString()});
+    await guardarClientes(); showToast('Cliente actualizado ✓');
+  } else {
+    const c=await crearCliente({nombre,tel:val('cl-tel'),cumple:val('cl-cumple'),nota:val('cl-nota')});
+    showToast('Cliente #'+c.numero+' creado ✓');
+  }
+  closeModal('modal-registro'); renderClientes();
+}
+
+async function resolverClienteCobro(){
+  const nom=(cobro.cliente||'').trim(); if(!nom||!profile||profile.role!=='profesional') return null;
+  let c=cobro.clienteId?misClientes.find(x=>x.id===cobro.clienteId):null;
+  if(!c) c=misClientes.find(x=>x.nombre.toLowerCase()===nom.toLowerCase());
+  if(!c) c=await crearCliente({nombre:nom});
+  return c;
+}
+// ---------- elegir cliente al cobrar ----------
+function cobroClienteInput(v){
+  cobro.cliente=v;
+  if(cobro.clienteId){ const c=misClientes.find(x=>x.id===cobro.clienteId); if(!c||c.nombre!==v){ cobro.clienteId=null; cobro.clienteNumero=null; } }
+  renderSugerenciasCliente();
+}
+function cobroElegirCliente(id){
+  const c=misClientes.find(x=>x.id===id); if(!c) return;
+  cobro.clienteId=c.id; cobro.clienteNumero=c.numero; cobro.cliente=c.nombre;
+  const inp=document.getElementById('turno-nombre'); if(inp) inp.value=c.nombre;
+  renderSugerenciasCliente();
+}
+function renderSugerenciasCliente(){
+  const el=document.getElementById('cb-cli-sug'); if(!el) return;
+  const q=(cobro.cliente||'').trim().toLowerCase().replace('#','');
+  if(cobro.clienteId){ el.innerHTML=`<div style="font-size:12px;color:#34d399;font-weight:700;margin-top:6px">✓ Cliente #${cobro.clienteNumero} · ${statsCliente(misClientes.find(x=>x.id===cobro.clienteId)||{id:''}).visitas} visitas anteriores</div>`; return; }
+  if(!q){ el.innerHTML=''; return; }
+  const m=misClientes.filter(c=>c.nombre.toLowerCase().includes(q)||String(c.numero)===q||(c.tel||'').includes(q)).slice(0,5);
+  el.innerHTML=(m.length?`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="cobroElegirCliente('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></button>`).join('')}</div>`:'')
+    +(q.length>=2&&!m.some(c=>c.nombre.toLowerCase()===q)?`<div style="font-size:11.5px;color:var(--muted2);margin-top:6px">${m.length?'Si no es ninguno, se':'Se'} crea como <b style="color:var(--text)">cliente nuevo</b> al guardar el cobro.</div>`:'');
+}
+
+
 // ============ INIT ============
 async function init(){
   try { reels=JSON.parse(localStorage.getItem('luffy_reels')||'[]'); } catch(e){}
@@ -1465,6 +1755,7 @@ async function init(){
   // Keep the session across reloads/app switches — without this, iOS
   // backgrounding the tab (or any reload) forces a fresh login every time.
   if(rolInicio){ await loginAs(rolInicio.app_id); } else { showLogin(false); }
+  setInterval(chequearEpocaViva,120000);
 }
 
 // ============ HUB ============
@@ -1670,14 +1961,15 @@ function show(id){
 }
 function goTo(id){
   show(id);
-  document.getElementById('nav').style.display=['hub','generador','editor','kanban','dinero','perfil','stories','puntos','banco'].includes(id)?'flex':'none';
-  const navMap2={hub:'n-hub',generador:'n-hub',kanban:'n-kanban',dinero:'n-dinero',stories:'n-hub',puntos:'n-puntos',editor:'n-hub',perfil:'n-hub',banco:'n-hub'};
+  document.getElementById('nav').style.display=['hub','generador','editor','kanban','dinero','perfil','stories','puntos','banco','clientes'].includes(id)?'flex':'none';
+  const navMap2={hub:'n-hub',generador:'n-hub',kanban:'n-kanban',dinero:'n-dinero',stories:'n-hub',puntos:'n-puntos',editor:'n-hub',perfil:'n-hub',banco:'n-hub',clientes:'n-hub'};
   if(navMap2[id]) setNav(navMap2[id]);
   if(id==='hub'){ renderHub(); refrescarReels(); }
   if(id==='generador') buildGenHome();
   if(id==='dinero'){ dineroVista=null; dineroExpand=null; renderDinero(); }
   if(id==='kanban'){ renderKanban(); refrescarReels(); }
   if(id==='banco'){ renderBancoProf(); refrescarReels(); }
+  if(id==='clientes'){ clientesQ=''; loadClientes(); renderClientes(); }
   if(id==='perfil') renderPerfil();
   if(id==='stories'){loadStoriesData();renderStories();}
   if(id==='puntos'){loadPuntosData();renderPuntos();}
@@ -2272,6 +2564,7 @@ function detalleDeudaHtml(d,chico){
 // ---------- cobrar una deuda ----------
 let cobroDeudaSel=null;
 function abrirCobroDeuda(profId,id){
+  if(!profile||profile.role!=='recepcionista'){ showToast('Las deudas las cobra recepción'); return; }
   const d=buscarDeuda(profId,id);
   if(!d){ showToast('Esa deuda ya no está pendiente'); return; }
   cobroDeudaSel={profId,id,medio:'efectivo'};
@@ -2322,7 +2615,7 @@ function aplicarPagoDeuda(dd,deudaId,medio){
   const tid='d'+deudaId;
   if(!dd.turnos.find(t=>t.id===tid)){
     dd.turnos.push({id:tid, cliente:d.cliente, servicio:d.servicio||d.motivo||'Deuda saldada', servicios:d.servicios, oferta:d.oferta||null, descuento:d.descuento||0, descuentoTipo:d.descuentoTipo||null, subtotal:d.subtotal!=null?d.subtotal:numV(d.monto),
-      monto:d.montoServicios!=null?d.montoServicios:d.monto, medio, fecha:hoy, fechaServicio:d.fecha, deudaId, creadoEn:ahora});
+      monto:d.montoServicios!=null?d.montoServicios:d.monto, medio, fecha:hoy, fechaServicio:d.fecha, deudaId, creadoEn:ahora, clienteId:d.clienteId||null, clienteNumero:d.clienteNumero||null, sucursal:d.sucursal||null});
   }
   (d.productos||[]).forEach((p,i)=>{
     const vid='d'+deudaId+'p'+i;
@@ -2331,6 +2624,7 @@ function aplicarPagoDeuda(dd,deudaId,medio){
   return true;
 }
 function confirmarCobroDeuda(){
+  if(!profile||profile.role!=='recepcionista'){ showToast('Las deudas las cobra recepción'); return; }
   const s=cobroDeudaSel; if(!s) return;
   const d=buscarDeuda(s.profId,s.id); if(!d){ closeModal('modal-registro'); return; }
   const fin=(ok)=>{
@@ -2444,8 +2738,8 @@ function regSelTipo(tipo){ regState.tipo=tipo; regState.step=1; if(tipo==='turno
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
-let cobro = {cliente:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''};
-function resetCobro(){ cobro={cliente:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''}; }
+let cobro = {cliente:'', clienteId:null, clienteNumero:null, servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''};
+function resetCobro(){ cobro={cliente:'', clienteId:null, clienteNumero:null, servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''}; }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
 function ofertasVisibles(){ const rb=rubrosDeUsuario(profile); return ofertasActivas().filter(o=>visiblePorRubro(o,rb)); }
@@ -2530,7 +2824,7 @@ function pillStyle(sel,color){
 function renderCobroForm(c,back,color){
   const vis=serviciosVisibles();
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="modal-title" style="margin:0">Cobro del turno 💈</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-    <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" placeholder="Nombre del cliente..." value="${escH(cobro.cliente)}" oninput="cobro.cliente=this.value"/></div>
+    <div class="field"><label>Cliente (opcional)</label><input id="turno-nombre" type="text" autocomplete="off" placeholder="Buscá o escribí el nombre..." value="${escH(cobro.cliente)}" oninput="cobroClienteInput(this.value)"/><div id="cb-cli-sug"></div></div>
     <div class="field"><label>¿Qué le hiciste?</label>
       ${vis.length>10?`<input id="cb-q" type="search" placeholder="Buscar servicio..." value="${escH(cobro.q)}" oninput="cobro.q=this.value;refreshCobro()" style="margin-bottom:8px"/>`:''}
       <div id="cb-serv"></div><div id="cb-extra"></div></div>
@@ -2540,7 +2834,7 @@ function renderCobroForm(c,back,color){
     <div class="field" id="cb-motivo-wrap" style="display:none"><label>Motivo (opcional)</label><input id="cb-motivo" type="text" placeholder="Ej: se le olvidó la billetera, paga mañana..." value="${escH(cobro.motivo)}" oninput="cobro.motivo=this.value"/></div>
     <div id="cb-total"></div>
     <button class="btn btn-primary" onclick="guardarCobro()" style="background:${color};margin-top:12px">Guardar cobro</button>`;
-  refreshCobro();
+  refreshCobro(); renderSugerenciasCliente();
 }
 
 function refreshCobro(){
@@ -2627,7 +2921,9 @@ function cobroQty(id,delta){
   refreshCobro();
 }
 
-function guardarCobro(){
+let guardandoCobro=false;
+async function guardarCobro(){
+  if(guardandoCobro) return;
   const r=calcCobro();
   if(!r.svcs.length){ showToast('Elegí qué le hiciste'); return; }
   const falta=r.lineas.flatMap(l=>l.faltan)[0];
@@ -2638,9 +2934,10 @@ function guardarCobro(){
   if(cobro.medio==='debe'){
     const nombre=(cobro.cliente||'').trim();
     if(!nombre){ showToast('Poné el nombre del cliente para poder cobrarle después'); return; }
+    guardandoCobro=true; let cli=null; try{ cli=await resolverClienteCobro(); }finally{ guardandoCobro=false; }
     if(!dineroData.deudores) dineroData.deudores=[];
     dineroData.deudores.push({
-      id:Date.now().toString(), cliente:nombre, monto:r.total, montoServicios:r.servicioNeto,
+      id:Date.now().toString(), cliente:nombre, clienteId:cli?cli.id:null, clienteNumero:cli?cli.numero:null, sucursal:profile.sucursal||null, monto:r.total, montoServicios:r.servicioNeto,
       servicio:nombresSvc,
       servicios:r.lineas.map(lineaAReg),
       oferta:ofertaReg,
@@ -2657,6 +2954,7 @@ function guardarCobro(){
     refreshCurrentView();
     return;
   }
+  guardandoCobro=true; let cli=null; try{ cli=await resolverClienteCobro(); }finally{ guardandoCobro=false; }
   const id=Date.now().toString();
   const fecha=ymdLocal(new Date());
   const creadoEn=new Date().toISOString();
@@ -2664,7 +2962,7 @@ function guardarCobro(){
   if(!dineroData.turnos) dineroData.turnos=[];
   if(!dineroData.ventas) dineroData.ventas=[];
   dineroData.turnos.push({
-    id, cliente,
+    id, cliente, clienteId:cli?cli.id:null, clienteNumero:cli?cli.numero:null, sucursal:profile.sucursal||null,
     servicio:nombresSvc,
     servicios:r.lineas.map(lineaAReg),
     oferta:ofertaReg,
@@ -2673,7 +2971,7 @@ function guardarCobro(){
     medio:cobro.medio, fecha, creadoEn
   });
   r.prodLineas.forEach((l,i)=>{
-    dineroData.ventas.push({id:id+'p'+i, turnoId:id, cliente, productoId:l.producto.id, productoNombre:l.producto.nombre, cantidad:l.cantidad, precioUnitario:l.producto.precioVenta, total:l.total, comision:l.comision, costoUnitario:l.producto.costo||0, medio:cobro.medio, fecha, creadoEn});
+    dineroData.ventas.push({id:id+'p'+i, turnoId:id, cliente, clienteId:cli?cli.id:null, sucursal:profile.sucursal||null, productoId:l.producto.id, productoNombre:l.producto.nombre, cantidad:l.cantidad, precioUnitario:l.producto.precioVenta, total:l.total, comision:l.comision, costoUnitario:l.producto.costo||0, medio:cobro.medio, fecha, creadoEn});
   });
   saveDinero();
   if(r.prodLineas.length) ajustarStock(r.prodLineas.map(l=>({id:l.producto.id,delta:-l.cantidad})));
@@ -3343,7 +3641,7 @@ function renderTrabajo(wrap){
   const rowDeudor=(d)=>`<div class="turno-item" style="border-color:rgba(244,114,182,.25);cursor:default;${d.saldado?'opacity:.7':''}">
         <div class="ti-dot" style="background:${d.anulada?'var(--muted)':(d.saldado?'#34d399':'#f472b6')}"></div>
         <div class="ti-info"><strong>${escH(d.cliente)}</strong><span>${escH(d.servicio||d.motivo||'')}${d.servicio&&d.motivo?' · '+escH(d.motivo):''} · servicio del ${fechaCorta(d.fecha)}${d.saldado?'':' · hace '+diasDesdeStr(d.fecha)+' d'}</span></div>
-        <div style="text-align:right"><div class="ti-monto" style="color:${d.anulada?'var(--muted2)':(d.saldado?'#34d399':'#f472b6')}">${fp(num(d.monto))}</div>${d.saldado?`<div style="font-size:10px;color:${d.anulada?'var(--muted2)':'#34d399'};font-weight:700">${d.anulada?'Anulada':'Cobrado '+fechaCorta(d.fechaPago||d.fecha)+' ✓'}</div>`:`<button onclick="abrirCobroDeuda('${profile.id}','${d.id}')" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:10px;font-weight:700;cursor:pointer;text-decoration:underline">Ya pagó</button>`}</div>
+        <div style="text-align:right"><div class="ti-monto" style="color:${d.anulada?'var(--muted2)':(d.saldado?'#34d399':'#f472b6')}">${fp(num(d.monto))}</div>${d.saldado?`<div style="font-size:10px;color:${d.anulada?'var(--muted2)':'#34d399'};font-weight:700">${d.anulada?'Anulada':'Cobrado '+fechaCorta(d.fechaPago||d.fecha)+' ✓'}</div>`:`<div style="font-size:10px;color:var(--muted2);font-weight:700;max-width:90px;line-height:1.3">La cobra recepción</div>`}</div>
       </div>`;
 
   const periodoNav=`
@@ -4124,7 +4422,7 @@ function prefetchAdminTeamData(){
 
 const ADMIN_SECCIONES=[
   {id:'panel',ico:'📊',label:'Panel'},
-  {id:'equipo',ico:'👥',label:'Equipo',subs:[['estado','Estado'],['stories','Stories'],['puntos','Puntos']]},
+  {id:'equipo',ico:'👥',label:'Equipo',subs:[['estado','Estado'],['sucursales','Sucursales'],['stories','Stories'],['puntos','Puntos']]},
   {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Productos y stock']]},
   {id:'contenido',ico:'📝',label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
   {id:'recepcion',ico:'📞',label:'Recepción'},
@@ -4145,7 +4443,7 @@ function renderAdmin(){
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
   if(tab==='panel') renderAdminPanel(c);
-  else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else renderAdminEstadoEquipo(c); }
+  else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='sucursales') renderAdminSucursales(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
   else if(tab==='recepcion') renderAdminCumpleanos(c);
@@ -4231,6 +4529,7 @@ function renderAdminEstadoEquipo(body){
         </div>
         <div class="rep-bar"><div class="rep-fill" style="width:${rep}%;background:${repColor}"></div></div>
         <div style="display:flex;align-items:center;gap:8px;margin-top:10px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">🏷️ ${(p.rubros&&p.rubros.length)?escH(p.rubros.map(nombreRubro).filter(Boolean).join(', ')):'<i>Todos los rubros (sin asignar)</i>'}</span><button class="lnk" onclick="abrirRubrosProf('${p.id}')">Cambiar</button></div>
+        <div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:11.5px;color:var(--muted2)"><span style="flex:1">${sucursalDe(p.sucursal)?chipSucursal(p.sucursal):'<i>Sin sucursal asignada</i>'}</span><button class="lnk" onclick="abrirSucursalProf('${p.id}')">Cambiar</button></div>
       </div>`;
     }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>Sin profesionales.</p></div>'}
 
@@ -4344,10 +4643,12 @@ function pctPorQuincena(D){
 
 function costoVenta(v){ return (v.costoUnitario!=null?numV(v.costoUnitario):numV((productos.find(x=>x.id===v.productoId)||{}).costo))*numV(v.cantidad); }
 
+// El filtro del panel puede ser 'todos', el id de una persona o 'suc:ID' (toda una sucursal)
+function coincideProf(u,f){ if(f==='todos') return true; if(String(f).startsWith('suc:')) return !!u&&(u.sucursal||null)===f.slice(4); return !!u&&u.id===f; }
 function panelResumen(D,pctMap,desde,hasta,profF){
   const enR=(f)=>f&&f>=desde&&f<=hasta;
-  const T=D.turnos.filter(t=>enR(t.fecha)&&(profF==='todos'||t.prof.id===profF));
-  const V=D.ventas.filter(v=>enR(v.fecha)&&(profF==='todos'||v.vendedor.id===profF));
+  const T=D.turnos.filter(t=>enR(t.fecha)&&coincideProf(t.prof,profF));
+  const V=D.ventas.filter(v=>enR(v.fecha)&&coincideProf(v.vendedor,profF));
   const r={T,V};
   r.fact=T.reduce((s,t)=>s+numV(t.monto),0);
   r.nT=T.length;
@@ -4467,7 +4768,7 @@ function renderAdminPanel(c){
   window.__adminUlt={rango,cur};
   if(!adminUltAct) adminUltAct=new Date();
 
-  const profSel=allUsers.find(u=>u.id===P.prof);
+  const profSel=String(P.prof).startsWith('suc:')?{name:'sucursal '+((sucursalDe(P.prof.slice(4))||{}).nombre||'')}:allUsers.find(u=>u.id===P.prof);
   const equipo=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado');
   const vendedores=allUsers.filter(u=>u.role==='profesional'||u.role==='encargado'||u.role==='recepcionista');
 
@@ -4516,19 +4817,19 @@ function renderAdminPanel(c){
   const porOferta={}; dOf.forEach(t=>{ const n=(t.oferta&&t.oferta.nombre)||'Oferta'; const x=porOferta[n]||(porOferta[n]={n:0,m:0}); x.n++; x.m+=numV(t.descuento); });
 
   // deudores (pendientes, sin importar el periodo)
-  const deudas=D.deudas.filter(d=>P.prof==='todos'||d.prof.id===P.prof).sort((a,b)=>new Date(a.creadoEn||a.fecha)-new Date(b.creadoEn||b.fecha));
+  const deudas=D.deudas.filter(d=>coincideProf(d.prof,P.prof)).sort((a,b)=>new Date(a.creadoEn||a.fecha)-new Date(b.creadoEn||b.fecha));
   const totalDeuda=deudas.reduce((s,d)=>s+numV(d.monto),0);
 
   // equipo hoy
   const incsPend=JSON.parse(localStorage.getItem('luffy_incidentes')||'[]').filter(i=>!i.procesado);
   const canjesPend=canjesSolicitudes.filter(s=>s.estado==='pendiente');
-  const cierresHoy=cierresLista().filter(c=>c.fecha===hoy&&(P.prof==='todos'||c.profId===P.prof));
+  const cierresHoy=cierresLista().filter(c=>c.fecha===hoy&&coincideProf(allUsers.find(u=>u.id===c.profId),P.prof));
   const reagHoy=cierresHoy.filter(c=>c.r.reagendo==='si').length;
 
   // actividad
   const hora=(iso)=>iso?new Date(iso).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
   const cuando=(x)=>(x.fecha===hoy?'hoy':fechaCortaStr(x.fecha))+' '+hora(x.creadoEn);
-  const filtro=(x,u)=>P.prof==='todos'||u.id===P.prof;
+  const filtro=(x,u)=>coincideProf(u,P.prof);
   const actividad=[
     ...D.turnos.filter(t=>filtro(t,t.prof)).map(t=>({ts:t.creadoEn||t.fecha,ico:'💈',txt:`<b>${escH(t.prof.name)}</b> cobró ${escH(t.servicio||'un turno')}${t.cliente&&t.cliente!=='Cliente'?' a '+escH(t.cliente):''}`,m:numV(t.monto),extra:cuando(t)})),
     ...D.ventas.filter(v=>filtro(v,v.vendedor)).map(v=>({ts:v.creadoEn||v.fecha,ico:'📦',txt:`<b>${escH(v.vendedor.name)}</b> vendió ${escH(v.productoNombre)} x${v.cantidad}`,m:numV(v.total),extra:cuando(v)})),
@@ -4557,7 +4858,7 @@ function renderAdminPanel(c){
   <div class="adm-bar">
     <div class="adm-chips">${periodos.map(([k,l])=>`<button class="${P.periodo===k?'on':''}" onclick="adminPanelPeriodo('${k}')">${l}</button>`).join('')}</div>
     <div class="adm-bar-r">
-      <select onchange="adminPanelProfSet(this.value)" class="adm-sel"><option value="todos">👥 Todo el equipo</option>${vendedores.map(u=>`<option value="${u.id}" ${P.prof===u.id?'selected':''}>${escH(u.name)}${u.role==='recepcionista'?' (recepción)':''}</option>`).join('')}</select>
+      <select onchange="adminPanelProfSet(this.value)" class="adm-sel"><option value="todos">👥 Todo el equipo</option>${sucursales.length>1?'<optgroup label="Por sucursal">'+sucursales.map(s=>`<option value="suc:${s.id}" ${P.prof==='suc:'+s.id?'selected':''}>📍 ${escH(s.nombre)}</option>`).join('')+'</optgroup>':''}${vendedores.map(u=>`<option value="${u.id}" ${P.prof===u.id?'selected':''}>${escH(u.name)}${u.role==='recepcionista'?' (recepción)':''}</option>`).join('')}</select>
       <button class="adm-btn" onclick="adminExportCSV()" title="Descargar los movimientos del período">⬇ CSV</button>
       <button class="adm-btn" onclick="adminPanelRefrescar()" title="Actualizar ahora">⟳ ${adminUltAct.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</button>
     </div>
@@ -4606,7 +4907,7 @@ function renderAdminPanel(c){
 
     ${pnl('c4','Productos más vendidos',prdList.length?prdList.map(p=>hbar(escH(p.nombre),fp(p.total),p.total/prdList[0].total*100,COL.prod,{sub:p.u+' u. · ganancia '+fp(p.gan)})).join(''):vacio('Sin ventas en el período'))}
     ${pnl('c4','Stock',productos.length?`<table class="adm-tbl"><tr><th>Producto</th><th>Unid.</th><th>A costo</th></tr>${[...productos].sort((a,b)=>b.stock*b.costo-a.stock*a.costo).slice(0,8).map(p=>{ const bajo=numV(p.stock)<=numV(p.alertaStock); return `<tr class="${bajo?'low':''}"><td>${escH(p.nombre)}${bajo?' ⚠️':''}</td><td>${p.stock}</td><td>${fp(numV(p.stock)*numV(p.costo))}</td></tr>`; }).join('')}<tr class="tot"><td>Total</td><td>${stockU}</td><td>${fp(stockCosto)}</td></tr></table>`:vacio('Sin productos cargados'),`<button class="lnk" onclick="switchAdminTab('productos')">Gestionar ›</button>`)}
-    ${pnl('c4','Clientes que no pagaron',deudas.length?`<div style="font-size:22px;font-weight:900;color:${COL.rosa};margin-bottom:6px">${fp(totalDeuda)}</div><div style="max-height:230px;overflow-y:auto">${deudas.map(d=>`<div class="ln"><span>${escH(d.cliente)} <i style="color:var(--muted)">· ${escH(d.prof.name)} · hace ${diasDesdeStr(d.fecha)} d</i></span><span style="white-space:nowrap"><b>${fp(numV(d.monto))}</b> <button class="lnk" onclick="abrirCobroDeuda('${d.prof.id}','${d.id}')">Cobrar</button> <button class="lnk" style="color:#f472b6" onclick="anularDeuda('${d.prof.id}','${d.id}')">Anular</button></span></div>`).join('')}</div><div style="font-size:10.5px;color:var(--muted);margin-top:6px">Al cobrarlas suman a la quincena del día de pago${D.anuladas.length?' · Anuladas: '+D.anuladas.length+' ('+fp(D.anuladas.reduce((s,x)=>s+numV(x.monto),0))+' perdido)':''}</div>`:vacio('Nadie debe nada ✅'))}
+    ${pnl('c4','Clientes que no pagaron',deudas.length?`<div style="font-size:22px;font-weight:900;color:${COL.rosa};margin-bottom:6px">${fp(totalDeuda)}</div><div style="max-height:230px;overflow-y:auto">${deudas.map(d=>`<div class="ln"><span>${escH(d.cliente)} <i style="color:var(--muted)">· ${escH(d.prof.name)} · hace ${diasDesdeStr(d.fecha)} d</i></span><span style="white-space:nowrap"><b>${fp(numV(d.monto))}</b> <button class="lnk" style="color:#f472b6" onclick="anularDeuda('${d.prof.id}','${d.id}')">Anular</button></span></div>`).join('')}</div><div style="font-size:10.5px;color:var(--muted);margin-top:6px">Las cobra recepción y suman a la quincena del día de pago${D.anuladas.length?' · Anuladas: '+D.anuladas.length+' ('+fp(D.anuladas.reduce((s,x)=>s+numV(x.monto),0))+' perdido)':''}</div>`:vacio('Nadie debe nada ✅'))}
 
     ${pnl('c6','Horarios y días con más turnos',`
       <div style="font-size:11px;color:var(--muted2);margin-bottom:6px">Por hora en que se cargó el turno</div>
@@ -5268,10 +5569,10 @@ function htmlDeudasRecepcion(){
   const total=deudas.reduce((s,d)=>s+numV(d.monto),0);
   const nuevas=deudas.filter(esNueva).length;
   return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🚫 Clientes que deben (${deudas.length})${nuevas?' · <span style="color:#f472b6">'+nuevas+(nuevas===1?' nueva':' nuevas')+'</span>':''}</span><span style="font-size:12px;font-weight:800;color:#f472b6">${fp(total)}</span></div>
-  ${deudas.map(d=>`<div class="card" style="margin-bottom:8px;border-color:rgba(244,114,182,${esNueva(d)?'.55':'.25'});background:rgba(244,114,182,${esNueva(d)?'.07':'.03'})">
+  ${deudas.map(d=>`<div class="card" style="margin-bottom:8px;border-color:rgba(244,114,182,${esNueva(d)?'.55':'.25'});border-left:5px solid ${(sucursalDe(d.sucursal||d.prof.sucursal)||{}).color||'rgba(244,114,182,.25)'};background:rgba(244,114,182,${esNueva(d)?'.07':'.03'})">
     <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">
-      <div><div style="font-size:14px;font-weight:800">${escH(d.cliente)} ${esNueva(d)?'<span style="font-size:9px;font-weight:800;background:#f472b6;color:#fff;border-radius:6px;padding:2px 6px;vertical-align:middle">NUEVA</span>':''}</div>
-        <div style="font-size:11px;color:var(--muted2)">La dejó a deber ${escH(d.prof.name)} · servicio del ${fechaCortaStr(d.fecha)} (hace ${diasDesdeStr(d.fecha)} d)</div></div>
+      <div><div style="margin-bottom:3px">${chipSucursal(d.sucursal||d.prof.sucursal,true)}</div><div style="font-size:14px;font-weight:800">Cliente: ${escH(d.cliente)}${d.clienteNumero?' <span style="color:var(--muted2);font-weight:700">#'+d.clienteNumero+'</span>':''} ${esNueva(d)?'<span style="font-size:9px;font-weight:800;background:#f472b6;color:#fff;border-radius:6px;padding:2px 6px;vertical-align:middle">NUEVA</span>':''}</div>
+        <div style="font-size:11.5px;color:var(--muted2)">Profesional: <b style="color:var(--text)">${escH(d.prof.name)}</b> · servicio del ${fechaCortaStr(d.fecha)} (hace ${diasDesdeStr(d.fecha)} d)</div></div>
       <div style="font-size:18px;font-weight:900;color:#f472b6;white-space:nowrap">${fp(numV(d.monto))}</div>
     </div>
     ${detalleDeudaHtml(d,true)}
@@ -5331,7 +5632,9 @@ function renderRecepcion(){
     ${avisos.map(a=>{
       const t=a.tipo==='turno'?a.turno:null;
       const v=a.tipo==='venta'?a.venta:null;
-      const cliente=t?(t.cliente||'Cliente'):(v.cliente||'Venta mostrador');
+      const cliente=escH(t?(t.cliente||'Cliente'):(v.cliente||'Venta mostrador'));
+      const sucId=(t||v).sucursal||a.prof.sucursal||null, sucCol=(sucursalDe(sucId)||{}).color||'var(--border2)';
+      const cliNum=t&&t.clienteNumero?' <span style="color:var(--muted2);font-weight:700">#'+t.clienteNumero+'</span>':'';
       const extrasTotal=(a.extras||[]).reduce((s,e)=>s+(e.total||0),0);
       const total=(t?t.monto:v.total)+extrasTotal;
       const medio=t?({efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'}[t.medio]||t.medio):'';
@@ -5340,12 +5643,13 @@ function renderRecepcion(){
         (t.servicios&&t.servicios.length?t.servicios.map(s=>rr(nomSvc(s),fp(s.precio))).join(''):rr(t.servicio||'Servicio',fp(t.monto)))
         +(t.descuento>0?rr(t.descuentoTipo==='oferta'?`🏷️ Oferta ${t.oferta?t.oferta.nombre:''} (−${t.oferta?t.oferta.pct:''}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(t.descuento),'color:#34d399'):'')
       ):rr(`${v.productoNombre} x${v.cantidad}`,fp(v.total));
-      return `<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.06)">
+      return `<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.35);border-left:5px solid ${sucCol};background:rgba(251,191,36,.06)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
           <div style="width:34px;height:34px;border-radius:50%;background:${a.prof.color}33;border:1.5px solid ${a.prof.color};display:flex;align-items:center;justify-content:center;font-size:15px;flex-shrink:0">${a.prof.emoji||'✂️'}</div>
-          <div style="flex:1">
-            <div style="font-size:13px;font-weight:800">${cliente}</div>
-            <div style="font-size:11px;color:var(--muted2)">${a.prof.name} · ${minutosDesde((t||v).creadoEn)}</div>
+          <div style="flex:1;min-width:0">
+            <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px;margin-bottom:3px">${chipSucursal(sucId,true)}<span style="font-size:10.5px;color:var(--muted)">${minutosDesde((t||v).creadoEn)}</span></div>
+            <div style="font-size:12px;color:var(--muted2)">Profesional: <b style="color:var(--text)">${escH(a.prof.name)}</b></div>
+            <div style="font-size:14px;font-weight:800">Cliente: ${cliente}${cliNum}</div>
           </div>
         </div>
         ${detalle}
@@ -5551,7 +5855,7 @@ function menuIr(accion){
   const acc={
     perfil:()=>{ if(profile.role==='profesional') irPerfil(); else abrirMiCuenta(); },
     contenido:()=>{ irPerfil(); setTimeout(()=>{ const e=document.getElementById('perfil-contenido'); if(e) e.scrollIntoView({behavior:'smooth',block:'start'}); },150); },
-    dinero:()=>goTo('dinero'), banco:()=>goTo('banco'), puntos:()=>goTo('puntos'), kanban:()=>goTo('kanban'),
+    dinero:()=>goTo('dinero'), clientes:()=>goTo('clientes'), banco:()=>goTo('banco'), puntos:()=>goTo('puntos'), kanban:()=>goTo('kanban'),
     stories:()=>{ if(profile.role==='recepcionista') goToRec('stories'); else goTo('stories'); },
     guia:()=>abrirGuia(true), pass:()=>cambiarMiPassword(), salir:()=>showLogin(),
   };
@@ -5565,7 +5869,7 @@ function renderMenu(){
   const rubrosTxt=(p.role==='profesional'&&p.rubros&&p.rubros.length)?p.rubros.map(nombreRubro).filter(Boolean).join(', '):(ROLES[p.role]||'');
   let items='';
   if(p.role==='profesional'){
-    items=it('👤','Mi perfil','perfil')+it('🎬','Contenido','contenido')+it('💰','Mi dinero','dinero')+it('📝','Banco de reels','banco')+it('🗂️','Tablero','kanban')+it('📱','Historias','stories')+it('🏆','Mis puntos','puntos');
+    items=it('👤','Mi perfil','perfil')+it('🎬','Contenido','contenido')+it('👥','Mis clientes','clientes')+it('💰','Mi dinero','dinero')+it('📝','Banco de reels','banco')+it('🗂️','Tablero','kanban')+it('📱','Historias','stories')+it('🏆','Mis puntos','puntos');
   } else if(p.role==='recepcionista'){
     items=it('👤','Mi cuenta','perfil')+it('📱','Historias','stories');
   } else {
@@ -5603,7 +5907,8 @@ const GUIAS={
     {e:'👋',t:'Bienvenido/a a Luffy',x:'Acá tenés tu día a día en un solo lugar: cobros, plata, contenido y puntos. Estos consejos te muestran cómo usarlo. Podés saltearlos y volver a verlos cuando quieras desde el menú ☰ → Guía rápida.'},
     {e:'➕',t:'Cobrar un turno',x:'En el Inicio tocá "+ Registrar turno". Elegí qué le hiciste, si tiene una oferta, si se llevó algún producto y cómo pagó. El total se arma solo y recepción lo ve al instante para cobrarle.'},
     {e:'✨',t:'Combos y descuentos automáticos',x:'Si elegís Corte + Barba se cobra el precio del combo sin que hagas nada. Pagando en efectivo hay 10% de descuento en los servicios (si el cliente además tiene una oferta, se aplica la que más descuenta). En la barba elegís el largo.'},
-    {e:'⏳',t:'Cuando el cliente paga después',x:'Elegí "Paga después" como medio de pago y poné su nombre. Queda anotado en rojo y NO suma a tu quincena hasta que pague. El día que pague, suma a la quincena de ese día.'},
+    {e:'👥',t:'Tus clientes',x:'Desde el menú ☰ → Mis clientes armás tu propia base: al cobrar un turno escribí el nombre y el cliente se guarda solo con su número (#). Ahí ves cuántas veces vino, cada cuánto y todo lo que se hizo en cada visita.'},
+    {e:'⏳',t:'Cuando el cliente paga después',x:'Elegí "Paga después" como medio de pago y poné su nombre. Queda anotado en rojo y NO suma a tu quincena hasta que pague. El día que pague, recepción le cobra y suma a la quincena de ese día (vos no cobrás deudas desde la app).'},
     {e:'📦',t:'Vender productos',x:'Los productos se cargan en el mismo cobro con los botones + y −. Tu comisión por productos va aparte de la de los cortes, y el stock se descuenta solo.'},
     {e:'🐷',t:'Mi dinero',x:'Ahí ves tu facturación, tu comisión, los productos y el efectivo/Mercado Pago de la quincena. Tocá cualquier tarjeta para ver el detalle, y usá ‹ › para ver quincenas anteriores.'},
     {e:'📱',t:'Historias del día',x:'Marcá las historias que vas publicando. Cada una suma +5 puntos, y el admin ve cómo va cada uno del equipo.'},
@@ -5613,7 +5918,7 @@ const GUIAS={
   ],
   recepcionista:[
     {e:'👋',t:'Bienvenida a Luffy',x:'Esta es tu pantalla de trabajo. Estos consejos te muestran cómo usarla; podés saltearlos y volver a verlos desde el menú ☰ → Guía rápida.'},
-    {e:'🔔',t:'Para cobrar',x:'Cuando un profesional termina un turno te aparece acá con todo el detalle: qué se hizo, el descuento, los productos y cómo paga. Tocá "Abrir turno" para cobrarlo.'},
+    {e:'🔔',t:'Para cobrar',x:'Cuando un profesional termina un turno te aparece acá con todo el detalle: sucursal (con su color), profesional, cliente, qué se hizo, el descuento, los productos y cómo paga. Tocá "Abrir turno" para cobrarlo. Las deudas también las cobrás vos: los profesionales solo las anotan.'},
     {e:'✅',t:'Al cerrar cada turno',x:'Te vamos guiando con unas preguntas: si está agendado, si le contaste los beneficios de seguir viniendo, si reagendó, si dejó seña y si dejó reseña en Google (esa suma puntos). Así no se olvida nada.'},
     {e:'🚫',t:'Clientes que deben',x:'Si un cliente se fue sin pagar, aparece en "Clientes que deben" con quién lo dejó y hace cuánto. Cuando pague, tocá Cobrar: suma a la quincena del profesional del día en que pagó.'},
     {e:'📋',t:'Tareas del día',x:'Tu lista de tareas (limpieza, caja, etc.). Tocá cada una para tildarla.'},
@@ -5747,8 +6052,9 @@ function renderCierre(){
   const opt=(id,v,l)=>{ const sel=s.r[id]===v; const col=v==='si'?'#34d399':'#f472b6'; return `<button onclick="cierreResp('${id}','${v}')" style="flex:1;padding:11px;border-radius:12px;border:1.5px solid ${sel?col:'var(--border2)'};background:${sel?col+'22':'transparent'};color:${sel?col:'var(--muted2)'};font-family:var(--font);font-size:14px;font-weight:800;cursor:pointer">${l}</button>`; };
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div class="modal-title" style="margin:0">Cerrar turno</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     <div class="card" style="margin-bottom:14px;border-color:rgba(251,191,36,.35);background:rgba(251,191,36,.06)">
-      <div style="font-size:15px;font-weight:800">${escH(t.cliente||'Cliente')}</div>
-      <div style="font-size:11.5px;color:var(--muted2);margin-bottom:6px">${escH(a.prof.name)} · ${escH(t.servicio||'')}${extras.length?' + '+extras.map(e=>escH(e.productoNombre)).join(', '):''}</div>
+      <div style="margin-bottom:4px">${chipSucursal(t.sucursal||a.prof.sucursal,true)}</div>
+      <div style="font-size:15px;font-weight:800">Cliente: ${escH(t.cliente||'Cliente')}${t.clienteNumero?' #'+t.clienteNumero:''}</div>
+      <div style="font-size:11.5px;color:var(--muted2);margin-bottom:6px">Profesional: ${escH(a.prof.name)} · ${escH(t.servicio||'')}${extras.length?' + '+extras.map(e=>escH(e.productoNombre)).join(', '):''}</div>
       <div style="display:flex;justify-content:space-between;align-items:baseline;border-top:1px solid var(--border2);padding-top:6px"><span style="font-size:12px;font-weight:700">COBRAR${medio?' · '+medio:''}</span><span style="font-size:22px;font-weight:900">${fp(total)}</span></div>
     </div>
     ${pregs.map((p,i)=>`<div style="margin-bottom:14px">
@@ -5781,7 +6087,7 @@ async function guardarCierreCobro(){
 
 // ---------- panel del admin: como viene el cierre de turnos ----------
 function htmlCierresPanel(desde,hasta,profId){
-  const L=cierresLista().filter(c=>c.fecha>=desde&&c.fecha<=hasta&&(profId==='todos'||c.profId===profId));
+  const L=cierresLista().filter(c=>c.fecha>=desde&&c.fecha<=hasta&&coincideProf(allUsers.find(u=>u.id===c.profId),profId));
   const n=L.length, pc=(k)=>n?Math.round(L.filter(c=>c.r[k]==='si').length/n*100):0;
   const senas=L.filter(c=>c.r.sena==='si'), senaTot=senas.reduce((s,c)=>s+numV(c.senaMonto),0);
   const resenas=L.filter(c=>c.r.resena==='si').sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
