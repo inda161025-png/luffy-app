@@ -1335,13 +1335,25 @@ async function doRegister(){
   try{
   if(!supaClient){ errEl.textContent='No hay conexión con el servidor'; return; }
   if(signOutPendiente){ try{ await signOutPendiente; }catch(e){} }
-  const {data,error}=await supaClient.auth.signUp({email:authEmail(username),password:authPass(pass)});
-  if(error){ errEl.textContent=/registered|already|exists/i.test(error.message)?'Ese usuario ya existe':('No se pudo crear la cuenta: '+error.message); return; }
-  if(!data.session){ errEl.textContent='El servidor todavía pide confirmar por mail. Avisale al admin.'; return; }
+  let uid=null;
+  const su=await supaClient.auth.signUp({email:authEmail(username),password:authPass(pass)});
+  if(su.error){
+    if(!/registered|already|exists/i.test(su.error.message)){ errEl.textContent='No se pudo crear la cuenta: '+su.error.message; return; }
+    // Puede ser una cuenta que quedo a medio crear (se creo el acceso pero no la solicitud): si la clave coincide, se retoma.
+    const si=await supaClient.auth.signInWithPassword({email:authEmail(username),password:authPass(pass)});
+    if(si.error){ errEl.textContent='Ese usuario ya existe'; return; }
+    uid=si.data.user.id;
+    if(await cargarMiRol()){ await supaClient.auth.signOut(); errEl.textContent='Esa cuenta ya está aprobada: iniciá sesión'; return; }
+    const ya=await supaClient.from('luffy_pending').select('uid').eq('uid',uid).maybeSingle();
+    if(ya.data){ await supaClient.auth.signOut(); errEl.textContent=''; showWelcome(); await uiDialog({title:'Tu solicitud ya está enviada',msg:'Está esperando que el administrador la apruebe. Cuando lo haga, entrá con tu usuario y contraseña.',ok:'Entendido',soloOk:true}); return; }
+  } else {
+    if(!su.data.session){ errEl.textContent='El servidor todavía pide confirmar por mail. Avisale al admin.'; return; }
+    uid=su.data.user.id;
+  }
   const colors={profesional:'#7c6fff',recepcionista:'#60a5fa',encargado:'#34d399'};
   const emojis={profesional:'✂️',recepcionista:'📞',encargado:'📋'};
   const datos={name,username,role,rubros:rubrosSel,color:colors[role]||'#7c6fff',emoji:emojis[role]||'✂️',profesion:role==='profesional'?rubrosSel.map(nombreRubro).filter(Boolean).join(', '):(ROLES[role]||role)};
-  const ins=await supaClient.from('luffy_pending').insert({uid:data.user.id,data:datos});
+  const ins=await supaClient.from('luffy_pending').insert({uid,data:datos});
   await supaClient.auth.signOut();
   if(ins.error){ errEl.textContent='No se pudo enviar la solicitud: '+ins.error.message; return; }
   errEl.textContent='';
