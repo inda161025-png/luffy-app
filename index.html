@@ -1912,6 +1912,7 @@ function abrirClienteDetalle(id){
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirVentaPaquete('${c.id}')">🎁 Vender paquete</button>
       ${!c.tarjeta&&typeof tarjetasDisponibles==='function'&&tarjetasDisponibles().length?`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="activarTarjetaCliente('${c.id}')">⭐ Activar tarjeta</button>`:''}
     </div>
+    ${profile.role==='admin'?`<button class="btn btn-ghost" style="margin-bottom:14px;color:#f472b6" onclick="borrarClienteAdmin('${c.id}')">🗑️ Eliminar cliente</button>`:''}
     <div class="sec-title" style="margin-bottom:8px">Historial</div>
     ${s.V.length?s.V.map(v=>`<div class="card" style="margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><b style="font-size:13px">${fch(v.fecha)}${todos?` <span style="font-weight:600;color:var(--muted2);font-size:11.5px">· ${escH(v.prof)}</span>`:''}</b><span style="font-size:12px;font-weight:800">${fp(v.total)}</span></div>
@@ -1924,6 +1925,19 @@ function abrirClienteDetalle(id){
       ${v.turnoId?`<div style="font-size:11.5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);display:flex;gap:8px;align-items:flex-start"><div style="flex:1;color:${v.reag?(v.reag.estado==='si'?'#34d399':'#fbbf24'):'var(--muted)'}">🔁 ${v.reag?escH((REAG_OPC.find(o=>o[0]===v.reag.estado)||[0,v.reag.estado])[1].replace(/^\S+\s/,''))+(v.reag.motivo?' — «'+escH(v.reag.motivo)+'»':''):'Reagendamiento: sin dato'}</div>${v.propio?`<button class="lnk" onclick="abrirReagVisita('${v.turnoId}','${c.id}')">${v.reag?'Editar':'Anotar'}</button>`:''}</div>`:''}
     </div>`).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:14px">Todavía no tiene visitas.</div>'}`;
   openModal('modal-registro');
+}
+
+// ---------- eliminar cliente (solo admin, para borrar fichas de prueba o cargadas por error) ----------
+async function borrarClienteAdmin(id){
+  if(!profile||profile.role!=='admin'){ showToast('Solo el admin puede eliminar clientes'); return; }
+  const c=clienteDe(id); if(!c) return;
+  const s=statsCliente(c);
+  const aviso=s.visitas>0
+    ? `Tiene ${s.visitas} ${s.visitas===1?'visita':'visitas'} registradas. Esa historia se conserva en el dinero de cada profesional y en los reportes, pero el cliente deja de aparecer en el buscador y en su ficha.`
+    : 'No tiene visitas registradas.';
+  if(!await uiConfirm('¿Eliminar a '+c.nombre+'?', aviso+' Esta acción no se puede deshacer.', {ok:'Eliminar',danger:true})) return;
+  await cambiarClientes(list=>{ clientesDir=list.filter(x=>x.id!==id); });
+  closeModal('modal-registro'); showToast(c.nombre+' eliminado ✓'); refreshCurrentView();
 }
 
 // ---------- reagendamiento de una visita (lo edita el profesional que la hizo) ----------
