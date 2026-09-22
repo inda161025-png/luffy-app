@@ -6,7 +6,7 @@
 <meta http-equiv="Cache-Control" content="no-cache">
   <meta name="ak" content="PLACEHOLDER">
 <title>Inda App</title>
-<meta name="theme-color" content="#190019">
+<meta name="theme-color" content="#0A0A0D">
 <script>try{ if(localStorage.getItem('luffy_theme')==='light') document.documentElement.setAttribute('data-theme','light'); }catch(e){}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -15,10 +15,10 @@
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 input,textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 :root{
-  /* Paleta Inda: escala oscura #190019 -> #FBE4D8 (marca, confirmada 22/09/2026) */
-  --bg:#190019;--s1:#2B124C;--s2:#522B5B;--s3:#854F6C;
-  --text:#FBE4D8;--muted:#A6798A;--muted2:#DFB6B2;
-  --border:rgba(223,182,178,0.12);--border2:rgba(223,182,178,0.20);
+  /* Paleta Inda (ajustada 23/09/2026: base en negro/gris/blanco, el violeta de marca queda solo en detalles/acentos) */
+  --bg:#0A0A0D;--s1:#17171B;--s2:#1F1F24;--s3:#2A2A31;
+  --text:#F2F2F5;--muted:#6E6E78;--muted2:#9C9CA6;
+  --border:rgba(255,255,255,0.08);--border2:rgba(255,255,255,0.14);
   --accent:#7B337E;--accent2:#6667AB;--font:'Inter',sans-serif;--font-title:'Sora',sans-serif;
 }
 html{height:100%;overflow:hidden}
@@ -187,7 +187,7 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
 .stat-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:14px}
 .stat-card .sc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
-.stat-card .sc-val{font-size:22px;font-weight:900;letter-spacing:-.5px;font-family:var(--font-title)}
+.stat-card .sc-val{font-size:26px;font-weight:900;letter-spacing:-.6px;font-family:var(--font-title)}
 
 /* ===== Admin: navegacion y panel ===== */
 body.adm-wide #app{max-width:1500px}
@@ -213,7 +213,7 @@ body.adm-wide #app{max-width:1500px}
 .kpi{padding:14px 16px}.kpi.big{border-color:rgba(52,211,153,.4);background:linear-gradient(135deg,rgba(52,211,153,.08),var(--s1))}
 .mini{padding:11px 14px}
 .kl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px}
-.kv{font-size:clamp(18px,5.2vw,24px);font-weight:900;letter-spacing:-.5px;line-height:1.1}.mv{font-size:18px;font-weight:900;letter-spacing:-.3px}
+.kv{font-size:clamp(19px,5.8vw,28px);font-weight:900;letter-spacing:-.5px;line-height:1.1}.mv{font-size:19px;font-weight:900;letter-spacing:-.3px}
 .ks{font-size:11px;color:var(--muted2);margin-top:5px;display:flex;align-items:center;gap:7px;flex-wrap:wrap}
 .dl{font-size:11px;font-weight:800;padding:2px 7px;border-radius:8px;background:var(--s3);color:var(--muted2)}
 .dl.up{color:#34d399;background:rgba(52,211,153,.13)}.dl.down{color:#f472b6;background:rgba(244,114,182,.13)}.dl.nt{color:var(--muted2)}
@@ -265,7 +265,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 .rub-opt:has(input:checked){border-color:var(--accent);background:rgba(123,51,126,.12)}
 #ver-nueva{position:fixed;top:0;left:0;right:0;z-index:2000;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 14px;background:#7B337E;color:#fff;font-size:13px;font-weight:700;box-shadow:0 4px 18px rgba(0,0,0,.4)}
 #ver-nueva button{background:#fff;color:#4b3fd0;border:none;border-radius:10px;padding:7px 14px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer}
-:root[data-theme="light"]{--bg:#FBE4D8;--s1:#ffffff;--s2:#FDF0EA;--s3:#F6DCD0;--text:#2B124C;--muted:#9C6E86;--muted2:#6E4460;--border:rgba(82,43,91,.12);--border2:rgba(82,43,91,.20)}
+:root[data-theme="light"]{--bg:#F4F4F6;--s1:#ffffff;--s2:#F0F0F3;--s3:#E5E5EA;--text:#17171B;--muted:#8A8A93;--muted2:#55555F;--border:rgba(0,0,0,.08);--border2:rgba(0,0,0,.14)}
 .hub-menu{margin-left:auto;background:none;border:none;color:var(--muted2);cursor:pointer;padding:6px;display:flex;align-items:center;flex-shrink:0}
 .mlat{position:fixed;inset:0;z-index:900;pointer-events:none}
 .mlat-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .2s}
@@ -299,7 +299,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 .turno-item .ti-info{flex:1;min-width:0}
 .turno-item .ti-info strong{font-size:13px;font-weight:600;display:block}
 .turno-item .ti-info span{font-size:11px;color:var(--muted2)}
-.turno-item .ti-monto{font-size:14px;font-weight:800}
+.turno-item .ti-monto{font-size:16px;font-weight:800;font-family:var(--font-title)}
 .turno-item .ti-medio{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;margin-top:2px;display:block;text-align:right}
 
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
@@ -543,12 +543,12 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
     <!-- Otras acciones -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <button id="qa-gen" onclick="goTo('generador')" style="border-radius:16px;padding:16px;border:1.5px solid var(--border);background:var(--s1);cursor:pointer;text-align:left;transition:transform .15s;font-family:var(--font)" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''" ontouchstart="this.style.transform='scale(.96)'" ontouchend="this.style.transform=''">
-        <div style="font-size:26px;margin-bottom:8px">🌧️</div>
+        <div style="margin-bottom:8px;color:var(--accent)"><svg viewBox="0 0 24 24" width="26" height="26" style="stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round"><path d="M9 18.5h6M10 21h4M8.5 14.5A5.5 5.5 0 1115.5 14.5c-.7.6-1.2 1.4-1.2 2.3H9.7c0-.9-.5-1.7-1.2-2.3z"/><path d="M12 2.5v1.3M4.5 6l1 1M19.5 6l-1 1M2.8 12h1.3M19.9 12h1.3"/></svg></div>
         <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px">Generar idea</div>
         <div style="font-size:10px;color:var(--muted2)">Lluvia con IA</div>
       </button>
       <button onclick="goTo('dinero')" style="border-radius:16px;padding:16px;border:1.5px solid var(--border);background:var(--s1);cursor:pointer;text-align:left;font-family:var(--font)" onmousedown="this.style.transform='scale(.96)'" onmouseup="this.style.transform=''">
-        <div style="font-size:26px;margin-bottom:8px">🐷</div>
+        <div style="margin-bottom:8px;color:var(--accent)"><svg viewBox="0 0 24 24" width="26" height="26" style="stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"/><path d="M12 6.5v11M9.3 8.9c0-1.3 1.2-2.4 2.7-2.4s2.7 1.1 2.7 2.3c0 1.5-1.3 2-2.7 2.5-1.5.5-2.7 1-2.7 2.5 0 1.2 1.2 2.3 2.7 2.3s2.7-1.1 2.7-2.4"/></svg></div>
         <div style="font-size:13px;font-weight:800;color:var(--text);margin-bottom:2px">Mi dinero</div>
         <div style="font-size:10px;color:var(--muted2)" id="hub-tramo-sub">Tramos y comisiones</div>
       </button>
@@ -591,7 +591,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 <!-- DINERO -->
 <div id="dinero" class="screen">
   <div class="hub-hdr" style="padding-bottom:16px">
-    <div><div style="font-size:12px;color:var(--muted2);font-weight:500">Gestión</div><div style="font-size:20px;font-weight:900">Mi dinero 🐷</div></div>
+    <div><div style="font-size:12px;color:var(--muted2);font-weight:500">Gestión</div><div style="font-size:20px;font-weight:900;display:flex;align-items:center;gap:8px">Mi dinero <span style="color:var(--accent);display:inline-flex"><svg viewBox="0 0 24 24" width="20" height="20" style="stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round"><circle cx="12" cy="12" r="9"/><path d="M12 6.5v11M9.3 8.9c0-1.3 1.2-2.4 2.7-2.4s2.7 1.1 2.7 2.3c0 1.5-1.3 2-2.7 2.5-1.5.5-2.7 1-2.7 2.5 0 1.2 1.2 2.3 2.7 2.3s2.7-1.1 2.7-2.4"/></svg></span></div></div>
   </div>
   <div class="scroll" id="dinero-body"></div>
 </div>
@@ -831,6 +831,8 @@ const ICN={
   catalogo:'<path d="M20.4 12.6L11.4 3.6H4v7.4l9 9a2 2 0 002.8 0l4.6-4.6a2 2 0 000-2.8z"/><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/>',
   finanzas:'<rect x="2" y="7" width="20" height="14" rx="2.2"/><path d="M7 7V5.5A1.5 1.5 0 018.5 4h7A1.5 1.5 0 0117 5.5V7"/><path d="M2 12h20"/>',
   recepcion:'<path d="M21.5 16.7v2.9a1.9 1.9 0 01-2.1 1.9 18.8 18.8 0 01-8.2-2.9 18.5 18.5 0 01-5.7-5.7 18.8 18.8 0 01-2.9-8.3A1.9 1.9 0 014.4 2.6h2.9a1.9 1.9 0 011.9 1.6c.13.9.35 1.8.66 2.7a1.9 1.9 0 01-.43 2L8.1 10.2a15 15 0 005.7 5.7l1.3-1.3a1.9 1.9 0 012-.4c.85.32 1.76.54 2.7.66a1.9 1.9 0 011.7 1.9z"/>',
+  moneda:'<circle cx="12" cy="12" r="9"/><path d="M12 6.5v11M9.3 8.9c0-1.3 1.2-2.4 2.7-2.4s2.7 1.1 2.7 2.3c0 1.5-1.3 2-2.7 2.5-1.5.5-2.7 1-2.7 2.5 0 1.2 1.2 2.3 2.7 2.3s2.7-1.1 2.7-2.4"/>',
+  idea:'<path d="M9 18.5h6M10 21h4M8.5 14.5A5.5 5.5 0 1115.5 14.5c-.7.6-1.2 1.4-1.2 2.3H9.7c0-.9-.5-1.7-1.2-2.3z"/><path d="M12 2.5v1.3M4.5 6l1 1M19.5 6l-1 1M2.8 12h1.3M19.9 12h1.3"/>',
 };
 function mi(name,size){ return '<svg viewBox="0 0 24 24" width="'+(size||19)+'" height="'+(size||19)+'" style="stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;vertical-align:-5px">'+(ICN[name]||'')+'</svg>'; }
 
@@ -1900,8 +1902,8 @@ function abrirClienteDetalle(id){
     ${paqs.map(p=>`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.4)"><div style="font-size:12px;font-weight:800;color:#34d399">🎁 Paquete pagado (${p.pct}% off)</div><div style="font-size:12.5px;margin-top:3px">Le faltan: ${p.items.filter(i=>!i.usado).map(i=>escH(i.nombre)).join(', ')}</div></div>`).join('')}
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card"><div class="sc-lbl">Visitas</div><div class="sc-val">${s.visitas}</div><div class="sc-sub">${s.servicios} servicios</div></div>
-      <div class="stat-card"><div class="sc-lbl">Viene cada</div><div class="sc-val" style="font-size:18px">${s.cada?'~'+s.cada+' d':'—'}</div></div>
-      <div class="stat-card"><div class="sc-lbl">Gastó</div><div class="sc-val" style="font-size:16px">${fp(s.gastado)}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Viene cada</div><div class="sc-val" style="font-size:21px">${s.cada?'~'+s.cada+' d':'—'}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Gastó</div><div class="sc-val" style="font-size:22px">${fp(s.gastado)}</div></div>
     </div>
     <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 12px">Primera visita: ${fch(s.primera)} · Última: ${fch(s.ultima)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
@@ -2683,9 +2685,9 @@ function adminMembresias(c){
   const porCli={}; L.forEach(m=>{ porCli[m.clienteId]=(porCli[m.clienteId]||0)+1; });
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">💳 Membresías (${L.length})</span></div>
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="stat-card"><div class="sc-lbl">Cobrado</div><div class="sc-val" style="font-size:17px">${fp(cobrado)}</div></div>
-      <div class="stat-card"><div class="sc-lbl">Sumado a los chicos</div><div class="sc-val" style="font-size:17px">${fp(pagadoProf)}</div></div>
-      <div class="stat-card"><div class="sc-lbl">Cortes por usar</div><div class="sc-val" style="font-size:17px">${fp(pendiente)}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Cobrado</div><div class="sc-val" style="font-size:20px">${fp(cobrado)}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Sumado a los chicos</div><div class="sc-val" style="font-size:20px">${fp(pagadoProf)}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Cortes por usar</div><div class="sc-val" style="font-size:20px">${fp(pendiente)}</div></div>
     </div>
     ${L.map(m=>{ const usados=m.usos.length, deb=usados>=m.creditos; return `<div class="card" style="margin-bottom:8px;border-left:4px solid ${deb?'#f472b6':'#34d399'}">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><div style="font-size:13.5px;font-weight:800">${escH(m.clienteNombre)} <span style="color:var(--muted2)">#${m.clienteNumero}</span></div><b>${fp(m.precio)}</b></div>
@@ -2701,7 +2703,7 @@ function adminPaquetes(c){
   const tramosTxt=tramosPaquete().map(t=>fp(t.min)+'+ → '+t.pct+'%').join(' · ');
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🎁 Paquetes (${L.length})</span><button class="lnk" onclick="editarComisionRubro()">Comisión por rubro</button></div>
     <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Ganancia del salón = lo cobrado − lo que se le paga al profesional por cada servicio, según <b style="color:var(--text)">la comisión real de su rubro</b> (ej: 45% barbería, 70% estética). Quien vende el paquete desde recepción cobra, de esa ganancia, según lo facturado en paquetes en la quincena: <b style="color:var(--text)">${tramosTxt}</b> (<button class="lnk" onclick="editarRecPaqTramos()">cambiar tramos</button>). No se le muestra la comisión mientras arma el paquete, para no anclarse a un número mientras se calibra.</div>
-    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)"><div class="stat-card"><div class="sc-lbl">Vendido</div><div class="sc-val" style="font-size:18px">${fp(total)}</div><div class="sc-sub">descuento dado ${fp(desc)}</div></div><div class="stat-card"><div class="sc-lbl">Ganancia del salón</div><div class="sc-val" style="font-size:18px;color:#34d399">${fp(gan-com)}</div><div class="sc-sub">${fp(gan)} − ${fp(com)} de comisión de recepción</div></div></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)"><div class="stat-card"><div class="sc-lbl">Vendido</div><div class="sc-val" style="font-size:21px">${fp(total)}</div><div class="sc-sub">descuento dado ${fp(desc)}</div></div><div class="stat-card"><div class="sc-lbl">Ganancia del salón</div><div class="sc-val" style="font-size:21px;color:#34d399">${fp(gan-com)}</div><div class="sc-sub">${fp(gan)} − ${fp(com)} de comisión de recepción</div></div></div>
     ${Object.keys(porVend).length?`<div class="card" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Por vendedor</div>${Object.entries(porVend).map(([n,x])=>`<div class="ln"><span>${escH(n)} <i style="color:var(--muted)">· ${x.n} vendidos · ${fp(x.m)}</i></span><b>${x.rol==='recepcionista'?'comisión '+fp(x.com)+' · tramo actual '+pctPaqueteDe(x.id).pct+'%':'sin comisión'}</b></div>`).join('')}</div>`:''}
     ${L.map(p=>{ const pd=pctPaqueteDe(p.vendedorId,quincenaKey(p.fecha)); return `<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:13.5px;font-weight:800">${escH(p.clienteNombre)} <span style="color:var(--muted2)">#${p.clienteNumero}</span></div><b>${fp(p.total)}</b></div>
       <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${p.pct}% off del paquete · ${fechaCortaStr(p.fecha)} · vendió ${escH(p.vendedorNombre||'')}</div>
@@ -3192,7 +3194,7 @@ function finBalance(c){
   const T=juntarS(S,ids), ing=sumaIng(T), egr=sumaEg(T), gan=ing-egr, mg=ing>0?Math.round(gan/ing*100):0;
   const pctI=(v)=>ing>0?Math.round(v/ing*100)+'%':'—';
   const porGrupo=GRUPOS_FIN.map(([t,n])=>({t,n,cats:Object.entries(T.eg).filter(([id,v])=>v>0.5&&catFin(id).t===t).sort((a,b)=>b[1]-a[1])})).filter(g=>g.cats.length);
-  const kpi=(l,v,col,sub2)=>`<div class="stat-card"><div class="sc-lbl">${l}</div><div class="sc-val" style="font-size:19px;color:${col||'var(--text)'}">${v}</div><div class="sc-sub">${sub2||''}</div></div>`;
+  const kpi=(l,v,col,sub2)=>`<div class="stat-card"><div class="sc-lbl">${l}</div><div class="sc-val" style="color:${col||'var(--text)'}">${v}</div><div class="sc-sub">${sub2||''}</div></div>`;
   c.innerHTML=chipsFin()+`<div style="font-size:11.5px;color:var(--muted2);margin:-4px 2px 10px">${r.label} · ${finState.suc==='todas'?'todo el salón':escH((sucursalDe(finState.suc)||{}).nombre||'')}</div>
     <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)">${kpi('Ingresos',fp(ing),'#34d399')}${kpi('Egresos',fp(egr),'#f472b6')}${kpi('Ganancia',fp(gan),gan>=0?'#34d399':'#f472b6',gan>=0?'te queda':'estás perdiendo')}${kpi('Margen',mg+'%',mg>=0?'var(--text)':'#f472b6','de cada $100 que entran')}</div>
     ${torta(T,'🥧 En qué se va la plata'+(finState.suc==='todas'?' (todo el salón)':''))}
@@ -3358,9 +3360,9 @@ function finEquilibrio(c){
     <div class="sec-title" style="margin-bottom:6px">⚖️ Costos y punto de equilibrio · ${MESES[m-1]}</div>
     <div style="font-size:11.5px;color:var(--muted2);margin:0 2px 10px;line-height:1.5">Igual que en tu planilla: cada servicio tiene un <b style="color:var(--text)">costo variable</b> (comisión + insumos que se gastan en cada uno) y una parte de los <b style="color:var(--text)">gastos fijos</b>. Los gastos fijos generales se reparten según lo que factura cada rubro. Los insumos por servicio se cargan en "Costo por servicio".</div>
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
-      <div class="stat-card"><div class="sc-lbl">Gastos fijos / mes</div><div class="sc-val" style="font-size:17px;color:#f472b6">${fp(totFijo)}</div></div>
-      <div class="stat-card"><div class="sc-lbl">Ya cubierto</div><div class="sc-val" style="font-size:17px;color:#34d399">${totFijo>0?Math.min(999,Math.round(cubierto/totFijo*100)):0}%</div><div class="sc-sub">${fp(cubierto)}</div></div>
-      <div class="stat-card"><div class="sc-lbl">Beneficio del mes</div><div class="sc-val" style="font-size:17px;color:${beneficio>=0?'#34d399':'#f472b6'}">${fp(beneficio)}</div><div class="sc-sub">servicios + productos</div></div></div>
+      <div class="stat-card"><div class="sc-lbl">Gastos fijos / mes</div><div class="sc-val" style="font-size:20px;color:#f472b6">${fp(totFijo)}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Ya cubierto</div><div class="sc-val" style="font-size:20px;color:#34d399">${totFijo>0?Math.min(999,Math.round(cubierto/totFijo*100)):0}%</div><div class="sc-sub">${fp(cubierto)}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Beneficio del mes</div><div class="sc-val" style="font-size:20px;color:${beneficio>=0?'#34d399':'#f472b6'}">${fp(beneficio)}</div><div class="sc-sub">servicios + productos</div></div></div>
     ${filas.map(f=>{ const prog=f.pe?Math.min(100,f.o.visitas/f.pe*100):0; const proyGan=f.proy*f.contrib-f.fijo; const nPlan=f.plan!=null?numV(f.plan):null; const simN=nPlan!=null?nPlan:f.pe;
       const fila=(a,b,st)=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:2px 0;${st||''}"><span style="color:var(--muted2)">${a}</span><span>${b}</span></div>`;
       return `<div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:14px;font-weight:800">${escH(f.nombre)}</div><div style="font-size:11.5px;color:var(--muted2)">${f.o.visitas} servicios · gastos fijos <b style="color:var(--text)">${fp(f.fijo)}</b></div></div>
@@ -3706,7 +3708,7 @@ function adminCaja(c){
   const dif=ses.filter(s=>s.cierre).reduce((a,s)=>a+numV(s.cierre.difEf)+numV(s.cierre.difCta),0);
   c.innerHTML=`${htmlAperturaAdmin()}
     <div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">💰 Cajas de recepción</span></div>
-    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-card"><div class="sc-lbl">Cajas</div><div class="sc-val">${ses.length}</div></div><div class="stat-card"><div class="sc-lbl">Abiertas</div><div class="sc-val" style="color:${abiertas.length?'#fbbf24':'var(--text)'}">${abiertas.length}</div></div><div class="stat-card"><div class="sc-lbl">Diferencias</div><div class="sc-val" style="font-size:17px;color:${Math.abs(dif)>=1?'#f472b6':'#34d399'}">${fp(dif)}</div><div class="sc-sub">suma de sobrantes y faltantes</div></div></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-card"><div class="sc-lbl">Cajas</div><div class="sc-val">${ses.length}</div></div><div class="stat-card"><div class="sc-lbl">Abiertas</div><div class="sc-val" style="color:${abiertas.length?'#fbbf24':'var(--text)'}">${abiertas.length}</div></div><div class="stat-card"><div class="sc-lbl">Diferencias</div><div class="sc-val" style="font-size:20px;color:${Math.abs(dif)>=1?'#f472b6':'#34d399'}">${fp(dif)}</div><div class="sc-sub">suma de sobrantes y faltantes</div></div></div>
     ${ses.slice(0,40).map(s=>{ const sd=s.cierre?null:cajaSaldos(s); const d=s.cierre?(numV(s.cierre.difEf)+numV(s.cierre.difCta)):0; return `<div class="card" onclick="cajaDetalle('${s.id}')" style="cursor:pointer;margin-bottom:6px;border-left:4px solid ${!s.cierre?'#fbbf24':(Math.abs(d)>=1?'#f472b6':'#34d399')}"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><div style="font-size:13px;font-weight:800">${fechaCortaStr(s.fecha)} · ${escH(s.recNombre)}</div><div style="font-size:11.5px;color:var(--muted2)">${horaDeIso(s.apertura.ts)}${s.cierre?' → '+horaDeIso(s.cierre.ts):' → abierta'}</div></div>
       <div style="font-size:12px;color:var(--muted2);margin-top:3px">Apertura 💵 ${fp(s.apertura.efectivo)} · 🏦 ${fp(s.apertura.cuenta)}${s.cierre?` · Cierre 💵 ${fp(s.cierre.efectivo)} · 🏦 ${fp(s.cierre.cuenta)}`:` · ahora debería haber 💵 ${fp(sd.ef)} · 🏦 ${fp(sd.cta)}`}${s.cierre&&Math.abs(d)>=1?` · <b style="color:#f472b6">diferencia ${fp(d)}</b>`:''}${(s.apertura.difEf||s.apertura.difCta)?' · <b style="color:#fbbf24">abrió con distinto saldo</b>':''}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">💰</div><p>Todavía no se abrió ninguna caja.</p></div>'}`;
 }
@@ -4675,7 +4677,7 @@ function adminDeudas(c){
   const viejas=pend.filter(d=>diasDesdeStr(d.fecha)>=7).length;
   const porProf={}; pend.forEach(d=>{ porProf[d.prof.name]=(porProf[d.prof.name]||0)+saldoDeuda(d); });
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🚫 Deudas pendientes (${pend.length})</span></div>
-    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-card"><div class="sc-lbl">Deben</div><div class="sc-val" style="font-size:17px;color:#f472b6">${fp(total)}</div></div><div class="stat-card"><div class="sc-lbl">Ya cobrado en parciales</div><div class="sc-val" style="font-size:17px;color:#34d399">${fp(cobrado)}</div></div><div class="stat-card"><div class="sc-lbl">Hace +7 días</div><div class="sc-val" style="font-size:17px;color:${viejas?'#fbbf24':'var(--text)'}">${viejas}</div></div></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)"><div class="stat-card"><div class="sc-lbl">Deben</div><div class="sc-val" style="font-size:20px;color:#f472b6">${fp(total)}</div></div><div class="stat-card"><div class="sc-lbl">Ya cobrado en parciales</div><div class="sc-val" style="font-size:20px;color:#34d399">${fp(cobrado)}</div></div><div class="stat-card"><div class="sc-lbl">Hace +7 días</div><div class="sc-val" style="font-size:20px;color:${viejas?'#fbbf24':'var(--text)'}">${viejas}</div></div></div>
     ${Object.keys(porProf).length?`<div class="card" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Por profesional (la responsabilidad es de quien atendió)</div>${Object.entries(porProf).map(([n,v])=>`<div class="ln"><span>${escH(n)}</span><b>${fp(v)}</b></div>`).join('')}</div>`:''}
     ${pend.map(d=>`<div class="card" style="margin-bottom:8px;border-left:5px solid ${(sucursalDe(d.sucursal||d.prof.sucursal)||{}).color||'#f472b6'}"><div style="display:flex;justify-content:space-between;gap:10px"><div style="min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(d.cliente)}${d.clienteNumero?' <span style="color:var(--muted2)">#'+d.clienteNumero+'</span>':''}</div><div style="font-size:11.5px;color:var(--muted2)">${chipSucursal(d.sucursal||d.prof.sucursal,true)} Profesional: <b style="color:var(--text)">${escH(d.prof.name)}</b> · servicio del ${fechaCortaStr(d.fecha)} (hace ${diasDesdeStr(d.fecha)} d)${d.motivo?' · '+escH(d.motivo):''}</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:18px;font-weight:900;color:#f472b6">${fp(saldoDeuda(d))}</div>${pagadoDe(d)>0?`<div style="font-size:10px;color:var(--muted)">de ${fp(d.monto)}</div>`:''}</div></div>${htmlPagosDeuda(d)}<div style="display:flex;gap:12px;margin-top:6px"><button class="lnk" style="color:#f472b6" onclick="anularDeuda('${d.prof.id}','${d.id}')">Anular</button></div></div>`).join('')||'<div class="empty"><div class="e-icon">✅</div><p>Nadie debe nada.</p></div>'}
     <div style="font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5">Las deudas las cobra recepción (o el propio profesional en una sucursal sin recepcionista), con pagos parciales. Lo que se paga suma a la quincena del día del pago.</div>`;
@@ -4686,7 +4688,7 @@ function adminSenas(c){
   const ret=senasSt.list.filter(s=>s.estado==='retenida').reduce((a,s)=>a+numV(s.monto),0), dev=senasSt.list.filter(s=>s.estado==='devuelta').reduce((a,s)=>a+numV(s.devuelto||s.monto),0);
   const porProf={}; L.forEach(s=>{ (porProf[s.profNombre]=porProf[s.profNombre]||[]).push(s); });
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">💵 Señas (${L.length} pendientes)</span></div>
-    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)"><div class="stat-card"><div class="sc-lbl">Por descontar</div><div class="sc-val" style="font-size:18px;color:#7B337E">${fp(total)}</div></div><div class="stat-card"><div class="sc-lbl">Descontadas este mes</div><div class="sc-val" style="font-size:18px">${usadas}</div></div><div class="stat-card"><div class="sc-lbl">Devueltas</div><div class="sc-val" style="font-size:17px">${fp(dev)}</div></div><div class="stat-card"><div class="sc-lbl">Se quedó el salón</div><div class="sc-val" style="font-size:17px">${fp(ret)}</div></div></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)"><div class="stat-card"><div class="sc-lbl">Por descontar</div><div class="sc-val" style="font-size:21px;color:#7B337E">${fp(total)}</div></div><div class="stat-card"><div class="sc-lbl">Descontadas este mes</div><div class="sc-val" style="font-size:21px">${usadas}</div></div><div class="stat-card"><div class="sc-lbl">Devueltas</div><div class="sc-val" style="font-size:20px">${fp(dev)}</div></div><div class="stat-card"><div class="sc-lbl">Se quedó el salón</div><div class="sc-val" style="font-size:20px">${fp(ret)}</div></div></div>
     ${Object.entries(porProf).map(([n,l])=>`<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">✂️ ${escH(n)} · ${fp(l.reduce((a,s)=>a+saldoSena(s),0))}</div>${l.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join('')}`).join('')||'<div class="empty"><div class="e-icon">💵</div><p>No hay señas pendientes.</p></div>'}
     <button class="btn btn-ghost" onclick="abrirFormSena()" style="margin-top:10px">+ Registrar una seña</button>`;
 }
@@ -6504,7 +6506,7 @@ function renderTrabajo(wrap){
   const cuando=(x)=>x.fecha===hoyStr&&x.creadoEn?' · '+hora(x.creadoEn):(x.fecha?' · '+fechaCorta(x.fecha):'');
   const dline=(a,b,st='')=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:12px;padding:2px 0;${st}"><span>${a}</span><span style="white-space:nowrap">${b}</span></div>`;
 
-  const card=(lbl,val,sub,col,onclick)=>`<div class="stat-card" ${onclick?`onclick="${onclick}" style="cursor:pointer"`:''}><div class="sc-lbl">${lbl}</div><div class="sc-val" style="font-size:19px;${col?'color:'+col:''}">${val}</div><div class="sc-sub">${sub}</div></div>`;
+  const card=(lbl,val,sub,col,onclick)=>`<div class="stat-card" ${onclick?`onclick="${onclick}" style="cursor:pointer"`:''}><div class="sc-lbl">${lbl}</div><div class="sc-val" style="font-size:22px;${col?'color:'+col:''}">${val}</div><div class="sc-sub">${sub}</div></div>`;
 
   const rowTurno=(t,detalle)=>{
     const mc=medioColor[t.medio]||'#888';
@@ -8593,8 +8595,8 @@ function renderRecepcion(){
       <button class="sec-btn" onclick="abrirVentaProducto()" style="background:#7B337E">+ Venta</button>
     </div>
     <div class="stat-grid" style="margin-bottom:8px">
-      <div class="stat-card"><div class="sc-lbl">Hoy vendiste</div><div class="sc-val" style="font-size:19px">${fp(sumaV(ventasHoyRec,'total'))}</div><div class="sc-sub">${ventasHoyRec.length} ${ventasHoyRec.length===1?'venta':'ventas'} · +${fp(sumaV(ventasHoyRec,'comision'))}</div></div>
-      <div class="stat-card"><div class="sc-lbl">Tu comisión (quincena)</div><div class="sc-val" style="font-size:19px;color:#7B337E">${fp(sumaV(ventasQuinRec,'comision'))}</div><div class="sc-sub">${fp(sumaV(ventasQuinRec,'total'))} vendidos</div></div>
+      <div class="stat-card"><div class="sc-lbl">Hoy vendiste</div><div class="sc-val" style="font-size:22px">${fp(sumaV(ventasHoyRec,'total'))}</div><div class="sc-sub">${ventasHoyRec.length} ${ventasHoyRec.length===1?'venta':'ventas'} · +${fp(sumaV(ventasHoyRec,'comision'))}</div></div>
+      <div class="stat-card"><div class="sc-lbl">Tu comisión (quincena)</div><div class="sc-val" style="font-size:22px;color:#7B337E">${fp(sumaV(ventasQuinRec,'comision'))}</div><div class="sc-sub">${fp(sumaV(ventasQuinRec,'total'))} vendidos</div></div>
     </div>
     ${ventasHoyRec.slice(0,3).map(v=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:#7B337E"></div><div class="ti-info"><strong>${v.productoNombre}</strong><span>x${v.cantidad}${v.cliente?' · '+v.cliente:''}${v.creadoEn?' · '+new Date(v.creadoEn).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):''}</span></div><div style="text-align:right"><div class="ti-monto">${fp(v.total)}</div><div class="ti-medio" style="background:#7B337E22;color:#7B337E">+${fp(v.comision)}</div></div></div>`).join('')}
     <div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px"><div style="font-size:24px">🎁</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Paquetes y membresías</div><div style="font-size:11px;color:var(--muted2)">Se venden desde la ficha de cada cliente (buscalo arriba)</div></div></div>
@@ -8783,7 +8785,7 @@ const GUIAS={
     {e:'👥',t:'Tus clientes',x:'Desde el menú ☰ → Mis clientes armás tu propia base: al cobrar un turno escribí el nombre y el cliente se guarda solo con su número (#). Ahí ves cuántas veces vino, cada cuánto y todo lo que se hizo en cada visita.'},
     {e:'⏳',t:'Cuando el cliente paga después',x:'Elegí "Paga después" como medio de pago y poné su nombre. Queda anotado en rojo y NO suma a tu quincena hasta que pague. El día que pague, recepción le cobra y suma a la quincena de ese día (vos no cobrás deudas desde la app).'},
     {e:'📦',t:'Vender productos',x:'Los productos se cargan en el mismo cobro con los botones + y −. Tu comisión por productos va aparte de la de los cortes, y el stock se descuenta solo.'},
-    {e:'🐷',t:'Mi dinero',x:'Ahí ves tu facturación, tu comisión, los productos y el efectivo/Mercado Pago de la quincena. Tocá cualquier tarjeta para ver el detalle, y usá ‹ › para ver quincenas anteriores.'},
+    {e:'🪙',t:'Mi dinero',x:'Ahí ves tu facturación, tu comisión, los productos y el efectivo/Mercado Pago de la quincena. Tocá cualquier tarjeta para ver el detalle, y usá ‹ › para ver quincenas anteriores.'},
     {e:'📱',t:'Historias del día',x:'Marcá las historias que vas publicando. Cada una suma +5 puntos, y el admin ve cómo va cada uno del equipo.'},
     {e:'📝',t:'Banco de reels',x:'Elegí un reel del banco, mirá todo el detalle (con el link de inspiración) y decidí si lo tomás. Pasa a tu Tablero con un plazo: a tiempo suma +50 ⭐, si no llegás resta −50 y te toca una prenda.'},
     {e:'🏆',t:'Puntos y premios',x:'Tus puntos salen de historias, reels y otras acciones. En Mis puntos ves el ranking del equipo y podés canjearlos por premios.'},
