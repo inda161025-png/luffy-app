@@ -5,18 +5,21 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <meta http-equiv="Cache-Control" content="no-cache">
   <meta name="ak" content="PLACEHOLDER">
-<title>Luffy</title>
-<meta name="theme-color" content="#09090f">
+<title>Inda App</title>
+<meta name="theme-color" content="#190019">
 <script>try{ if(localStorage.getItem('luffy_theme')==='light') document.documentElement.setAttribute('data-theme','light'); }catch(e){}</script>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Sora:wght@600;700;800&display=swap" rel="stylesheet">
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 input,textarea{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 :root{
-  --bg:#09090f;--s1:#111118;--s2:#17171f;--s3:#1f1f2a;
-  --text:#f0f0f8;--muted:#6b6b80;--muted2:#9090a8;
-  --border:rgba(255,255,255,0.07);--border2:rgba(255,255,255,0.12);
-  --accent:#7c6fff;--font:'Inter',sans-serif;
+  /* Paleta Inda: escala oscura #190019 -> #FBE4D8 (marca, confirmada 22/09/2026) */
+  --bg:#190019;--s1:#2B124C;--s2:#522B5B;--s3:#854F6C;
+  --text:#FBE4D8;--muted:#A6798A;--muted2:#DFB6B2;
+  --border:rgba(223,182,178,0.12);--border2:rgba(223,182,178,0.20);
+  --accent:#7B337E;--accent2:#6667AB;--font:'Inter',sans-serif;--font-title:'Sora',sans-serif;
 }
 html{height:100%;overflow:hidden}
 body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:var(--text);font-family:var(--font);overflow:hidden;overscroll-behavior:none;touch-action:pan-y}
@@ -32,12 +35,12 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
 .inner-hdr{display:flex;align-items:center;gap:12px;padding:16px 20px;flex-shrink:0;border-bottom:1px solid var(--border)}
 .back{background:none;border:none;color:var(--muted2);font-size:20px;cursor:pointer;padding:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:8px}
 .back:active{background:var(--s2)}
-.inner-hdr h2{font-size:16px;font-weight:700;flex:1}
+.inner-hdr h2{font-size:16px;font-weight:700;flex:1;font-family:var(--font-title)}
 
 /* BTN */
 .btn{width:100%;padding:15px;border-radius:14px;border:none;font-family:var(--font);font-size:15px;font-weight:700;cursor:pointer;transition:opacity .15s}
 .btn:active{opacity:.85}
-.btn-primary{background:linear-gradient(135deg,#7c6fff,#a78bfa);color:#fff}
+.btn-primary{background:linear-gradient(135deg,#7B337E,#6667AB);color:#fff}
 .btn-ghost{background:var(--s2);border:1px solid var(--border2);color:var(--muted2)}
 
 /* CHIPS */
@@ -63,7 +66,7 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
 .modal-box{background:var(--s1);border-radius:24px 24px 0 0;padding:24px 20px;width:100%;max-width:430px;max-height:90vh;overflow-y:auto;transform:translateY(100%);transition:transform .3s cubic-bezier(.4,0,.2,1)}
 .modal.open .modal-box{transform:translateY(0)}
 .modal-handle{width:36px;height:4px;background:var(--border2);border-radius:2px;margin:0 auto 20px}
-.modal-title{font-size:18px;font-weight:800;margin-bottom:20px}
+.modal-title{font-size:18px;font-weight:800;margin-bottom:20px;font-family:var(--font-title)}
 .modal-close{position:absolute;top:20px;right:20px;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer;display:flex;align-items:center;justify-content:center}
 
 /* NAV */
@@ -71,7 +74,7 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
 .nav-btn{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;background:none;border:none;color:var(--muted);font-family:var(--font);font-size:10px;font-weight:600;cursor:pointer;padding:6px 0;transition:color .15s}
 .nav-btn svg{width:22px;height:22px;stroke:currentColor;stroke-width:2;fill:none}
 .nav-btn.active{color:var(--accent)}
-.nav-center{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#7c6fff,#a78bfa);display:flex;align-items:center;justify-content:center;margin-top:-20px;box-shadow:0 4px 20px rgba(124,111,255,.4);cursor:pointer;flex-shrink:0;border:none;transition:transform .15s}
+.nav-center{width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#7B337E,#6667AB);display:flex;align-items:center;justify-content:center;margin-top:-20px;box-shadow:0 4px 20px rgba(123,51,126,.4);cursor:pointer;flex-shrink:0;border:none;transition:transform .15s}
 .nav-center:active{transform:scale(.94)}
 .nav-center svg{width:26px;height:26px;stroke:#fff;stroke-width:2.5;fill:none}
 
@@ -97,14 +100,14 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
 .hub-hdr{padding:20px 20px 0;display:flex;align-items:center;gap:12px;flex-shrink:0}
 .hub-av{width:42px;height:42px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:18px;border:2px solid transparent;cursor:pointer;flex-shrink:0}
 .hub-greeting{font-size:12px;color:var(--muted2);font-weight:500}
-.hub-name{font-size:20px;font-weight:900;letter-spacing:-.4px}
+.hub-name{font-size:20px;font-weight:900;letter-spacing:-.4px;font-family:var(--font-title)}
 .hub-salir{margin-left:auto;background:none;border:none;color:var(--muted);font-size:11px;font-weight:700;cursor:pointer;font-family:var(--font);letter-spacing:.05em}
 
 .tramo-banner{margin:16px 20px 0;border-radius:14px;padding:12px 16px;display:flex;align-items:center;gap:12px;cursor:pointer}
 .tramo-banner .tb-emoji{font-size:24px;flex-shrink:0}
 .tramo-banner .tb-info strong{display:block;font-size:13px;font-weight:700}
 .tramo-banner .tb-info span{font-size:11px;opacity:.7}
-.tramo-banner .tb-pct{font-size:20px;font-weight:900;margin-left:auto;flex-shrink:0}
+.tramo-banner .tb-pct{font-size:20px;font-weight:900;margin-left:auto;flex-shrink:0;font-family:var(--font-title)}
 
 .quick-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:16px 20px 0;flex-shrink:0}
 .qa-btn{border-radius:16px;padding:16px;border:none;cursor:pointer;transition:transform .15s;text-align:left;font-family:var(--font)}
@@ -184,14 +187,14 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
 .stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:14px}
 .stat-card{background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:14px}
 .stat-card .sc-lbl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:4px}
-.stat-card .sc-val{font-size:22px;font-weight:900;letter-spacing:-.5px}
+.stat-card .sc-val{font-size:22px;font-weight:900;letter-spacing:-.5px;font-family:var(--font-title)}
 
 /* ===== Admin: navegacion y panel ===== */
 body.adm-wide #app{max-width:1500px}
 .adm-nav{display:flex;gap:6px;overflow-x:auto;padding:4px 0 8px;scrollbar-width:none;position:sticky;top:0;z-index:20;background:var(--bg)}
 .adm-nav button,.adm-sub button{flex-shrink:0;border:1.5px solid var(--border);background:var(--s1);color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;padding:9px 16px;border-radius:12px;cursor:pointer;transition:all .15s;white-space:nowrap}
 .adm-nav button span{margin-right:6px}
-.adm-nav button.on,.adm-sub button.on{border-color:var(--accent);background:rgba(124,111,255,.15);color:var(--accent)}
+.adm-nav button.on,.adm-sub button.on{border-color:var(--accent);background:rgba(123,51,126,.15);color:var(--accent)}
 .adm-nav .adm-out{margin-left:auto;background:transparent;border-color:transparent;font-size:12px;opacity:.6}
 .adm-sub{display:flex;gap:6px;margin:2px 0 10px;overflow-x:auto;scrollbar-width:none}
 .adm-sub button{font-size:12px;padding:6px 14px;border-radius:20px}
@@ -200,7 +203,7 @@ body.adm-wide #app{max-width:1500px}
 .adm-bar-r{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
 .adm-chips{display:flex;gap:6px;flex-wrap:wrap}
 .adm-chips button{border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;padding:8px 14px;border-radius:20px;cursor:pointer;display:inline-flex;align-items:center;gap:6px}
-.adm-chips button.on{border-color:var(--accent);background:rgba(124,111,255,.15);color:var(--accent)}
+.adm-chips button.on{border-color:var(--accent);background:rgba(123,51,126,.15);color:var(--accent)}
 .adm-chips.sm button{padding:5px 11px;font-size:11px}
 .adm-chips i{width:9px;height:9px;border-radius:3px;display:inline-block}
 .adm-sel,.adm-btn{background:var(--s1);border:1.5px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12px;font-weight:700;padding:8px 12px;border-radius:12px;cursor:pointer}
@@ -220,7 +223,7 @@ body.adm-wide #app{max-width:1500px}
 .pnl-h h3{font-size:13px;font-weight:800}
 .pnl .hint{font-size:10.5px;color:var(--muted)}
 .hb{padding:6px 8px;margin:0 -8px 4px;border-radius:10px;border:1.5px solid transparent}
-.hb.clickable{cursor:pointer}.hb.clickable:hover{background:var(--s2)}.hb.sel{border-color:var(--accent);background:rgba(124,111,255,.08)}
+.hb.clickable{cursor:pointer}.hb.clickable:hover{background:var(--s2)}.hb.sel{border-color:var(--accent);background:rgba(123,51,126,.08)}
 .ln{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:12px;padding:6px 0;border-bottom:1px solid var(--border)}
 .ln:last-child{border-bottom:none}
 .lnk{background:none;border:none;color:var(--accent);font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer;padding:0}
@@ -259,10 +262,10 @@ body.adm-wide #app{max-width:1500px}
 .bdg{font-size:10px;font-weight:700;padding:2px 8px;border-radius:8px;background:var(--s3);color:var(--muted2);white-space:nowrap}
 label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padding:12px 14px;border:1.5px solid var(--border2);border-radius:12px;margin:0 0 6px;font-size:14px;font-weight:600;text-transform:none;letter-spacing:0;color:var(--text);cursor:pointer;background:var(--s2)}
 .rub-opt input{width:18px;height:18px;flex-shrink:0;padding:0;margin:0}
-.rub-opt:has(input:checked){border-color:var(--accent);background:rgba(124,111,255,.12)}
-#ver-nueva{position:fixed;top:0;left:0;right:0;z-index:2000;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 14px;background:#7c6fff;color:#fff;font-size:13px;font-weight:700;box-shadow:0 4px 18px rgba(0,0,0,.4)}
+.rub-opt:has(input:checked){border-color:var(--accent);background:rgba(123,51,126,.12)}
+#ver-nueva{position:fixed;top:0;left:0;right:0;z-index:2000;display:flex;align-items:center;justify-content:center;gap:12px;padding:10px 14px;background:#7B337E;color:#fff;font-size:13px;font-weight:700;box-shadow:0 4px 18px rgba(0,0,0,.4)}
 #ver-nueva button{background:#fff;color:#4b3fd0;border:none;border-radius:10px;padding:7px 14px;font-family:var(--font);font-size:12px;font-weight:800;cursor:pointer}
-:root[data-theme="light"]{--bg:#f4f4f9;--s1:#ffffff;--s2:#f0f0f6;--s3:#e4e4ee;--text:#15151f;--muted:#8b8b9e;--muted2:#5a5a70;--border:rgba(0,0,0,.09);--border2:rgba(0,0,0,.16)}
+:root[data-theme="light"]{--bg:#FBE4D8;--s1:#ffffff;--s2:#FDF0EA;--s3:#F6DCD0;--text:#2B124C;--muted:#9C6E86;--muted2:#6E4460;--border:rgba(82,43,91,.12);--border2:rgba(82,43,91,.20)}
 .hub-menu{margin-left:auto;background:none;border:none;color:var(--muted2);cursor:pointer;padding:6px;display:flex;align-items:center;flex-shrink:0}
 .mlat{position:fixed;inset:0;z-index:900;pointer-events:none}
 .mlat-bg{position:absolute;inset:0;background:rgba(0,0,0,.55);opacity:0;transition:opacity .2s}
@@ -300,7 +303,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 .turno-item .ti-medio{font-size:10px;font-weight:700;padding:2px 7px;border-radius:8px;margin-top:2px;display:block;text-align:right}
 
 .sec-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
-.sec-title{font-size:13px;font-weight:700}
+.sec-title{font-size:13px;font-weight:700;font-family:var(--font-title)}
 .sec-btn{white-space:nowrap;padding:6px 14px;border-radius:20px;border:none;color:#fff;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer}
 
 /* ── ADMIN ── */
@@ -421,6 +424,10 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 .ob-result{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-top:8px;font-size:13px;line-height:1.7}
 .ob-result h3{font-size:14px;font-weight:800;color:var(--accent);margin-bottom:6px;margin-top:12px}
 .ob-result h3:first-child{margin-top:0}
+.logo-mark{display:block;width:220px;height:auto;margin:0 auto 8px}
+.logo-mark.for-light-bg{display:none}
+:root[data-theme="light"] .logo-mark{display:none}
+:root[data-theme="light"] .logo-mark.for-light-bg{display:block}
 </style>
 </head>
 <body>
@@ -429,8 +436,9 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 <!-- LOGIN -->
 <div id="login" class="screen active">
   <div id="login-welcome" style="width:100%;max-width:340px;text-align:center">
-    <div style="font-size:80px;font-weight:900;letter-spacing:-4px;background:linear-gradient(135deg,#fff,#666);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:2px;line-height:1">INDA</div>
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:52px;letter-spacing:.15em;text-transform:uppercase">Studio · Luffy</div>
+    <img src="assets/logo-inda-dark.png" alt="Inda App" class="logo-mark">
+    <img src="assets/logo-inda-light.png" alt="Inda App" class="logo-mark for-light-bg">
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:52px;letter-spacing:.15em;text-transform:uppercase;font-family:var(--font-title);font-weight:600">Inda App</div>
     <div style="display:flex;flex-direction:column;gap:10px;margin-bottom:20px">
       <button onclick="showLoginForm()" class="btn btn-primary" style="font-size:16px;padding:17px;border-radius:16px">Iniciar sesión</button>
       <button onclick="showRegisterForm()" style="width:100%;padding:17px;border-radius:16px;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-family:var(--font);font-size:16px;font-weight:700;cursor:pointer">Crear cuenta</button>
@@ -513,13 +521,13 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
     </div>
 
     <!-- Turnos de hoy -->
-    <div id="hub-turnos-card" style="border-radius:18px;padding:16px;margin-bottom:10px;border:1.5px solid rgba(124,111,255,.2);background:rgba(124,111,255,.06)">
+    <div id="hub-turnos-card" style="border-radius:18px;padding:16px;margin-bottom:10px;border:1.5px solid rgba(123,51,126,.2);background:rgba(123,51,126,.06)">
       <div style="display:flex;align-items:center;gap:12px;cursor:pointer" onclick="goTo('dinero')">
-        <div style="width:44px;height:44px;border-radius:14px;background:rgba(124,111,255,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">💈</div>
+        <div style="width:44px;height:44px;border-radius:14px;background:rgba(123,51,126,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">💈</div>
         <div style="flex:1">
           <div style="font-size:14px;font-weight:800;margin-bottom:2px">Turnos de hoy</div>
           <div style="font-size:11px;color:var(--muted2)" id="hub-turnos-sub">$0 · 0 turnos</div>
-          <div style="font-size:11px;color:#7c6fff;margin-top:1px" id="hub-ventas-sub"></div>
+          <div style="font-size:11px;color:#7B337E;margin-top:1px" id="hub-ventas-sub"></div>
         </div>
       </div>
       <button onclick="abrirRegistroTurno()" style="width:100%;margin-top:12px;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">+ Registrar turno</button>
@@ -669,7 +677,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 <div id="onboarding" class="screen">
   <div style="padding:14px 20px;flex-shrink:0;display:flex;align-items:center;gap:10px;border-bottom:1px solid var(--border)">
     <div id="ob-av" style="width:36px;height:36px;border-radius:50%;background:var(--accent)33;border:2px solid var(--accent);display:flex;align-items:center;justify-content:center;font-size:16px;flex-shrink:0">🐟</div>
-    <div style="flex:1"><div style="font-size:13px;font-weight:700">Luffy</div><div style="font-size:11px;color:var(--muted2)" id="ob-progreso">Estratega de contenido · Inda Studio</div></div>
+    <div style="flex:1"><div style="font-size:13px;font-weight:700">Inda App</div><div style="font-size:11px;color:var(--muted2)" id="ob-progreso">Estratega de contenido · Inda Studio</div></div>
     <button onclick="salirOnboarding()" style="background:none;border:none;color:var(--muted);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font)">Salir</button>
   </div>
   <div class="ob-chat" id="ob-chat"></div>
@@ -803,6 +811,28 @@ function refreshCurrentView(){
 
 // ============ STATE ============
 const ROLES = {admin:'Administrador', profesional:'Profesional', recepcionista:'Recepcionista', encargado:'Encargado'};
+
+// Iconos vectoriales chicos (linea, sin relleno) para reemplazar emojis en los lugares mas visibles: menu, header, pestanas del admin.
+const ICN={
+  perfil:'<circle cx="12" cy="8" r="3.4"/><path d="M4.5 20c1-4.2 4-6.6 7.5-6.6s6.5 2.4 7.5 6.6"/>',
+  contenido:'<rect x="3" y="4" width="18" height="16" rx="2.5"/><path d="M10 9l5 3-5 3z"/>',
+  stock:'<path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/>',
+  clientes:'<circle cx="8.5" cy="8" r="3"/><circle cx="16" cy="9.5" r="2.4"/><path d="M2.5 20c.6-3.6 3-6 6-6s5.6 2.4 6.2 6"/><path d="M15.3 14.6c2.4.5 4.1 2.4 4.7 5.4"/>',
+  dinero:'<rect x="2.5" y="6" width="19" height="13" rx="2.5"/><path d="M2.5 10.2h19"/><circle cx="16.3" cy="14.5" r="1.2" fill="currentColor" stroke="none"/>',
+  banco:'<rect x="4" y="6" width="13" height="14" rx="2"/><path d="M8 10.5l4 2.4-4 2.4z"/><path d="M20 9v9a2 2 0 01-2 2H9.5"/>',
+  kanban:'<rect x="3" y="4" width="7" height="16" rx="1.4"/><rect x="14" y="4" width="7" height="10" rx="1.4"/>',
+  historias:'<rect x="7" y="2" width="10" height="20" rx="3"/><circle cx="12" cy="18" r="1" fill="currentColor" stroke="none"/>',
+  puntos:'<polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/>',
+  guia:'<circle cx="12" cy="12" r="9"/><polygon points="15,9 13,13 9,15 11,11"/>',
+  pass:'<circle cx="7.5" cy="15.5" r="4.5"/><path d="M10.6 12.4L20 3M15 8l3 3M18 5l2.5 2.5"/>',
+  salir:'<path d="M9 21H6a2 2 0 01-2-2V5a2 2 0 012-2h3"/><polyline points="15,17 20,12 15,7"/><line x1="20" y1="12" x2="8" y2="12"/>',
+  panel:'<path d="M4 21V10M10 21V6M16 21V13M22 21H2"/>',
+  equipo:'<circle cx="9" cy="8" r="3"/><circle cx="17" cy="8.5" r="2.4"/><path d="M2 20.5c.6-3.2 3.3-5.5 7-5.5s6.4 2.3 7 5.5"/><path d="M15.6 15.3c2.6.4 4.5 2.3 5 5.2"/>',
+  catalogo:'<path d="M20.4 12.6L11.4 3.6H4v7.4l9 9a2 2 0 002.8 0l4.6-4.6a2 2 0 000-2.8z"/><circle cx="8" cy="8" r="1.4" fill="currentColor" stroke="none"/>',
+  finanzas:'<rect x="2" y="7" width="20" height="14" rx="2.2"/><path d="M7 7V5.5A1.5 1.5 0 018.5 4h7A1.5 1.5 0 0117 5.5V7"/><path d="M2 12h20"/>',
+  recepcion:'<path d="M21.5 16.7v2.9a1.9 1.9 0 01-2.1 1.9 18.8 18.8 0 01-8.2-2.9 18.5 18.5 0 01-5.7-5.7 18.8 18.8 0 01-2.9-8.3A1.9 1.9 0 014.4 2.6h2.9a1.9 1.9 0 011.9 1.6c.13.9.35 1.8.66 2.7a1.9 1.9 0 01-.43 2L8.1 10.2a15 15 0 005.7 5.7l1.3-1.3a1.9 1.9 0 012-.4c.85.32 1.76.54 2.7.66a1.9 1.9 0 011.7 1.9z"/>',
+};
+function mi(name,size){ return '<svg viewBox="0 0 24 24" width="'+(size||19)+'" height="'+(size||19)+'" style="stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;vertical-align:-5px">'+(ICN[name]||'')+'</svg>'; }
 
 let profile = null;
 // Bumped on every logout/new login attempt so an in-flight loginAs() from a
@@ -1125,7 +1155,7 @@ function htmlStoriesRecAdmin(){
   const bl=STORY_BLOQUES.map(b=>{ const its=storyRecItems(b.id);
     return `<div style="font-size:11px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:.08em;margin:10px 0 2px">${b.emoji} ${b.label} · ${storyRecHechas(hoy,b.id)}/${its.length}</div>`+its.map(i=>{ const c=storiesData&&storiesData[hoy]&&storiesData[hoy].rec&&storiesData[hoy].rec[i.id]; const h=c&&c.ts?new Date(c.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
       return `<div style="display:flex;align-items:center;gap:8px;padding:7px 0;border-bottom:1px solid var(--border)"><div style="font-size:15px">${i.tipo.emoji}</div><div style="flex:1;font-size:12px">${i.tipo.label} <span style="color:${i.cuenta.color};font-weight:700">· ${i.cuenta.nombre}</span></div>${c&&c.done?`<div style="font-size:11px;color:#34d399;font-weight:700">✓ ${h}${c.por?' · '+escH(c.por):''}</div>`:'<div style="font-size:11px;color:var(--muted)">Pendiente</div>'}</div>`; }).join(''); }).join('');
-  return `<div class="prof-card" style="margin-bottom:14px"><div class="pc-hdr"><div class="pc-av" style="background:#7c6fff33;border-color:#7c6fff">📞</div><div class="pc-info"><strong>Recepción</strong><span>Historias de Inda Barber e Inda Studio · mañana y tarde</span></div></div>${bl}<button class="btn btn-ghost" style="margin-top:10px" onclick="abrirTextosStoriesRec()">✏️ Editar los textos</button></div>`;
+  return `<div class="prof-card" style="margin-bottom:14px"><div class="pc-hdr"><div class="pc-av" style="background:#7B337E33;border-color:#7B337E">📞</div><div class="pc-info"><strong>Recepción</strong><span>Historias de Inda Barber e Inda Studio · mañana y tarde</span></div></div>${bl}<button class="btn btn-ghost" style="margin-top:10px" onclick="abrirTextosStoriesRec()">✏️ Editar los textos</button></div>`;
 }
 const taStyle='width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:10px;color:var(--text);font-family:var(--font);font-size:13px;resize:vertical';
 function abrirTextosStoriesRec(){
@@ -1238,7 +1268,7 @@ function addPuntos(profId, tipo, pts, razon, uid){
 }
 
 const STAGES = {
-  idea:      {l:'Idea',       c:'#7c6fff'},
+  idea:      {l:'Idea',       c:'#7B337E'},
   guion:     {l:'Guión',     c:'#fbbf24'},
   produccion:{l:'Producción', c:'#60a5fa'},
   edicion:   {l:'Edición',   c:'#f472b6'},
@@ -1475,9 +1505,9 @@ async function doRegister(){
     if(!su.data.session){ errEl.textContent='El servidor todavía pide confirmar por mail. Avisale al admin.'; return; }
     uid=su.data.user.id;
   }
-  const colors={profesional:'#7c6fff',recepcionista:'#60a5fa',encargado:'#34d399'};
+  const colors={profesional:'#7B337E',recepcionista:'#60a5fa',encargado:'#34d399'};
   const emojis={profesional:'✂️',recepcionista:'📞',encargado:'📋'};
-  const datos={name,username,role,rubros:rubrosSel,color:colors[role]||'#7c6fff',emoji:emojis[role]||'✂️',profesion:role==='profesional'?rubrosSel.map(nombreRubro).filter(Boolean).join(', '):(ROLES[role]||role)};
+  const datos={name,username,role,rubros:rubrosSel,color:colors[role]||'#7B337E',emoji:emojis[role]||'✂️',profesion:role==='profesional'?rubrosSel.map(nombreRubro).filter(Boolean).join(', '):(ROLES[role]||role)};
   const ins=await supaClient.from('luffy_pending').insert({uid,data:datos});
   await supaClient.auth.signOut();
   if(ins.error){ errEl.textContent='No se pudo enviar la solicitud: '+ins.error.message; return; }
@@ -1614,7 +1644,7 @@ async function chequearEpocaViva(){
 }
 
 // ============ SUCURSALES ============
-const SUCURSALES_DEFAULT=[{id:'s1',nombre:'Diego Laure',color:'#7c6fff',recepcion:true},{id:'s2',nombre:'French',color:'#f59e0b',recepcion:false}];
+const SUCURSALES_DEFAULT=[{id:'s1',nombre:'Diego Laure',color:'#7B337E',recepcion:true},{id:'s2',nombre:'French',color:'#f59e0b',recepcion:false}];
 let sucursales=JSON.parse(JSON.stringify(SUCURSALES_DEFAULT));
 function loadSucursales(){
   try{ const r=JSON.parse(localStorage.getItem('luffy_sucursales')||'null'); if(r&&r.length) sucursales=r; }catch(e){}
@@ -1633,7 +1663,7 @@ function chipSucursal(sid,chico){
   const s=sucursalDe(sid); if(!s) return '';
   return `<span style="display:inline-flex;align-items:center;gap:4px;font-size:${chico?10:11}px;font-weight:800;padding:3px 9px;border-radius:10px;background:${s.color}22;color:${s.color};border:1px solid ${s.color}55;white-space:nowrap">📍 ${escH(s.nombre)}</span>`;
 }
-const PALETA_SUC=['#7c6fff','#f59e0b','#34d399','#f472b6','#60a5fa','#fb923c'];
+const PALETA_SUC=['#7B337E','#f59e0b','#34d399','#f472b6','#60a5fa','#fb923c'];
 function renderAdminSucursales(body){
   const uso=(id)=>allUsers.filter(u=>sucursalesDe(u).includes(id)).length;
   body.innerHTML=`
@@ -1866,7 +1896,7 @@ function abrirClienteDetalle(id){
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.7">🏷️ ${escH(c.profesion||'Sin profesión')}${c.cumple?'<br>🎂 '+(c.nacimiento?nacTxt(c):cumpleTxt(c.cumple))+(diasHastaCumple(c.cumple)===0?' — <b style="color:#fbbf24">¡es hoy!</b>':''):''}${c.tel?'<br>📞 '+escH(c.tel):''}${c.email?'<br>✉️ '+escH(c.email):''}${c.ref?'<br>🔎 '+escH(c.ref):''}${c.nota?'<br>📝 '+escH(c.nota):''}${todos&&s.barberos.length?'<br>✂️ Se atiende con: '+escH(s.barberos.join(', ')):''}</div>
     ${typeof htmlTarjetaCliente==='function'?htmlTarjetaCliente(c):''}
     ${htmlDeudaCliente(c)}${htmlSenaCliente(c)}
-    ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(124,111,255,.4)"><div style="font-size:12px;font-weight:800;color:#7c6fff">💳 Membresía activa</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} cortes · pagó ${fp(m.precio)} el ${fch(m.fecha)}</div></div>`:''}
+    ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(123,51,126,.4)"><div style="font-size:12px;font-weight:800;color:#7B337E">💳 Membresía activa</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} cortes · pagó ${fp(m.precio)} el ${fch(m.fecha)}</div></div>`:''}
     ${paqs.map(p=>`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.4)"><div style="font-size:12px;font-weight:800;color:#34d399">🎁 Paquete pagado (${p.pct}% off)</div><div style="font-size:12.5px;margin-top:3px">Le faltan: ${p.items.filter(i=>!i.usado).map(i=>escH(i.nombre)).join(', ')}</div></div>`).join('')}
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card"><div class="sc-lbl">Visitas</div><div class="sc-val">${s.visitas}</div><div class="sc-sub">${s.servicios} servicios</div></div>
@@ -1885,7 +1915,7 @@ function abrirClienteDetalle(id){
       <div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px"><b style="font-size:13px">${fch(v.fecha)}${todos?` <span style="font-weight:600;color:var(--muted2);font-size:11.5px">· ${escH(v.prof)}</span>`:''}</b><span style="font-size:12px;font-weight:800">${fp(v.total)}</span></div>
       ${v.servicios.map(x=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0"><span>${escH(x.n)}</span><span style="color:var(--muted2)">${fp(x.p)}</span></div>`).join('')}
       ${(v.detalleDesc&&v.detalleDesc.length)?v.detalleDesc.map(d=>`<div style="font-size:11px;color:#34d399;padding:1px 0">${escH(d.label)} −${fp(d.monto)}</div>`).join(''):(v.descuento>0?`<div style="font-size:11px;color:#34d399;padding:1px 0">Descuento −${fp(v.descuento)}</div>`:'')}
-      ${v.prepago>0?`<div style="font-size:11px;color:#7c6fff;padding:1px 0">Ya pagado (membresía/paquete): ${fp(v.prepago)}</div>`:''}
+      ${v.prepago>0?`<div style="font-size:11px;color:#7B337E;padding:1px 0">Ya pagado (membresía/paquete): ${fp(v.prepago)}</div>`:''}
       ${v.productos.map(x=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0;color:var(--muted2)"><span>📦 ${escH(x.n)}</span><span>${fp(x.p)}</span></div>`).join('')}
       ${v.estado?`<div style="font-size:11px;color:#f472b6;margin-top:4px;font-weight:700">${v.estado}</div>`:''}
       ${(v.pagos&&v.pagos.length)?`<div style="font-size:11px;color:var(--muted2);margin-top:2px">${v.pagos.map(p=>'Pagó '+fp(p.monto)+' el '+fechaCortaStr(p.fecha)+' ('+medioTxt(p.medio)+')').join(' · ')}</div>`:''}
@@ -1999,7 +2029,7 @@ function renderSugerenciasProd(){
   const sel=clienteDe(ventaProd.clienteId);
   if(sel){ el.innerHTML=`<div style="font-size:12px;color:#34d399;font-weight:700;margin-top:6px">✓ ${escH(idCorto(sel))||'Cliente elegido'} <button class="lnk" onclick="prodQuitarCliente()">cambiar</button></div>`; return; }
   const q=(ventaProd.cliente||'').trim(); if(q.length<2){ el.innerHTML=''; return; }
-  const m=buscarClientes(q).slice(0,5); const exacto=m.some(c=>c.nkey===nkey(q)); const color=(profile&&profile.color)||'#7c6fff';
+  const m=buscarClientes(q).slice(0,5); const exacto=m.some(c=>c.nkey===nkey(q)); const color=(profile&&profile.color)||'#7B337E';
   el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="prodElegirCliente('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}${exacto?'':`<button onclick="prodAgregarCliente()" style="text-align:left;padding:10px 12px;border-radius:10px;border:1.5px dashed ${color};background:transparent;color:${color};font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">➕ Agregar «${escH(q)}» como cliente nuevo</button>`}</div>`;
 }
 function cobroClienteInput(v){
@@ -2143,7 +2173,7 @@ function htmlSugerenciasPaqRec(){
   const L=sugerenciasPaqSt.list.filter(x=>!x.atendido).sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
   if(!L.length) return '';
   return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🎁 Combos sugeridos (${L.length})</span></div>
-    ${L.map(x=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #7c6fff"><div style="font-size:13px;font-weight:800">${escH(x.clienteNombre)}${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
+    ${L.map(x=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #7B337E"><div style="font-size:13px;font-weight:800">${escH(x.clienteNombre)}${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
       <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${escH(nombreRubro(x.rubro)||x.rubro)} · lo sugirió ${escH(x.profNombre)} · hace ${minutosDesde(x.ts)}</div>
       <div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost" style="flex:1" onclick="abrirVentaPaquete('${x.clienteId}')">🎁 Armar paquete</button><button class="btn btn-ghost" style="flex:0 0 auto" onclick="marcarSugerenciaAtendida('${x.id}')">✓ Atendido</button></div></div>`).join('')}`;
 }
@@ -2355,7 +2385,7 @@ function htmlTarjetaCliente(c){
   const niveles=sn.referidos||[];
   const refs=(t.refs||[]).length;
   const regaloHtml=!sn.premio?'':(t.regalo==='usado'?'🎁 Regalo usado':(inf.regalo?'🎁 ¡Tiene un corte de regalo!':`🎁 Corte gratis: ${sn.premio.refs} referidos + ${sn.premio.visitas} cortes`));
-  return `<div style="margin-bottom:12px;border-radius:20px;padding:16px;color:#fff;background:linear-gradient(135deg,#1b1740 0%,#3d2a7a 55%,#7c6fff 100%);position:relative;overflow:hidden;box-shadow:0 10px 30px rgba(124,111,255,.25)">
+  return `<div style="margin-bottom:12px;border-radius:20px;padding:16px;color:#fff;background:linear-gradient(135deg,#1b1740 0%,#3d2a7a 55%,#7B337E 100%);position:relative;overflow:hidden;box-shadow:0 10px 30px rgba(123,51,126,.25)">
     <div style="position:absolute;right:-30px;top:-30px;width:130px;height:130px;border-radius:50%;background:rgba(255,255,255,.07)"></div>
     <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
       <div><div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.75">${escH(sn.nombre||'Tarjeta de fidelidad')}${nombreRubro_?' · '+escH(nombreRubro_):''}</div><div style="font-size:18px;font-weight:900;margin-top:2px">${escH(c.nombre)}</div></div>
@@ -2440,7 +2470,7 @@ function ventaMedio(m){ if(ventaSel){ ventaSel.medio=m; ventaSel.tipo==='memb'?r
 function renderVentaMembresia(){
   const s=ventaSel; const c=clienteDe(s.cid); const sv=servicioMembresia(); const cfg=promos.membresia;
   const lista=sv.precio*cfg.creditos, precio=Math.round(lista*(1-cfg.descPct/100)), vc=Math.round(precio/cfg.creditos);
-  const color=(profile&&profile.color)||'#7c6fff';
+  const color=(profile&&profile.color)||'#7B337E';
   document.getElementById('registro-content').innerHTML=cabeceraModal('Vender membresía 💳')+`
     <div class="card" style="margin-bottom:12px"><div style="font-size:15px;font-weight:800">${escH(c.nombre)}${verNumeroCliente()?' #'+c.numero:''}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:4px;line-height:1.6">${cfg.creditos} cortes (${escH(sv.nombre)}) que se abonan ahora, con ${cfg.descPct}% menos.<br>Precio normal ${fp(lista)} → <b style="color:var(--text)">${fp(precio)}</b><br>Cada corte le suma al profesional ${fp(vc)}.</div></div>
@@ -2512,7 +2542,7 @@ function facturadoPaqQuincena(recId,qk){ const k=qk||quincenaKey(hoyStr()); retu
 function progresoPaqSinPlata(totalEnCurso){
   if(!profile||profile.role!=='recepcionista') return '';
   const llevas=facturadoPaqQuincena(profile.id)+numV(totalEnCurso);
-  return `<div style="background:rgba(124,111,255,.10);border:1px solid rgba(124,111,255,.3);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;font-weight:700;color:#a89fff">📦 Llevás ${fp(llevas)} en paquetes esta quincena</div>`;
+  return `<div style="background:rgba(123,51,126,.10);border:1px solid rgba(123,51,126,.3);border-radius:12px;padding:10px 12px;margin-bottom:10px;font-size:12.5px;font-weight:700;color:#a89fff">📦 Llevás ${fp(llevas)} en paquetes esta quincena</div>`;
 }
 function comPaqQuincena(recId){ const qk=quincenaKey(hoyStr()); return paquetesSt.list.filter(p=>p.vendedorId===recId&&quincenaKey(p.fecha)===qk).reduce((s,p)=>s+comRecPaquete(p),0); }
 function pctPaquete(n){ let p=0; (promos.paquetes||[]).forEach(s=>{ if(n>=s.n) p=s.pct; }); return p; }
@@ -2523,7 +2553,7 @@ function abrirVentaPaquete(cid){
 }
 function ventaToggleSvc(id){ const s=ventaSel; if(!s) return; const i=s.sel.indexOf(id); if(i>=0) s.sel.splice(i,1); else s.sel.push(id); renderVentaPaquete(); }
 function renderVentaPaquete(){
-  const s=ventaSel; const c=clienteDe(s.cid); const color=(profile&&profile.color)||'#7c6fff';
+  const s=ventaSel; const c=clienteDe(s.cid); const color=(profile&&profile.color)||'#7B337E';
   const box=document.querySelector('#modal-registro .modal-box'); const st=box?box.scrollTop:0;
   const items=s.sel.map(id=>servicios.find(x=>x.id===id)).filter(Boolean);
   const ctx=ctxCobro(c);
@@ -2535,7 +2565,7 @@ function renderVentaPaquete(){
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">Primero el descuento de cada servicio (como si fuera solo) y recién después el % del paquete: 1 = normal · ${escala}</div>
     ${Object.entries(grupos).map(([rid,list])=>`<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px">${escH(nombreRubro(rid)||'Otros')}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(x=>`<button onclick="ventaToggleSvc('${x.id}')" style="${pillStyle(s.sel.includes(x.id),color)}">${escH(x.nombre)} · ${fp(x.precio)}</button>`).join('')}</div>`).join('')}
     <div class="card" style="margin:14px 0 10px">
-      ${R.items.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${escH(x.svc.nombre)}</span><span>${fp(x.lista)}</span></div>${x.descInd?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#34d399"><span>↳ ${escH(x.descInd.label)} (−${Math.round(x.descInd.pct*10)/10}%)</span><span>−${fp(x.descInd.monto)}</span></div>`:''}${x.dq>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#7c6fff"><span>↳ Descuento del paquete</span><span>−${fp(x.dq)}</span></div>`:''}<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700"><span>Queda en</span><span>${fp(x.final)}${x.descPct>0?' ('+x.descPct+'% off en total)':''}</span></div></div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Elegí los servicios del paquete.</div>'}
+      ${R.items.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${escH(x.svc.nombre)}</span><span>${fp(x.lista)}</span></div>${x.descInd?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#34d399"><span>↳ ${escH(x.descInd.label)} (−${Math.round(x.descInd.pct*10)/10}%)</span><span>−${fp(x.descInd.monto)}</span></div>`:''}${x.dq>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#7B337E"><span>↳ Descuento del paquete</span><span>−${fp(x.dq)}</span></div>`:''}<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700"><span>Queda en</span><span>${fp(x.final)}${x.descPct>0?' ('+x.descPct+'% off en total)':''}</span></div></div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Elegí los servicios del paquete.</div>'}
       ${items.length?`<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">TOTAL</span><span style="font-size:22px;font-weight:900">${fp(R.total)}</span></div><div style="font-size:11px;color:var(--muted2)">Precio de lista ${fp(R.lista)} · ahorra ${fp(R.lista-R.total)} en total</div>`:''}
     </div>
     ${progresoPaqSinPlata(R.total)}
@@ -2588,7 +2618,7 @@ function renderPrepagoCobro(r){
   const color=profile.color, cli=clienteDe(cobro.clienteId);
   const disp=prepagosDisponibles();
   let h='';
-  if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#7c6fff')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
+  if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#7B337E')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
   if(cli&&cli.tarjeta){ const inf=infoTarjeta(cli); h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(cli.tarjeta.snap)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones de referidos':''}`}</div>`; }
   const debeC=cli?saldoDeCliente(cli.id,cli.nombre):0;
   if(debeC>0) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#f472b6;font-weight:800">⚠️ Este cliente debe ${fp(debeC)} de turnos anteriores.</div>`;
@@ -2599,8 +2629,8 @@ function renderPrepagoCobro(r){
 }
 function htmlDescuentosCobro(r,row){
   return r.descuentos.map(d=>row(({oferta:'🏷️',efectivo:'💵',fijo:'🏷️',fidelidad:'⭐',referidos:'🤝',regalo:'🎁'}[d.tipo]||'🏷️')+' '+escH(d.label)+' (−'+d.pct+'%)','−'+fp(d.monto),'color:#34d399')).join('')
-    +r.prepagos.map(p=>row('✓ '+escH(p.nombre)+' (ya pagado)','−'+fp(p.linea.precio),'color:#7c6fff')).join('')
-    +(r.senaTotal>0?row('💵 Seña que ya dejó','−'+fp(r.senaTotal),'color:#7c6fff'):'');
+    +r.prepagos.map(p=>row('✓ '+escH(p.nombre)+' (ya pagado)','−'+fp(p.linea.precio),'color:#7B337E')).join('')
+    +(r.senaTotal>0?row('💵 Seña que ya dejó','−'+fp(r.senaTotal),'color:#7B337E'):'');
 }
 
 // ============ ADMIN: Clientes (directorio, membresias, paquetes, tarjetas, descuentos) ============
@@ -2659,7 +2689,7 @@ function adminMembresias(c){
     </div>
     ${L.map(m=>{ const usados=m.usos.length, deb=usados>=m.creditos; return `<div class="card" style="margin-bottom:8px;border-left:4px solid ${deb?'#f472b6':'#34d399'}">
       <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><div style="font-size:13.5px;font-weight:800">${escH(m.clienteNombre)} <span style="color:var(--muted2)">#${m.clienteNumero}</span></div><b>${fp(m.precio)}</b></div>
-      <div style="display:flex;gap:4px;margin:6px 0">${Array.from({length:m.creditos},(_,i)=>`<div style="flex:1;height:8px;border-radius:4px;background:${i<usados?'#7c6fff':'var(--border2)'}"></div>`).join('')}</div>
+      <div style="display:flex;gap:4px;margin:6px 0">${Array.from({length:m.creditos},(_,i)=>`<div style="flex:1;height:8px;border-radius:4px;background:${i<usados?'#7B337E':'var(--border2)'}"></div>`).join('')}</div>
       <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">Pagó el ${fechaCortaStr(m.fecha)} (${({efectivo:'efectivo',mp:'Mercado Pago',tarjeta:'tarjeta'}[m.medio]||m.medio)}) · vendió ${escH(m.vendedorNombre||'')} · ${usados}/${m.creditos} cortes usados · membresías pagadas por este cliente: <b style="color:var(--text)">${porCli[m.clienteId]}</b><br>
       ${deb?'<b style="color:#f472b6">Tiene que renovar</b> (usó todos los cortes)':'<b style="color:#34d399">Al día</b> · le quedan '+(m.creditos-usados)}${m.usos.length?'<br>Cortes: '+m.usos.map(u=>fechaCortaStr(u.fecha)+' con '+escH(u.profNombre)).join(' · '):''}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">💳</div><p>Todavía no se vendió ninguna membresía.<br>Se venden desde la ficha del cliente.</p></div>'}`;
 }
@@ -2676,7 +2706,7 @@ function adminPaquetes(c){
     ${L.map(p=>{ const pd=pctPaqueteDe(p.vendedorId,quincenaKey(p.fecha)); return `<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:13.5px;font-weight:800">${escH(p.clienteNombre)} <span style="color:var(--muted2)">#${p.clienteNumero}</span></div><b>${fp(p.total)}</b></div>
       <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${p.pct}% off del paquete · ${fechaCortaStr(p.fecha)} · vendió ${escH(p.vendedorNombre||'')}</div>
       ${p.items.map(i=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:1px 0;${i.usado?'color:var(--muted2)':''}"><span>${i.usado?'✓':'○'} ${escH(i.nombre)}${i.descPct>0?' · '+i.descPct+'% off':''}${i.usado?' <i>(con '+escH(i.usado.profNombre)+')</i>':''}</span><span>${fp(i.final)}</span></div>`).join('')}
-      <div style="font-size:11.5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);color:var(--muted2)">Ganancia del salón ≈ <b style="color:var(--text)">${fp(gananciaPaquete(p)-comRecPaquete(p))}</b>${p.vendedorRol==='recepcionista'?` · comisión de ${escH(p.vendedorNombre)}: <b style="color:#7c6fff">${fp(comRecPaquete(p))}</b> (${pd.pct}% de ${fp(gananciaPaquete(p))} · tramo de esa quincena)`:' · vendido por un profesional (sin comisión de recepción)'}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">🎁</div><p>Todavía no se vendió ningún paquete.</p></div>'}`;
+      <div style="font-size:11.5px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border);color:var(--muted2)">Ganancia del salón ≈ <b style="color:var(--text)">${fp(gananciaPaquete(p)-comRecPaquete(p))}</b>${p.vendedorRol==='recepcionista'?` · comisión de ${escH(p.vendedorNombre)}: <b style="color:#7B337E">${fp(comRecPaquete(p))}</b> (${pd.pct}% de ${fp(gananciaPaquete(p))} · tramo de esa quincena)`:' · vendido por un profesional (sin comisión de recepción)'}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">🎁</div><p>Todavía no se vendió ningún paquete.</p></div>'}`;
 }
 function adminTarjetas(c){
   const cards=promos.tarjetas||[];
@@ -2967,7 +2997,7 @@ function htmlTableroRec(){
     <div style="font-size:19px;font-weight:900;color:${color};line-height:1.2">${val}${den!=null?` <span style="font-size:11px;color:var(--muted2);font-weight:700">de ${den}</span>`:''}</div>
     <div style="height:4px;background:var(--border2);border-radius:2px;margin:4px 0;overflow:hidden"><div style="height:100%;width:${Math.min(100,barra)}%;background:${color};border-radius:2px"></div></div>
     <div style="font-size:10px;color:var(--muted2);line-height:1.5">${sub}</div></div>`;
-  return `<div class="card" style="margin-top:14px;padding:11px 12px;background:linear-gradient(135deg,rgba(96,165,250,.12),rgba(124,111,255,.08));border-color:rgba(96,165,250,.3)">
+  return `<div class="card" style="margin-top:14px;padding:11px 12px;background:linear-gradient(135deg,rgba(96,165,250,.12),rgba(123,51,126,.08));border-color:rgba(96,165,250,.3)">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px"><div style="font-size:12.5px;font-weight:800">🕐 ${franja==='hoy no tenés turno'?'Hoy no tenés turno':'Tu turno: '+franja}</div><div style="font-size:10.5px;color:var(--muted2)">${m.total-m.cerrados} sin cerrar</div></div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
       ${tile('📋','Turnos hechos',m.total,null,'#60a5fa',pct(m.cerrados,m.total),porSuc(x=>x.total)+' · '+m.cerrados+' cerrados')}
@@ -2978,10 +3008,10 @@ function htmlTableroRec(){
     <div style="font-size:10px;color:var(--muted);margin-top:7px">Cuenta los turnos de las dos sucursales hechos en tu horario. En sucursales sin recepción los cierran los profesionales.</div>
   </div>
   ${ventasHoy.length?`<div style="font-size:12px;color:var(--muted2);margin:8px 2px">💳🎁 Vendiste hoy ${ventasHoy.length} ${ventasHoy.length===1?'membresía/paquete':'membresías/paquetes'} por ${fp(ventasHoy.reduce((a,b)=>a+b,0))}</div>`:''}
-  ${facturadoPaqQuincena(profile.id)>0?`<div style="font-size:12px;margin:6px 2px 8px">📦 Llevás <b style="color:#7c6fff">${fp(facturadoPaqQuincena(profile.id))}</b> en paquetes esta quincena</div>`:''}`;
+  ${facturadoPaqQuincena(profile.id)>0?`<div style="font-size:12px;margin:6px 2px 8px">📦 Llevás <b style="color:#7B337E">${fp(facturadoPaqQuincena(profile.id))}</b> en paquetes esta quincena</div>`:''}`;
 }
 function htmlClientesRec(){
-  return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">👥 Clientes del salón</span><button class="sec-btn" onclick="abrirFormCliente()" style="background:#7c6fff">+ Cliente</button></div>
+  return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">👥 Clientes del salón</span><button class="sec-btn" onclick="abrirFormCliente()" style="background:#7B337E">+ Cliente</button></div>
     <input id="rec-busq" type="search" placeholder="Buscar cliente por nombre, # o teléfono…" value="${escH(recQ)}" oninput="recQ=this.value;recRenderBusqueda()" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:12px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none;margin-bottom:8px"/>
     <div id="rec-cli-res"></div>`;
 }
@@ -3030,7 +3060,7 @@ async function editarTareasRecepcion(){
 // Egresos = gastos fijos (devengados por dia), variables cargados a mano, cuotas, suscripciones, empleados fijos
 //           + lo que se paga a los empleados a comision + el costo de los productos vendidos.
 const CAT_GASTOS=[
-  {id:'alquiler',n:'Alquiler',c:'#7c6fff',t:'fijo'},
+  {id:'alquiler',n:'Alquiler',c:'#7B337E',t:'fijo'},
   {id:'servicios',n:'Luz, agua, gas e internet',c:'#60a5fa',t:'fijo'},
   {id:'impuestos',n:'Impuestos, monotributo y cargas sociales',c:'#f472b6',t:'fijo'},
   {id:'seguros',n:'Seguros',c:'#e879f9',t:'fijo'},
@@ -3149,8 +3179,8 @@ function torta(S_,titulo,chico){
     <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap;justify-content:center">${donutFin(items,total,chico?130:170)}
     <div style="flex:1;min-width:150px">${items.length?items.map(i=>`<div style="display:flex;align-items:center;gap:7px;font-size:11.5px;padding:2px 0"><span style="width:10px;height:10px;border-radius:3px;background:${i.c};flex-shrink:0"></span><span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(i.n)}</span><b>${Math.round(i.v/total*100)}%</b></div>`).join(''):'<div style="font-size:12px;color:var(--muted)">Sin egresos en el período</div>'}</div></div></div>`;
 }
-const chipsFin=()=>`<div class="fin-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${[['hoy','Hoy'],['semana','Semana'],['quincena','Quincena'],['mes','Mes']].map(([k,l])=>`<button onclick="finSet('periodo','${k}')" style="${pillStyle(finState.periodo===k,'#7c6fff')}">${l}</button>`).join('')}</div>
-  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button onclick="finSet('suc','todas')" style="${pillStyle(finState.suc==='todas','#7c6fff')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(finState.suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>`;
+const chipsFin=()=>`<div class="fin-chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${[['hoy','Hoy'],['semana','Semana'],['quincena','Quincena'],['mes','Mes']].map(([k,l])=>`<button onclick="finSet('periodo','${k}')" style="${pillStyle(finState.periodo===k,'#7B337E')}">${l}</button>`).join('')}</div>
+  <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button onclick="finSet('suc','todas')" style="${pillStyle(finState.suc==='todas','#7B337E')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(finState.suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>`;
 function finSet(k,v){ finState[k]=v; renderAdmin(); }
 const linea=(a,b,st='')=>`<div class="ln" style="${st}"><span>${a}</span><span>${b}</span></div>`;
 
@@ -3241,9 +3271,9 @@ function finFijos(c){
   const totMes=L.filter(f=>f.activo!==false).reduce((s,f)=>s+mensualizado(f),0);
   const porTipo=GRUPOS_FIN.filter(([t])=>t!=='comision'&&t!=='variable').map(([t,n])=>({t,n,v:L.filter(f=>f.activo!==false&&catFin(f.categoria).t===t).reduce((s,f)=>s+mensualizado(f),0)})).filter(x=>x.v>0);
   const porSuc=sucursales.map(s=>({s,v:act.reduce((a,f)=>a+((f.sucursal&&f.sucursal!=='todas')?(f.sucursal===s.id?mensualizado(f):0):mensualizado(f)/sucursales.length),0)}));
-  c.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button onclick="finSet('suc','todas')" style="${pillStyle(finState.suc==='todas','#7c6fff')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(finState.suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>
+  c.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button onclick="finSet('suc','todas')" style="${pillStyle(finState.suc==='todas','#7B337E')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(finState.suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>
     <div class="sec-hdr" style="margin:0 0 8px"><span class="sec-title">📌 Gastos fijos por mes · ${fp(totMes)}</span><button class="lnk" onclick="abrirFormFijo('')">+ Nuevo</button></div>
-    ${totMes>0?`<div class="card" style="margin-bottom:10px">${porTipo.map(x=>`<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${x.n}</span><b>${fp(x.v)} <span style="color:var(--muted);font-weight:600">${Math.round(x.v/totMes*100)}%</span></b></div><div style="height:5px;background:var(--border2);border-radius:3px;margin-top:3px"><div style="height:100%;width:${x.v/totMes*100}%;background:#7c6fff;border-radius:3px"></div></div></div>`).join('')}
+    ${totMes>0?`<div class="card" style="margin-bottom:10px">${porTipo.map(x=>`<div style="margin-bottom:6px"><div style="display:flex;justify-content:space-between;font-size:12px"><span>${x.n}</span><b>${fp(x.v)} <span style="color:var(--muted);font-weight:600">${Math.round(x.v/totMes*100)}%</span></b></div><div style="height:5px;background:var(--border2);border-radius:3px;margin-top:3px"><div style="height:100%;width:${x.v/totMes*100}%;background:#7B337E;border-radius:3px"></div></div></div>`).join('')}
       ${finState.suc==='todas'&&sucursales.length>1?`<div style="font-size:11px;color:var(--muted2);margin-top:8px;border-top:1px solid var(--border);padding-top:6px">Por sucursal: ${porSuc.map(x=>`<span style="color:${x.s.color};font-weight:800">${escH(x.s.nombre)}</span> ${fp(x.v)}`).join(' · ')}</div>`:''}</div>`:''}
     ${GRUPOS_FIN.filter(([t])=>t!=='comision'&&t!=='variable').map(([t,n])=>{ const l=L.filter(f=>catFin(f.categoria).t===t); if(!l.length) return ''; return `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${n}</div>${l.map(f=>{ const ct=catFin(f.categoria), fe=proximoVenc(f), dd=diasEntre(hoyStr(),fe); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;${f.activo===false?'opacity:.5':''}"><div style="display:flex;align-items:center;gap:10px"><span style="width:10px;height:38px;border-radius:4px;background:${ct.c};flex-shrink:0"></span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(f.nombre)}</div><div style="font-size:11px;color:var(--muted2);line-height:1.5">${FRECUENCIAS.find(x=>x[0]===f.frecuencia)?.[1]||'Mensual'} · ${f.frecuencia==='semanal'?'los '+DIAS_LARGO[numV(f.dia)].toLowerCase():'vence '+(f.frecuencia==='anual'?fechaCortaStr(fe):'el '+(f.frecuencia==='quincenal'?'15 y fin de mes':numV(f.dia)||1))} · ${f.sucursal&&f.sucursal!=='todas'?escH((sucursalDe(f.sucursal)||{}).nombre||''):'Compartido'}${f.rubro?' · '+escH(nombreRubro(f.rubro)):''}<br>${f.activo===false?'Pausado':'Próximo pago: '+fechaCortaStr(fe)+' ('+(dd===0?'hoy':dd===1?'mañana':'en '+dd+' días')+')'}</div></div><div style="text-align:right"><b style="font-size:14px">${fp(f.monto)}</b><div style="font-size:10px;color:var(--muted)">${fp(mensualizado(f))}/mes</div></div></div>
       <div style="display:flex;gap:12px;margin-top:6px;padding-left:20px"><button class="lnk" onclick="abrirFormFijo('${f.id}')">Editar</button><button class="lnk" onclick="pausarFijo('${f.id}')">${f.activo===false?'Reactivar':'Pausar'}</button><button class="lnk" style="color:#f472b6" onclick="borrarFijo('${f.id}')">Borrar</button></div></div>`; }).join('')}`; }).join('')||'<div class="empty"><div class="e-icon">📌</div><p>Todavía no cargaste gastos fijos.<br>Alquiler, sueldos de empleados fijos, cuotas, suscripciones, luz, internet…</p></div>'}`;
@@ -3324,7 +3354,7 @@ function finEquilibrio(c){
   const margenProd=T.ing.productos-(T.eg.costoprod||0);
   const beneficio=filas.reduce((a,f)=>a+(f.o.visitas?f.beneficio:-f.fijo),0)+margenProd;
   const cubierto=filas.reduce((a,f)=>a+f.o.visitas*f.contrib,0);
-  c.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button onclick="finSet('suc','todas')" style="${pillStyle(suc==='todas','#7c6fff')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>
+  c.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px"><button onclick="finSet('suc','todas')" style="${pillStyle(suc==='todas','#7B337E')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>
     <div class="sec-title" style="margin-bottom:6px">⚖️ Costos y punto de equilibrio · ${MESES[m-1]}</div>
     <div style="font-size:11.5px;color:var(--muted2);margin:0 2px 10px;line-height:1.5">Igual que en tu planilla: cada servicio tiene un <b style="color:var(--text)">costo variable</b> (comisión + insumos que se gastan en cada uno) y una parte de los <b style="color:var(--text)">gastos fijos</b>. Los gastos fijos generales se reparten según lo que factura cada rubro. Los insumos por servicio se cargan en "Costo por servicio".</div>
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
@@ -3536,7 +3566,7 @@ function htmlCajaRecBase(){
   return `<div class="card" style="margin-top:14px;border-color:${otraFecha?'rgba(244,114,182,.5)':'rgba(52,211,153,.4)'}">
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="font-size:24px">💰</div><div style="flex:1"><div style="font-size:14px;font-weight:800">Caja abierta</div><div style="font-size:11.5px;color:${otraFecha?'#f472b6':'var(--muted2)'}">${otraFecha?'⚠️ Quedó abierta del '+fechaCortaStr(s.fecha)+' · ':''}la abrió ${escH(s.recNombre)} a las ${horaDeIso(s.apertura.ts)}</div></div></div>
     <div style="display:flex;gap:10px;margin-bottom:10px"><div style="flex:1;background:var(--s2);border-radius:12px;padding:10px 12px"><div style="font-size:10.5px;color:var(--muted2);font-weight:700">💵 EFECTIVO</div><div style="font-size:20px;font-weight:900">${fp(sd.ef)}</div></div><div style="flex:1;background:var(--s2);border-radius:12px;padding:10px 12px"><div style="font-size:10.5px;color:var(--muted2);font-weight:700">🏦 CUENTA</div><div style="font-size:20px;font-weight:900">${fp(sd.cta)}</div></div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${btn('+ Movimiento','abrirMovCaja()','#7c6fff')}${btn('Ver detalle','cajaDetalle(\''+s.id+'\')')}${btn('Cerrar caja','abrirCierreCaja()','#f472b6')}</div></div>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${btn('+ Movimiento','abrirMovCaja()','#7B337E')}${btn('Ver detalle','cajaDetalle(\''+s.id+'\')')}${btn('Cerrar caja','abrirCierreCaja()','#f472b6')}</div></div>`;
 }
 function abrirFormCaja(){
   const ab=sesionAbierta(); if(ab){ showToast('Hay una caja abierta: primero hay que cerrarla'); return; }
@@ -3590,7 +3620,7 @@ function abrirMovCaja(){
 }
 function movCajaSet(k,v){ movCajaSel[k]=v; renderMovCaja(); }
 function renderMovCaja(){
-  const s=movCajaSel, color='#7c6fff', cp=CONCEPTOS_CAJA.find(c=>c.id===s.concepto);
+  const s=movCajaSel, color='#7B337E', cp=CONCEPTOS_CAJA.find(c=>c.id===s.concepto);
   const keep=document.getElementById('mv-monto')?document.getElementById('mv-monto').value:'', keepD=document.getElementById('mv-det')?document.getElementById('mv-det').value:'';
   document.getElementById('registro-content').innerHTML=cabeceraModal('Movimiento de caja')+`
     <div class="field"><label>¿Qué es?</label><div style="display:flex;flex-wrap:wrap;gap:6px">${CONCEPTOS_CAJA.map(c=>`<button onclick="movCajaSet('concepto','${c.id}')" style="${pillStyle(s.concepto===c.id,c.tipo==='entrada'?'#34d399':'#f472b6')}">${c.tipo==='entrada'?'⬆️':'⬇️'} ${c.n}</button>`).join('')}</div></div>
@@ -3775,8 +3805,8 @@ function finFlujo(c){
   const celda=(v,neg)=>`<td style="text-align:right;padding:5px 8px;white-space:nowrap;${v===0?'color:var(--muted)':''}${neg&&v<0?';color:#f472b6':''}">${v===0?'—':fp(v)}</td>`;
   const fila=(n,vals,base,extra)=>{ const t=T(vals); return `<tr style="${extra||''}"><td style="padding:5px 8px;position:sticky;left:0;background:var(--s1);white-space:nowrap;font-size:12px">${n}</td>${vals.map(v=>celda(v,extra&&extra.includes('bold'))).join('')}<td style="text-align:right;padding:5px 8px;font-weight:800;white-space:nowrap">${t===0?'—':fp(t)}</td><td style="text-align:right;padding:5px 8px;color:var(--muted2);font-size:11px">${base>0&&t!==0?Math.round(t/base*100)+'%':''}</td></tr>`; };
   const titulo=(t)=>`<tr><td colspan="15" style="padding:10px 8px 4px;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)">${t}</td></tr>`;
-  c.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button onclick="finSet('anio',${y-1})" style="${pillStyle(false,'#7c6fff')}">‹ ${y-1}</button><button style="${pillStyle(true,'#7c6fff')}">${y}</button><button onclick="finSet('anio',${y+1})" style="${pillStyle(false,'#7c6fff')}">${y+1} ›</button></div>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><button onclick="finSet('suc','todas')" style="${pillStyle(finState.suc==='todas','#7c6fff')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(finState.suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>
+  c.innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px"><button onclick="finSet('anio',${y-1})" style="${pillStyle(false,'#7B337E')}">‹ ${y-1}</button><button style="${pillStyle(true,'#7B337E')}">${y}</button><button onclick="finSet('anio',${y+1})" style="${pillStyle(false,'#7B337E')}">${y+1} ›</button></div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px"><button onclick="finSet('suc','todas')" style="${pillStyle(finState.suc==='todas','#7B337E')}">📍 Todas</button>${sucursales.map(s=>`<button onclick="finSet('suc','${s.id}')" style="${pillStyle(finState.suc===s.id,s.color)}">${escH(s.nombre)}</button>`).join('')}</div>
     <div class="sec-title" style="margin-bottom:6px">📆 Flujo anual ${y}</div>
     <div style="overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--s1)"><table style="border-collapse:collapse;font-size:12px;min-width:1100px;width:100%">
       <thead><tr><th style="text-align:left;padding:8px;position:sticky;left:0;background:var(--s1)"></th>${MESES.map(n=>`<th style="text-align:right;padding:8px;font-size:10.5px;text-transform:uppercase;color:var(--muted2)">${n.slice(0,3)}</th>`).join('')}<th style="text-align:right;padding:8px;font-size:10.5px">TOTAL</th><th style="text-align:right;padding:8px;font-size:10.5px">%</th></tr></thead><tbody>
@@ -3845,7 +3875,7 @@ function htmlGridMes(modo){
       const click=modo==='admin'?`onclick="event.stopPropagation();asignarTurnoRec('${f}','${b.id}')"`:'';
       return `<div ${click} title="${escH(b.nombre)}" style="margin-top:3px;background:${fondo};border:${borde};color:${u?(mio||modo==='admin'?'var(--text)':'var(--muted2)'):'var(--muted)'};border-radius:6px;font-size:9.5px;font-weight:${mio?900:700};padding:2px 2px;text-align:center;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;${modo==='admin'?'cursor:pointer':''}">${txt}</div>`;
     }).join('');
-    return `<div onclick="calSel('${f}')" style="cursor:pointer;border:1.5px solid ${sel?'#7c6fff':(esHoy?'#fbbf24':'var(--border)')};background:${sel?'rgba(124,111,255,.10)':'var(--s1)'};border-radius:10px;padding:4px;min-height:${bl.length*20+24}px"><div style="font-size:11px;font-weight:${esHoy?900:700};color:${esHoy?'#fbbf24':'var(--muted2)'}">${Number(f.slice(8))}</div>${pills}</div>`;
+    return `<div onclick="calSel('${f}')" style="cursor:pointer;border:1.5px solid ${sel?'#7B337E':(esHoy?'#fbbf24':'var(--border)')};background:${sel?'rgba(123,51,126,.10)':'var(--s1)'};border-radius:10px;padding:4px;min-height:${bl.length*20+24}px"><div style="font-size:11px;font-weight:${esHoy?900:700};color:${esHoy?'#fbbf24':'var(--muted2)'}">${Number(f.slice(8))}</div>${pills}</div>`;
   }).join('');
   return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><button onclick="calNav(-1)" style="background:var(--s2);border:none;color:var(--text);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:16px">‹</button><div style="flex:1;text-align:center;font-size:14px;font-weight:800">${MESES[m-1].charAt(0).toUpperCase()+MESES[m-1].slice(1)} ${y}</div><button onclick="calHoy()" style="background:var(--s2);border:none;color:var(--muted2);padding:0 12px;height:34px;border-radius:17px;cursor:pointer;font-family:var(--font);font-size:11.5px;font-weight:800">Hoy</button><button onclick="calNav(1)" style="background:var(--s2);border:none;color:var(--text);width:34px;height:34px;border-radius:50%;cursor:pointer;font-size:16px">›</button></div>
     <div style="display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:4px">${head}${cel}</div>
@@ -4023,7 +4053,7 @@ function renderItemProv(){
   if(provSel.paso==='elegir'){
     const q=nkey(provSel.q); const yaTiene=new Set(p.items.map(i=>nkey(i.nombre)));
     const L=PRECARGA.filter(x=>!yaTiene.has(nkey(x.n))&&(!q||nkey(x.n).includes(q)));
-    const grupo=(t,titulo)=>{ const l=L.filter(x=>x.t===t); return l.length?`<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px">${titulo}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${l.map(x=>`<button onclick="elegirPrecarga('${PRECARGA.indexOf(x)}')" style="${pillStyle(false,'#7c6fff')}">${escH(x.n)}</button>`).join('')}</div>`:''; };
+    const grupo=(t,titulo)=>{ const l=L.filter(x=>x.t===t); return l.length?`<div style="font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px">${titulo}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${l.map(x=>`<button onclick="elegirPrecarga('${PRECARGA.indexOf(x)}')" style="${pillStyle(false,'#7B337E')}">${escH(x.n)}</button>`).join('')}</div>`:''; };
     c.innerHTML=cabeceraModal('Agregar a '+escH(p.nombre))+`<button class="btn btn-ghost" onclick="nuevoItemProv()" style="margin-bottom:10px">➕ Cargar uno nuevo</button>
       <input type="search" placeholder="Buscar en la lista ya cargada…" value="${escH(provSel.q)}" oninput="provSel.q=this.value;renderItemProv();var e=document.querySelector('#registro-content input[type=search]');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px"/>
       ${grupo('stock','📦 Para vender')}${grupo('insumo','🧴 Insumos de trabajo')}${!L.length?'<div style="font-size:12.5px;color:var(--muted);padding:12px 0">No hay coincidencias. Usá "Cargar uno nuevo".</div>':''}
@@ -4033,7 +4063,7 @@ function renderItemProv(){
   const it=provSel.item; const esStock=it.tipo!=='insumo';
   c.innerHTML=cabeceraModal(it.id?'Editar':'Producto o insumo')+`
     <div class="field"><label>Nombre</label><input id="pi-nombre" value="${escH(it.nombre||'')}" placeholder="Ej: Cera para cabello"/></div>
-    <div class="field" style="margin-top:8px"><label>¿Qué es?</label><div style="display:flex;gap:8px">${[['stock','📦 Para vender'],['insumo','🧴 Insumo de trabajo']].map(([v,l])=>`<button onclick="itemProvTipo('${v}')" style="flex:1;${pillStyle((it.tipo||'stock')===v,'#7c6fff')}">${l}</button>`).join('')}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${esStock?'Se crea en Catálogo → Stock, listo para venderse en los cobros.':'Se crea en Catálogo → Insumos y se usa para calcular el costo de cada servicio.'}</div></div>
+    <div class="field" style="margin-top:8px"><label>¿Qué es?</label><div style="display:flex;gap:8px">${[['stock','📦 Para vender'],['insumo','🧴 Insumo de trabajo']].map(([v,l])=>`<button onclick="itemProvTipo('${v}')" style="flex:1;${pillStyle((it.tipo||'stock')===v,'#7B337E')}">${l}</button>`).join('')}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${esStock?'Se crea en Catálogo → Stock, listo para venderse en los cobros.':'Se crea en Catálogo → Insumos y se usa para calcular el costo de cada servicio.'}</div></div>
     <div style="display:flex;gap:8px;margin-top:8px"><div class="field" style="flex:1"><label>Precio de compra</label><input id="pi-precio" type="number" inputmode="decimal" value="${it.precio||''}" placeholder="0"/></div><div class="field" style="flex:1"><label>Unidad</label><input id="pi-unidad" value="${escH(it.unidad||'unidad')}" placeholder="unidad, caja, litro…"/></div></div>
     ${esStock?`<div style="display:flex;gap:8px;margin-top:8px"><div class="field" style="flex:1"><label>Precio de venta</label><input id="pi-pv" type="number" inputmode="decimal" value="${it.precioVenta||''}" placeholder="0"/></div><div class="field" style="flex:1"><label>Comisión del profesional %</label><input id="pi-com" type="number" value="${it.comisionPct!=null?it.comisionPct:10}"/></div></div>`
       :`<div class="field" style="margin-top:8px"><label>¿Para cuántos servicios rinde cada unidad?</label><input id="pi-rinde" type="number" inputmode="numeric" value="${it.rinde||''}" placeholder="Ej: 200"/></div><div class="field" style="margin-top:8px"><label>Rubros que lo usan (ids con coma, vacío = todos)</label><input id="pi-rubro" value="${escH(it.rubro||'')}" placeholder="barberia,barberia-premium"/></div>`}
@@ -4082,7 +4112,7 @@ function renderCompra(){
   const p=provDe(provSel.provId), cp=provSel.compra; const keep=document.querySelector('#modal-registro .modal-box'); const st=keep?keep.scrollTop:0;
   const total=p.items.reduce((s,i)=>s+numV(cp.items[i.id].cant)*numV(cp.items[i.id].precio),0), totIns=p.items.filter(i=>i.tipo==='insumo').reduce((s,i)=>s+numV(cp.items[i.id].cant)*numV(cp.items[i.id].precio),0);
   const fila=(i)=>{ const x=cp.items[i.id]; return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${i.tipo==='stock'?'📦':'🧴'} ${escH(i.nombre)}</div><div style="display:flex;align-items:center;gap:4px;font-size:11px;color:var(--muted2)">$<input type="number" value="${x.precio}" onchange="compraPrecio('${i.id}',this.value)" style="width:78px;padding:3px 6px;font-size:12px"/> por ${escH(i.unidad||'unidad')}</div></div>
-    <button onclick="compraQty('${i.id}',-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-size:18px;cursor:pointer">−</button><div style="min-width:22px;text-align:center;font-size:15px;font-weight:800;${x.cant?'color:#7c6fff':'color:var(--muted)'}">${x.cant}</div><button onclick="compraQty('${i.id}',1)" style="width:32px;height:32px;border-radius:50%;border:none;background:#7c6fff;color:#fff;font-size:18px;cursor:pointer">+</button></div>`; };
+    <button onclick="compraQty('${i.id}',-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-size:18px;cursor:pointer">−</button><div style="min-width:22px;text-align:center;font-size:15px;font-weight:800;${x.cant?'color:#7B337E':'color:var(--muted)'}">${x.cant}</div><button onclick="compraQty('${i.id}',1)" style="width:32px;height:32px;border-radius:50%;border:none;background:#7B337E;color:#fff;font-size:18px;cursor:pointer">+</button></div>`; };
   document.getElementById('registro-content').innerHTML=cabeceraModal('🛒 Compra a '+escH(p.nombre))+`${p.items.map(fila).join('')}
     <div class="card" style="margin:12px 0"><div class="ln"><span>Total de la compra</span><b style="font-size:16px">${fp(total)}</b></div>${totIns>0?`<div style="font-size:11px;color:var(--muted2);margin-top:4px">${fp(totIns)} de insumos se cuentan como gasto en Finanzas. La mercadería para vender no: su costo se descuenta cuando se vende.</div>`:''}</div>
     <div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Fecha</label><input type="date" value="${cp.fecha}" onchange="provSel.compra.fecha=this.value"/></div><div class="field" style="flex:1"><label>Sucursal</label><select onchange="provSel.compra.sucursal=this.value" style="${selFin}"><option value="todas">Compartido</option>${sucursales.map(s=>`<option value="${s.id}" ${cp.sucursal===s.id?'selected':''}>${escH(s.nombre)}</option>`).join('')}</select></div></div>
@@ -4148,7 +4178,7 @@ function renderSucCobro(){
   const el=document.getElementById('cb-suc'); if(!el) return; const ss=sucursalesDe(profile);
   if(ss.length<2){ el.innerHTML=''; return; }
   const act=sucursalActual();
-  el.innerHTML=`<div class="field"><label>📍 ¿En qué sucursal estás?</label><div style="display:flex;gap:6px;flex-wrap:wrap">${ss.map(id=>{ const s=sucursalDe(id)||{id,nombre:id,color:'#7c6fff'}; return `<button onclick="cobroSuc('${id}')" style="${pillStyle(act===id,s.color)}">${escH(s.nombre)}</button>`; }).join('')}</div></div>`;
+  el.innerHTML=`<div class="field"><label>📍 ¿En qué sucursal estás?</label><div style="display:flex;gap:6px;flex-wrap:wrap">${ss.map(id=>{ const s=sucursalDe(id)||{id,nombre:id,color:'#7B337E'}; return `<button onclick="cobroSuc('${id}')" style="${pillStyle(act===id,s.color)}">${escH(s.nombre)}</button>`; }).join('')}</div></div>`;
 }
 
 // ---------- guardado seguro del listado de cuentas ----------
@@ -4170,7 +4200,7 @@ function renderAdminCuentas(c){
   const grupos=[['profesional','✂️ Profesionales'],['recepcionista','📞 Recepcionistas'],['encargado','📋 Encargado (cuenta vieja)'],['admin','👑 Administrador']];
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🔧 Cuentas del equipo</span></div>
     <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Desde acá podés cambiar todo de cada persona: <b style="color:var(--text)">nombre, rol, sucursales</b> (puede estar en más de una), rubros, comisión y <b style="color:var(--text)">darla de baja</b>. Las cuentas nuevas se aprueban en Estado.</div>
-    ${grupos.map(([rol,tit])=>{ const L=allUsers.filter(u=>u.role===rol); if(!L.length) return ''; return `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${tit}</div>${L.map(u=>`<div class="card" onclick="editarCuenta('${u.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:${(u.color||'#7c6fff')}33;border:1.5px solid ${u.color||'#7c6fff'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${u.emoji||'👤'}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(u.name)} <span style="font-size:11px;font-weight:600;color:var(--muted2)">@${escH(u.username||'')}</span>${u.esEncargado?' <span style="font-size:10px;background:rgba(52,211,153,.18);color:#34d399;border-radius:6px;padding:1px 6px">ENCARGADO</span>':''}${u.role==='admin'&&u.tambienProf?' <span style="font-size:10px;background:rgba(124,111,255,.18);color:#a89fff;border-radius:6px;padding:1px 6px">TAMBIÉN PROFESIONAL</span>':''}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${sucursalesDe(u).map(s=>chipSucursal(s,true)).join('')||'<span style="font-size:10.5px;color:var(--muted)">sin sucursal</span>'}${esProf(u)&&u.rubros&&u.rubros.length?`<span style="font-size:10.5px;color:var(--muted2)">· ${escH(u.rubros.map(nombreRubro).filter(Boolean).join(', '))}</span>`:''}</div></div><span style="color:var(--muted)">✏️</span></div></div>`).join('')}`; }).join('')}
+    ${grupos.map(([rol,tit])=>{ const L=allUsers.filter(u=>u.role===rol); if(!L.length) return ''; return `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${tit}</div>${L.map(u=>`<div class="card" onclick="editarCuenta('${u.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:${(u.color||'#7B337E')}33;border:1.5px solid ${u.color||'#7B337E'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${u.emoji||'👤'}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(u.name)} <span style="font-size:11px;font-weight:600;color:var(--muted2)">@${escH(u.username||'')}</span>${u.esEncargado?' <span style="font-size:10px;background:rgba(52,211,153,.18);color:#34d399;border-radius:6px;padding:1px 6px">ENCARGADO</span>':''}${u.role==='admin'&&u.tambienProf?' <span style="font-size:10px;background:rgba(123,51,126,.18);color:#a89fff;border-radius:6px;padding:1px 6px">TAMBIÉN PROFESIONAL</span>':''}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${sucursalesDe(u).map(s=>chipSucursal(s,true)).join('')||'<span style="font-size:10.5px;color:var(--muted)">sin sucursal</span>'}${esProf(u)&&u.rubros&&u.rubros.length?`<span style="font-size:10.5px;color:var(--muted2)">· ${escH(u.rubros.map(nombreRubro).filter(Boolean).join(', '))}</span>`:''}</div></div><span style="color:var(--muted)">✏️</span></div></div>`).join('')}`; }).join('')}
     ${usuariosBaja.length?`<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;font-weight:800;color:var(--muted2)">🗄 Dados de baja (${usuariosBaja.length})</summary>${usuariosBaja.map(u=>`<div class="ln"><span>${escH(u.name)} <i style="color:var(--muted)">· ${ROL_TXT[u.role]||u.role} · baja ${u.baja?fechaCortaStr(u.baja):''}</i></span><button class="lnk" onclick="reactivarCuenta('${u.id}')">Reactivar</button></div>`).join('')}<div style="font-size:10.5px;color:var(--muted);margin-top:6px">Sus cobros y su historia se conservan en los reportes.</div></details>`:''}`;
 }
 function editarCuenta(id){
@@ -4178,7 +4208,7 @@ function editarCuenta(id){
   document.getElementById('registro-content').innerHTML=cabeceraModal('Editar cuenta')+`
     <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 10px">Usuario: <b>@${escH(u.username||'')}</b> (no se cambia)</div>
     <div class="field"><label>Nombre</label><input id="ec-nombre" value="${escH(u.name)}"/></div>
-    <div style="display:flex;gap:8px;margin-top:8px"><div class="field" style="flex:1"><label>Emoji</label><input id="ec-emoji" value="${escH(u.emoji||'')}" placeholder="✂️"/></div><div class="field" style="flex:1"><label>Color</label><input id="ec-color" type="color" value="${u.color||'#7c6fff'}" style="height:46px;padding:4px"/></div></div>
+    <div style="display:flex;gap:8px;margin-top:8px"><div class="field" style="flex:1"><label>Emoji</label><input id="ec-emoji" value="${escH(u.emoji||'')}" placeholder="✂️"/></div><div class="field" style="flex:1"><label>Color</label><input id="ec-color" type="color" value="${u.color||'#7B337E'}" style="height:46px;padding:4px"/></div></div>
     ${esAdm?`<label class="rub-opt" style="margin-top:8px"><input type="checkbox" id="ec-tprof" ${u.tambienProf?'checked':''}/> ✂️ También trabajo como profesional (atiendo clientes, cobro y tengo comisión como el resto)</label>
     <div class="field" style="margin-top:8px"><label>Sucursales donde atiendo</label>${sucursales.map(s=>`<label class="rub-opt" style="border-left:5px solid ${s.color}"><input type="checkbox" class="ec-suc" value="${s.id}" ${sucursalesDe(u).includes(s.id)?'checked':''}/> ${escH(s.nombre)}</label>`).join('')}</div>
     ${u.tambienProf?'':'<div style="font-size:11px;color:var(--muted);margin-top:4px">Tildá la casilla y guardá: después vas a poder elegir tus rubros y tu comisión.</div>'}`:''}
@@ -4388,7 +4418,7 @@ function comUsrEsq(e){ leerComUsr(); comUsr.esquema=e; renderComisionUsuario(); 
 function leerComUsr(){ const g=(i)=>{ const e=document.getElementById(i); return e?e.value:undefined; }; ['cu-inicio','cu-fija','cu-piso'].forEach(i=>{ const v=g(i); if(v!==undefined) comUsr[i]=v; }); }
 function renderComisionUsuario(){
   const u=allUsers.find(x=>x.id===comUsr.id); const s=comUsr; const n=comCfg().nuevos;
-  const opt=(v,t,d)=>`<button onclick="comUsrEsq('${v}')" style="display:block;width:100%;text-align:left;padding:11px 14px;margin-bottom:6px;border-radius:12px;border:2px solid ${s.esquema===v?'#7c6fff':'var(--border2)'};background:${s.esquema===v?'rgba(124,111,255,.12)':'var(--s2)'};color:var(--text);font-family:var(--font);cursor:pointer"><div style="font-size:13.5px;font-weight:800">${t}</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${d}</div></button>`;
+  const opt=(v,t,d)=>`<button onclick="comUsrEsq('${v}')" style="display:block;width:100%;text-align:left;padding:11px 14px;margin-bottom:6px;border-radius:12px;border:2px solid ${s.esquema===v?'#7B337E':'var(--border2)'};background:${s.esquema===v?'rgba(123,51,126,.12)':'var(--s2)'};color:var(--text);font-family:var(--font);cursor:pointer"><div style="font-size:13.5px;font-weight:800">${t}</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${d}</div></button>`;
   const inicio=s['cu-inicio']!==undefined?s['cu-inicio']:(u.inicio||hoyStr()), fija=s['cu-fija']!==undefined?s['cu-fija']:(comisionFijaDe(u)||60), piso=s['cu-piso']!==undefined?s['cu-piso']:(numV(u.piso)||'');
   document.getElementById('registro-content').innerHTML=cabeceraModal('Comisión de '+escH(u.name))+`
     ${opt('tramos','Por tramos','45% → 60% según lo que facture en la quincena')}
@@ -4473,7 +4503,7 @@ function renderCobroDeuda(){
   const c=document.getElementById('registro-content');
   const s=cobroDeudaSel; const d=s&&buscarDeuda(s.profId,s.id);
   if(!d){ closeModal('modal-registro'); return; }
-  const color=(profile&&profile.color)||'#7c6fff'; const propio=profile&&profile.id===d.prof.id; const saldo=saldoDeuda(d);
+  const color=(profile&&profile.color)||'#7B337E'; const propio=profile&&profile.id===d.prof.id; const saldo=saldoDeuda(d);
   const val=s.monto!==undefined&&s.monto!==''?s.monto:saldo;
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">Cobrar deuda 🚫</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     <div class="card" style="margin-bottom:12px">
@@ -4544,11 +4574,11 @@ function renderSugSena(){
   const el=document.getElementById('sn-cli-sug'); if(!el) return; const sel=clienteDe(senaForm.clienteId);
   if(sel){ el.innerHTML=`<div style="font-size:12px;color:#34d399;font-weight:700;margin-top:6px">✓ ${escH(sel.nombre)}${verNumeroCliente()?' #'+sel.numero:''} · ${escH(idCorto(sel))} <button class="lnk" onclick="senaForm.clienteId=null;senaForm.cliente='';renderFormSena()">cambiar</button></div>`; return; }
   const q=(senaForm.cliente||'').trim(); if(q.length<2){ el.innerHTML=''; return; }
-  const m=buscarClientes(q).slice(0,5); const exacto=m.some(c=>c.nkey===nkey(q)); const color=(profile&&profile.color)||'#7c6fff';
+  const m=buscarClientes(q).slice(0,5); const exacto=m.some(c=>c.nkey===nkey(q)); const color=(profile&&profile.color)||'#7B337E';
   el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="senaElegirCli('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)}${verNumeroCliente()?' <span style="color:var(--muted2)">#'+c.numero+'</span>':''}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}${exacto?'':`<button onclick="senaAgregarCli()" style="text-align:left;padding:10px 12px;border-radius:10px;border:1.5px dashed ${color};background:transparent;color:${color};font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">➕ Agregar «${escH(q)}» como cliente nuevo</button>`}</div>`;
 }
 function renderFormSena(){
-  const s=senaForm; const color=(profile&&profile.color)||'#7c6fff'; const pros=profesionalesLista();
+  const s=senaForm; const color=(profile&&profile.color)||'#7B337E'; const pros=profesionalesLista();
   document.getElementById('registro-content').innerHTML=cabeceraModal('Registrar seña 💵')+`
     <div class="field"><label>Cliente</label><input id="sn-cli" autocomplete="off" placeholder="Buscá o escribí el nombre…" value="${escH(s.cliente)}" oninput="senaCliInput(this.value)"/><div id="sn-cli-sug"></div></div>
     <div class="field" style="margin-top:8px"><label>¿Con qué profesional es su próximo turno?</label><select style="${selFin}" onchange="senaCampo('profId',this.value)">${pros.map(p=>`<option value="${p.id}" ${s.profId===p.id?'selected':''}>${escH(p.name)}</option>`).join('')}</select></div>
@@ -4591,7 +4621,7 @@ function calcSenasCobro(base){
 function htmlSenasCobro(r){
   const c=clienteDe(cobro.clienteId); if(!c) return '';
   const L=senasDeCliente(c.id,c.nombre); if(!L.length) return '';
-  return `<div class="field"><label>💵 Seña que dejó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${L.map(s=>{ const on=(cobro.senasSel||[]).includes(s.id); return `<button onclick="cobroToggleSena('${s.id}')" style="${pillStyle(on,'#7c6fff')}">${on?'✓ ':''}${fp(saldoSena(s))} · ${fechaCortaStr(s.fecha)}${s.profId!==profile.id?' (para '+escH(s.profNombre)+')':''}</button>`; }).join('')}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${r.senaTotal>0?'Se descuenta de lo que tiene que pagar hoy: '+fp(r.senaTotal)+'.':'Tocá la seña si querés descontarla en este turno.'}</div></div>`;
+  return `<div class="field"><label>💵 Seña que dejó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${L.map(s=>{ const on=(cobro.senasSel||[]).includes(s.id); return `<button onclick="cobroToggleSena('${s.id}')" style="${pillStyle(on,'#7B337E')}">${on?'✓ ':''}${fp(saldoSena(s))} · ${fechaCortaStr(s.fecha)}${s.profId!==profile.id?' (para '+escH(s.profNombre)+')':''}</button>`; }).join('')}</div><div style="font-size:11px;color:var(--muted);margin-top:4px">${r.senaTotal>0?'Se descuenta de lo que tiene que pagar hoy: '+fp(r.senaTotal)+'.':'Tocá la seña si querés descontarla en este turno.'}</div></div>`;
 }
 async function marcarSenasUsadas(r,turnoId){
   if(!r.senasUso||!r.senasUso.length) return;
@@ -4612,13 +4642,13 @@ async function resolverSena(id,estado){
 }
 function htmlFilaSena(s,acciones){
   const dias=diasDesdeStr(s.fecha); const suc=s.sucursal?chipSucursal(s.sucursal,true):'';
-  return `<div class="card" style="margin-bottom:8px;border-color:rgba(124,111,255,.4);border-left:5px solid ${(sucursalDe(s.sucursal)||{}).color||'#7c6fff'}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(s.clienteNombre)}${verNumeroCliente()&&s.clienteNumero?' <span style="color:var(--muted2)">#'+s.clienteNumero+'</span>':''}</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Para su turno con <b style="color:var(--text)">${escH(s.profNombre)}</b> · la dejó el ${fechaCortaStr(s.fecha)} (hace ${dias} d) · ${medioTxt(s.medio)}${s.nota?' · '+escH(s.nota):''} ${suc}</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:18px;font-weight:900;color:#7c6fff">${fp(saldoSena(s))}</div>${(s.usos||[]).length&&saldoSena(s)<numV(s.monto)?`<div style="font-size:10px;color:var(--muted)">de ${fp(s.monto)}</div>`:''}</div></div>${acciones?`<div style="display:flex;gap:12px;margin-top:6px">${acciones}</div>`:''}</div>`;
+  return `<div class="card" style="margin-bottom:8px;border-color:rgba(123,51,126,.4);border-left:5px solid ${(sucursalDe(s.sucursal)||{}).color||'#7B337E'}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(s.clienteNombre)}${verNumeroCliente()&&s.clienteNumero?' <span style="color:var(--muted2)">#'+s.clienteNumero+'</span>':''}</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Para su turno con <b style="color:var(--text)">${escH(s.profNombre)}</b> · la dejó el ${fechaCortaStr(s.fecha)} (hace ${dias} d) · ${medioTxt(s.medio)}${s.nota?' · '+escH(s.nota):''} ${suc}</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:18px;font-weight:900;color:#7B337E">${fp(saldoSena(s))}</div>${(s.usos||[]).length&&saldoSena(s)<numV(s.monto)?`<div style="font-size:10px;color:var(--muted)">de ${fp(s.monto)}</div>`:''}</div></div>${acciones?`<div style="display:flex;gap:12px;margin-top:6px">${acciones}</div>`:''}</div>`;
 }
 const accionesSenaRec=(s)=>`<button class="lnk" onclick="resolverSena('${s.id}','devuelta')">Devolver</button><button class="lnk" style="color:var(--muted2)" onclick="resolverSena('${s.id}','retenida')">Se queda el salón</button>`;
 // ---------- recepcion ----------
 function htmlSenasRec(){
   const L=senasPend(); const total=L.reduce((a,s)=>a+saldoSena(s),0);
-  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">💵 Señas (${L.length})</span><span style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#7c6fff">${fp(total)}</span><button class="sec-btn" onclick="abrirFormSena()" style="background:#7c6fff">+ Seña</button></span></div>
+  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">💵 Señas (${L.length})</span><span style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#7B337E">${fp(total)}</span><button class="sec-btn" onclick="abrirFormSena()" style="background:#7B337E">+ Seña</button></span></div>
     ${L.length?L.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join(''):'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay señas pendientes.</div>'}`;
 }
 // ---------- profesional (Mi dinero) ----------
@@ -4626,8 +4656,8 @@ function htmlSenasProf(todas){
   const mias=senasSt.list.filter(s=>s.profId===profile.id);
   const pend=mias.filter(s=>saldoSena(s)>0), hist=mias.filter(s=>saldoSena(s)<=0).sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
   const total=pend.reduce((a,s)=>a+saldoSena(s),0);
-  return `${todas?'':`<div class="sec-hdr" style="margin-top:20px"><span class="sec-title" style="cursor:pointer" onclick="dineroAbrir('senas')">💵 Señas — te dejaron (${pend.length}) ›</span><button class="sec-btn" onclick="abrirFormSena()" style="background:#7c6fff">+ Seña</button></div>`}
-    ${pend.length?`<div class="stat-card" style="margin-bottom:10px;border-color:rgba(124,111,255,.35)"><div class="sc-lbl">Señas por descontar</div><div class="sc-val" style="color:#7c6fff">${fp(total)}</div><div class="sc-sub">Se descuentan solas en el próximo turno de cada cliente</div></div>`:''}
+  return `${todas?'':`<div class="sec-hdr" style="margin-top:20px"><span class="sec-title" style="cursor:pointer" onclick="dineroAbrir('senas')">💵 Señas — te dejaron (${pend.length}) ›</span><button class="sec-btn" onclick="abrirFormSena()" style="background:#7B337E">+ Seña</button></div>`}
+    ${pend.length?`<div class="stat-card" style="margin-bottom:10px;border-color:rgba(123,51,126,.35)"><div class="sc-lbl">Señas por descontar</div><div class="sc-val" style="color:#7B337E">${fp(total)}</div><div class="sc-sub">Se descuentan solas en el próximo turno de cada cliente</div></div>`:''}
     ${!pend.length?'<div class="empty"><div class="e-icon">💵</div><p>No tenés señas pendientes.</p></div>':(todas?pend:pend.slice(0,3)).map(s=>htmlFilaSena(s,'')).join('')+(!todas&&pend.length>3?`<button onclick="dineroAbrir('senas')" style="width:100%;padding:11px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:4px">Ver las ${pend.length} señas ›</button>`:'')}
     ${todas&&hist.length?`<div class="sec-title" style="margin:14px 0 8px">Ya usadas o resueltas</div>${hist.slice(0,15).map(s=>`<div class="ln"><span>${escH(s.clienteNombre)} <i style="color:var(--muted)">· ${fechaCortaStr(s.fecha)} · ${s.estado==='aplicada'?'descontada en su turno':(s.estado==='devuelta'?'devuelta':'se quedó el salón')}</i></span><b>${fp(s.monto)}</b></div>`).join('')}`:''}`;
 }
@@ -4636,7 +4666,7 @@ function htmlSenasDeudasHub(){
   const s=senasSt.list.filter(x=>x.profId===profile.id&&saldoSena(x)>0), d=(dineroData.deudores||[]).filter(x=>!x.saldado);
   if(!s.length&&!d.length) return '';
   const sTot=s.reduce((a,x)=>a+saldoSena(x),0), dTot=d.reduce((a,x)=>a+saldoDeuda(x),0);
-  return `<div class="card" onclick="goTo('dinero')" style="cursor:pointer;margin-bottom:14px"><div style="display:flex;gap:14px">${s.length?`<div style="flex:1"><div style="font-size:11px;font-weight:800;color:#7c6fff">💵 SEÑAS (${s.length})</div><div style="font-size:16px;font-weight:900">${fp(sTot)}</div><div style="font-size:11px;color:var(--muted2)">${s.slice(0,2).map(x=>escH(x.clienteNombre)).join(', ')}${s.length>2?'…':''}</div></div>`:''}${d.length?`<div style="flex:1"><div style="font-size:11px;font-weight:800;color:#f472b6">🚫 DEUDAS (${d.length})</div><div style="font-size:16px;font-weight:900">${fp(dTot)}</div><div style="font-size:11px;color:var(--muted2)">${d.slice(0,2).map(x=>escH(x.cliente)).join(', ')}${d.length>2?'…':''}</div></div>`:''}</div></div>`;
+  return `<div class="card" onclick="goTo('dinero')" style="cursor:pointer;margin-bottom:14px"><div style="display:flex;gap:14px">${s.length?`<div style="flex:1"><div style="font-size:11px;font-weight:800;color:#7B337E">💵 SEÑAS (${s.length})</div><div style="font-size:16px;font-weight:900">${fp(sTot)}</div><div style="font-size:11px;color:var(--muted2)">${s.slice(0,2).map(x=>escH(x.clienteNombre)).join(', ')}${s.length>2?'…':''}</div></div>`:''}${d.length?`<div style="flex:1"><div style="font-size:11px;font-weight:800;color:#f472b6">🚫 DEUDAS (${d.length})</div><div style="font-size:16px;font-weight:900">${fp(dTot)}</div><div style="font-size:11px;color:var(--muted2)">${d.slice(0,2).map(x=>escH(x.cliente)).join(', ')}${d.length>2?'…':''}</div></div>`:''}</div></div>`;
 }
 // ---------- admin: Clientes → Deudas y Señas ----------
 function adminDeudas(c){
@@ -4656,14 +4686,14 @@ function adminSenas(c){
   const ret=senasSt.list.filter(s=>s.estado==='retenida').reduce((a,s)=>a+numV(s.monto),0), dev=senasSt.list.filter(s=>s.estado==='devuelta').reduce((a,s)=>a+numV(s.devuelto||s.monto),0);
   const porProf={}; L.forEach(s=>{ (porProf[s.profNombre]=porProf[s.profNombre]||[]).push(s); });
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">💵 Señas (${L.length} pendientes)</span></div>
-    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)"><div class="stat-card"><div class="sc-lbl">Por descontar</div><div class="sc-val" style="font-size:18px;color:#7c6fff">${fp(total)}</div></div><div class="stat-card"><div class="sc-lbl">Descontadas este mes</div><div class="sc-val" style="font-size:18px">${usadas}</div></div><div class="stat-card"><div class="sc-lbl">Devueltas</div><div class="sc-val" style="font-size:17px">${fp(dev)}</div></div><div class="stat-card"><div class="sc-lbl">Se quedó el salón</div><div class="sc-val" style="font-size:17px">${fp(ret)}</div></div></div>
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)"><div class="stat-card"><div class="sc-lbl">Por descontar</div><div class="sc-val" style="font-size:18px;color:#7B337E">${fp(total)}</div></div><div class="stat-card"><div class="sc-lbl">Descontadas este mes</div><div class="sc-val" style="font-size:18px">${usadas}</div></div><div class="stat-card"><div class="sc-lbl">Devueltas</div><div class="sc-val" style="font-size:17px">${fp(dev)}</div></div><div class="stat-card"><div class="sc-lbl">Se quedó el salón</div><div class="sc-val" style="font-size:17px">${fp(ret)}</div></div></div>
     ${Object.entries(porProf).map(([n,l])=>`<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">✂️ ${escH(n)} · ${fp(l.reduce((a,s)=>a+saldoSena(s),0))}</div>${l.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join('')}`).join('')||'<div class="empty"><div class="e-icon">💵</div><p>No hay señas pendientes.</p></div>'}
     <button class="btn btn-ghost" onclick="abrirFormSena()" style="margin-top:10px">+ Registrar una seña</button>`;
 }
 
 function htmlSenaCliente(c){
   const L=senasDeCliente(c.id,c.nombre); if(!L.length) return '';
-  return `<div class="card" style="margin-bottom:10px;border-color:rgba(124,111,255,.5);background:rgba(124,111,255,.06)"><div style="font-size:12.5px;font-weight:800;color:#7c6fff">💵 Dejó seña: ${fp(L.reduce((a,s)=>a+saldoSena(s),0))}</div>${L.map(s=>`<div style="font-size:12px;margin-top:4px">${fp(saldoSena(s))} · el ${fechaCortaStr(s.fecha)} · para su turno con <b>${escH(s.profNombre)}</b> (se descuenta sola)</div>`).join('')}</div>`;
+  return `<div class="card" style="margin-bottom:10px;border-color:rgba(123,51,126,.5);background:rgba(123,51,126,.06)"><div style="font-size:12.5px;font-weight:800;color:#7B337E">💵 Dejó seña: ${fp(L.reduce((a,s)=>a+saldoSena(s),0))}</div>${L.map(s=>`<div style="font-size:12px;margin-top:4px">${fp(saldoSena(s))} · el ${fechaCortaStr(s.fecha)} · para su turno con <b>${escH(s.profNombre)}</b> (se descuenta sola)</div>`).join('')}</div>`;
 }
 // ============ INIT ============
 async function init(){
@@ -5117,7 +5147,7 @@ function bloqueReel(icono,titulo,texto,color){
 function bloqueInspo(r){
   const u=safeUrl(r.url); if(!u) return '';
   const p=plataformaUrl(u);
-  return `<a href="${escH(u)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;background:rgba(124,111,255,.1);border:1.5px solid rgba(124,111,255,.35);border-radius:14px;padding:12px 14px;margin-bottom:10px;text-decoration:none;color:var(--text)">
+  return `<a href="${escH(u)}" target="_blank" rel="noopener noreferrer" style="display:flex;align-items:center;gap:10px;background:rgba(123,51,126,.1);border:1.5px solid rgba(123,51,126,.35);border-radius:14px;padding:12px 14px;margin-bottom:10px;text-decoration:none;color:var(--text)">
     <span style="font-size:22px">${p.e}</span><span style="flex:1"><span style="display:block;font-size:13px;font-weight:800">Ver inspiración en ${escH(p.n)}</span><span style="display:block;font-size:11px;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:250px">${escH(u)}</span></span><span style="color:var(--accent);font-weight:800">↗</span></a>`;
 }
 function abrirDetalleReel(id){
@@ -5155,7 +5185,7 @@ function renderKanban(){
   const body=document.getElementById('kanban-body');
   const etapas=Object.entries(STAGES);
   const lista=reels.filter(r=>r.asignado&&(kanbanVista==='equipo'||esMio(r)));
-  const tog=`<div style="display:flex;gap:6px">${[['mios','Mis reels'],['equipo','Todo el equipo']].map(([v,l])=>`<button onclick="kanbanVista='${v}';renderKanban()" style="padding:7px 14px;border-radius:20px;border:1.5px solid ${kanbanVista===v?'var(--accent)':'var(--border2)'};background:${kanbanVista===v?'rgba(124,111,255,.15)':'transparent'};color:${kanbanVista===v?'var(--accent)':'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${l}</button>`).join('')}<button onclick="goTo('banco')" style="margin-left:auto;padding:7px 14px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">📝 Banco</button></div>`;
+  const tog=`<div style="display:flex;gap:6px">${[['mios','Mis reels'],['equipo','Todo el equipo']].map(([v,l])=>`<button onclick="kanbanVista='${v}';renderKanban()" style="padding:7px 14px;border-radius:20px;border:1.5px solid ${kanbanVista===v?'var(--accent)':'var(--border2)'};background:${kanbanVista===v?'rgba(123,51,126,.15)':'transparent'};color:${kanbanVista===v?'var(--accent)':'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${l}</button>`).join('')}<button onclick="goTo('banco')" style="margin-left:auto;padding:7px 14px;border-radius:20px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">📝 Banco</button></div>`;
   body.innerHTML=etapas.map(([key,s])=>{
     const cols=lista.filter(r=>r.stage===key);
     return `<div class="kanban-col">
@@ -5191,7 +5221,7 @@ function renderAdminBanco(body){
     ${del.length>8?`<input type="search" id="admbanco-q" placeholder="Buscar por título, hook o persona..." value="${escH(adminBancoQ)}" oninput="adminBancoQ=this.value;renderAdmin();var e=document.getElementById('admbanco-q');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:13px;margin-bottom:10px;outline:none"/>`:''}
     ${lista.length?lista.map(r=>{
       const est=estadoReel(r);
-      const col={disp:'#7c6fff',curso:'#fbbf24',venc:'#f472b6',pub:'#34d399'}[est];
+      const col={disp:'#7B337E',curso:'#fbbf24',venc:'#f472b6',pub:'#34d399'}[est];
       const lbl={disp:'Disponible',curso:'En curso',venc:'Vencido',pub:'Publicado'}[est];
       return `<div class="prof-card" style="margin-bottom:8px;padding:12px 14px">
         <div style="display:flex;align-items:flex-start;gap:10px">
@@ -5243,7 +5273,7 @@ function guardarReelBanco(){
     if(!r.asignado) r.plazoDias=plazo||null;
     showToast('Reel actualizado ✓');
   } else {
-    const colores=['#7c6fff','#f472b6','#34d399','#fbbf24','#60a5fa','#fb923c'];
+    const colores=['#7B337E','#f472b6','#34d399','#fbbf24','#60a5fa','#fb923c'];
     reels.unshift({id:Date.now().toString(), ...campos, plazoDias:plazo||null, emoji:'🎬', color:colores[Math.floor(Math.random()*colores.length)], stage:'guion', asignado:null, tomas:[], creado:new Date().toISOString()});
     showToast('Reel agregado al banco ✓');
   }
@@ -5324,7 +5354,7 @@ function confirmarImportReels(){
   const ya=new Set(reels.map(r=>(r.titulo||'').trim().toLowerCase()));
   const validos=reelsDeTabla(document.getElementById('imp-txt')?.value||'').validos.filter(v=>!ya.has(v.titulo.toLowerCase()));
   if(!validos.length) return;
-  const colores=['#7c6fff','#f472b6','#34d399','#fbbf24','#60a5fa','#fb923c'];
+  const colores=['#7B337E','#f472b6','#34d399','#fbbf24','#60a5fa','#fb923c'];
   const base=Date.now();
   const nuevos=validos.map((v,i)=>({id:base+'-'+i, ...v, emoji:'🎬', color:colores[i%colores.length], stage:'guion', asignado:null, tomas:[], creado:new Date(base-i).toISOString()}));
   reels=[...nuevos,...reels];
@@ -5717,7 +5747,7 @@ function refreshCobro(){
       ex.push(`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:5px">${escH(s.nombre)}: ${escH(s.variante.titulo||'Opción')} <span style="color:#f472b6">*</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.variante.opciones.map((o,oi)=>`<button onclick="cobroOpcion('${id}',${oi})" style="${pillStyle(cobro.opciones[id]===o.n,color)}">${escH(o.n)}${numV(o.extra)?' +'+fp(o.extra):''}</button>`).join('')}</div></div>`);
     }
   });
-  if(r.esNoche) ex.unshift(`<div style="background:rgba(124,111,255,.12);border:1px solid rgba(124,111,255,.35);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#a89fff;font-weight:700">🌙 Turno de noche (desde las ${escH(nocheCfg().desde)}): precio de lista, sin descuentos. Tu comisión es ${numV(nocheCfg().pct)}% fijo.</div>`);
+  if(r.esNoche) ex.unshift(`<div style="background:rgba(123,51,126,.12);border:1px solid rgba(123,51,126,.35);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#a89fff;font-weight:700">🌙 Turno de noche (desde las ${escH(nocheCfg().desde)}): precio de lista, sin descuentos. Tu comisión es ${numV(nocheCfg().pct)}% fijo.</div>`);
   document.getElementById('cb-extra').innerHTML=ex.join('');
 
   const acts=ofertasVisibles();
@@ -5969,7 +5999,7 @@ async function generarLluvia(){
 
   const perfilInfo = perfilCtx ? 'PERFIL: '+perfilCtx : '';
   const temaInfo = tema ? 'TEMA: '+tema : '';
-  const prompt = 'Genera 5 ideas de reels para '+profile.name+' ('+( profile.profesion||'barbero')+') de barberia/estetica en Argentina. '+perfilInfo+temaInfo+' IMPORTANTE: Solo barberia/estetica, nada de linkedin ni coaching. Devuelve SOLO JSON: {"ideas":[{"emoji":"...","estructura":"Lista|Tutorial|Mito vs Verdad|Storytelling|POV|Problema a Solucion|Opinion polemica","titulo":"...","descripcion":"...","color":"uno de: #7c6fff|#f472b6|#34d399|#fbbf24|#60a5fa|#fb923c"}]}';
+  const prompt = 'Genera 5 ideas de reels para '+profile.name+' ('+( profile.profesion||'barbero')+') de barberia/estetica en Argentina. '+perfilInfo+temaInfo+' IMPORTANTE: Solo barberia/estetica, nada de linkedin ni coaching. Devuelve SOLO JSON: {"ideas":[{"emoji":"...","estructura":"Lista|Tutorial|Mito vs Verdad|Storytelling|POV|Problema a Solucion|Opinion polemica","titulo":"...","descripcion":"...","color":"uno de: #7B337E|#f472b6|#34d399|#fbbf24|#60a5fa|#fb923c"}]}';
   try{
     const s=await claudeAPI.use('sample');
     const r=await s(prompt,{modelTier:'quick'});
@@ -6467,7 +6497,7 @@ function renderTrabajo(wrap){
 
   const fechaCorta=(f)=>f?new Date(f+'T00:00:00').toLocaleDateString('es-AR',{day:'numeric',month:'short'}):'';
   const hora=(iso)=>iso?new Date(iso).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):'';
-  const medioColor={efectivo:'#34d399',mp:'#009ee3',tarjeta:'#7c6fff'};
+  const medioColor={efectivo:'#34d399',mp:'#009ee3',tarjeta:'#7B337E'};
   const medioCorto={efectivo:'EFE',mp:'MP',tarjeta:'TAR'};
   const medioLargo={efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'};
   const hoyStr=ymdLocal(new Date());
@@ -6498,13 +6528,13 @@ function renderTrabajo(wrap){
     const abierto=detalle&&dineroExpand===v.id;
     const detalleHtml=abierto?`<div style="background:var(--s2);border-radius:10px;padding:10px 12px;margin:-2px 0 8px">
       ${dline(`${v.cantidad} × ${fp(v.precioUnitario||0)}`,fp(v.total))}
-      ${dline('<b>Tu comisión</b>','<b>+'+fp(v.comision)+'</b>','color:#7c6fff')}
+      ${dline('<b>Tu comisión</b>','<b>+'+fp(v.comision)+'</b>','color:#7B337E')}
       <div style="font-size:11px;color:var(--muted2);margin-top:6px">${v.cliente?'Cliente: '+v.cliente+' · ':''}${v.medio?(medioLargo[v.medio]||'')+' · ':''}${fechaCorta(v.fecha)} ${hora(v.creadoEn)}</div>
     </div>`:'';
     return `<div class="turno-item" onclick="${detalle?`dineroToggle('${v.id}')`:`dineroAbrir('ventas','todos','${v.id}')`}">
-        <div class="ti-dot" style="background:#7c6fff"></div>
+        <div class="ti-dot" style="background:#7B337E"></div>
         <div class="ti-info"><strong>${v.productoNombre}</strong><span>x${v.cantidad}${v.cliente?' · '+v.cliente:''}${cuando(v)}</span></div>
-        <div style="text-align:right"><div class="ti-monto">${fp(num(v.total))}</div><div class="ti-medio" style="background:#7c6fff22;color:#7c6fff">+${fp(num(v.comision))}</div></div>
+        <div style="text-align:right"><div class="ti-monto">${fp(num(v.total))}</div><div class="ti-medio" style="background:#7B337E22;color:#7B337E">+${fp(num(v.comision))}</div></div>
       </div>${detalleHtml}`;
   };
   const rowDeudor=(d)=>`<div class="turno-item" style="border-color:rgba(244,114,182,.25);cursor:default;${d.saldado?'opacity:.7':''}">
@@ -6539,15 +6569,15 @@ function renderTrabajo(wrap){
       return;
     }
     if(dineroVista==='ventas'){
-      wrap.innerHTML=periodoNav+volver('📦 Productos vendidos','<button class="sec-btn" onclick="abrirVentaProducto()" style="background:#7c6fff">+ Venta</button>')+`
+      wrap.innerHTML=periodoNav+volver('📦 Productos vendidos','<button class="sec-btn" onclick="abrirVentaProducto()" style="background:#7B337E">+ Venta</button>')+`
         <div class="stat-grid">
           ${card('Vendido',fp(totalVentas),sortedVentas.length+' ventas','','')}
-          ${card('Tu comisión',fp(comisionVentas),'Aparte de tus cortes','#7c6fff','')}
+          ${card('Tu comisión',fp(comisionVentas),'Aparte de tus cortes','#7B337E','')}
         </div>
         ${sortedVentas.length?sortedVentas.map(v=>rowVenta(v,true)).join(''):'<div class="empty"><div class="e-icon">📦</div><p>Sin ventas de productos este período.</p></div>'}`;
       return;
     }
-    if(dineroVista==='senas'){ wrap.innerHTML=periodoNav+volver('💵 Señas','<button class="sec-btn" onclick="abrirFormSena()" style="background:#7c6fff">+ Seña</button>')+htmlSenasProf(true); return; }
+    if(dineroVista==='senas'){ wrap.innerHTML=periodoNav+volver('💵 Señas','<button class="sec-btn" onclick="abrirFormSena()" style="background:#7B337E">+ Seña</button>')+htmlSenasProf(true); return; }
     wrap.innerHTML=periodoNav+volver('🚫 En rojo — no pagaron','<button class="sec-btn" onclick="abrirCobroDebe()" style="background:#f472b6">+ Turno que debe</button>')+`
       <div class="stat-card" style="margin-bottom:12px;border-color:rgba(244,114,182,.3)"><div class="sc-lbl">Total adeudado</div><div class="sc-val" style="color:#f472b6">${fp(totalDeuda)}</div><div class="sc-sub">${deudoresPend.length} pendientes · suman a la quincena en que paguen</div></div>
       ${deudoresTodos.length?deudoresTodos.map(rowDeudor).join(''):'<div class="empty"><div class="e-icon">✅</div><p>Nadie te debe nada.</p></div>'}`;
@@ -6571,7 +6601,7 @@ function renderTrabajo(wrap){
       ${card('💈 Facturación cortes',fp(fact),turnos.length+' turnos','',"dineroAbrir('turnos')")}
       ${card('Comisión cortes',fp(comision),pct+'% de tus cortes'+(extraAseg?' + asegurado':''),tr.color,"dineroAbrir('turnos')")}
       ${card('📦 Productos vendidos',fp(totalVentas),ventas.length+' ventas','',"dineroAbrir('ventas')")}
-      ${card('Comisión productos',fp(comisionVentas),'Aparte de los cortes','#7c6fff',"dineroAbrir('ventas')")}
+      ${card('Comisión productos',fp(comisionVentas),'Aparte de los cortes','#7B337E',"dineroAbrir('ventas')")}
       ${card('💵 Efectivo',fp(efect),'Cortes + productos','#34d399',"dineroAbrir('turnos','efectivo')")}
       ${card('📱 Mercado Pago',fp(mp),tarjeta?'💳 Tarjeta '+fp(tarjeta):'Cortes + productos','#009ee3',"dineroAbrir('turnos','mp')")}
     </div>
@@ -6594,7 +6624,7 @@ function renderTrabajo(wrap){
 
     <div class="sec-hdr" style="margin-top:20px">
       <span class="sec-title" style="cursor:pointer" onclick="dineroAbrir('ventas')">📦 Últimas ventas de productos ›</span>
-      <button class="sec-btn" onclick="abrirVentaProducto()" style="background:#7c6fff">+ Venta</button>
+      <button class="sec-btn" onclick="abrirVentaProducto()" style="background:#7B337E">+ Venta</button>
     </div>
     ${!sortedVentas.length?'<div class="empty"><div class="e-icon">📦</div><p>Sin ventas de productos este período.</p></div>':sortedVentas.slice(0,3).map(v=>rowVenta(v,false)).join('')+verTodos('ventas',sortedVentas.length,'ventas')}
 
@@ -7145,6 +7175,12 @@ function copyText(txt){
 }
 
 // ============ PUNTOS ============
+// Cartel de meritocracia (marca, confirmado 22/09/2026): cerca del ranking/puntos.
+function htmlMeritocracia(){
+  return '<div style="background:linear-gradient(135deg,var(--accent)26,var(--accent2)14);border:1.5px solid var(--accent)55;border-radius:16px;padding:14px 16px;margin-bottom:16px">'
+    +'<div style="font-size:13.5px;font-weight:800;font-family:var(--font-title);color:var(--text);line-height:1.35">Sin excusas: lo que hacés se ve, se mide y se paga.</div>'
+    +'<div style="font-size:11.5px;color:var(--muted2);margin-top:5px;line-height:1.5">La meritocracia es ley: más puntos, más plata, más lugar en el podio.</div></div>';
+}
 function renderPuntos(){
   loadPuntosData();
   const body = document.getElementById('puntos-body');
@@ -7182,6 +7218,7 @@ function renderPuntos(){
       </div>
     </div>
 
+    ${htmlMeritocracia()}
     <!-- PROXIMO CANJE -->
     ${proxCanje?`<div style="background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:14px 16px;margin-bottom:16px">
       <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:8px">Próximo canje disponible</div>
@@ -7306,13 +7343,13 @@ function prefetchAdminTeamData(){
 }
 
 const ADMIN_SECCIONES=[
-  {id:'panel',ico:'📊',label:'Panel'},
-  {id:'equipo',ico:'👥',label:'Equipo',subs:[['estado','Estado'],['cuentas','Cuentas'],['comisiones','Comisiones'],['sucursales','Sucursales'],['stories','Stories'],['puntos','Puntos']]},
-  {id:'catalogo',ico:'🏷️',label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Stock (para vender)'],['proveedores','Proveedores'],['insumos','Insumos']]},
-  {id:'contenido',ico:'📝',label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
-  {id:'clientes',ico:'🧑‍🤝‍🧑',label:'Clientes',subs:[['directorio','Clientes'],['deudas','Deudas'],['senas','Señas'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas'],['descuentos','Descuentos']]},
-  {id:'finanzas',ico:'💼',label:'Finanzas',subs:[['balance','Balance'],['gastos','Gastos'],['fijos','Gastos fijos'],['costos','Costo por servicio'],['equilibrio','Punto de equilibrio'],['flujo','Flujo anual'],['caja','Caja']]},
-  {id:'recepcion',ico:'📞',label:'Recepción'},
+  {id:'panel',ico:mi('panel',16),label:'Panel'},
+  {id:'equipo',ico:mi('equipo',16),label:'Equipo',subs:[['estado','Estado'],['cuentas','Cuentas'],['comisiones','Comisiones'],['sucursales','Sucursales'],['stories','Stories'],['puntos','Puntos']]},
+  {id:'catalogo',ico:mi('catalogo',16),label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Stock (para vender)'],['proveedores','Proveedores'],['insumos','Insumos']]},
+  {id:'contenido',ico:mi('contenido',16),label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
+  {id:'clientes',ico:mi('clientes',16),label:'Clientes',subs:[['directorio','Clientes'],['deudas','Deudas'],['senas','Señas'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas'],['descuentos','Descuentos']]},
+  {id:'finanzas',ico:mi('finanzas',16),label:'Finanzas',subs:[['balance','Balance'],['gastos','Gastos'],['fijos','Gastos fijos'],['costos','Costo por servicio'],['equilibrio','Punto de equilibrio'],['flujo','Flujo anual'],['caja','Caja']]},
+  {id:'recepcion',ico:mi('recepcion',16),label:'Recepción'},
 ];
 window.adminSub={};
 
@@ -7427,7 +7464,7 @@ function renderAdminEstadoEquipo(body){
     <div class="sec-title" style="margin:14px 0 10px">⚠️ Alertas</div>
     <div class="card">
       ${incsPend.map(i=>`<div class="alert-item"><span style="font-size:16px">⚠️</span><div style="flex:1;font-size:12px"><strong>${i.profName}</strong> — ${i.razon}</div><button onclick="procesarIncidente('${i.id}',true)" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(244,114,182,.15);color:#f472b6;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">Ver</button></div>`).join('')}
-      ${canjesPend.map(s=>`<div class="alert-item"><span style="font-size:16px">🎁</span><div style="flex:1;font-size:12px"><strong>${s.profName}</strong> quiere canjear ${s.canjeLabel}</div><button onclick="switchAdminTab('puntos')" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(124,111,255,.15);color:#7c6fff;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">Ver</button></div>`).join('')}
+      ${canjesPend.map(s=>`<div class="alert-item"><span style="font-size:16px">🎁</span><div style="flex:1;font-size:12px"><strong>${s.profName}</strong> quiere canjear ${s.canjeLabel}</div><button onclick="switchAdminTab('puntos')" style="padding:4px 10px;border-radius:8px;border:none;background:rgba(123,51,126,.15);color:#7B337E;font-family:var(--font);font-size:11px;font-weight:700;cursor:pointer">Ver</button></div>`).join('')}
     </div>`:''}
   `;
 }
@@ -7474,7 +7511,7 @@ const numV=(x)=>parseFloat(x)||0;
 const escH=(s)=>String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const MESES=['enero','febrero','marzo','abril','mayo','junio','julio','agosto','septiembre','octubre','noviembre','diciembre'];
 const DIAS_SEM=['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'];
-const COL={cortes:'#7c6fff', prod:'#34d399', rosa:'#f472b6', oro:'#fbbf24', azul:'#60a5fa', mp:'#009ee3'};
+const COL={cortes:'#7B337E', prod:'#34d399', rosa:'#f472b6', oro:'#fbbf24', azul:'#60a5fa', mp:'#009ee3'};
 
 // Las fechas se guardan como YYYY-MM-DD (UTC, igual que el resto de la app): se comparan como texto
 function hoyStr(){ return ymdLocal(new Date()); }
@@ -7610,7 +7647,7 @@ function svgDias(dias,ver,hoy,sel){
     const hC=ver.cortes?ih*d.cortes/max:0, hP=ver.productos?ih*d.prod/max:0;
     const tip=`${DIAS_SEM[new Date(d.f+'T00:00:00Z').getUTCDay()]} ${fechaCortaStr(d.f)}\nCortes: ${fp(d.cortes)} (${d.nT} turnos)\nProductos: ${fp(d.prod)}\nTotal: ${fp(d.cortes+d.prod)}`;
     s+=`<g data-tip="${escH(tip)}" onclick="adminPanelDia('${d.f}')" style="cursor:pointer">
-      <rect x="${pl+i*bw}" y="${pt}" width="${bw}" height="${ih}" fill="${sel===d.f?'rgba(124,111,255,.14)':'transparent'}"/>
+      <rect x="${pl+i*bw}" y="${pt}" width="${bw}" height="${ih}" fill="${sel===d.f?'rgba(123,51,126,.14)':'transparent'}"/>
       ${hC>0?`<rect x="${x}" y="${pt+ih-hC}" width="${w}" height="${hC}" rx="2" fill="${COL.cortes}"/>`:''}
       ${hP>0?`<rect x="${x}" y="${pt+ih-hC-hP}" width="${w}" height="${hP}" rx="2" fill="${COL.prod}"/>`:''}
       ${!hC&&!hP&&!futuro?`<rect x="${x}" y="${pt+ih-1.5}" width="${w}" height="1.5" fill="var(--border2)"/>`:''}
@@ -8264,6 +8301,7 @@ function renderAdminPuntos(body){
   </div>`).join('');
 
   body.innerHTML += htmlAdminReglasPuntos()+`
+    ${htmlMeritocracia()}
     <div class="sec-title" style="margin-bottom:12px">🏆 Ranking</div>
     ${rankHtml}
     <div class="sec-hdr" style="margin:16px 0 12px"><span class="sec-title">Dar/quitar puntos</span></div>
@@ -8517,7 +8555,7 @@ function renderRecepcion(){
       const rr=(x,y,st='')=>`<div style="display:flex;justify-content:space-between;gap:8px;font-size:13px;padding:2px 0;${st}"><span>${x}</span><span style="white-space:nowrap">${y}</span></div>`;
       const detalle=t?(
         (t.servicios&&t.servicios.length?t.servicios.map(s=>rr(nomSvc(s),fp(s.precio))).join(''):rr(t.servicio||'Servicio',fp(t.monto)))
-        +(t.descDetalle&&t.descDetalle.length?t.descDetalle.map(d=>rr(escH(d.label)+' (−'+d.pct+'%)','−'+fp(d.monto),'color:#34d399')).join(''):(t.descuento>0?rr(t.descuentoTipo==='oferta'?`🏷️ Oferta ${t.oferta?t.oferta.nombre:''} (−${t.oferta?t.oferta.pct:''}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(t.descuento),'color:#34d399'):''))+(t.prepago>0?rr('✓ Ya pagado (membresía/paquete)','−'+fp(t.prepago),'color:#7c6fff'):'')+(t.sena&&t.sena.monto>0?rr('💵 Seña que ya dejó','−'+fp(t.sena.monto),'color:#7c6fff'):'')
+        +(t.descDetalle&&t.descDetalle.length?t.descDetalle.map(d=>rr(escH(d.label)+' (−'+d.pct+'%)','−'+fp(d.monto),'color:#34d399')).join(''):(t.descuento>0?rr(t.descuentoTipo==='oferta'?`🏷️ Oferta ${t.oferta?t.oferta.nombre:''} (−${t.oferta?t.oferta.pct:''}%)`:`💵 Pago en efectivo (−${DESC_EFECTIVO_PCT}%)`,'−'+fp(t.descuento),'color:#34d399'):''))+(t.prepago>0?rr('✓ Ya pagado (membresía/paquete)','−'+fp(t.prepago),'color:#7B337E'):'')+(t.sena&&t.sena.monto>0?rr('💵 Seña que ya dejó','−'+fp(t.sena.monto),'color:#7B337E'):'')
       ):rr(`${v.productoNombre} x${v.cantidad}`,fp(v.total));
       return `<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.35);border-left:5px solid ${sucCol};background:rgba(251,191,36,.06)">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px">
@@ -8552,13 +8590,13 @@ function renderRecepcion(){
     <!-- Venta de productos -->
     <div class="sec-hdr" style="margin-bottom:8px">
       <span class="sec-title">💰 Ventas</span>
-      <button class="sec-btn" onclick="abrirVentaProducto()" style="background:#7c6fff">+ Venta</button>
+      <button class="sec-btn" onclick="abrirVentaProducto()" style="background:#7B337E">+ Venta</button>
     </div>
     <div class="stat-grid" style="margin-bottom:8px">
       <div class="stat-card"><div class="sc-lbl">Hoy vendiste</div><div class="sc-val" style="font-size:19px">${fp(sumaV(ventasHoyRec,'total'))}</div><div class="sc-sub">${ventasHoyRec.length} ${ventasHoyRec.length===1?'venta':'ventas'} · +${fp(sumaV(ventasHoyRec,'comision'))}</div></div>
-      <div class="stat-card"><div class="sc-lbl">Tu comisión (quincena)</div><div class="sc-val" style="font-size:19px;color:#7c6fff">${fp(sumaV(ventasQuinRec,'comision'))}</div><div class="sc-sub">${fp(sumaV(ventasQuinRec,'total'))} vendidos</div></div>
+      <div class="stat-card"><div class="sc-lbl">Tu comisión (quincena)</div><div class="sc-val" style="font-size:19px;color:#7B337E">${fp(sumaV(ventasQuinRec,'comision'))}</div><div class="sc-sub">${fp(sumaV(ventasQuinRec,'total'))} vendidos</div></div>
     </div>
-    ${ventasHoyRec.slice(0,3).map(v=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:#7c6fff"></div><div class="ti-info"><strong>${v.productoNombre}</strong><span>x${v.cantidad}${v.cliente?' · '+v.cliente:''}${v.creadoEn?' · '+new Date(v.creadoEn).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):''}</span></div><div style="text-align:right"><div class="ti-monto">${fp(v.total)}</div><div class="ti-medio" style="background:#7c6fff22;color:#7c6fff">+${fp(v.comision)}</div></div></div>`).join('')}
+    ${ventasHoyRec.slice(0,3).map(v=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:#7B337E"></div><div class="ti-info"><strong>${v.productoNombre}</strong><span>x${v.cantidad}${v.cliente?' · '+v.cliente:''}${v.creadoEn?' · '+new Date(v.creadoEn).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):''}</span></div><div style="text-align:right"><div class="ti-monto">${fp(v.total)}</div><div class="ti-medio" style="background:#7B337E22;color:#7B337E">+${fp(v.comision)}</div></div></div>`).join('')}
     <div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px"><div style="font-size:24px">🎁</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Paquetes y membresías</div><div style="font-size:11px;color:var(--muted2)">Se venden desde la ficha de cada cliente (buscalo arriba)</div></div></div>
     <div style="height:10px"></div>
 
@@ -8704,23 +8742,23 @@ function renderMenu(){
   const rubrosTxt=(p.role==='profesional'&&p.rubros&&p.rubros.length)?p.rubros.map(nombreRubro).filter(Boolean).join(', '):(ROLES[p.role]||'');
   let items='';
   if(p.role==='profesional'){
-    items=it('👤','Mi perfil','perfil')+it('🎬','Contenido','contenido')+(p.esEncargado?it('📦','Control de stock','stock'):'')+it('👥','Mis clientes','clientes')+it('💰','Mi dinero','dinero')+it('📝','Banco de reels','banco')+it('🗂️','Tablero','kanban')+it('📱','Historias','stories')+it('🏆','Mis puntos','puntos')+(p.adminReal?it('👑','Volver a Admin','modoAdmin'):'');
+    items=it(mi('perfil'),'Mi perfil','perfil')+it(mi('contenido'),'Contenido','contenido')+(p.esEncargado?it(mi('stock'),'Control de stock','stock'):'')+it(mi('clientes'),'Mis clientes','clientes')+it(mi('dinero'),'Mi dinero','dinero')+it(mi('banco'),'Banco de reels','banco')+it(mi('kanban'),'Tablero','kanban')+it(mi('historias'),'Historias','stories')+it(mi('puntos'),'Mis puntos','puntos')+(p.adminReal?it('👑','Volver a Admin','modoAdmin'):'');
   } else if(p.role==='recepcionista'){
-    items=it('👤','Mi cuenta','perfil')+it('📱','Historias','stories');
+    items=it(mi('perfil'),'Mi cuenta','perfil')+it(mi('historias'),'Historias','stories');
   } else {
-    items=it('👤','Mi cuenta','perfil')+(p.role==='admin'&&p.tambienProf?it('✂️','Mi perfil profesional','modoProf'):'');
+    items=it(mi('perfil'),'Mi cuenta','perfil')+(p.role==='admin'&&p.tambienProf?it('✂️','Mi perfil profesional','modoProf'):'');
   }
-  items+=it('🧭','Guía rápida','guia')+it('🔑','Cambiar contraseña','pass');
+  items+=it(mi('guia'),'Guía rápida','guia')+it(mi('pass'),'Cambiar contraseña','pass');
   document.getElementById('mlat-cnt').innerHTML=`
     <div class="mlat-hd">
-      <div class="mlat-av" style="background:${p.color||'#7c6fff'}33;border-color:${p.color||'#7c6fff'}">${p.emoji||'👤'}</div>
+      <div class="mlat-av" style="background:${p.color||'#7B337E'}33;border-color:${p.color||'#7B337E'}">${p.emoji||'👤'}</div>
       <div style="flex:1;min-width:0"><div style="font-size:16px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(p.name)}</div><div style="font-size:11.5px;color:var(--muted2);overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(rubrosTxt)}</div></div>
       <button class="mlat-x" onclick="cerrarMenu()" aria-label="Cerrar">×</button>
     </div>
     <div class="mlat-lista">${items}</div>
     <div class="mlat-pie">
       <button class="mlat-it" onclick="alternarTema()"><span>${claro?'☀️':'🌙'}</span>Modo claro<i class="mlat-sw ${claro?'on':''}"><b></b></i></button>
-      <button class="mlat-it mlat-salir" onclick="menuIr('salir')"><span>🚪</span>Salir</button>
+      <button class="mlat-it mlat-salir" onclick="menuIr('salir')"><span>${mi('salir')}</span>Salir</button>
     </div>`;
 }
 
@@ -8729,7 +8767,7 @@ function abrirMiCuenta(){
   const p=profile; if(!p) return;
   const c=document.getElementById('registro-content');
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">Mi cuenta</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-    <div style="text-align:center;padding:6px 0 18px"><div style="width:72px;height:72px;border-radius:50%;background:${p.color||'#7c6fff'}33;border:3px solid ${p.color||'#7c6fff'};display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 10px">${p.emoji||'👤'}</div>
+    <div style="text-align:center;padding:6px 0 18px"><div style="width:72px;height:72px;border-radius:50%;background:${p.color||'#7B337E'}33;border:3px solid ${p.color||'#7B337E'};display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 10px">${p.emoji||'👤'}</div>
       <div style="font-size:20px;font-weight:900">${escH(p.name)}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:2px">@${escH(p.username||'')} · ${escH(ROLES[p.role]||p.role)}</div></div>
     <button class="btn btn-ghost" onclick="closeModal('modal-registro');cambiarMiPassword()">🔑 Cambiar contraseña</button>`;
@@ -8739,7 +8777,7 @@ function abrirMiCuenta(){
 // ---------- guia rapida ("consejo 1 de N") ----------
 const GUIAS={
   profesional:[
-    {e:'👋',t:'Bienvenido/a a Luffy',x:'Acá tenés tu día a día en un solo lugar: cobros, plata, contenido y puntos. Estos consejos te muestran cómo usarlo. Podés saltearlos y volver a verlos cuando quieras desde el menú ☰ → Guía rápida.'},
+    {e:'👋',t:'Bienvenido/a a Inda App',x:'Acá tenés tu día a día en un solo lugar: cobros, plata, contenido y puntos. Estos consejos te muestran cómo usarlo. Podés saltearlos y volver a verlos cuando quieras desde el menú ☰ → Guía rápida.'},
     {e:'➕',t:'Cobrar un turno',x:'En el Inicio tocá "+ Registrar turno". Elegí qué le hiciste, si tiene una oferta, si se llevó algún producto y cómo pagó. El total se arma solo y recepción lo ve al instante para cobrarle.'},
     {e:'✨',t:'Combos y descuentos automáticos',x:'Si elegís Corte + Barba se cobra el precio del combo sin que hagas nada. Pagando en efectivo hay 10% de descuento en los servicios (si el cliente además tiene una oferta, se aplica la que más descuenta). En la barba elegís el largo.'},
     {e:'👥',t:'Tus clientes',x:'Desde el menú ☰ → Mis clientes armás tu propia base: al cobrar un turno escribí el nombre y el cliente se guarda solo con su número (#). Ahí ves cuántas veces vino, cada cuánto y todo lo que se hizo en cada visita.'},
@@ -8752,7 +8790,7 @@ const GUIAS={
     {e:'🎬',t:'Tu perfil y tu contenido',x:'En el menú ☰ → Mi perfil podés cambiar tus rubros (ves solo los servicios de lo que hacés). Y en la sección Contenido armás tu nicho y tus pilares con nuestro onboarding, cuando quieras. También podés cambiar a modo claro u oscuro desde el menú.'},
   ],
   recepcionista:[
-    {e:'👋',t:'Bienvenida a Luffy',x:'Esta es tu pantalla de trabajo. Estos consejos te muestran cómo usarla; podés saltearlos y volver a verlos desde el menú ☰ → Guía rápida.'},
+    {e:'👋',t:'Bienvenida a Inda App',x:'Esta es tu pantalla de trabajo. Estos consejos te muestran cómo usarla; podés saltearlos y volver a verlos desde el menú ☰ → Guía rápida.'},
     {e:'🔔',t:'Para cobrar',x:'Cuando un profesional termina un turno te aparece acá con todo el detalle: sucursal (con su color), profesional, cliente, qué se hizo, el descuento, los productos y cómo paga. Tocá "Abrir turno" para cobrarlo. Las deudas también las cobrás vos: los profesionales solo las anotan.'},
     {e:'✅',t:'Al cerrar cada turno',x:'Te vamos guiando con unas preguntas: si está agendado, si le contaste los beneficios de seguir viniendo, si reagendó, si dejó seña y si dejó reseña en Google (esa suma puntos). Así no se olvida nada.'},
     {e:'🚫',t:'Clientes que deben',x:'Si un cliente se fue sin pagar, aparece en "Clientes que deben" con quién lo dejó y hace cuánto. Cuando pague, tocá Cobrar: suma a la quincena del profesional del día en que pagó.'},
@@ -8761,7 +8799,7 @@ const GUIAS={
     {e:'🎂',t:'Cumpleaños e incidentes',x:'Te avisamos los cumpleaños de los próximos días para contactar a los clientes (suma puntos). Y si pasa algo con un profesional, lo reportás desde "Reportar incidente". Modo claro/oscuro en el menú ☰.'},
   ],
   encargado:[
-    {e:'👋',t:'Bienvenido/a a Luffy',x:'Acá controlás el stock de los productos. Podés volver a ver estos consejos desde el menú ☰ → Guía rápida.'},
+    {e:'👋',t:'Bienvenido/a a Inda App',x:'Acá controlás el stock de los productos. Podés volver a ver estos consejos desde el menú ☰ → Guía rápida.'},
     {e:'📦',t:'El stock baja solo',x:'Cada venta que hacen los profesionales o recepción descuenta las unidades automáticamente, así que el número que ves es el real.'},
     {e:'⚠️',t:'Alertas de poco stock',x:'Cuando un producto llega al mínimo que definió el admin, se marca en rojo para que repongas a tiempo.'},
     {e:'➕',t:'Reponer',x:'Cuando llegan productos, tocá "Reponer" en el producto y poné cuántas unidades sumaste. Solo podés tocar cantidades, no precios.'},
@@ -8899,7 +8937,7 @@ function renderCierre(){
       <div style="font-size:13.5px;font-weight:700;line-height:1.45;margin-bottom:8px">${i+1}. ${p.ico} ${escH(p.q)}${p.nota?` <span style="font-size:11px;font-weight:700;color:#fbbf24">· ${p.nota}</span>`:''}</div>
       <div style="display:flex;gap:8px">${opt(p.id,'si','Sí')}${opt(p.id,'no','No')}</div>
       ${p.id==='reagendo'&&t.reag?`<div style="font-size:11.5px;color:#60a5fa;margin-top:6px">El profesional marcó: ${escH((REAG_OPC.find(o=>o[0]===t.reag.estado)||[0,t.reag.estado])[1])}${t.reag.motivo?' — «'+escH(t.reag.motivo)+'»':''}</div>`:''}
-      ${p.id==='sena'&&s.r.sena==='si'?`<div style="margin-top:8px;padding:10px 12px;border:1.5px solid rgba(124,111,255,.4);border-radius:12px;background:rgba(124,111,255,.06)"><input type="number" inputmode="decimal" placeholder="¿De cuánto es la seña?" value="${escH(s.senaMonto)}" oninput="cierreSel.senaMonto=this.value" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none"/><div style="display:flex;gap:6px;margin-top:8px">${[['efectivo','💵 Efectivo'],['mp','📱 MP'],['tarjeta','💳 Tarjeta']].map(([v,l])=>`<button onclick="cierreSel.senaMedio='${v}';renderCierre()" style="flex:1;${pillStyle(s.senaMedio===v,'#7c6fff')}">${l}</button>`).join('')}</div><select onchange="cierreSel.senaProf=this.value" style="${selFin};margin-top:8px">${profesionalesLista().map(u=>`<option value="${u.id}" ${s.senaProf===u.id?'selected':''}>Turno con ${escH(u.name)}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted2);margin-top:6px">Queda a nombre de ${escH((a.turno&&a.turno.cliente)||'el cliente')} y se le descuenta sola en su próximo turno.</div></div>`:''}
+      ${p.id==='sena'&&s.r.sena==='si'?`<div style="margin-top:8px;padding:10px 12px;border:1.5px solid rgba(123,51,126,.4);border-radius:12px;background:rgba(123,51,126,.06)"><input type="number" inputmode="decimal" placeholder="¿De cuánto es la seña?" value="${escH(s.senaMonto)}" oninput="cierreSel.senaMonto=this.value" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;outline:none"/><div style="display:flex;gap:6px;margin-top:8px">${[['efectivo','💵 Efectivo'],['mp','📱 MP'],['tarjeta','💳 Tarjeta']].map(([v,l])=>`<button onclick="cierreSel.senaMedio='${v}';renderCierre()" style="flex:1;${pillStyle(s.senaMedio===v,'#7B337E')}">${l}</button>`).join('')}</div><select onchange="cierreSel.senaProf=this.value" style="${selFin};margin-top:8px">${profesionalesLista().map(u=>`<option value="${u.id}" ${s.senaProf===u.id?'selected':''}>Turno con ${escH(u.name)}</option>`).join('')}</select><div style="font-size:11px;color:var(--muted2);margin-top:6px">Queda a nombre de ${escH((a.turno&&a.turno.cliente)||'el cliente')} y se le descuenta sola en su próximo turno.</div></div>`:''}
     </div>`).join('')}
     <button class="btn btn-primary" onclick="guardarCierreCobro()" style="background:${listos?'#34d399':'var(--s3)'};color:${listos?'#0b0b10':'var(--muted2)'};margin-top:4px">${listos?'✓ Cobrado y turno cerrado':'Respondé las 5 preguntas para cerrar'}</button>`;
   if(box) box.scrollTop=st;
