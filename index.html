@@ -503,6 +503,13 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
   <div class="scroll" id="pk-body"></div>
 </div>
 
+<!-- AGENDA (propia de Luffy, separada de AgendaPro) -->
+<div id="agenda" class="screen">
+  <div class="inner-hdr"><button class="back" onclick="volverDeAgenda()">←</button><h2>📅 Agenda</h2></div>
+  <div id="ag-toolbar" style="padding:0 16px 10px;display:flex;flex-direction:column;gap:8px;flex-shrink:0"></div>
+  <div style="flex:1;overflow:auto;-webkit-overflow-scrolling:touch" id="ag-grid-wrap"><div id="ag-grid"></div></div>
+</div>
+
 <!-- HUB -->
 <div id="hub" class="screen" style="background:var(--bg)">
   <!-- Header -->
@@ -559,6 +566,9 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
       <div id="hub-puntos-txt" style="flex:1;font-size:12px;color:var(--muted2)">Cargando puntos...</div>
       <span style="font-size:16px;color:var(--muted)">›</span>
     </div>
+
+    <!-- Proximos turnos agendados -->
+    <div id="hub-proximos-turnos"></div>
 
     <!-- Otras acciones -->
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
@@ -1701,9 +1711,9 @@ async function revisarEpoca(){
   let mio=null; try{ mio=localStorage.getItem('luffy_epoca'); }catch(e){}
   if(String(n)===mio) return false;
   const prefijos=['luffy_dinero_','luffy_yo_','luffy_rec_','luffy_clientes','luffy_caja_'];
-  const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_cierres','luffy_reels','luffy_reels_del','luffy_productos','luffy_avisos_leidos','luffy_incidentes','luffy_membresias','luffy_paquetes','luffy_senas'];
+  const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_cierres','luffy_reels','luffy_reels_del','luffy_productos','luffy_avisos_leidos','luffy_incidentes','luffy_membresias','luffy_paquetes','luffy_senas','luffy_agenda'];
   try{ Object.keys(localStorage).forEach(k=>{ if(prefijos.some(p=>k.startsWith(p))||exactos.includes(k)) localStorage.removeItem(k); }); localStorage.setItem('luffy_epoca',String(n)); }catch(e){}
-  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; productos=[]; clientesDir=[]; membresiasSt.list=[]; paquetesSt.list=[]; senasSt.list=[]; cajaDocs={};
+  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; productos=[]; clientesDir=[]; membresiasSt.list=[]; paquetesSt.list=[]; senasSt.list=[]; agendaSt.list=[]; cajaDocs={};
   dineroData={turnos:[],ventas:[],deudores:[]}; avisosLeidos=[]; cierresData={byKey:{}};
   return true;
 }
@@ -2309,7 +2319,9 @@ const paquetesSt=almacenLista('luffy/paquetes','luffy_paquetes',(a,b)=>{
 const sugerenciasPaqSt=almacenLista('luffy/sugerencias_paq','luffy_sugerencias_paq',nuevoMayor);
 // Diego Laure: turnos que un profesional dejo "registrados" y todavia no cobro recepcion (ver "Registrar turno" / "Cobrar")
 const turnosPendientesSt=almacenLista('luffy/turnos_pendientes','luffy_turnos_pendientes',nuevoMayor);
-function loadSocial(){ loadClientes(); membresiasSt.load(); paquetesSt.load(); senasSt.load(); sugerenciasPaqSt.load(); turnosPendientesSt.load(); }
+// Agenda propia de Luffy (separada de AgendaPro): turnos agendados a futuro, cargados desde acá. Ver "Agenda".
+const agendaSt=almacenLista('luffy/agenda','luffy_agenda',nuevoMayor);
+function loadSocial(){ loadClientes(); membresiasSt.load(); paquetesSt.load(); senasSt.load(); sugerenciasPaqSt.load(); turnosPendientesSt.load(); agendaSt.load(); }
 // El "Sugerir combo" viejo (boton opcional) quedo reemplazado por la pregunta obligatoria
 // "¿Le ofreciste un paquete?" dentro del cobro (ver renderPrepagoCobro / guardarCobro).
 async function marcarSugerenciaAtendida(id){
@@ -2324,13 +2336,12 @@ function htmlSugerenciasPaqRec(){
       <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${x.tipo==='recordatorio'?'🔔 Nadie le ofreció un combo todavía':escH(nombreRubro(x.rubro)||x.rubro)} · lo dejó ${escH(x.profNombre)} · hace ${minutosDesde(x.ts)}</div>
       <div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost" style="flex:1" onclick="abrirVentaPaquete('${x.clienteId}')">🎁 Armar paquete</button><button class="btn btn-ghost" style="flex:0 0 auto" onclick="marcarSugerenciaAtendida('${x.id}')">✓ Atendido</button></div></div>`).join('')}`;
 }
-// Paquetes recién vendidos por cualquier profesional: recepción los ve acá para coordinar día y horario de cada servicio con el cliente
-async function coordinarItemPaquete(pid,itemId){
+// Paquetes recién vendidos por cualquier profesional: recepción los ve acá para coordinar, en la Agenda, con qué profesional y a qué hora se hace cada servicio
+function coordinarItemPaquete(pid,itemId){
   const p=paquetesSt.list.find(x=>x.id===pid); const it=p&&p.items.find(x=>x.id===itemId); if(!it) return;
-  const v=await uiDialog({title:'Coordinar: '+it.nombre,msg:'¿Cuándo va a venir a hacérselo?',fields:[{label:'Fecha',type:'date',value:(it.coord&&it.coord.fecha)||''},{label:'Hora',type:'time',value:(it.coord&&it.coord.hora)||''}]});
-  if(!v) return;
-  await paquetesSt.cambiar(l=>{ const pk=l.find(x=>x.id===pid); const i2=pk&&pk.items.find(x=>x.id===itemId); if(i2){ i2.coord={fecha:v[0]||'',hora:v[1]||''}; pk.upd=new Date().toISOString(); } });
-  refreshCurrentView();
+  agPendingPaquete={paqueteId:pid,itemId,clienteId:p.clienteId,clienteNombre:p.clienteNombre,svcId:it.svcId,nombre:it.nombre};
+  abrirAgenda(p.sucursal||null);
+  showToast('Elegí un profesional y un horario para '+it.nombre);
 }
 async function marcarPaqueteAvisado(pid){
   await paquetesSt.cambiar(l=>{ const p=l.find(x=>x.id===pid); if(p){ p.avisado=true; p.upd=new Date().toISOString(); } });
@@ -2349,6 +2360,226 @@ function htmlPaquetesNuevosRec(){
       </div>`).join('')}
       <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="marcarPaqueteAvisado('${p.id}')">✓ Ya coordinado, sacar de la cola</button>
     </div>`).join('')}`;
+}
+
+// ============ AGENDA (propia de Luffy, separada de AgendaPro — ver negocio/pendientes-app.md) ============
+// MVP: un dia a la vez, columnas por profesional, cada 15 min. No lee ni escribe nada de AgendaPro.
+const AG_INICIO=8*60, AG_FIN=21*60+30, AG_PASO=15; // minutos desde las 00:00
+function agSlots(){ const out=[]; for(let m=AG_INICIO;m<AG_FIN;m+=AG_PASO) out.push(m); return out; }
+function agHM(m){ return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+function agMin(hm){ const p=(hm||'00:00').split(':').map(Number); return (p[0]||0)*60+(p[1]||0); }
+function agEstado(a){
+  if(a.estado==='cancelado') return 'cancelado';
+  if(a.paqueteId){ const p=paquetesSt.list.find(x=>x.id===a.paqueteId); const it=p&&p.items.find(x=>x.id===a.itemId); if(it&&it.usado) return 'hecho'; }
+  return a.estado||'agendado';
+}
+
+let agState={sucursal:null,fecha:null};
+let agSel=null; // formulario en curso
+let agPendingPaquete=null; // {paqueteId,itemId,clienteId,clienteNombre,svcId,nombre} al venir de "Coordinar" un paquete
+let agVolver=null;
+
+function abrirAgenda(sucId){
+  agVolver = currentScreenId==='admin' ? ()=>{ show('admin'); enterAdmin(); }
+    : currentScreenId==='recepcion' ? ()=>{ show('recepcion'); renderRecepcion(); }
+    : ()=>goTo('hub');
+  if(sucId) agState.sucursal=sucId;
+  if(!agState.sucursal){ const ss=sucursalesDe(profile); agState.sucursal = ss[0] || (sucursales[0]&&sucursales[0].id) || null; }
+  if(!agState.fecha) agState.fecha=hoyStr();
+  goTo('agenda');
+}
+function volverDeAgenda(){ agPendingPaquete=null; (agVolver||(()=>goTo('hub')))(); }
+function agNavDia(delta){ const d=new Date(agState.fecha+'T00:00:00'); d.setDate(d.getDate()+delta); agState.fecha=ymdLocal(d); renderAgenda(); }
+function agHoy(){ agState.fecha=hoyStr(); renderAgenda(); }
+
+function renderAgenda(){
+  const ss = profile.role==='admin' ? sucursales : (sucursalesDe(profile).length?sucursales.filter(x=>sucursalesDe(profile).includes(x.id)):sucursales);
+  if(!ss.some(x=>x.id===agState.sucursal)) agState.sucursal = (ss[0]&&ss[0].id)||agState.sucursal;
+  const tb=document.getElementById('ag-toolbar');
+  const d=new Date(agState.fecha+'T00:00:00');
+  const diaTxt=d.toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'});
+  tb.innerHTML=`
+    <div style="display:flex;align-items:center;gap:8px">
+      ${ss.length>1?`<select onchange="agState.sucursal=this.value;agGrid()" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:700">${ss.map(x=>`<option value="${x.id}" ${x.id===agState.sucursal?'selected':''}>${escH(x.nombre)}</option>`).join('')}</select>`:''}
+      <button class="btn btn-primary" style="width:auto;padding:8px 14px;font-size:12px;margin-left:auto" onclick="agAbrirSlot(null,${AG_INICIO+4*AG_PASO})">+ Turno</button>
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+      <button onclick="agNavDia(-1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:30px;height:30px;color:var(--text);cursor:pointer">‹</button>
+      <span style="font-size:12.5px;font-weight:800;text-transform:capitalize;min-width:90px;text-align:center">${diaTxt}</span>
+      <button onclick="agNavDia(1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:30px;height:30px;color:var(--text);cursor:pointer">›</button>
+      <button class="lnk" onclick="agHoy()">Hoy</button>
+    </div>`;
+  agGrid();
+}
+function agGrid(){
+  const wrap=document.getElementById('ag-grid'); if(!wrap) return;
+  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal));
+  if(!profs.length){ wrap.innerHTML='<div style="padding:24px 16px;text-align:center;color:var(--muted);font-size:13px">No hay profesionales asignados a esta sucursal.</div>'; return; }
+  const slots=agSlots(), rowH=32;
+  const turnos=agendaSt.list.filter(a=>a.fecha===agState.fecha&&a.sucursal===agState.sucursal&&agEstado(a)!=='cancelado');
+  const colorEst=(a)=>{ const e=agEstado(a); return e==='hecho'?'#34d399':a.paqueteId?'#7B337E':'#3b82f6'; };
+  const labelCol=`<div style="width:40px;flex-shrink:0">${slots.map(m=>`<div style="height:${rowH}px;font-size:9.5px;color:var(--muted2);text-align:right;padding-right:4px;box-sizing:border-box;border-top:1px solid var(--border)">${m%60===0?agHM(m):''}</div>`).join('')}</div>`;
+  const cols=profs.map(p=>{
+    const mios=turnos.filter(a=>a.profId===p.id);
+    const bg=slots.map(m=>`<div onclick="agAbrirSlot('${p.id}',${m})" style="height:${rowH}px;border-top:1px solid var(--border);border-left:1px solid var(--border);cursor:pointer;box-sizing:border-box"></div>`).join('');
+    const blocks=mios.map(a=>{
+      const startIdx=Math.round((agMin(a.hora)-AG_INICIO)/AG_PASO);
+      if(startIdx<0||startIdx>=slots.length) return '';
+      const h=Math.max(1,Math.round((a.duracion||30)/AG_PASO))*rowH-2;
+      return `<div onclick="event.stopPropagation();agAbrirDetalle('${a.id}')" style="position:absolute;left:2px;right:2px;top:${startIdx*rowH}px;height:${h}px;background:${colorEst(a)};border-radius:6px;padding:3px 5px;overflow:hidden;cursor:pointer;color:#fff">
+        <div style="font-size:10.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH(a.clienteNombre)}</div>
+        <div style="font-size:9px;font-weight:600;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH((a.servicios[0]||{}).nombre||'')}${a.paqueteId?' 🎁':''}</div>
+      </div>`;
+    }).join('');
+    return `<div style="flex:1;min-width:118px;position:relative">${bg}${blocks}</div>`;
+  }).join('');
+  const header=`<div style="display:flex;position:sticky;top:0;background:var(--bg);z-index:2;border-bottom:1.5px solid var(--border2)">
+    <div style="width:40px;flex-shrink:0"></div>
+    ${profs.map(p=>`<div style="flex:1;min-width:118px;padding:8px 4px;text-align:center;font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(p.name)}</div>`).join('')}
+  </div>`;
+  wrap.innerHTML=header+`<div style="display:flex">${labelCol}${cols}</div>`;
+}
+
+function agAbrirSlot(profId,minutos){
+  const prof=allUsers.find(u=>u.id===profId);
+  agSel={
+    editId:null, profId:profId||null, profNombre:prof?prof.name:'',
+    fecha:agState.fecha, hora:agHM(minutos), duracion:30,
+    clienteId:agPendingPaquete?agPendingPaquete.clienteId:null,
+    clienteNombre:agPendingPaquete?agPendingPaquete.clienteNombre:'',
+    servicios:agPendingPaquete?[agPendingPaquete.svcId]:[],
+    rubroAbierto:null, nota:'',
+    paqueteId:agPendingPaquete?agPendingPaquete.paqueteId:null,
+    itemId:agPendingPaquete?agPendingPaquete.itemId:null,
+  };
+  renderAgForm();
+  openModal('modal-registro');
+}
+function agReagendar(id){
+  const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
+  agSel={editId:a.id, profId:a.profId, profNombre:a.profNombre, fecha:a.fecha, hora:a.hora, duracion:a.duracion||30,
+    clienteId:a.clienteId, clienteNombre:a.clienteNombre, servicios:(a.servicios||[]).map(s=>s.svcId),
+    rubroAbierto:null, nota:a.nota||'', paqueteId:a.paqueteId||null, itemId:a.itemId||null};
+  renderAgForm();
+}
+function agAbrirDetalle(id){
+  const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
+  const est=agEstado(a);
+  const cont=document.getElementById('registro-content');
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">${escH(a.clienteNombre)}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:10px">${fechaCortaStr(a.fecha)} · ${a.hora}hs · ${escH(a.profNombre)}</div>
+    <div class="card" style="margin-bottom:12px">${(a.servicios||[]).map(s=>`<div style="font-size:13px;padding:2px 0">${escH(s.nombre)}</div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Sin servicios cargados</div>'}${a.nota?`<div style="font-size:11.5px;color:var(--muted2);margin-top:6px">📝 ${escH(a.nota)}</div>`:''}</div>
+    ${a.paqueteId?`<div style="font-size:11.5px;color:#7B337E;margin-bottom:10px">🎁 Viene de un paquete ya pagado — se marca hecho solo cuando se le cobra ese servicio.</div>`:''}
+    ${est==='hecho'?'<div style="font-size:12.5px;color:#34d399;font-weight:700;margin-bottom:10px">✅ Hecho</div>':est==='cancelado'?'<div style="font-size:12.5px;color:#f472b6;font-weight:700;margin-bottom:10px">🗑️ Cancelado</div>':''}
+    ${est==='agendado'?`<div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="agReagendar('${a.id}')">✏️ Reagendar</button>
+      ${a.paqueteId?'':`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="agMarcarHecho('${a.id}')">✓ Marcar hecho</button>`}
+      <button class="btn btn-ghost" style="flex:1;min-width:120px;color:#f472b6" onclick="agCancelar('${a.id}')">🗑️ Cancelar turno</button>
+    </div>`:''}`;
+  openModal('modal-registro');
+}
+function renderAgForm(){
+  const s=agSel; if(!s) return;
+  const color=(profile&&profile.color)||'#7B337E';
+  const grupos={}; servicios.forEach(x=>{ (grupos[x.rubro||'']=grupos[x.rubro||'']||[]).push(x); });
+  const rids=Object.keys(grupos);
+  const pill=(x)=>`<button onclick="agToggleServicio('${x.id}')" style="${pillStyle(s.servicios.includes(x.id),color)}">${escH(x.nombre)}</button>`;
+  const serviciosHtml=rids.length<=1
+    ?`<div style="display:flex;flex-wrap:wrap;gap:6px">${(grupos[rids[0]]||[]).map(pill).join('')}</div>`
+    :`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${rids.map(rid=>{ const n=grupos[rid].filter(x=>s.servicios.includes(x.id)).length; return `<button type="button" onclick="agAbrirRubro('${rid}')" style="${pillStyle(s.rubroAbierto===rid,color)}">${escH(nombreRubro(rid)||'Otros')}${n?' ('+n+')':''}</button>`; }).join('')}</div>`
+      +(s.rubroAbierto&&grupos[s.rubroAbierto]?`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[s.rubroAbierto].map(pill).join('')}</div>`:'<div style="font-size:11.5px;color:var(--muted2)">Tocá un rubro para ver sus servicios.</div>');
+  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal));
+  const cont=document.getElementById('registro-content');
+  const box=document.querySelector('#modal-registro .modal-box'); const st=box?box.scrollTop:0;
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">${s.editId?'Reagendar':'Agendar turno'} 📅</div><button onclick="agPendingPaquete=null;closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    ${s.paqueteId?`<div style="font-size:11.5px;color:#34d399;margin-bottom:10px">🎁 Coordinando un servicio de un paquete ya pagado</div>`:''}
+    <div class="field"><label>¿Para qué cliente?</label><input id="ag-cli" type="text" autocomplete="off" placeholder="Buscá por nombre..." value="${escH(s.clienteNombre)}" oninput="agClienteInput(this.value)" ${s.paqueteId?'readonly':''}/><div id="ag-cli-sug"></div></div>
+    <div class="field"><label>Profesional</label><div style="display:flex;flex-wrap:wrap;gap:6px">${profs.map(p=>`<button type="button" onclick="agElegirProf('${p.id}')" style="${pillStyle(s.profId===p.id,color)}">${escH(p.name)}</button>`).join('')||'<div style="font-size:12px;color:var(--muted)">No hay profesionales en esta sucursal.</div>'}</div></div>
+    <div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Fecha</label><input type="date" value="${s.fecha}" onchange="agSel.fecha=this.value"/></div><div class="field" style="flex:1"><label>Hora</label><input type="time" value="${s.hora}" onchange="agSel.hora=this.value"/></div></div>
+    <div class="field"><label>¿Qué le va a hacer?</label>${serviciosHtml}</div>
+    <div class="field"><label>Duración (minutos)</label><input type="number" inputmode="numeric" value="${s.duracion}" onchange="agSel.duracion=parseInt(this.value)||30"/></div>
+    <div class="field"><label>Nota (opcional)</label><input type="text" value="${escH(s.nota)}" oninput="agSel.nota=this.value" placeholder="Ej: viene con su hijo"/></div>
+    <button class="btn btn-primary" style="background:${color};margin-top:6px" onclick="agGuardar()">${s.editId?'Guardar cambios':'Agendar'}</button>`;
+  if(box) box.scrollTop=st;
+  agRenderSugerencias();
+}
+function agClienteInput(v){ agSel.clienteNombre=v; const c=clienteDe(agSel.clienteId); if(c&&c.nombre!==v) agSel.clienteId=null; agRenderSugerencias(); }
+function agElegirCliente(id){ const c=clienteDe(id); if(!c) return; agSel.clienteId=c.id; agSel.clienteNombre=c.nombre; const i=document.getElementById('ag-cli'); if(i) i.value=c.nombre; agRenderSugerencias(); }
+function agQuitarCliente(){ agSel.clienteId=null; agSel.clienteNombre=''; const i=document.getElementById('ag-cli'); if(i){ i.value=''; i.focus(); } agRenderSugerencias(); }
+function agRenderSugerencias(){
+  const el=document.getElementById('ag-cli-sug'); if(!el) return;
+  const sel=clienteDe(agSel.clienteId);
+  if(sel){ el.innerHTML=`<div style="font-size:12px;color:#34d399;font-weight:700;margin-top:6px;display:flex;gap:6px;align-items:center">✓ ${escH(idCorto(sel))||'Cliente elegido'} <button class="lnk" onclick="agQuitarCliente()">cambiar</button></div>`; return; }
+  const q=(agSel.clienteNombre||'').trim();
+  if(q.length<2){ el.innerHTML=''; return; }
+  const m=buscarClientes(q).slice(0,5);
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="agElegirCliente('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}
+    ${m.length?'':'<div style="font-size:11.5px;color:var(--muted2);padding:6px 2px">No encontramos a nadie. Cargalo primero desde Clientes.</div>'}</div>`;
+}
+function agElegirProf(id){ const p=allUsers.find(u=>u.id===id); agSel.profId=id; agSel.profNombre=p?p.name:''; renderAgForm(); }
+function agToggleServicio(id){
+  const i=agSel.servicios.indexOf(id);
+  if(i>=0) agSel.servicios.splice(i,1); else agSel.servicios.push(id);
+  const dur=agSel.servicios.reduce((s,sid)=>{ const sv=servicios.find(x=>x.id===sid); return s+(sv&&sv.duracion?sv.duracion:30); },0);
+  if(dur>0) agSel.duracion=dur;
+  renderAgForm();
+}
+function agAbrirRubro(rid){ agSel.rubroAbierto=agSel.rubroAbierto===rid?null:rid; renderAgForm(); }
+async function agGuardar(){
+  const s=agSel; if(!s) return;
+  if(!s.clienteId){ showToast('Elegí un cliente'); return; }
+  if(!s.profId){ showToast('Elegí quién lo va a atender'); return; }
+  if(!s.servicios.length){ showToast('Elegí al menos un servicio'); return; }
+  if(!s.fecha||!s.hora){ showToast('Falta la fecha o la hora'); return; }
+  const svcObjs=s.servicios.map(id=>servicios.find(x=>x.id===id)).filter(Boolean).map(x=>({svcId:x.id,nombre:x.nombre}));
+  const ahora=new Date().toISOString();
+  if(s.editId){
+    await agendaSt.cambiar(l=>{ const a=l.find(x=>x.id===s.editId); if(a){ Object.assign(a,{profId:s.profId,profNombre:s.profNombre,fecha:s.fecha,hora:s.hora,duracion:s.duracion||30,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||''}); a.upd=ahora; } });
+  } else {
+    await agendaSt.cambiar(l=>{ l.push({id:'ag'+Date.now().toString(36),sucursal:agState.sucursal,fecha:s.fecha,hora:s.hora,duracion:s.duracion||30,profId:s.profId,profNombre:s.profNombre,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||'',paqueteId:s.paqueteId||null,itemId:s.itemId||null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora}); });
+  }
+  if(s.paqueteId){
+    await paquetesSt.cambiar(l=>{ const p=l.find(x=>x.id===s.paqueteId); const it=p&&p.items.find(x=>x.id===s.itemId); if(it){ it.coord={fecha:s.fecha,hora:s.hora,profId:s.profId,profNombre:s.profNombre}; p.upd=ahora; } });
+  }
+  agPendingPaquete=null; agSel=null;
+  closeModal('modal-registro');
+  showToast('Turno agendado ✓');
+  renderAgenda();
+}
+async function agCancelar(id){
+  const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
+  const ok=await uiConfirm('¿Cancelar este turno?', escH(a.clienteNombre)+' · '+fechaCortaStr(a.fecha)+' '+a.hora+'hs');
+  if(!ok) return;
+  const ahora=new Date().toISOString();
+  await agendaSt.cambiar(l=>{ const x=l.find(y=>y.id===id); if(x){ x.estado='cancelado'; x.upd=ahora; } });
+  if(a.paqueteId){ await paquetesSt.cambiar(l=>{ const p=l.find(x=>x.id===a.paqueteId); const it=p&&p.items.find(x=>x.id===a.itemId); if(it){ it.coord=null; p.upd=ahora; } }); }
+  closeModal('modal-registro');
+  showToast('Turno cancelado');
+  renderAgenda();
+}
+async function agMarcarHecho(id){
+  await agendaSt.cambiar(l=>{ const x=l.find(y=>y.id===id); if(x){ x.estado='hecho'; x.upd=new Date().toISOString(); } });
+  closeModal('modal-registro');
+  showToast('Marcado como hecho ✓');
+  renderAgenda();
+}
+// Franja en el Inicio del profesional: lo que tiene agendado y cuanto va a sumar de comision cuando lo haga (estimado)
+function htmlProximosTurnosHub(){
+  if(!profile||profile.role!=='profesional') return '';
+  const hoy=hoyStr();
+  const L=agendaSt.list.filter(a=>a.profId===profile.id&&a.fecha>=hoy&&agEstado(a)==='agendado').sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)).slice(0,5);
+  if(!L.length) return '';
+  return `<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px">📅 Tus próximos turnos</div>
+    ${L.map(a=>{
+      let com=0;
+      if(a.paqueteId){ const p=paquetesSt.list.find(x=>x.id===a.paqueteId); const it=p&&p.items.find(x=>x.id===a.itemId); if(it) com=Math.round(numV(it.final)*comisionRubroEstim(it.rubro)/100); }
+      else { com=(a.servicios||[]).reduce((s,sv)=>{ const full=servicios.find(x=>x.id===sv.svcId); return s+(full?Math.round(numV(full.precio)*comisionRubroEstim(full.rubro)/100):0); },0); }
+      return `<div class="card" style="margin-bottom:8px;cursor:pointer" onclick="abrirAgenda('${a.sucursal}');agState.fecha='${a.fecha}';renderAgenda()">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:13px">${escH(a.clienteNombre)}</b><span style="font-size:11.5px;color:var(--muted2)">${fechaCortaStr(a.fecha)} · ${a.hora}hs</span></div>
+        <div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${escH((a.servicios[0]||{}).nombre||'')}${a.servicios.length>1?' +'+(a.servicios.length-1):''}${a.paqueteId?' · 🎁 ya pagado':''}</div>
+        ${com>0?`<div style="font-size:11.5px;color:#34d399;font-weight:700;margin-top:3px">≈ ${fp(com)} de comisión cuando lo hagas</div>`:''}
+      </div>`;
+    }).join('')}`;
 }
 
 // ---------- membresia y paquetes de un cliente ----------
@@ -5176,6 +5407,12 @@ function renderHub(){
     }
   } catch(e){}
 
+  // Proximos turnos agendados (Agenda)
+  try {
+    const pt=document.getElementById('hub-proximos-turnos');
+    if(pt) pt.innerHTML=htmlProximosTurnosHub();
+  } catch(e){}
+
   // Tramo sub in dinero card
   try {
     const now=new Date(), q=now.getDate()<=15?1:2;
@@ -5320,6 +5557,7 @@ function goTo(id){
   if(id==='perfil') renderPerfil();
   if(id==='stories'){loadStoriesData();renderStories();}
   if(id==='puntos'){loadPuntosData();renderPuntos();}
+  if(id==='agenda') renderAgenda();
 }
 function setNav(id){
   ['n-hub','n-kanban','n-dinero','n-puntos'].forEach(n=>{const el=document.getElementById(n);if(el)el.classList.toggle('active',el.id===id);});
@@ -9260,6 +9498,7 @@ function menuIr(accion){
     stock:()=>{ enterEncargado(); }, dinero:()=>goTo('dinero'), clientes:()=>goTo('clientes'), banco:()=>goTo('banco'), puntos:()=>goTo('puntos'), kanban:()=>goTo('kanban'),
     stories:()=>{ if(profile.role==='recepcionista') goToRec('stories'); else goTo('stories'); },
     pantallaFrench:()=>abrirPantallaFrench(),
+    agenda:()=>abrirAgenda(),
     guia:()=>abrirGuia(true), pass:()=>cambiarMiPassword(), salir:()=>showLogin(),
   };
   (acc[accion]||(()=>{}))();
@@ -9274,11 +9513,11 @@ function renderMenu(){
   const vePantallaFrench=sinRec&&(p.role==='admin'||p.role==='recepcionista'||sucursalesDe(p).includes(sinRec.id));
   let items='';
   if(p.role==='profesional'){
-    items=it(mi('perfil'),'Mi perfil','perfil')+it(mi('contenido'),'Contenido','contenido')+(p.esEncargado?it(mi('stock'),'Control de stock','stock'):'')+it(mi('clientes'),'Mis clientes','clientes')+it(mi('dinero'),'Mi dinero','dinero')+it(mi('banco'),'Banco de reels','banco')+it(mi('kanban'),'Tablero','kanban')+it(mi('historias'),'Historias','stories')+it(mi('puntos'),'Mis puntos','puntos')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'')+(p.adminReal?it('👑','Volver a Admin','modoAdmin'):'');
+    items=it(mi('perfil'),'Mi perfil','perfil')+it(mi('contenido'),'Contenido','contenido')+(p.esEncargado?it(mi('stock'),'Control de stock','stock'):'')+it(mi('clientes'),'Mis clientes','clientes')+it('📅','Agenda','agenda')+it(mi('dinero'),'Mi dinero','dinero')+it(mi('banco'),'Banco de reels','banco')+it(mi('kanban'),'Tablero','kanban')+it(mi('historias'),'Historias','stories')+it(mi('puntos'),'Mis puntos','puntos')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'')+(p.adminReal?it('👑','Volver a Admin','modoAdmin'):'');
   } else if(p.role==='recepcionista'){
-    items=it(mi('perfil'),'Mi cuenta','perfil')+it(mi('historias'),'Historias','stories')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
+    items=it(mi('perfil'),'Mi cuenta','perfil')+it('📅','Agenda','agenda')+it(mi('historias'),'Historias','stories')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
   } else {
-    items=it(mi('perfil'),'Mi cuenta','perfil')+(p.role==='admin'&&p.tambienProf?it('✂️','Mi perfil profesional','modoProf'):'')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
+    items=it(mi('perfil'),'Mi cuenta','perfil')+it('📅','Agenda','agenda')+(p.role==='admin'&&p.tambienProf?it('✂️','Mi perfil profesional','modoProf'):'')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
   }
   items+=it(mi('guia'),'Guía rápida','guia')+it(mi('pass'),'Cambiar contraseña','pass');
   document.getElementById('mlat-cnt').innerHTML=`
