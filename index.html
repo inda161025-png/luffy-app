@@ -1376,6 +1376,20 @@ function htmlCuentasPendientes(){
 }
 
 // ---------- cambiar mi contraseña ----------
+async function definirNuevaPasswordHabilitada(){
+  if(!supaClient||!profile) return;
+  const v=await uiDialog({title:'Definir nueva contraseña',msg:'El admin te habilitó para ponerte una contraseña nueva, sin necesitar la anterior. Se cierra solo apenas la cambies.',fields:[{label:'Contraseña nueva (mínimo 6)',type:'password'},{label:'Repetí la nueva',type:'password'}],ok:'Definir'});
+  if(!v) return;
+  if(!v[0]||v[0].length<6){ showToast('Tiene que tener al menos 6 caracteres'); return; }
+  if(v[0]!==v[1]){ showToast('Las contraseñas no coinciden'); return; }
+  try{
+    const {error}=await supaClient.auth.updateUser({password:authPass(v[0])});
+    if(error){ showToast('No se pudo cambiar: '+error.message); return; }
+    profile.passReset=false;
+    await editarUsuario(profile.id,{passReset:false});
+    showToast('Contraseña definida ✓'); closeModal('modal-registro'); refreshCurrentView();
+  }catch(e){ showToast('No se pudo cambiar la contraseña'); }
+}
 async function cambiarMiPassword(){
   if(!supaClient) return;
   const v=await uiDialog({title:'Cambiar contraseña',fields:[{label:'Contraseña actual',type:'password'},{label:'Contraseña nueva (mínimo 6)',type:'password'},{label:'Repetí la nueva',type:'password'}],ok:'Cambiar'});
@@ -4391,8 +4405,17 @@ function editarCuenta(id){
     ${esPro?`<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ghost" style="flex:1" onclick="abrirRubrosProf('${u.id}')">🏷️ Rubros</button><button class="btn btn-ghost" style="flex:1" onclick="abrirComisionUsuario('${u.id}')">💰 Comisión</button></div>
     <label class="rub-opt" style="margin-top:8px"><input type="checkbox" id="ec-enc" ${u.esEncargado?'checked':''}/> 📦 Es encargado (controla el stock, comisión fija)</label>`:''}
     <button class="btn btn-primary" onclick="guardarCuenta('${u.id}')" style="margin-top:14px">Guardar cambios</button>
+    ${profile&&profile.id!==u.id?(u.passReset?`<div class="card" style="margin-top:10px;border:1.5px solid #fbbf24;background:rgba(251,191,36,.08);font-size:12px;color:#fbbf24;font-weight:700">🔓 Habilitado: puede definir una contraseña nueva la próxima vez que entre. Se cierra solo apenas la cambie.</div><button class="btn btn-ghost" onclick="cancelarCambioPassword('${u.id}')" style="margin-top:8px">Cancelar habilitación</button>`:`<button class="btn btn-ghost" onclick="habilitarCambioPassword('${u.id}')" style="margin-top:8px">🔓 Habilitar cambio de contraseña</button>`):''}
     ${esAdm?'':`<button class="btn btn-ghost" onclick="darDeBaja('${u.id}')" style="margin-top:8px;color:#f472b6">🗄 Dar de baja</button>`}`;
   openModal('modal-registro');
+}
+async function habilitarCambioPassword(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return;
+  if(await editarUsuario(id,{passReset:true})){ showToast('Habilitado: '+u.name+' puede definir una contraseña nueva la próxima vez que entre'); editarCuenta(id); }
+}
+async function cancelarCambioPassword(id){
+  const u=allUsers.find(x=>x.id===id); if(!u) return;
+  if(await editarUsuario(id,{passReset:false})){ showToast('Cancelado'); editarCuenta(id); }
 }
 async function guardarCuenta(id){
   const u=allUsers.find(x=>x.id===id); if(!u) return;
@@ -7153,6 +7176,7 @@ function renderPerfil(){
   </div>
   ${profile.role==='profesional'?`<div class="card" style="margin-top:10px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">🏷️</span><div style="flex:1"><div style="font-size:14px;font-weight:700">Mis rubros</div><div style="font-size:11px;color:var(--muted2)">${(profile.rubros&&profile.rubros.length)?escH(profile.rubros.map(nombreRubro).filter(Boolean).join(', ')):'Sin elegir: ves todos los servicios'}</div></div><button onclick="abrirRubrosProf('${profile.id}')" style="padding:8px 14px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Cambiar</button></div>`:''}
   <div class="card" style="margin-top:10px;display:flex;align-items:center;gap:10px"><span style="font-size:22px">🔑</span><div style="flex:1"><div style="font-size:14px;font-weight:700">Contraseña</div><div style="font-size:11px;color:var(--muted2)">Cambiala cuando quieras</div></div><button onclick="cambiarMiPassword()" style="padding:8px 14px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Cambiar</button></div>
+  ${profile.passReset?`<div class="card" style="margin-top:10px;border:1.5px solid #fbbf24;background:rgba(251,191,36,.08)"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">🔓</span><div style="flex:1"><div style="font-size:13px;font-weight:800;color:#fbbf24">El admin te habilitó a cambiar tu contraseña</div><div style="font-size:11px;color:var(--muted2)">No hace falta que sepas la anterior. Se cierra solo apenas la definas.</div></div></div><button class="btn btn-primary" onclick="definirNuevaPasswordHabilitada()" style="margin-top:10px;width:100%">Definir nueva contraseña</button></div>`:''}
   <div id="perfil-contenido">${getPerfilCreadorHTML(color)}</div>
   ${getHorarioHTML(color)}`;
 }
@@ -8945,6 +8969,7 @@ function abrirMiCuenta(){
     <div style="text-align:center;padding:6px 0 18px"><div style="width:72px;height:72px;border-radius:50%;background:${p.color||'#7B337E'}33;border:3px solid ${p.color||'#7B337E'};display:flex;align-items:center;justify-content:center;font-size:30px;margin:0 auto 10px">${p.emoji||'👤'}</div>
       <div style="font-size:20px;font-weight:900">${escH(p.name)}</div>
       <div style="font-size:12px;color:var(--muted2);margin-top:2px">@${escH(p.username||'')} · ${escH(ROLES[p.role]||p.role)}</div></div>
+    ${p.passReset?`<div class="card" style="margin-bottom:10px;border:1.5px solid #fbbf24;background:rgba(251,191,36,.08)"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">🔓</span><div style="flex:1"><div style="font-size:13px;font-weight:800;color:#fbbf24">El admin te habilitó a cambiar tu contraseña</div><div style="font-size:11px;color:var(--muted2)">No hace falta que sepas la anterior. Se cierra solo apenas la definas.</div></div></div><button class="btn btn-primary" onclick="definirNuevaPasswordHabilitada()" style="margin-top:10px;width:100%">Definir nueva contraseña</button></div>`:''}
     <button class="btn btn-ghost" onclick="closeModal('modal-registro');cambiarMiPassword()">🔑 Cambiar contraseña</button>`;
   openModal('modal-registro');
 }
