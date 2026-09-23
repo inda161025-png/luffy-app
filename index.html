@@ -1816,6 +1816,74 @@ async function crearCliente(d){
   });
 }
 
+// ---------- carga masiva de clientes ----------
+function clientesDeTabla(txt){
+  const rows=parseTabla(txt); if(!rows.length) return {validos:[],omitidos:0,dupTel:0,yaExiste:0};
+  const norm=(s)=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const header=rows[0].map(norm);
+  const idx=(...names)=>header.findIndex(h=>names.some(n=>h===n||h.includes(n)));
+  const iNombres=idx('nombres','nombre','cliente'), iApellidos=idx('apellidos','apellido');
+  const iTel=header.findIndex(h=>(h.includes('telefono')||h.includes('celular')||h.includes('whatsapp'))&&!h.includes('secundario'));
+  const iEmail=idx('email','mail','correo'), iNota=idx('nota','notas','observacion');
+  const esHeader=iNombres>=0||iTel>=0||iEmail>=0;
+  const dataRows=esHeader?rows.slice(1):rows;
+  const seenTel=new Set();
+  const existentes=new Set(clientesDir.map(c=>(c.tel||'').replace(/\D/g,'')).filter(Boolean));
+  const validos=[]; let omitidos=0, dupTel=0, yaExiste=0;
+  dataRows.forEach(r=>{
+    const nombre=[iNombres>=0?r[iNombres]:r[0], iApellidos>=0?r[iApellidos]:''].map(s=>String(s||'').trim()).filter(Boolean).join(' ');
+    if(!nombre){ omitidos++; return; }
+    const telRaw=iTel>=0?String(r[iTel]||'').trim():'';
+    const tel=telRaw.replace(/\D/g,'');
+    if(tel){ if(seenTel.has(tel)){ dupTel++; return; } if(existentes.has(tel)){ yaExiste++; return; } seenTel.add(tel); }
+    let email=iEmail>=0?String(r[iEmail]||'').trim():'';
+    let nota=iNota>=0?String(r[iNota]||'').trim():'';
+    if(email.toLowerCase().includes('@tuturno.io')){ email=''; nota=nota||'Pendiente: pedir mail real al cobrar'; }
+    validos.push({nombre,tel:telRaw,email,nota});
+  });
+  return {validos,omitidos,dupTel,yaExiste};
+}
+function abrirImportClientes(){
+  const c=document.getElementById('registro-content');
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="modal-title" style="margin:0">Importar clientes</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:10px">Subí un CSV o pegá filas de una planilla (por ejemplo, la exportación de AgendaPro). Reconoce las columnas por el título: <b style="color:var(--text)">Nombre(s)/Apellidos, Teléfono, Email</b> (Nota es opcional). Si no hay títulos, toma la 1ª columna como nombre.<br>Los teléfonos repetidos (entre sí o con un cliente que ya existe) se saltean solos. Los mails <b style="color:var(--text)">@tuturno.io</b> (placeholder de AgendaPro) se vacían y quedan marcados "pendiente" para pedirlos al cobrar.</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <label class="btn btn-ghost" style="flex:1;margin:0;padding:10px;font-size:12px;text-align:center;cursor:pointer">📂 Subir archivo<input type="file" accept=".csv,.tsv,.txt" style="display:none" onchange="importClientesArchivo(this)"/></label>
+    </div>
+    <textarea id="icl-txt" rows="7" placeholder="O pegá acá las filas copiadas de la planilla..." oninput="previewImportClientes()" style="${inpCss};min-height:130px"></textarea>
+    <div id="icl-prev" style="font-size:12px;color:var(--muted2);margin:10px 0"></div>
+    <button id="icl-btn" class="btn btn-primary" onclick="confirmarImportClientes()" disabled>Importar</button>`;
+  openModal('modal-registro');
+}
+function importClientesArchivo(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{ document.getElementById('icl-txt').value=String(rd.result||''); previewImportClientes(); }; rd.readAsText(f,'utf-8');
+}
+function previewImportClientes(){
+  const txt=document.getElementById('icl-txt')?.value||'';
+  const prev=document.getElementById('icl-prev'), btn=document.getElementById('icl-btn');
+  if(!txt.trim()){ prev.textContent=''; btn.disabled=true; btn.textContent='Importar'; return; }
+  const {validos,omitidos,dupTel,yaExiste}=clientesDeTabla(txt);
+  prev.innerHTML=`<b style="color:var(--text)">${validos.length}</b> clientes nuevos para cargar${dupTel?` · ${dupTel} teléfonos repetidos en el archivo (se saltean)`:''}${yaExiste?` · ${yaExiste} ya existen por teléfono (se saltean)`:''}${omitidos?` · <span style="color:#fbbf24">${omitidos} filas sin nombre (se saltean)</span>`:''}${validos.length?'<div style="margin-top:6px;color:var(--muted)">'+validos.slice(0,4).map(v=>'• '+escH(v.nombre)+(v.tel?' — '+escH(v.tel):'')+(v.nota?' · '+escH(v.nota):'')).join('<br>')+(validos.length>4?'<br>…':'')+'</div>':''}`;
+  btn.disabled=!validos.length; btn.textContent=validos.length?'Importar '+validos.length+' clientes':'Importar';
+}
+async function confirmarImportClientes(){
+  const txt=document.getElementById('icl-txt')?.value||'';
+  const {validos}=clientesDeTabla(txt); if(!validos.length) return;
+  const btn=document.getElementById('icl-btn'); if(btn){ btn.disabled=true; btn.textContent='Importando…'; }
+  await cambiarClientes(list=>{
+    let numero=list.reduce((m,c)=>Math.max(m,numV(c.numero)),0);
+    const base=Date.now().toString(36);
+    const ahora=new Date().toISOString();
+    validos.forEach(v=>{
+      numero++;
+      list.push({id:'c'+numero+'x'+base, numero, nombre:v.nombre, nkey:nkey(v.nombre), profesion:'', tel:v.tel, nacimiento:'', email:v.email, ref:'', nota:v.nota, cumple:'',
+        creadoPor:profile.id, creadoPorNombre:profile.name, profs:[], sucursal:null, refPor:null, tarjeta:null, creado:ahora, upd:ahora});
+    });
+  });
+  closeModal('modal-registro'); showToast(validos.length+' clientes importados ✓'); renderAdmin();
+}
+
 // ---------- visitas (salen de los cobros) ----------
 function fuentesDinero(){
   if(profile.role==='profesional') return [{dd:dineroData,prof:profile}];
@@ -2685,7 +2753,7 @@ function renderAdminClientes(c,sub){
 function adminDirectorio(c){
   const q=nkey(adminCliQ);
   const lista=clientesDir.filter(x=>!q||buscarClientes(adminCliQ,[x]).length).sort((a,b)=>b.numero-a.numero);
-  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">👥 Clientes del salón (${clientesDir.length})</span></div>
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">👥 Clientes del salón (${clientesDir.length})</span>${profile.role==='admin'?`<button class="lnk" onclick="abrirImportClientes()">📂 Importar</button>`:''}</div>
     <input type="search" placeholder="Buscar por nombre, #, profesión o teléfono…" value="${escH(adminCliQ)}" oninput="adminCliQ=this.value;renderAdmin();var e=document.querySelector('#adm-content input[type=search]');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
     ${lista.slice(0,60).map(x=>{ const s=statsCliente(x); const m=membresiaActivaDe(x.id); return `<div class="card" onclick="abrirClienteDetalle('${x.id}')" style="cursor:pointer;margin-bottom:6px"><div style="display:flex;gap:10px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(x.nombre)} <span style="color:var(--muted2)">#${x.numero}</span>${x.tarjeta?' 💳':''}${m?' 🎫':''}</div><div style="font-size:11px;color:var(--muted2)">${escH(idCorto(x))}${s.barberos.length?' · ✂️ '+escH(s.barberos.join(', ')):''}</div></div><div style="text-align:right;font-size:11.5px;color:var(--muted2)">${s.visitas} visitas<br><b style="color:var(--text)">${fp(s.gastado)}</b></div></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>No hay clientes.</p></div>'}
     ${lista.length>60?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 60 de ${lista.length}. Usá el buscador.</div>`:''}`;
