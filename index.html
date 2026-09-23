@@ -547,7 +547,10 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
           <div style="font-size:11px;color:#7B337E;margin-top:1px" id="hub-ventas-sub"></div>
         </div>
       </div>
-      <button onclick="abrirRegistroTurno()" style="width:100%;margin-top:12px;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">+ Registrar turno</button>
+      <div style="display:flex;gap:8px;margin-top:12px">
+        <button onclick="abrirRegistroTurno()" style="flex:1;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">+ Registrar turno</button>
+        <button onclick="abrirArmarPaquete()" style="flex:1;padding:11px;border-radius:12px;border:none;background:#7B337E;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">🎁 Armar paquete</button>
+      </div>
     </div>
 
     <!-- Puntos: franja chica -->
@@ -2037,7 +2040,7 @@ function abrirClienteDetalle(id){
     ${typeof htmlTarjetaCliente==='function'?htmlTarjetaCliente(c):''}
     ${htmlDeudaCliente(c)}${htmlSenaCliente(c)}
     ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(123,51,126,.4)"><div style="font-size:12px;font-weight:800;color:#7B337E">💳 Membresía activa</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} cortes · pagó ${fp(m.precio)} el ${fch(m.fecha)}</div></div>`:''}
-    ${paqs.map(p=>`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.4)"><div style="font-size:12px;font-weight:800;color:#34d399">🎁 Paquete pagado (${p.pct}% off)</div><div style="font-size:12.5px;margin-top:3px">Le faltan: ${p.items.filter(i=>!i.usado).map(i=>escH(i.nombre)).join(', ')}</div></div>`).join('')}
+    ${paqs.map(p=>`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.4)"><div style="font-size:12px;font-weight:800;color:#34d399">🎁 Paquete pagado (${p.pct}% off)</div><div style="font-size:12.5px;margin-top:3px">Le faltan: ${p.items.filter(i=>!i.usado).map(i=>escH(i.nombre)+(i.coord&&i.coord.fecha?' ('+fechaCortaStr(i.coord.fecha)+(i.coord.hora?' '+i.coord.hora+'hs':'')+')':'')).join(', ')}</div></div>`).join('')}
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card"><div class="sc-lbl">Visitas</div><div class="sc-val">${s.visitas}</div><div class="sc-sub">${s.servicios} servicios</div></div>
       <div class="stat-card"><div class="sc-lbl">Viene cada</div><div class="sc-val" style="font-size:21px">${s.cada?'~'+s.cada+' d':'—'}</div></div>
@@ -2320,6 +2323,32 @@ function htmlSugerenciasPaqRec(){
     ${L.map(x=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #7B337E"><div style="font-size:13px;font-weight:800">${escH(x.clienteNombre)}${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
       <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${x.tipo==='recordatorio'?'🔔 Nadie le ofreció un combo todavía':escH(nombreRubro(x.rubro)||x.rubro)} · lo dejó ${escH(x.profNombre)} · hace ${minutosDesde(x.ts)}</div>
       <div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost" style="flex:1" onclick="abrirVentaPaquete('${x.clienteId}')">🎁 Armar paquete</button><button class="btn btn-ghost" style="flex:0 0 auto" onclick="marcarSugerenciaAtendida('${x.id}')">✓ Atendido</button></div></div>`).join('')}`;
+}
+// Paquetes recién vendidos por cualquier profesional: recepción los ve acá para coordinar día y horario de cada servicio con el cliente
+async function coordinarItemPaquete(pid,itemId){
+  const p=paquetesSt.list.find(x=>x.id===pid); const it=p&&p.items.find(x=>x.id===itemId); if(!it) return;
+  const v=await uiDialog({title:'Coordinar: '+it.nombre,msg:'¿Cuándo va a venir a hacérselo?',fields:[{label:'Fecha',type:'date',value:(it.coord&&it.coord.fecha)||''},{label:'Hora',type:'time',value:(it.coord&&it.coord.hora)||''}]});
+  if(!v) return;
+  await paquetesSt.cambiar(l=>{ const pk=l.find(x=>x.id===pid); const i2=pk&&pk.items.find(x=>x.id===itemId); if(i2){ i2.coord={fecha:v[0]||'',hora:v[1]||''}; pk.upd=new Date().toISOString(); } });
+  refreshCurrentView();
+}
+async function marcarPaqueteAvisado(pid){
+  await paquetesSt.cambiar(l=>{ const p=l.find(x=>x.id===pid); if(p){ p.avisado=true; p.upd=new Date().toISOString(); } });
+  refreshCurrentView();
+}
+function htmlPaquetesNuevosRec(){
+  const L=paquetesSt.list.filter(p=>!p.avisado).sort((a,b)=>String(b.creadoEn||'').localeCompare(String(a.creadoEn||'')));
+  if(!L.length) return '';
+  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🎁 Paquetes nuevos (${L.length})</span></div>
+    ${L.map(p=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #34d399">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:13px;font-weight:800">${escH(p.clienteNombre)}${p.clienteNumero&&verNumeroCliente()?' #'+p.clienteNumero:''}</div><b>${fp(p.total)}</b></div>
+      <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">vendió ${escH(p.vendedorNombre||'')} · hace ${minutosDesde(p.creadoEn||new Date().toISOString())}</div>
+      ${p.items.map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;padding:3px 0">
+        <span>${it.usado?'✅':'⬜'} ${escH(it.nombre)}${it.coord&&it.coord.fecha?` <span style="color:#34d399;font-weight:700">· ${fechaCortaStr(it.coord.fecha)}${it.coord.hora?' '+it.coord.hora+'hs':''}</span>`:''}</span>
+        ${!it.usado?`<button class="lnk" style="flex-shrink:0" onclick="coordinarItemPaquete('${p.id}','${it.id}')">${it.coord&&it.coord.fecha?'Editar':'📅 Coordinar'}</button>`:''}
+      </div>`).join('')}
+      <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="marcarPaqueteAvisado('${p.id}')">✓ Ya coordinado, sacar de la cola</button>
+    </div>`).join('')}`;
 }
 
 // ---------- membresia y paquetes de un cliente ----------
@@ -2729,6 +2758,23 @@ function abrirVentaPaquete(cid){
   ventaSel={tipo:'paq',cid,medio:'efectivo',sel:[],rubroAbierto:null};
   renderVentaPaquete(); openModal('modal-registro');
 }
+// Entrada directa para que cualquier profesional arme un paquete sin pasar por la ficha del cliente: primero elige a quién
+function abrirArmarPaquete(){
+  const cont=document.getElementById('registro-content');
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">Armar paquete 🎁</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div class="field"><label>¿Para qué cliente?</label><input id="ap-q" type="text" autocomplete="off" placeholder="Buscá por nombre, teléfono o número..." oninput="armarPaqInput(this.value)"/></div>
+    <div id="ap-sug"></div>`;
+  openModal('modal-registro');
+  setTimeout(()=>{ const i=document.getElementById('ap-q'); if(i) i.focus(); },60);
+}
+function armarPaqInput(v){
+  const el=document.getElementById('ap-sug'); if(!el) return;
+  const q=(v||'').trim();
+  if(q.length<2){ el.innerHTML=''; return; }
+  const m=buscarClientes(q).slice(0,8);
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:8px">${m.map(c=>`<button onclick="abrirVentaPaquete('${c.id}')" style="text-align:left;padding:10px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13.5px;font-weight:700;cursor:pointer">${escH(c.nombre)}${(c.tarjetas&&c.tarjetas.length)?' 💳':''}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}
+    ${m.length?'':'<div style="font-size:12px;color:var(--muted2);padding:6px 2px">No encontramos a nadie con ese nombre. Cargalo primero desde Clientes.</div>'}</div>`;
+}
 function ventaToggleSvc(id){ const s=ventaSel; if(!s) return; const i=s.sel.indexOf(id); if(i>=0) s.sel.splice(i,1); else s.sel.push(id); renderVentaPaquete(); }
 function ventaAbrirRubro(rid){ const s=ventaSel; if(!s) return; s.rubroAbierto=s.rubroAbierto===rid?null:rid; renderVentaPaquete(); }
 function renderVentaPaquete(){
@@ -2768,7 +2814,7 @@ async function confirmarVentaPaquete(){
   const ahora=new Date().toISOString();
   await paquetesSt.cambiar(l=>{ l.push({id:'pq'+Date.now().toString(36),clienteId:c.id,clienteNombre:c.nombre,clienteNumero:c.numero,
     items:R.items.map((x,i)=>({id:'i'+i,svcId:x.svc.id,nombre:x.svc.nombre,rubro:x.svc.rubro||'',lista:x.lista,descIndLabel:x.descInd?x.descInd.label:'',descIndMonto:x.descInd?x.descInd.monto:0,final:x.final,descPct:x.descPct,usado:null})),
-    pct:R.pct,totalLista:R.lista,total:R.total,medio:s.medio,fecha:hoyStr(),sucursal:sucursalActual(),vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,creadoEn:ahora,upd:ahora}); });
+    pct:R.pct,totalLista:R.lista,total:R.total,medio:s.medio,fecha:hoyStr(),sucursal:sucursalActual(),vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,creadoEn:ahora,upd:ahora,avisado:false}); });
   ventaSel=null; closeModal('modal-registro'); showToast('Paquete vendido ✓ '+fp(R.total)); refreshCurrentView();
 }
 
@@ -9056,6 +9102,7 @@ function renderRecepcion(){
   const body=document.getElementById('rec-body');
   body.innerHTML=`
     ${htmlTurnosPendientesRec()}
+    ${htmlPaquetesNuevosRec()}
     ${htmlSugerenciasPaqRec()}
     ${htmlCajaRec()}
     ${htmlTableroRec()}
