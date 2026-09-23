@@ -2308,20 +2308,8 @@ const sugerenciasPaqSt=almacenLista('luffy/sugerencias_paq','luffy_sugerencias_p
 // Diego Laure: turnos que un profesional dejo "registrados" y todavia no cobro recepcion (ver "Registrar turno" / "Cobrar")
 const turnosPendientesSt=almacenLista('luffy/turnos_pendientes','luffy_turnos_pendientes',nuevoMayor);
 function loadSocial(){ loadClientes(); membresiasSt.load(); paquetesSt.load(); senasSt.load(); sugerenciasPaqSt.load(); turnosPendientesSt.load(); }
-// ---------- "Quiero sumar un combo": el profesional le avisa a recepcion con el cliente y el rubro ----------
-function abrirSugerirCombo(){
-  const cli=clienteDe(cobro.clienteId); if(!cli){ showToast('Elegí primero al cliente'); return; }
-  document.getElementById('registro-content').innerHTML=cabeceraModal('🎁 Sugerir combo a recepción')+
-    `<div style="font-size:12.5px;color:var(--muted2);margin-bottom:10px">Con <b style="color:var(--text)">${escH(cli.nombre)}</b>. Elegí el rubro que le sumarías.</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">${rubros.map(r=>`<button onclick="guardarSugerirCombo('${cli.id}','${r.id}')" style="${pillStyle(false,profile.color)}">${escH(r.nombre)}</button>`).join('')}</div>`;
-  openModal('modal-registro');
-}
-async function guardarSugerirCombo(cid,rubroId){
-  const cli=clienteDe(cid); if(!cli) return;
-  const ahora=new Date().toISOString();
-  await sugerenciasPaqSt.cambiar(l=>{ l.push({id:'sg'+Date.now().toString(36),clienteId:cli.id,clienteNombre:cli.nombre,clienteNumero:cli.numero,rubro:rubroId,profId:profile.id,profNombre:profile.name,sucursal:sucursalActual(),ts:ahora,atendido:false,upd:ahora}); });
-  closeModal('modal-registro'); showToast('Le avisamos a recepción ✓'); renderRegistro();
-}
+// El "Sugerir combo" viejo (boton opcional) quedo reemplazado por la pregunta obligatoria
+// "¿Le ofreciste un paquete?" dentro del cobro (ver renderPrepagoCobro / guardarCobro).
 async function marcarSugerenciaAtendida(id){
   await sugerenciasPaqSt.cambiar(l=>{ const x=l.find(z=>z.id===id); if(x){ x.atendido=true; x.upd=new Date().toISOString(); } });
   refreshCurrentView();
@@ -2331,7 +2319,7 @@ function htmlSugerenciasPaqRec(){
   if(!L.length) return '';
   return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🎁 Combos sugeridos (${L.length})</span></div>
     ${L.map(x=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #7B337E"><div style="font-size:13px;font-weight:800">${escH(x.clienteNombre)}${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
-      <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${escH(nombreRubro(x.rubro)||x.rubro)} · lo sugirió ${escH(x.profNombre)} · hace ${minutosDesde(x.ts)}</div>
+      <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${x.tipo==='recordatorio'?'🔔 Nadie le ofreció un combo todavía':escH(nombreRubro(x.rubro)||x.rubro)} · lo dejó ${escH(x.profNombre)} · hace ${minutosDesde(x.ts)}</div>
       <div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost" style="flex:1" onclick="abrirVentaPaquete('${x.clienteId}')">🎁 Armar paquete</button><button class="btn btn-ghost" style="flex:0 0 auto" onclick="marcarSugerenciaAtendida('${x.id}')">✓ Atendido</button></div></div>`).join('')}`;
 }
 
@@ -2822,9 +2810,19 @@ function renderPrepagoCobro(r){
       <button type="button" onclick="elegirDescCobro('dia')" style="${pillStyle(on('dia'),'#34d399')};flex:1">🏷️ ${escH(r.opcDia.label)} (−${fp(r.opcDia.monto)})</button>
     </div></div>`;
   } else if(r.descuentos[0]&&r.descuentos[0].tipo!=='efectivo') h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#34d399;font-weight:700">🏷️ Se aplica un solo descuento, el más alto: ${escH(r.descuentos[0].label)} (−${r.descuentos[0].pct}%).</div>`;
-  if(profile.role==='profesional'&&cli) h+=`<button type="button" onclick="abrirSugerirCombo()" style="width:100%;margin:2px 0 10px;padding:10px;border-radius:12px;border:1.5px dashed ${color};background:transparent;color:${color};font-family:var(--font);font-size:12.5px;font-weight:800;cursor:pointer">🎁 Sugerirle a recepción un combo con ${escH((cli.nombre||'').split(' ')[0])}</button>`;
+  if(cli){
+    const av=sugerenciasPaqSt.list.filter(x=>x.clienteId===cli.id&&!x.atendido);
+    if(av.length) h+=av.map(a=>`<div class="card" style="margin:2px 0 10px;border-color:rgba(123,51,126,.4);background:rgba(123,51,126,.06)"><div style="font-size:12px;font-weight:700">${a.tipo==='recordatorio'?'🔔 Nadie le ofreció un combo todavía — ofrecéselo vos':'🎁 Le interesa un combo de '+escH(nombreRubro(a.rubro)||a.rubro)}</div><button class="lnk" onclick="marcarSugerenciaAtendida('${a.id}');refreshCobro()" style="margin-top:4px">✓ Ya se lo ofrecí</button></div>`).join('');
+  }
+  if(profile.role==='profesional'&&cli){
+    h+=`<div class="field"><label>🎁 ¿Le ofreciste un paquete?</label><div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button type="button" onclick="cobroPaqueteOfrecido('${v}')" style="flex:1;${pillStyle(cobro.paqueteOfrecido===v,color)}">${l}</button>`).join('')}</div></div>`;
+    if(cobro.paqueteOfrecido==='si') h+=`<div class="field"><label>¿Qué combinación le gustaría?</label><div style="display:flex;flex-wrap:wrap;gap:6px">${rubros.map(r2=>`<button type="button" onclick="cobro.paqueteRubro=('${r2.id}'===cobro.paqueteRubro?null:'${r2.id}');refreshCobro()" style="${pillStyle(cobro.paqueteRubro===r2.id,color)}">${escH(r2.nombre)}</button>`).join('')}</div></div>`;
+  }
+  if(cli&&!cli.yaDejoResena) h+=`<div class="field"><label>⭐ ¿Dejó una reseña en Google?</label><div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button type="button" onclick="cobroResena('${v}')" style="flex:1;${pillStyle(cobro.resena===v,color)}">${l}</button>`).join('')}</div></div>`;
   el.innerHTML=h;
 }
+function cobroPaqueteOfrecido(v){ cobro.paqueteOfrecido=(cobro.paqueteOfrecido===v?'':v); if(cobro.paqueteOfrecido!=='si') cobro.paqueteRubro=null; refreshCobro(); }
+function cobroResena(v){ cobro.resena=(cobro.resena===v?'':v); refreshCobro(); }
 function htmlDescuentosCobro(r,row){
   return r.descuentos.map(d=>row(({oferta:'🏷️',efectivo:'💵',fijo:'🏷️',fidelidad:'⭐',referidos:'🤝',regalo:'🎁'}[d.tipo]||'🏷️')+' '+escH(d.label)+' (−'+d.pct+'%)','−'+fp(d.monto),'color:#34d399')).join('')
     +r.prepagos.map(p=>row('✓ '+escH(p.nombre)+' (ya pagado)','−'+fp(p.linea.precio),'color:#7B337E')).join('')
@@ -5930,11 +5928,11 @@ async function regSelTipo(tipo){ if((tipo==='turno'||tipo==='producto')&&!await 
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
-let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null};
+let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:''};
 // Cuando recepcion cobra un turno que un profesional dejo "registrado" en Diego Laure (ver turnosPendientesSt),
 // el cobro tiene que quedar guardado en la quincena de ESE profesional, no en la de quien lo cobra.
 let cobroParaProf=null, cobroPendienteId=null;
-function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null}; cobroParaProf=null; cobroPendienteId=null; }
+function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:''}; cobroParaProf=null; cobroPendienteId=null; }
 function elegirDescCobro(g){ cobro.descGrupo=(cobro.descGrupo===g?null:g); refreshCobro(); }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
@@ -6111,6 +6109,9 @@ async function guardarCobro(){
   if(!cli){ showToast(cobro.medio==='debe'?'Poné el nombre del cliente para poder cobrarle después':'Elegí o cargá al cliente: recepción necesita sus datos'); return; }
   const faltan=faltanDatosCliente(cli);
   if(faltan.length){ showToast('Completá '+faltan.join(' y ')+' de '+cli.nombre); abrirFormCliente(cli.id,{deCobro:true}); return; }
+  if(profile.role==='profesional'&&cli&&!cobro.paqueteOfrecido){ showToast('Respondé si le ofreciste un paquete'); return; }
+  if(profile.role==='profesional'&&cli&&cobro.paqueteOfrecido==='si'&&!cobro.paqueteRubro){ showToast('Elegí qué combinación le gustaría'); return; }
+  if(cli&&!cli.yaDejoResena&&!cobro.resena){ showToast('Respondé si dejó una reseña en Google'); return; }
   guardandoCobro=true;
   const profTarget=cobroParaProf, pendId=cobroPendienteId; // capturados antes de que resetCobro() los borre: es el turno "registrado" de otro profesional que recepcion esta cobrando
   try{
@@ -6157,6 +6158,7 @@ async function guardarCobro(){
     if(r.prodLineas.length) ajustarStock(r.prodLineas.map(l=>({id:l.producto.id,delta:-l.cantidad})));
     closeModal('modal-registro');
     showToast(esDeuda?'Anotado como deuda — recepción lo ve para cobrarle':(profTarget?'Cobro guardado ✓ — se sumó a la quincena de '+profTarget.name:'Cobro guardado — recepción ya lo ve ✓'));
+    const resenaResp=cobro.resena, paqueteResp=cobro.paqueteOfrecido, paqueteRubroResp=cobro.paqueteRubro, rolQueCobra=profile.role;
     resetCobro();
     renderHub();
     if(currentScreenId==='dinero') renderDineroContent();
@@ -6164,8 +6166,15 @@ async function guardarCobro(){
     await marcarSenasUsadas(r,turnoId);
     const ptsProfId=profTarget?profTarget.id:profile.id;
     if(reag&&reag.estado==='si') addPuntos(ptsProfId,'reagendamiento',ptsReag(),'Reagendamiento: '+(cli?cli.nombre:'cliente'),'reag:t:'+ptsProfId+':'+turnoId);
+    if(cli&&resenaResp==='si'&&!cli.yaDejoResena){
+      addPuntos(ptsProfId,'resena',ptsResena(),'Reseña en Google: '+cli.nombre,'resena:t:'+ptsProfId+':'+turnoId);
+      await cambiarClientes(list=>{ const c2=list.find(x=>x.id===cli.id); if(c2) c2.yaDejoResena=true; });
+    }
+    if(cli&&rolQueCobra==='profesional'&&paqueteResp){
+      const esSi=paqueteResp==='si'&&paqueteRubroResp;
+      await sugerenciasPaqSt.cambiar(l=>{ l.push({id:'sg'+Date.now().toString(36),clienteId:cli.id,clienteNombre:cli.nombre,clienteNumero:cli.numero,rubro:esSi?paqueteRubroResp:null,tipo:esSi?'sugerencia':'recordatorio',profId:ptsProfId,profNombre:(profTarget?profTarget.name:profile.name),sucursal:base.sucursal,ts:new Date().toISOString(),atendido:false,upd:new Date().toISOString()}); });
+    }
     if(pendId) await turnosPendientesSt.cambiar(l=>{ const x=l.find(z=>z.id===pendId); if(x){ x.estado='cobrado'; x.upd=new Date().toISOString(); } });
-    if(!esDeuda&&!profTarget&&profile.role==='profesional'&&sinRecepcionId(base.sucursal)) setTimeout(()=>abrirCierreCobro('t:'+profile.id+':'+turnoId),400);
   } finally { guardandoCobro=false; }
 }
 
