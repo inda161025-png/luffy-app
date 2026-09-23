@@ -3320,12 +3320,24 @@ const CAT_GASTOS=[
   {id:'mantenimiento',n:'Refacciones, mantenimiento y mejoras',c:'#94a3b8',t:'variable'},
   {id:'limpieza',n:'Productos de limpieza',c:'#84cc16',t:'variable'},
   {id:'otros',n:'Varios',c:'#64748b',t:'variable'},
+  {id:'reinversion',n:'Reinversión (equipamiento, mejoras, obra)',c:'#22d3ee',t:'reinversion'},
 ];
 const CAT_AUTO=[
   {id:'comisiones',n:'Comisiones del equipo',c:'#fbbf24',t:'comision'},
   {id:'costoprod',n:'Costo de productos vendidos',c:'#ef4444',t:'variable'},
 ];
-const GRUPOS_FIN=[['fijo','Gastos fijos'],['sueldo','Empleados fijos'],['cuota','Cuotas y préstamos'],['suscripcion','Suscripciones'],['variable','Gastos variables'],['comision','Comisiones (empleados a comisión)']];
+// Movimientos internos de caja: no son gasto ni ingreso (no bajan el margen), pero se registran con nombre/detalle
+// para poder rastrearlos — reemplaza el "Retiro" generico que se comia $8,1M sin explicar.
+const CAT_INTERNO=[
+  {id:'adelanto',n:'Adelanto a un profesional',c:'#fb7185'},
+  {id:'liquidacion',n:'Pago de liquidación/comisión',c:'#fbbf24'},
+  {id:'retiro_socio',n:'Retiro de un socio',c:'#a78bfa'},
+  {id:'devolucion',n:'Devolución de seña o a un cliente',c:'#f472b6'},
+  {id:'pago_deuda',n:'Pago de una deuda',c:'#f59e0b'},
+  {id:'traspaso',n:'Traspaso / cambio de efectivo',c:'#64748b'},
+];
+const catInterno=(id)=>CAT_INTERNO.find(c=>c.id===id)||CAT_INTERNO[CAT_INTERNO.length-1];
+const GRUPOS_FIN=[['fijo','Gastos fijos'],['sueldo','Empleados fijos'],['cuota','Cuotas y préstamos'],['suscripcion','Suscripciones'],['variable','Gastos variables'],['reinversion','Reinversión'],['comision','Comisiones (empleados a comisión)']];
 const catFin=(id)=>[...CAT_GASTOS,...CAT_AUTO].find(c=>c.id===id)||CAT_GASTOS[CAT_GASTOS.length-1];
 const FRECUENCIAS=[['mensual','Mensual'],['quincenal','Quincenal'],['semanal','Semanal'],['anual','Anual']];
 const DIAS_LARGO=['Domingo','Lunes','Martes','Miércoles','Jueves','Viernes','Sábado'];
@@ -3375,10 +3387,11 @@ function rubroDeTurno(t,prof){
 // "pre" permite reusar los datos ya leidos cuando se calculan muchos periodos seguidos (flujo anual).
 function finCalc(desde,hasta,pre){
   const D=pre?pre.D:adminDatos(), pctMap=pre?pre.pctMap:pctPorQuincena(D);
-  const nuevo=()=>({ing:{servicios:0,productos:0,membresias:0,paquetes:0,senas:0},eg:{},turnos:[],porProf:{}});
+  const nuevo=()=>({ing:{servicios:0,productos:0,membresias:0,paquetes:0,senas:0},eg:{},reinversion:0,interno:[],turnos:[],porProf:{}});
   const S={}; sucursales.forEach(s=>{ S[s.id]=nuevo(); });
   const sx=(id)=>S[id]||(S[id]=nuevo());
-  const eg=(s,cat,v)=>{ s.eg[cat]=(s.eg[cat]||0)+v; };
+  // "reinversion" no cuenta como gasto normal (se muestra aparte, resultado antes/despues de reinvertir)
+  const eg=(s,cat,v)=>{ if(cat==='reinversion'){ s.reinversion=(s.reinversion||0)+v; return; } s.eg[cat]=(s.eg[cat]||0)+v; };
   D.turnos.filter(t=>t.fecha>=desde&&t.fecha<=hasta).forEach(t=>{
     const s=sx(sucDeReg(t,t.prof)); const pct=pctMap[t.prof.id+'|'+quincenaKey(t.fecha)]||0;
     const cash=numV(t.aCobrar!=null?t.aCobrar:t.monto);
@@ -3398,14 +3411,19 @@ function finCalc(desde,hasta,pre){
   finData.gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta).forEach(g=>reparto(g.sucursal,g.categoria,numV(g.monto)));
   finData.fijos.forEach(f=>reparto(f.sucursal,f.categoria,fijoDevengado(f,desde,hasta)));
   // gastos anotados en la caja de recepcion (los retiros y pagos de gastos fijos no cuentan: ya estan devengados)
-  todasSesiones().forEach(s=>movsVivos(s).filter(m=>m.gasto&&m.tipo==='salida').forEach(m=>{ const f=ymdLocal(new Date(m.ts)); if(f>=desde&&f<=hasta) reparto(s.sucursal||ids[0],m.cat||'otros',numV(m.monto)); }));
+  todasSesiones().forEach(s=>movsVivos(s).filter(m=>m.tipo==='salida').forEach(m=>{
+    const f=ymdLocal(new Date(m.ts)); if(f<desde||f>hasta) return;
+    const suc=s.sucursal||ids[0];
+    if(m.gasto) reparto(suc,m.cat||'otros',numV(m.monto));
+    else if(m.interno) sx(suc).interno.push({...m,sucursal:suc}); // adelanto, retiro de socio, devolucion, etc: no es gasto, pero se muestra para no perderlo
+  }));
   return S;
 }
 const sumaIng=(s)=>s.ing.servicios+s.ing.productos+s.ing.membresias+s.ing.paquetes+(s.ing.senas||0);
 const sumaEg=(s)=>Object.values(s.eg).reduce((a,b)=>a+b,0);
 function juntarS(S,ids){
-  const T={ing:{servicios:0,productos:0,membresias:0,paquetes:0,senas:0},eg:{},turnos:[],porProf:{}};
-  ids.forEach(i=>{ const s=S[i]; if(!s) return; Object.keys(T.ing).forEach(k=>T.ing[k]+=s.ing[k]); Object.entries(s.eg).forEach(([c,v])=>T.eg[c]=(T.eg[c]||0)+v); Object.entries(s.porProf||{}).forEach(([p,v])=>T.porProf[p]=(T.porProf[p]||0)+v); T.turnos.push(...s.turnos); });
+  const T={ing:{servicios:0,productos:0,membresias:0,paquetes:0,senas:0},eg:{},reinversion:0,interno:[],turnos:[],porProf:{}};
+  ids.forEach(i=>{ const s=S[i]; if(!s) return; Object.keys(T.ing).forEach(k=>T.ing[k]+=s.ing[k]); Object.entries(s.eg).forEach(([c,v])=>T.eg[c]=(T.eg[c]||0)+v); T.reinversion+=(s.reinversion||0); T.interno.push(...(s.interno||[])); Object.entries(s.porProf||{}).forEach(([p,v])=>T.porProf[p]=(T.porProf[p]||0)+v); T.turnos.push(...s.turnos); });
   return T;
 }
 function rangoFin(){ return finState.periodo==='semana'?rangoPeriodo('7d'):rangoPeriodo(finState.periodo); }
@@ -3434,17 +3452,22 @@ function finBalance(c){
   const r=rangoFin(), S=finCalc(r.desde,r.hasta);
   const ids=finState.suc==='todas'?sucursales.map(s=>s.id):[finState.suc];
   const T=juntarS(S,ids), ing=sumaIng(T), egr=sumaEg(T), gan=ing-egr, mg=ing>0?Math.round(gan/ing*100):0;
+  const reinv=T.reinversion||0, ganDespues=gan-reinv;
   const pctI=(v)=>ing>0?Math.round(v/ing*100)+'%':'—';
   const porGrupo=GRUPOS_FIN.map(([t,n])=>({t,n,cats:Object.entries(T.eg).filter(([id,v])=>v>0.5&&catFin(id).t===t).sort((a,b)=>b[1]-a[1])})).filter(g=>g.cats.length);
   const kpi=(l,v,col,sub2)=>`<div class="stat-card"><div class="sc-lbl">${l}</div><div class="sc-val" style="color:${col||'var(--text)'}">${v}</div><div class="sc-sub">${sub2||''}</div></div>`;
   c.innerHTML=chipsFin()+`<div style="font-size:11.5px;color:var(--muted2);margin:-4px 2px 10px">${r.label} · ${finState.suc==='todas'?'todo el salón':escH((sucursalDe(finState.suc)||{}).nombre||'')}</div>
-    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)">${kpi('Ingresos',fp(ing),'#34d399')}${kpi('Egresos',fp(egr),'#f472b6')}${kpi('Ganancia',fp(gan),gan>=0?'#34d399':'#f472b6',gan>=0?'te queda':'estás perdiendo')}${kpi('Margen',mg+'%',mg>=0?'var(--text)':'#f472b6','de cada $100 que entran')}</div>
+    <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)">${kpi('Ingresos',fp(ing),'#34d399')}${kpi('Egresos',fp(egr),'#f472b6')}${kpi('Resultado operativo',fp(gan),gan>=0?'#34d399':'#f472b6',gan>=0?'te queda':'estás perdiendo')}${kpi('Margen',mg+'%',mg>=0?'var(--text)':'#f472b6','de cada $100 que entran')}</div>
+    ${reinv>0?`<div class="card" style="margin-bottom:10px;border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.06)">${linea('Resultado operativo (antes de reinvertir)',`<b>${fp(gan)}</b>`)}${linea('− Reinversión del período',`<b style="color:#22d3ee">${fp(reinv)}</b>`)}${linea('<b>= Resultado después de reinversión</b>',`<b style="color:${ganDespues>=0?'#34d399':'#f472b6'}">${fp(ganDespues)}</b>`,'border-top:1px solid var(--border2);margin-top:4px;padding-top:6px')}</div>`:''}
     ${torta(T,'🥧 En qué se va la plata'+(finState.suc==='todas'?' (todo el salón)':''))}
     ${finState.suc==='todas'&&sucursales.length>1?`<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(270px,1fr));gap:10px">${sucursales.map(s=>torta(S[s.id],`<span style="color:${s.color}">●</span> ${escH(s.nombre)} · ganancia ${fp(sumaIng(S[s.id])-sumaEg(S[s.id]))}`,true)).join('')}</div>`:''}
     <div class="sec-title" style="margin:14px 0 8px">⬆️ Ingresos · ${fp(ing)}</div>
     <div class="card" style="margin-bottom:10px">${[['Servicios cobrados',T.ing.servicios],['Productos vendidos',T.ing.productos],['Membresías vendidas',T.ing.membresias],['Paquetes vendidos',T.ing.paquetes],['Señas recibidas',T.ing.senas||0]].map(([n,v])=>linea(n,`<b>${fp(v)}</b> <span style="color:var(--muted);font-size:10.5px">${pctI(v)}</span>`)).join('')}</div>
     <div class="sec-title" style="margin:14px 0 8px">⬇️ Egresos · ${fp(egr)}</div>
     ${porGrupo.map(g=>{ const sub2=g.cats.reduce((a,[,v])=>a+v,0); return `<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:800;margin-bottom:4px"><span>${g.n}</span><span>${fp(sub2)} <span style="color:var(--muted);font-size:10.5px;font-weight:600">${pctI(sub2)} de lo que entra</span></span></div>${g.cats.map(([id,v])=>`<div class="ln"><span><span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${catFin(id).c};margin-right:6px"></span>${escH(catFin(id).n)}</span><span>${fp(v)} <span style="color:var(--muted);font-size:10.5px">${pctI(v)}</span></span></div>`).join('')}</div>`; }).join('')||'<div class="empty"><div class="e-icon">🧾</div><p>Todavía no hay egresos. Cargá tus gastos fijos y variables.</p></div>'}
+    ${T.interno.length?`<div class="sec-title" style="margin:14px 0 8px">🔁 Movimientos internos · ${fp(T.interno.reduce((a,m)=>a+numV(m.monto),0))}</div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Plata que salió de la caja pero <b style="color:var(--text)">no es gasto</b> (adelantos, retiros de socios, devoluciones, pagos de deuda, cambios de efectivo) — no baja el margen, pero queda anotada acá para que no se pierda.</div>
+    <div class="card" style="margin-bottom:10px">${T.interno.slice().sort((a,b)=>String(b.ts).localeCompare(String(a.ts))).map(m=>{ const ci=catInterno(m.interno); return linea(`<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${ci.c};margin-right:6px"></span>${escH(ci.n)}${m.detalle?' — '+escH(m.detalle):''} <span style="color:var(--muted);font-size:10.5px">${fechaCortaStr(ymdLocal(new Date(m.ts)))} · ${escH((sucursalDe(m.sucursal)||{}).nombre||'')}</span>`,`<b>${fp(m.monto)}</b>`); }).join('')}</div>`:''}
     ${htmlProximosPagos()}
     <div style="font-size:10.5px;color:var(--muted);margin-top:8px;line-height:1.5">Los gastos fijos se cuentan por día (un alquiler mensual se reparte en los días del mes). Los gastos "Compartidos" se dividen en partes iguales entre las sucursales. Las comisiones del equipo se calculan con el tramo de cada quincena.</div>`;
 }
@@ -3630,13 +3653,21 @@ async function finPlan(k,v){ await cambiarFin(d=>{ if(v===''||v==null) delete d.
 // entran solos los cobros y se anotan a mano las salidas (proveedores, cafe, retiros), y al cerrar se cuenta lo que hay.
 // El saldo con el que cierra una caja es el de apertura de la siguiente.
 let cajaDocs={};
+// Cada salida de caja tiene que quedar con un destino claro — reemplaza el "Retiro" generico
+// que se comia $8,1M sin explicar en Agosto-Septiembre. Los "interno" (gasto:false) no bajan el
+// margen pero quedan anotados en Finanzas > Balance > "Movimientos internos", con detalle obligatorio.
 const CONCEPTOS_CAJA=[
   {id:'proveedor',n:'Pago a proveedor / insumos',tipo:'salida',cat:'insumos',gasto:true},
   {id:'cafe',n:'Café y cafetería',tipo:'salida',cat:'cafeteria',gasto:true},
   {id:'limpieza',n:'Limpieza',tipo:'salida',cat:'limpieza',gasto:true},
   {id:'otro_gasto',n:'Otro gasto',tipo:'salida',cat:'otros',gasto:true},
   {id:'fijo',n:'Pago de gasto fijo (alquiler, sueldo, luz…)',tipo:'salida',gasto:false},
-  {id:'retiro',n:'Retiro de dinero (socios)',tipo:'salida',gasto:false},
+  {id:'reinversion',n:'Reinversión (equipamiento, mejoras, obra)',tipo:'salida',cat:'reinversion',gasto:true,pedirDetalle:true},
+  {id:'adelanto',n:'Adelanto a un profesional',tipo:'salida',gasto:false,interno:'adelanto',pedirDetalle:true,detalleLabel:'¿A quién?'},
+  {id:'liquidacion',n:'Pago de liquidación/comisión',tipo:'salida',gasto:false,interno:'liquidacion',pedirDetalle:true,detalleLabel:'¿A quién?'},
+  {id:'retiro',n:'Retiro de un socio',tipo:'salida',gasto:false,interno:'retiro_socio',pedirDetalle:true,detalleLabel:'¿Qué socio?'},
+  {id:'devolucion',n:'Devolución de seña o a un cliente',tipo:'salida',gasto:false,interno:'devolucion',pedirDetalle:true,detalleLabel:'¿A quién?'},
+  {id:'pago_deuda',n:'Pago de una deuda',tipo:'salida',gasto:false,interno:'pago_deuda',pedirDetalle:true,detalleLabel:'¿A quién se le pagó?'},
   {id:'deposito',n:'Depósito: del efectivo a la cuenta',tipo:'traspaso',gasto:false},
   {id:'ingreso_extra',n:'Ingreso extra',tipo:'entrada',gasto:false},
 ];
@@ -3870,13 +3901,14 @@ function renderMovCaja(){
     <div class="field"><label>¿Qué es?</label><div style="display:flex;flex-wrap:wrap;gap:6px">${CONCEPTOS_CAJA.map(c=>`<button onclick="movCajaSet('concepto','${c.id}')" style="${pillStyle(s.concepto===c.id,c.tipo==='entrada'?'#34d399':'#f472b6')}">${c.tipo==='entrada'?'⬆️':'⬇️'} ${c.n}</button>`).join('')}</div></div>
     <div class="field" style="margin-top:8px"><label>Monto</label><input id="mv-monto" type="number" inputmode="decimal" placeholder="0" value="${escH(keep)}"/></div>
     ${cp.tipo==='traspaso'?'<div style="font-size:11.5px;color:var(--muted2);margin:4px 0">Sale del efectivo y entra a la cuenta.</div>':`<div class="field" style="margin-top:8px"><label>¿De dónde?</label><div style="display:flex;gap:8px">${[['efectivo','💵 Efectivo'],['cuenta','🏦 Cuenta']].map(([v,l])=>`<button onclick="movCajaSet('medio','${v}')" style="flex:1;${pillStyle(s.medio===v,color)}">${l}</button>`).join('')}</div></div>`}
-    <div class="field" style="margin-top:8px"><label>Detalle (opcional)</label><input id="mv-det" placeholder="Ej: ceras a proveedor" value="${escH(keepD)}"/></div>
+    <div class="field" style="margin-top:8px"><label>${escH(cp.detalleLabel||'Detalle')}${cp.pedirDetalle?' *':' (opcional)'}</label><input id="mv-det" placeholder="${cp.pedirDetalle?'Obligatorio para esta anotación':'Ej: ceras a proveedor'}" value="${escH(keepD)}"/></div>
     <button class="btn btn-primary" onclick="guardarMovCaja()" style="margin-top:14px;background:${color}">Guardar</button>`;
 }
 async function guardarMovCaja(){
   const monto=numV(document.getElementById('mv-monto').value); if(monto<=0){ showToast('Poné el monto'); return; }
   const det=document.getElementById('mv-det').value.trim(); const cp=CONCEPTOS_CAJA.find(c=>c.id===movCajaSel.concepto); const ab=sesionAbierta(); if(!ab){ showToast('La caja está cerrada'); return; }
-  const ts=new Date().toISOString(), base={concepto:cp.n,cat:cp.cat||null,gasto:!!cp.gasto,detalle:det,ts,por:profile.name};
+  if(cp.pedirDetalle&&!det){ showToast((cp.detalleLabel||'El detalle')+' es obligatorio para esta anotación'); return; }
+  const ts=new Date().toISOString(), base={concepto:cp.n,cat:cp.cat||null,gasto:!!cp.gasto,interno:cp.interno||null,detalle:det,ts,por:profile.name};
   const movs=cp.tipo==='traspaso'?[{...base,id:'m'+Date.now().toString(36)+'a',tipo:'salida',medio:'efectivo',monto},{...base,id:'m'+Date.now().toString(36)+'b',tipo:'entrada',medio:'cuenta',monto}]:[{...base,id:'m'+Date.now().toString(36),tipo:cp.tipo,medio:movCajaSel.medio,monto}];
   await cambiarCaja(ab.fecha.slice(0,7),l=>{ const s=l.find(x=>x.id===ab.id); if(s){ s.movs=[...(s.movs||[]),...movs]; s.upd=new Date().toISOString(); } });
   closeModal('modal-registro'); showToast('Anotado ✓'); refreshCurrentView();
