@@ -1765,17 +1765,24 @@ function profesionesLista(){
 }
 function clienteDe(id){ return id?clientesDir.find(c=>c.id===id)||null:null; }
 function persistClientes(){ try{ localStorage.setItem('luffy_clientes',JSON.stringify(clientesDir)); }catch(e){} }
+// migracion: antes un cliente tenia una sola tarjeta (c.tarjeta); ahora puede tener varias (c.tarjetas, array)
+function normTarjetasCliente(c){
+  if(c.tarjeta&&!c.tarjetas){ c.tarjetas=[c.tarjeta]; delete c.tarjeta; }
+  else if(!c.tarjetas) c.tarjetas=[];
+  return c;
+}
 function mergeClientes(remote){
   if(!remote||!Array.isArray(remote.list)) return false;
   const antes=JSON.stringify(clientesDir);
   const m=new Map(clientesDir.map(c=>[c.id,c]));
-  remote.list.forEach(r=>{ const l=m.get(r.id); if(!l||String(r.upd||'')>String(l.upd||'')) m.set(r.id,r); });
+  remote.list.forEach(r=>{ normTarjetasCliente(r); const l=m.get(r.id); if(!l||String(r.upd||'')>String(l.upd||'')) m.set(r.id,r); });
   clientesDir=[...m.values()];
   return antes!==JSON.stringify(clientesDir);
 }
 function loadClientes(){
   if(!profile) return;
   try{ clientesDir=JSON.parse(localStorage.getItem('luffy_clientes')||'[]'); }catch(e){ clientesDir=[]; }
+  clientesDir.forEach(normTarjetasCliente);
   if(DB){
     DB.doc('luffy/clientes').get().then(r=>{ if(mergeClientes(r)){ persistClientes(); refreshCurrentView(); } }).catch(()=>{});
   }
@@ -1809,8 +1816,8 @@ async function crearCliente(d){
     const numero=list.reduce((m,c)=>Math.max(m,numV(c.numero)),0)+1;
     const ahora=new Date().toISOString();
     const c={id:'c'+numero+'x'+Date.now().toString(36), numero, nombre, nkey:nkey(nombre), profesion:d.profesion||'', tel:(d.tel||'').trim(), nacimiento:d.nacimiento||'', email:(d.email||'').trim(), ref:(d.ref||'').trim(), nota:(d.nota||'').trim(), cumple:d.cumple||'',
-      creadoPor:profile.id, creadoPorNombre:profile.name, profs:profile.role==='profesional'?[profile.id]:[], sucursal:profile.sucursal||null, refPor:d.refPor||null, tarjeta:null, creado:ahora, upd:ahora};
-    if(d.tarjeta) c.tarjeta=nuevaTarjetaCliente(d.tarjeta);
+      creadoPor:profile.id, creadoPorNombre:profile.name, profs:profile.role==='profesional'?[profile.id]:[], sucursal:profile.sucursal||null, refPor:d.refPor||null, tarjetas:[], creado:ahora, upd:ahora};
+    if(d.tarjeta) c.tarjetas.push(nuevaTarjetaCliente(d.tarjeta));
     list.push(c);
     return {cliente:c};
   });
@@ -1878,7 +1885,7 @@ async function confirmarImportClientes(){
     validos.forEach(v=>{
       numero++;
       list.push({id:'c'+numero+'x'+base, numero, nombre:v.nombre, nkey:nkey(v.nombre), profesion:'', tel:v.tel, nacimiento:'', email:v.email, ref:'', nota:v.nota, cumple:'',
-        creadoPor:profile.id, creadoPorNombre:profile.name, profs:[], sucursal:null, refPor:null, tarjeta:null, creado:ahora, upd:ahora});
+        creadoPor:profile.id, creadoPorNombre:profile.name, profs:[], sucursal:null, refPor:null, tarjetas:[], creado:ahora, upd:ahora});
     });
   });
   closeModal('modal-registro'); showToast(validos.length+' clientes importados ✓'); renderAdmin();
@@ -1945,7 +1952,7 @@ function renderClientes(){
     </div>
     ${lista.length?lista.map(({c,s})=>`<div class="card" onclick="abrirClienteDetalle('${c.id}')" style="cursor:pointer;margin-bottom:8px">
       <div style="display:flex;align-items:center;gap:10px">
-        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(c.nombre)}${verNumeroCliente()?` <span style="color:var(--muted2);font-weight:700">#${c.numero}</span>`:''}${c.tarjeta?' <span title="Tarjeta de fidelidad">💳</span>':''}${(diasHastaCumple(c.cumple)!=null&&diasHastaCumple(c.cumple)<=3)?' 🎂':''}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:800">${escH(c.nombre)}${verNumeroCliente()?` <span style="color:var(--muted2);font-weight:700">#${c.numero}</span>`:''}${(c.tarjetas&&c.tarjetas.length)?' <span title="Tarjeta de fidelidad">💳</span>':''}${(diasHastaCumple(c.cumple)!=null&&diasHastaCumple(c.cumple)<=3)?' 🎂':''}</div>
           <div style="font-size:11px;color:var(--muted2);margin-top:1px">${escH(idCorto(c))}</div>
           <div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${s.visitas?`${s.visitas} ${s.visitas===1?'visita':'visitas'} · última hace ${diasDesdeStr(s.ultima)} d${s.cada?` · viene cada ~${s.cada} d`:''}`:'Todavía sin visitas'}</div></div>
         <div style="text-align:right"><div style="font-size:13px;font-weight:800">${fp(s.gastado)}</div><div style="font-size:10px;color:var(--muted)">gastó</div></div>
@@ -1977,7 +1984,7 @@ function abrirClienteDetalle(id){
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirFormCliente('${c.id}')">✏️ Editar datos</button>
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirVentaMembresia('${c.id}')">💳 Vender membresía</button>
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirVentaPaquete('${c.id}')">🎁 Vender paquete</button>
-      ${!c.tarjeta&&typeof tarjetasDisponibles==='function'&&tarjetasDisponibles().length?`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="activarTarjetaCliente('${c.id}')">⭐ Activar tarjeta</button>`:''}
+      ${typeof tarjetasDisponibles==='function'&&tarjetasDisponibles().some(t=>!(c.tarjetas||[]).some(x=>x.cardId===t.id))?`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="activarTarjetaCliente('${c.id}')">⭐ Activar tarjeta</button>`:''}
     </div>
     ${profile.role==='admin'?`<button class="btn btn-ghost" style="margin-bottom:14px;color:#f472b6" onclick="borrarClienteAdmin('${c.id}')">🗑️ Eliminar cliente</button>`:''}
     <div class="sec-title" style="margin-bottom:8px">Historial</div>
@@ -2059,7 +2066,7 @@ function abrirFormCliente(id,ctx){
     <div class="field" style="margin-top:8px"><label>Notas (opcional)</label><input id="cl-nota" placeholder="Ej: le gusta el fade bajo" value="${v('nota')}"/></div>
     ${conTarjeta?`<label class="rub-opt" style="margin-top:10px"><input type="checkbox" id="cl-tarjeta" checked onchange="document.getElementById('cl-refpor-w').style.display=this.checked?'':'none'"/> ⭐ Quiere la tarjeta de fidelidad</label>
       ${conTarjeta&&tarjetasDisponibles().length>1?`<select id="cl-tarjeta-sel" style="${selFin};margin-top:6px">${tarjetasDisponibles().map(t=>`<option value="${t.id}">${escH(t.nombre)} · ${escH(rubrosNombres(t.rubro))}</option>`).join('')}</select>`:''}
-      <div class="field" id="cl-refpor-w" style="margin-top:8px"><label>¿Lo refirió alguien? (opcional)</label><input id="cl-refpor" list="cl-refpor-l" placeholder="Nombre de quien lo recomendó"/><datalist id="cl-refpor-l">${clientesDir.filter(x=>x.tarjeta).map(x=>`<option value="${escH(x.nombre)}">`).join('')}</datalist></div>`:''}
+      <div class="field" id="cl-refpor-w" style="margin-top:8px"><label>¿Lo refirió alguien? (opcional)</label><input id="cl-refpor" list="cl-refpor-l" placeholder="Nombre de quien lo recomendó"/><datalist id="cl-refpor-l">${clientesDir.filter(x=>x.tarjetas&&x.tarjetas.length).map(x=>`<option value="${escH(x.nombre)}">`).join('')}</datalist></div>`:''}
     <button class="btn btn-primary" onclick="guardarFormCliente()" style="margin-top:14px">${c?'Guardar cambios':'Agregar cliente'}</button>`;
   openModal('modal-registro');
 }
@@ -2088,7 +2095,7 @@ async function guardarFormCliente(){
     closeModal('modal-registro'); refreshCurrentView(); return;
   }
   let refPor=null; const rn=val('cl-refpor');
-  if(rn){ const rc=clientesDir.find(x=>x.nkey===nkey(rn)&&x.tarjeta); if(!rc){ showToast('Quien lo refirió tiene que ser un cliente con tarjeta'); return; } refPor=rc.id; }
+  if(rn){ const rc=clientesDir.find(x=>x.nkey===nkey(rn)&&x.tarjetas&&x.tarjetas.length); if(!rc){ showToast('Quien lo refirió tiene que ser un cliente con tarjeta'); return; } refPor=rc.id; }
   const tarj=document.getElementById('cl-tarjeta')?.checked?tarjetaParaRubros((document.getElementById('cl-tarjeta-sel')||{}).value):null;
   const r=await crearCliente({nombre,profesion:prof,tel,nacimiento:nac,email,ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),refPor,tarjeta:tarj});
   if(r.error==='dup'){
@@ -2141,7 +2148,7 @@ function renderSugerenciasCliente(){
   if(q.length<2){ el.innerHTML=''; return; }
   const m=buscarClientes(q).slice(0,5);
   const exacto=m.some(c=>c.nkey===nkey(q));
-  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="cobroElegirCliente('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)}${c.tarjeta?' 💳':''}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="cobroElegirCliente('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)}${(c.tarjetas&&c.tarjetas.length)?' 💳':''}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}
     ${exacto?'':`<button onclick="cobroAgregarCliente()" style="text-align:left;padding:10px 12px;border-radius:10px;border:1.5px dashed ${profile.color};background:transparent;color:${profile.color};font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">➕ Agregar «${escH(q)}» como cliente nuevo</button>`}</div>`;
 }
 // Al guardar el cobro: si escribio un nombre hay que haber elegido uno de la lista (o agregarlo); asi no se duplican
@@ -2299,16 +2306,25 @@ function reglaAplica(r,ctx){
   return true;
 }
 const unidadTarj=(t)=>/barberia/.test(String((t&&t.rubro)||''))?'corte':'servicio';
-function infoTarjeta(cli){
-  const t=cli&&cli.tarjeta; if(!t||!t.snap) return null;
+// Un cliente puede tener varias tarjetas activas (una por rubro, ej: barberia + la de Dai en peluqueria).
+// mejorTarjetaCliente elige la que corresponde segun el/los rubro(s) que se estan cobrando.
+function mejorTarjetaCliente(cli,rubros){
+  const L=(cli&&cli.tarjetas)||[]; if(!L.length) return null;
+  const rs=rubros==null?null:(Array.isArray(rubros)?rubros:[rubros]);
+  if(!rs||!rs.length) return L[0];
+  return L.find(t=>t.snap&&rs.some(rb=>rubroEn(t.snap.rubro,rb)))||L[0];
+}
+function infoDeTarjeta(t){
+  if(!t||!t.snap) return null;
   const sn=t.snap, ciclo=Math.max(1,...(sn.visitas||[]).map(s=>s.n));
   const k=(numV(t.visitas)%ciclo)+1;
   const paso=(sn.visitas||[]).find(s=>s.n===k);
   const cupones=(t.cupones||[]).filter(c=>!c.usado&&numV(c.pct)>0.01);
   const pr=sn.premio;
   const regalo=!!pr&&t.regalo!=='usado'&&(t.refs||[]).length>=numV(pr.refs)&&numV(t.visitas)>=numV(pr.visitas);
-  return {rubro:sn.rubro,k,ciclo,pctFid:paso?paso.pct:0,pasoSvcs:(paso&&paso.servicioIds)||null,pasoLabel:(paso&&paso.label)||'',cupones,pctRef:cupones.reduce((a,c)=>a+numV(c.pct),0),regalo};
+  return {cardId:t.cardId,rubro:sn.rubro,k,ciclo,pctFid:paso?paso.pct:0,pasoSvcs:(paso&&paso.servicioIds)||null,pasoLabel:(paso&&paso.label)||'',cupones,pctRef:cupones.reduce((a,c)=>a+numV(c.pct),0),regalo};
 }
+function infoTarjeta(cli,rubros){ return infoDeTarjeta(mejorTarjetaCliente(cli,rubros)); }
 // UN SOLO DESCUENTO por cobro: el MAS ALTO de los que aplican (promo fija por horario o profesion, oferta, efectivo,
 // fidelidad, cupon de referidos o corte de regalo). Nunca se suman entre si.
 // Los cupones de referidos que no se usan quedan guardados para otra visita.
@@ -2333,7 +2349,7 @@ function calcCobro(){
   const oferta=ofertasVisibles().find(o=>o.id===cobro.ofertaId)||null;
   let fijo=null, ofertaSinEfecto=false;
   const tarjUso={cupones:[],fidSobra:0};
-  const tarj=infoTarjeta(cli);
+  const tarj=infoTarjeta(cli,normales.map(rubroDeLinea));
   // Promo fija: puede valer solo para ciertos servicios y sumar un adicional segun la profesion del cliente (ej: fuerzas +15%). Gana la que mas descuenta.
   const baseF=(f)=>normales.filter(l=>rubroEn(f.rubro,rubroDeLinea(l))&&(!(f.servicioIds&&f.servicioIds.length)||l.ids.some(id=>f.servicioIds.includes(id)))).reduce((a,l)=>a+l.precio,0);
   const extraFijo=(f)=>!!(f.extra&&f.extra.profesion&&cli&&nkey(cli.profesion)===nkey(f.extra.profesion));
@@ -2357,7 +2373,15 @@ function calcCobro(){
   if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
   const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
   if(descEfectivo>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:descEfectivo});
-  let ganador=null; if(!esNoche) cand.forEach(c=>{ if(c.monto>0&&(!ganador||c.monto>ganador.monto)) ganador=c; });
+  // Tarjeta vs. descuento del dia: si los dos aplican y dan plata, el profesional elige cual usar (capaz le conviene mas el del dia).
+  // Si solo aplica uno de los dos (o ninguno), sigue siendo automatico como antes.
+  const GRUPO_DESC={regalo:'tarjeta',fidelidad:'tarjeta',referidos:'tarjeta',fijo:'dia',oferta:'dia'};
+  cand.forEach(c=>{ c.grupo=GRUPO_DESC[c.tipo]||null; });
+  const mejorDe=(g)=>cand.filter(c=>c.grupo===g&&c.monto>0).sort((a,b)=>b.monto-a.monto)[0]||null;
+  const opcTarjeta=mejorDe('tarjeta'), opcDia=mejorDe('dia');
+  const necesitaElegirDesc=!!(opcTarjeta&&opcDia);
+  const candElegibles=(necesitaElegirDesc&&cobro.descGrupo)?cand.filter(c=>!c.grupo||c.grupo===cobro.descGrupo):cand;
+  let ganador=null; if(!esNoche) candElegibles.forEach(c=>{ if(c.monto>0&&(!ganador||c.monto>ganador.monto)) ganador=c; });
   if(ganador){ D.push(ganador); if(ganador.tipo==='referidos'&&mejorCupon) tarjUso.cupones.push({id:mejorCupon.id,pct:numV(mejorCupon.pct)}); }
   const topeAlcanzado=false, tope=null;
   const descuento=Math.min(subNormal,D.reduce((a,d)=>a+d.monto,0));
@@ -2389,6 +2413,7 @@ function calcCobro(){
   const prodTotal=prodLineas.reduce((a,l)=>a+l.total,0);
   const prodComision=prodLineas.reduce((a,l)=>a+l.comision,0);
   return {svcs:lineas, lineas, subtotal, subNormal, ahorroCombo, oferta, ofertaSinEfecto, descuentos:D, descuento, descPct, descTipo, fijo, tarj, tarjUso, tope, topeAlcanzado, ctx, esNoche,
+    necesitaElegirDesc, opcTarjeta, opcDia, descGrupoActivo:cobro.descGrupo||(ganador?ganador.grupo:null),
     servicioNeto, aCobrarServ:montoNormal-sn.total, senaTotal:sn.total, senasUso:sn.usos, prepagos, prepTotal, comFija, comFijaBase, paqueteCredito, paqueteComFija,
     prodLineas, prodTotal, prodComision, total:montoNormal-sn.total+prodTotal};
 }
@@ -2415,20 +2440,22 @@ async function postCobroCliente(cli,r,turnoId){
     const c=list.find(x=>x.id===cli.id); if(!c) return;
     const ahora=new Date().toISOString();
     if(profile.role==='profesional'&&!(c.profs||[]).includes(profile.id)) c.profs=[...(c.profs||[]),profile.id];
-    if(c.tarjeta){
-      c.tarjeta.visitas=numV(c.tarjeta.visitas)+1;
-      usoCup.forEach(u=>{ const cu=(c.tarjeta.cupones||[]).find(x=>x.id===u.id); if(cu){ cu.pct=Math.round((numV(cu.pct)-u.pct)*100)/100; if(cu.pct<=0.01) cu.usado=true; } });
-      if(fidSobra>0.01) c.tarjeta.cupones=[...(c.tarjeta.cupones||[]),{id:'sd'+Date.now().toString(36),pct:fidSobra,de:'fidelidad',usado:false}];
-      if(usoRegalo) c.tarjeta.regalo='usado';
+    const ct=r.tarj&&(c.tarjetas||[]).find(x=>x.cardId===r.tarj.cardId);
+    if(ct){
+      ct.visitas=numV(ct.visitas)+1;
+      usoCup.forEach(u=>{ const cu=(ct.cupones||[]).find(x=>x.id===u.id); if(cu){ cu.pct=Math.round((numV(cu.pct)-u.pct)*100)/100; if(cu.pct<=0.01) cu.usado=true; } });
+      if(fidSobra>0.01) ct.cupones=[...(ct.cupones||[]),{id:'sd'+Date.now().toString(36),pct:fidSobra,de:'fidelidad',usado:false}];
+      if(usoRegalo) ct.regalo='usado';
     }
     // el que lo refirio gana su descuento cuando el referido hace su primera visita
     if(c.refPor&&!c.refRecompensado){
       const R=list.find(x=>x.id===c.refPor);
-      if(R&&R.tarjeta&&R.tarjeta.snap){
-        const niveles=R.tarjeta.snap.referidos||[];
-        if(!(R.tarjeta.refs||[]).includes(c.id)&&(R.tarjeta.refs||[]).length<niveles.length){
-          R.tarjeta.refs=[...(R.tarjeta.refs||[]),c.id];
-          R.tarjeta.cupones=[...(R.tarjeta.cupones||[]),{id:'cu'+Date.now().toString(36),pct:niveles[R.tarjeta.refs.length-1],de:c.id,usado:false}];
+      const RT=R&&(R.tarjetas||[]).find(t=>t.snap&&t.snap.referidos&&t.snap.referidos.length);
+      if(RT){
+        const niveles=RT.snap.referidos||[];
+        if(!(RT.refs||[]).includes(c.id)&&(RT.refs||[]).length<niveles.length){
+          RT.refs=[...(RT.refs||[]),c.id];
+          RT.cupones=[...(RT.cupones||[]),{id:'cu'+Date.now().toString(36),pct:niveles[RT.refs.length-1],de:c.id,usado:false}];
           R.upd=ahora;
         }
       }
@@ -2447,18 +2474,30 @@ function tarjetasDisponibles(){
 function tarjetaParaRubros(cardId){ const L=tarjetasDisponibles(); return (cardId&&L.find(t=>t.id===cardId))||L[0]||null; }
 function nuevaTarjetaCliente(card){ return {cardId:card.id,snap:clonar(card),desde:hoyStr(),visitas:0,refs:[],cupones:[],regalo:'no'}; }
 async function activarTarjetaCliente(id,cardId){
-  const L=tarjetasDisponibles();
+  const cli=clienteDe(id);
+  const L=tarjetasDisponibles().filter(t=>!cli||!(cli.tarjetas||[]).some(x=>x.cardId===t.id));
+  if(!L.length){ showToast('Ya tiene todas las tarjetas disponibles'); return; }
   if(!cardId&&L.length>1){
     document.getElementById('registro-content').innerHTML=cabeceraModal('¿Qué tarjeta?')+L.map(t=>`<button class="btn btn-ghost" style="margin-bottom:8px;text-align:left" onclick="closeModal('modal-registro');activarTarjetaCliente('${id}','${t.id}')">⭐ ${escH(t.nombre)} <span style="color:var(--muted2);font-weight:600">· ${escH(rubrosNombres(t.rubro))}</span></button>`).join('');
     openModal('modal-registro'); return;
   }
+  if(!cardId) cardId=L[0].id;
   const card=tarjetaParaRubros(cardId); if(!card){ showToast('No hay tarjeta para tu rubro'); return; }
-  await cambiarClientes(list=>{ const c=list.find(x=>x.id===id); if(c&&!c.tarjeta){ c.tarjeta=nuevaTarjetaCliente(card); c.upd=new Date().toISOString(); } });
+  const res=await cambiarClientes(list=>{
+    const c=list.find(x=>x.id===id); if(!c) return {error:'sin-cliente'};
+    c.tarjetas=c.tarjetas||[];
+    if(c.tarjetas.some(t=>t.cardId===card.id)) return {error:'ya-tiene'};
+    c.tarjetas.push(nuevaTarjetaCliente(card)); c.upd=new Date().toISOString();
+  });
+  if(res&&res.error==='ya-tiene'){ showToast('Ya tiene esta tarjeta'); return; }
   showToast('Tarjeta activada ⭐'); abrirClienteDetalle(id);
 }
 function htmlTarjetaCliente(c){
-  const t=c.tarjeta; if(!t||!t.snap) return '';
-  const sn=t.snap, inf=infoTarjeta(c)||{}, un=unidadTarj(sn);
+  return ((c&&c.tarjetas)||[]).map(t=>htmlUnaTarjetaCliente(c,t)).join('');
+}
+function htmlUnaTarjetaCliente(c,t){
+  if(!t||!t.snap) return '';
+  const sn=t.snap, inf=infoDeTarjeta(t)||{}, un=unidadTarj(sn);
   const ciclo=inf.ciclo||10, hechas=numV(t.visitas)%ciclo||(numV(t.visitas)>0&&numV(t.visitas)%ciclo===0?ciclo:0);
   const pctDe=(n)=>((sn.visitas||[]).find(s=>s.n===n)||{}).pct;
   const regaloDe=(n)=>{ const x=(sn.visitas||[]).find(v=>v.n===n); return !!(x&&x.servicioIds&&x.servicioIds.length); };
@@ -2582,7 +2621,7 @@ async function confirmarVentaMembresia(){
 // repartido proporcional entre las lineas.
 function mejorDescuentoServicio(svc,cli,ctx,medioEfectivo){
   const precio=precioSvc(svc.id), rubro=svc.rubro||'';
-  const tarj=infoTarjeta(cli);
+  const tarj=infoTarjeta(cli,rubro);
   const cand=[];
   if(tarj&&tarj.regalo&&rubroEn(tarj.rubro,rubro)) cand.push({tipo:'regalo',label:'Corte de regalo (tarjeta completa)',pct:100,monto:precio});
   (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{
@@ -2702,11 +2741,17 @@ function renderPrepagoCobro(r){
   const disp=prepagosDisponibles();
   let h='';
   if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#7B337E')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
-  if(cli&&cli.tarjeta){ const inf=infoTarjeta(cli); h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(cli.tarjeta.snap)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones de referidos':''}`}</div>`; }
+  if(r.tarj){ const inf=r.tarj; h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(inf)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones de referidos':''}`}</div>`; }
   const debeC=cli?saldoDeCliente(cli.id,cli.nombre):0;
   if(debeC>0) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#f472b6;font-weight:800">⚠️ Este cliente debe ${fp(debeC)} de turnos anteriores.</div>`;
   h+=htmlSenasCobro(r);
-  if(r.descuentos[0]&&r.descuentos[0].tipo!=='efectivo') h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#34d399;font-weight:700">🏷️ Se aplica un solo descuento, el más alto: ${escH(r.descuentos[0].label)} (−${r.descuentos[0].pct}%).</div>`;
+  if(r.necesitaElegirDesc){
+    const on=(g)=>(r.descGrupoActivo===g);
+    h+=`<div class="field"><label>¿Qué descuento le aplicás? (los dos convienen, elegí el que más le sirva)</label><div style="display:flex;gap:6px">
+      <button type="button" onclick="elegirDescCobro('tarjeta')" style="${pillStyle(on('tarjeta'),'#fbbf24')};flex:1">⭐ ${escH(r.opcTarjeta.label)} (−${fp(r.opcTarjeta.monto)})</button>
+      <button type="button" onclick="elegirDescCobro('dia')" style="${pillStyle(on('dia'),'#34d399')};flex:1">🏷️ ${escH(r.opcDia.label)} (−${fp(r.opcDia.monto)})</button>
+    </div></div>`;
+  } else if(r.descuentos[0]&&r.descuentos[0].tipo!=='efectivo') h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#34d399;font-weight:700">🏷️ Se aplica un solo descuento, el más alto: ${escH(r.descuentos[0].label)} (−${r.descuentos[0].pct}%).</div>`;
   if(profile.role==='profesional'&&cli) h+=`<button type="button" onclick="abrirSugerirCombo()" style="width:100%;margin:2px 0 10px;padding:10px;border-radius:12px;border:1.5px dashed ${color};background:transparent;color:${color};font-family:var(--font);font-size:12.5px;font-weight:800;cursor:pointer">🎁 Sugerirle a recepción un combo con ${escH((cli.nombre||'').split(' ')[0])}</button>`;
   el.innerHTML=h;
 }
@@ -2755,7 +2800,7 @@ function adminDirectorio(c){
   const lista=clientesDir.filter(x=>!q||buscarClientes(adminCliQ,[x]).length).sort((a,b)=>b.numero-a.numero);
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">👥 Clientes del salón (${clientesDir.length})</span>${profile.role==='admin'?`<button class="lnk" onclick="abrirImportClientes()">📂 Importar</button>`:''}</div>
     <input type="search" placeholder="Buscar por nombre, #, profesión o teléfono…" value="${escH(adminCliQ)}" oninput="adminCliQ=this.value;renderAdmin();var e=document.querySelector('#adm-content input[type=search]');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
-    ${lista.slice(0,60).map(x=>{ const s=statsCliente(x); const m=membresiaActivaDe(x.id); return `<div class="card" onclick="abrirClienteDetalle('${x.id}')" style="cursor:pointer;margin-bottom:6px"><div style="display:flex;gap:10px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(x.nombre)} <span style="color:var(--muted2)">#${x.numero}</span>${x.tarjeta?' 💳':''}${m?' 🎫':''}</div><div style="font-size:11px;color:var(--muted2)">${escH(idCorto(x))}${s.barberos.length?' · ✂️ '+escH(s.barberos.join(', ')):''}</div></div><div style="text-align:right;font-size:11.5px;color:var(--muted2)">${s.visitas} visitas<br><b style="color:var(--text)">${fp(s.gastado)}</b></div></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>No hay clientes.</p></div>'}
+    ${lista.slice(0,60).map(x=>{ const s=statsCliente(x); const m=membresiaActivaDe(x.id); return `<div class="card" onclick="abrirClienteDetalle('${x.id}')" style="cursor:pointer;margin-bottom:6px"><div style="display:flex;gap:10px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(x.nombre)} <span style="color:var(--muted2)">#${x.numero}</span>${(x.tarjetas&&x.tarjetas.length)?' 💳':''}${m?' 🎫':''}</div><div style="font-size:11px;color:var(--muted2)">${escH(idCorto(x))}${s.barberos.length?' · ✂️ '+escH(s.barberos.join(', ')):''}</div></div><div style="text-align:right;font-size:11.5px;color:var(--muted2)">${s.visitas} visitas<br><b style="color:var(--text)">${fp(s.gastado)}</b></div></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>No hay clientes.</p></div>'}
     ${lista.length>60?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 60 de ${lista.length}. Usá el buscador.</div>`:''}`;
 }
 function adminMembresias(c){
@@ -2793,37 +2838,83 @@ function adminPaquetes(c){
 }
 function adminTarjetas(c){
   const cards=promos.tarjetas||[];
-  const conTarjeta=clientesDir.filter(x=>x.tarjeta);
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">⭐ Tarjetas de fidelidad</span><button class="lnk" onclick="editarTarjetaCfg('')">+ Nueva tarjeta</button></div>
-    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cada cliente conserva las reglas con las que empezó su tarjeta: <b style="color:var(--text)">los profesionales no pueden cambiarlas</b>. Si modificás una tarjeta acá, vale para los clientes nuevos; para los que ya están en curso tenés que aprobarlo con "Aplicar a tarjetas en curso".</div>
-    ${cards.map(t=>{ const n=conTarjeta.filter(x=>x.tarjeta.cardId===t.id).length; return `<div class="prof-card" style="margin-bottom:10px;padding:14px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(t.nombre)} · ${escH(rubrosNombres(t.rubro))}</div>${t.profs&&t.profs.length?`<div style="font-size:11px;color:#fbbf24">Solo para: ${t.profs.map(id=>escH((allUsers.find(u=>u.id===id)||{name:id}).name)).join(', ')}</div>`:''}<div style="font-size:11px;color:var(--muted2)">${n} clientes con esta tarjeta</div></div><button class="lnk" onclick="editarTarjetaCfg('${t.id}')">Editar</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cada cliente conserva las reglas con las que empezó su tarjeta: <b style="color:var(--text)">los profesionales no pueden cambiarlas</b>. Si modificás una tarjeta acá, vale para los clientes nuevos; para los que ya están en curso tenés que aprobarlo con "Aplicar a tarjetas en curso". Un cliente puede tener más de una tarjeta activa a la vez (por ejemplo, la general de barbería y la de un profesional puntual).</div>
+    ${cards.map(t=>{ const n=clientesDir.filter(x=>(x.tarjetas||[]).some(y=>y.cardId===t.id)).length; return `<div class="prof-card" style="margin-bottom:10px;padding:14px"><div style="display:flex;align-items:center;gap:8px"><div style="flex:1"><div style="font-size:14px;font-weight:800">${escH(t.nombre)} · ${escH(rubrosNombres(t.rubro))}</div>${t.profs&&t.profs.length?`<div style="font-size:11px;color:#fbbf24">Solo para: ${t.profs.map(id=>escH((allUsers.find(u=>u.id===id)||{name:id}).name)).join(', ')}</div>`:''}<div style="font-size:11px;color:var(--muted2)">${n} clientes con esta tarjeta</div></div><button class="lnk" onclick="editarTarjetaCfg('${t.id}')">Editar</button></div>
       <div style="font-size:12px;line-height:1.7;margin-top:8px">Fidelidad: ${t.visitas.map(v=>`${unidadTarj(t)} ${v.n}° → <b>${v.servicioIds&&v.servicioIds.length?'🎁 '+escH(v.label||'gratis'):v.pct+'%'}</b>`).join(' · ')}<br>${t.referidos.length?'Referidos: '+t.referidos.map((p,i)=>`${i+1}° → <b>${p}%</b>`).join(' · ')+'<br>':''}${t.premio?`🎁 Corte 100% de regalo al completar ${t.premio.refs} referidos y ${t.premio.visitas} cortes`:'Sin premio final'}</div>
       <div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ghost" style="flex:1" onclick="aplicarTarjetaEnCurso('${t.id}')">Aplicar a tarjetas en curso</button><button class="btn btn-ghost" style="flex:0 0 auto;color:#f472b6" onclick="borrarTarjetaCfg('${t.id}')">Borrar</button></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">⭐</div><p>No hay tarjetas.</p></div>'}`;
 }
-async function editarTarjetaCfg(id){
+let tjEdit=null;
+function editarTarjetaCfg(id){
   const t=id?promos.tarjetas.find(x=>x.id===id):null;
-  const v=await uiDialog({title:t?'Editar tarjeta':'Nueva tarjeta',msg:'Descuento por número de corte (n:%) y por cada referido.',fields:[
-    {label:'Nombre',value:t?t.nombre:'Tarjeta de fidelidad'},
-    {label:'Rubros (ids separados por coma: '+(rubros.map(r=>r.id).join(', ')||'barberia')+')',value:t?t.rubro:'barberia,barberia-premium'},
-    {label:'Descuento por número de visita (ej: 2:5, 3:10, 10:50). Para un servicio gratis o con descuento: 6:100:Nutricion Capilar',value:t?t.visitas.map(x=>x.n+':'+x.pct+(x.servicioIds&&x.servicioIds.length?':'+x.servicioIds.map(nombreSvcId).join(' / '):'')).join(', '):'2:5, 3:10, 4:15, 10:50'},
-    {label:'Descuento por referido (ej: 10, 15, 20, 25)',value:t?t.referidos.join(', '):'10, 15, 20, 25'},
-    {label:'Premio: cortes necesarios (0 = sin premio)',type:'number',value:t&&t.premio?t.premio.visitas:5},
-    {label:'Premio: referidos necesarios',type:'number',value:t&&t.premio?t.premio.refs:4},
-    {label:'Solo para estos profesionales (nombres separados por coma) — vacío = todos los del rubro',value:t&&t.profs?t.profs.map(id=>(allUsers.find(u=>u.id===id)||{name:id}).name).join(', '):''}],ok:'Guardar'});
-  if(!v) return;
-  const visitas=v[2].split(',').map(s=>s.trim().split(':')).map(a=>({n:Number(a[0]),pct:Number(a[1]),svc:(a[2]||'').trim()})).filter(a=>a.n>0&&a.pct>0).map(a=>{ const ids=a.svc?idsServiciosPorNombre(a.svc,'/'):[]; const prev=t&&t.visitas.find(x=>x.n===a.n&&x.servicioIds&&ids.length===x.servicioIds.length&&ids.every(i=>x.servicioIds.includes(i))); return ids.length?{n:a.n,pct:a.pct,servicioIds:ids,label:(prev&&prev.label)||(a.svc.split('/')[0].trim()+(a.pct>=100?' gratis':' '+a.pct+'%'))}:{n:a.n,pct:a.pct}; }).sort((a,b)=>a.n-b.n);
-  const referidos=v[3].split(',').map(s=>parseFloat(s)).filter(n=>n>0);
-  if(!v[0].trim()||!visitas.length){ showToast('Revisá el nombre y los descuentos por corte'); return; }
-  const card={id:t?t.id:'tj'+Date.now().toString(36),nombre:v[0].trim(),rubro:v[1].trim()||'barberia,barberia-premium',activa:true,visitas,referidos,premio:numV(v[4])>0?{visitas:numV(v[4]),refs:numV(v[5])}:null};
-  const pids=String(v[6]||'').split(',').map(x=>nkey(x)).filter(Boolean).map(fr=>(allUsers.find(u=>nkey(u.name).includes(fr))||{}).id).filter(Boolean); if(pids.length) card.profs=pids;
+  tjEdit=t;
+  const profsDisp=allUsers.filter(esProf);
+  const rubroLista=t?String(t.rubro||'').split(',').map(s=>s.trim()):['barberia','barberia-premium'];
+  const c=document.getElementById('registro-content');
+  c.innerHTML=cabeceraModal(t?'Editar tarjeta':'Nueva tarjeta')+`
+    <div class="field"><label>Nombre</label><input id="tj-nombre" value="${escH(t?t.nombre:'Tarjeta de fidelidad')}" style="${inpCss}"/></div>
+    <div class="field" style="margin-top:10px"><label>Rubros donde vale</label><div style="display:flex;flex-wrap:wrap;gap:6px">${(rubros.length?rubros:[{id:'barberia',nombre:'Barbería'}]).map(r=>`<label class="rub-opt"><input type="checkbox" class="tj-rubro" value="${r.id}" ${rubroLista.includes(r.id)?'checked':''}/> ${escH(r.nombre)}</label>`).join('')}</div></div>
+    <div class="field" style="margin-top:10px"><label>Solo para estos profesionales (vacío = todos los del rubro)</label><div style="display:flex;flex-wrap:wrap;gap:6px">${profsDisp.length?profsDisp.map(u=>`<label class="rub-opt"><input type="checkbox" class="tj-prof" value="${u.id}" ${t&&t.profs&&t.profs.includes(u.id)?'checked':''}/> ${escH(u.name)}</label>`).join(''):'<div style="font-size:12px;color:var(--muted)">No hay profesionales cargados todavía</div>'}</div></div>
+    <div class="field" style="margin-top:10px"><label>Cantidad de cortes/servicios del ciclo</label><input id="tj-ciclo" type="number" min="1" max="30" value="${t?Math.max(1,...(t.visitas.length?t.visitas.map(x=>x.n):[10])):10}" oninput="renderCasillerosTarjeta()" style="${inpCss}"/></div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:4px">Poné el % de descuento de cada corte. Dejalo en 0 si ese corte no tiene descuento.</div>
+    <div id="tj-casilleros" style="margin-top:8px"></div>
+    <div class="field" style="margin-top:14px"><label>Cantidad de niveles de referidos (0 = sin referidos)</label><input id="tj-refn" type="number" min="0" max="10" value="${t?t.referidos.length:4}" oninput="renderNivelesTarjeta()" style="${inpCss}"/></div>
+    <div id="tj-niveles" style="margin-top:8px"></div>
+    <div style="display:flex;gap:8px;margin-top:14px">
+      <div class="field" style="flex:1"><label>Premio: cortes necesarios</label><input id="tj-premv" type="number" min="0" value="${t&&t.premio?t.premio.visitas:0}" style="${inpCss}"/></div>
+      <div class="field" style="flex:1"><label>Premio: referidos necesarios</label><input id="tj-premr" type="number" min="0" value="${t&&t.premio?t.premio.refs:0}" style="${inpCss}"/></div>
+    </div>
+    <div style="font-size:11px;color:var(--muted2);margin-top:4px">Premio: corte 100% gratis al llegar a los dos. Dejá "cortes necesarios" en 0 si no querés premio.</div>
+    <button class="btn btn-primary" onclick="guardarTarjetaCfg('${t?t.id:''}')" style="margin-top:16px">Guardar</button>`;
+  renderCasillerosTarjeta(); renderNivelesTarjeta();
+  openModal('modal-registro');
+}
+function renderCasillerosTarjeta(){
+  const el=document.getElementById('tj-casilleros'); if(!el) return;
+  const n=Math.min(30,Math.max(1,parseInt(document.getElementById('tj-ciclo').value)||1));
+  const t=tjEdit;
+  el.innerHTML=Array.from({length:n},(_,i)=>{
+    const num=i+1, ex=t&&t.visitas.find(x=>x.n===num);
+    const gift=ex&&ex.servicioIds&&ex.servicioIds.length?JSON.stringify({servicioIds:ex.servicioIds,label:ex.label||''}):'';
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="width:28px;text-align:right;font-size:12px;color:var(--muted2)">${num}°</span>
+      <input type="number" class="tj-visita" data-n="${num}" data-gift='${gift.replace(/'/g,"&#39;")}' min="0" max="100" value="${ex?ex.pct:0}" style="${inpCss};flex:1"/>
+      <span style="font-size:12px;color:var(--muted2);width:60px">%${gift?' 🎁':''}</span></div>`;
+  }).join('');
+}
+function renderNivelesTarjeta(){
+  const el=document.getElementById('tj-niveles'); if(!el) return;
+  const n=Math.min(10,Math.max(0,parseInt(document.getElementById('tj-refn').value)||0));
+  const t=tjEdit;
+  el.innerHTML=Array.from({length:n},(_,i)=>{
+    const num=i+1, ex=t&&t.referidos&&t.referidos[i];
+    return `<div style="display:flex;align-items:center;gap:8px;margin-bottom:5px"><span style="width:28px;text-align:right;font-size:12px;color:var(--muted2)">${num}°</span>
+      <input type="number" class="tj-ref" min="0" max="100" value="${ex!=null?ex:0}" style="${inpCss};flex:1"/>
+      <span style="font-size:12px;color:var(--muted2);width:60px">%</span></div>`;
+  }).join('');
+}
+function guardarTarjetaCfg(id){
+  const t=id?promos.tarjetas.find(x=>x.id===id):null;
+  const nombre=(document.getElementById('tj-nombre').value||'').trim();
+  const rubroSel=[...document.querySelectorAll('.tj-rubro:checked')].map(x=>x.value);
+  const visitas=[...document.querySelectorAll('.tj-visita')].map(inp=>{
+    const pct=Number(inp.value)||0; if(pct<=0) return null;
+    const n=Number(inp.dataset.n); const gift=inp.dataset.gift?JSON.parse(inp.dataset.gift):null;
+    return gift?{n,pct,servicioIds:gift.servicioIds,label:gift.label}:{n,pct};
+  }).filter(Boolean);
+  const referidos=[...document.querySelectorAll('.tj-ref')].map(inp=>Number(inp.value)||0).filter(n=>n>0);
+  if(!nombre||!rubroSel.length||!visitas.length){ showToast('Revisá el nombre, los rubros y que algún corte tenga descuento'); return; }
+  const pids=[...document.querySelectorAll('.tj-prof:checked')].map(x=>x.value);
+  const premv=numV(document.getElementById('tj-premv').value), premr=numV(document.getElementById('tj-premr').value);
+  const card={id:t?t.id:'tj'+Date.now().toString(36),nombre,rubro:rubroSel.join(','),activa:true,visitas,referidos,premio:premv>0?{visitas:premv,refs:premr}:null};
+  if(pids.length) card.profs=pids;
   promos.tarjetas=t?promos.tarjetas.map(x=>x.id===t.id?card:x):[...(promos.tarjetas||[]),card];
-  savePromos(); showToast('Tarjeta guardada ✓ (los clientes ya en curso no cambian)'); renderAdmin();
+  savePromos(); closeModal('modal-registro'); showToast('Tarjeta guardada ✓ (los clientes ya en curso no cambian)'); renderAdmin();
 }
 async function aplicarTarjetaEnCurso(id){
   const card=promos.tarjetas.find(x=>x.id===id); if(!card) return;
-  const n=clientesDir.filter(x=>x.tarjeta&&x.tarjeta.cardId===id).length;
+  const n=clientesDir.filter(x=>(x.tarjetas||[]).some(t=>t.cardId===id)).length;
   if(!await uiConfirm('¿Aplicar a '+n+' tarjetas en curso?','Los clientes que ya empezaron pasan a tener estas reglas. Ya hecho: los cortes y referidos que llevan se mantienen.',{ok:'Aplicar'})) return;
-  await cambiarClientes(list=>{ list.forEach(c=>{ if(c.tarjeta&&c.tarjeta.cardId===id){ c.tarjeta.snap=clonar(card); c.upd=new Date().toISOString(); } }); });
+  await cambiarClientes(list=>{ list.forEach(c=>{ (c.tarjetas||[]).forEach(t=>{ if(t.cardId===id){ t.snap=clonar(card); c.upd=new Date().toISOString(); } }); }); });
   showToast('Tarjetas actualizadas ✓'); renderAdmin();
 }
 async function borrarTarjetaCfg(id){
@@ -3028,7 +3119,7 @@ function recRenderBusqueda(){
   const uv=ultimasVisitas(); const q=recQ.trim();
   if(q.length<2){ el.innerHTML=`<div style="font-size:11.5px;color:var(--muted2)">Escribí al menos 2 letras del nombre, el número (#) o el teléfono. Hay ${clientesDir.length} clientes cargados.</div>`; return; }
   const m=buscarClientes(q).slice(0,8);
-  el.innerHTML=m.length?m.map(c=>{ const u=uv[c.id]; return `<div class="card" onclick="abrirClienteDetalle('${c.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span>${c.tarjeta?' 💳':''}${membresiaActivaDe(c.id)?' 🎫':''}</div>
+  el.innerHTML=m.length?m.map(c=>{ const u=uv[c.id]; return `<div class="card" onclick="abrirClienteDetalle('${c.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span>${(c.tarjetas&&c.tarjetas.length)?' 💳':''}${membresiaActivaDe(c.id)?' 🎫':''}</div>
     <div style="font-size:11px;color:var(--muted2)">${escH(idCorto(c))}</div><div style="font-size:11px;color:var(--muted2)">${u?`✂️ ${escH([...u.barberos].join(', '))} · ${u.n} ${u.n===1?'visita':'visitas'} · última hace ${diasDesdeStr(u.fecha)} d`:'Sin visitas todavía'}</div></div><span style="color:var(--muted)">›</span></div></div>`; }).join(''):`<div style="font-size:12.5px;color:var(--muted2)">No aparece. Tocá "+ Cliente" para cargarlo.</div>`;
 }
 function marcarCumpleCliente(cid){
@@ -5727,8 +5818,9 @@ async function regSelTipo(tipo){ if((tipo==='turno'||tipo==='producto')&&!await 
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
-let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''};
-function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:''}; }
+let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null};
+function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null}; }
+function elegirDescCobro(g){ cobro.descGrupo=(cobro.descGrupo===g?null:g); refreshCobro(); }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
 function ofertasVisibles(){ const rb=rubrosDeUsuario(profile); return ofertasActivas().filter(o=>visiblePorRubro(o,rb)); }
