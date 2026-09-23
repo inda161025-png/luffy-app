@@ -494,6 +494,12 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
   </div>
 </div>
 
+<!-- PANTALLA DE SALUD DEL LOCAL (desde el menu logueado, o en modo kiosco con PIN sin cuenta) -->
+<div id="pantalla-kiosco" class="screen">
+  <div class="inner-hdr"><button class="back" onclick="volverDePantallaKiosco()">←</button><h2>📋 Salud del local</h2></div>
+  <div class="scroll" id="pk-body"></div>
+</div>
+
 <!-- HUB -->
 <div id="hub" class="screen" style="background:var(--bg)">
   <!-- Header -->
@@ -1508,20 +1514,7 @@ async function entrarPantallaLocal(){
   const suc=sucursalDeKiosco();
   if(!suc){ if(err) err.textContent='No hay ninguna sucursal sin recepción configurada'; return; }
   if(err) err.textContent='';
-  await abrirModoKiosco(suc);
-}
-async function abrirModoKiosco(suc){
-  document.getElementById('registro-content').innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div class="modal-title" style="margin:0">📋 Pantalla de ${escH(suc.nombre)}</div><button onclick="salirModoKiosco()" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:12.5px;font-weight:700;padding:8px 14px;border-radius:20px;cursor:pointer">Salir</button></div>
-    <div id="pf-body" style="font-size:13px;color:var(--muted2)">Cargando…</div>`;
-  openModal('modal-registro');
-  await renderSaludLocal(suc.id);
-  clearInterval(pantallaFrenchTimer);
-  pantallaFrenchTimer=setInterval(()=>{ document.getElementById('pf-body')?renderSaludLocal(suc.id):clearInterval(pantallaFrenchTimer); },30000);
-}
-function salirModoKiosco(){
-  clearInterval(pantallaFrenchTimer);
-  closeModal('modal-registro');
-  showWelcome();
+  await mostrarPantallaKiosco(suc,true);
 }
 
 let __doLoginBusy = false;
@@ -9150,12 +9143,12 @@ function renderMenu(){
   const it=(ico,txt,accion)=>`<button class="mlat-it" onclick="menuIr('${accion}')"><span>${ico}</span>${txt}</button>`;
   const rubrosTxt=(p.role==='profesional'&&p.rubros&&p.rubros.length)?p.rubros.map(nombreRubro).filter(Boolean).join(', '):(ROLES[p.role]||'');
   const sinRec=sucursalDeKiosco();
-  const vePantallaFrench=sinRec&&(p.role==='admin'||sucursalesDe(p).includes(sinRec.id));
+  const vePantallaFrench=sinRec&&(p.role==='admin'||p.role==='recepcionista'||sucursalesDe(p).includes(sinRec.id));
   let items='';
   if(p.role==='profesional'){
     items=it(mi('perfil'),'Mi perfil','perfil')+it(mi('contenido'),'Contenido','contenido')+(p.esEncargado?it(mi('stock'),'Control de stock','stock'):'')+it(mi('clientes'),'Mis clientes','clientes')+it(mi('dinero'),'Mi dinero','dinero')+it(mi('banco'),'Banco de reels','banco')+it(mi('kanban'),'Tablero','kanban')+it(mi('historias'),'Historias','stories')+it(mi('puntos'),'Mis puntos','puntos')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'')+(p.adminReal?it('👑','Volver a Admin','modoAdmin'):'');
   } else if(p.role==='recepcionista'){
-    items=it(mi('perfil'),'Mi cuenta','perfil')+it(mi('historias'),'Historias','stories');
+    items=it(mi('perfil'),'Mi cuenta','perfil')+it(mi('historias'),'Historias','stories')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
   } else {
     items=it(mi('perfil'),'Mi cuenta','perfil')+(p.role==='admin'&&p.tambienProf?it('✂️','Mi perfil profesional','modoProf'):'')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
   }
@@ -9199,13 +9192,30 @@ function sucursalDeKiosco(){ return sucursales.find(s=>!sucursalConRecepcion(s.i
 let pantallaFrenchTimer=null;
 async function abrirPantallaFrench(){
   const suc=sucursalDeKiosco(); if(!suc){ showToast('No hay ninguna sucursal sin recepción configurada'); return; }
-  document.getElementById('registro-content').innerHTML=cabeceraModal('📋 Pantalla de '+escH(suc.nombre))
-    +(profile&&profile.role==='admin'?`<div style="display:flex;gap:10px;flex-wrap:wrap;margin:-8px 0 10px"><button class="lnk" onclick="cambiarPinPantalla()">🔑 PIN (hoy: ${escH((promos&&promos.pinPantalla)||'0000')})</button><button class="lnk" onclick="editarMetasSalud()">⚙️ Metas de salud</button></div>`:'')
+  await mostrarPantallaKiosco(suc,false);
+}
+// Pantalla completa (no modal): reemplaza a la que estaba viendo la persona, como cualquier otra pantalla de la app.
+// anonimo=true es el modo kiosco (entrado con PIN, sin sesion) — "volver" ahi manda al login, no a ningun hub.
+let kioscoAnonimo=false, kioscoVolverRol=null;
+async function mostrarPantallaKiosco(suc,anonimo){
+  kioscoAnonimo=!!anonimo;
+  if(!anonimo) kioscoVolverRol=profile?profile.role:null;
+  show('pantalla-kiosco');
+  const nav=document.getElementById('nav'); if(nav) nav.style.display='none';
+  document.getElementById('pk-body').innerHTML=
+    `<div style="font-size:12px;color:var(--muted2);margin-bottom:10px">${escH(suc.nombre)}</div>`
+    +(!anonimo&&profile&&profile.role==='admin'?`<div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px"><button class="lnk" onclick="cambiarPinPantalla()">🔑 PIN (hoy: ${escH((promos&&promos.pinPantalla)||'0000')})</button><button class="lnk" onclick="editarMetasSalud()">⚙️ Metas de salud</button></div>`:'')
     +`<div id="pf-body" style="font-size:13px;color:var(--muted2)">Cargando…</div>`;
-  openModal('modal-registro');
   await renderSaludLocal(suc.id);
   clearInterval(pantallaFrenchTimer);
   pantallaFrenchTimer=setInterval(()=>{ document.getElementById('pf-body')?renderSaludLocal(suc.id):clearInterval(pantallaFrenchTimer); },30000);
+}
+function volverDePantallaKiosco(){
+  clearInterval(pantallaFrenchTimer);
+  if(kioscoAnonimo){ kioscoAnonimo=false; show('login'); showWelcome(); return; }
+  if(kioscoVolverRol==='admin'){ show('admin'); enterAdmin(); }
+  else if(kioscoVolverRol==='recepcionista'){ show('recepcion'); renderRecepcion(); }
+  else { goTo('hub'); }
 }
 async function editarMetasSalud(){
   const v=await uiDialog({title:'Metas del medidor de salud',msg:'Con esto se arma el % de "salud" de cada sucursal. Son puntos de partida, ajustalos cuando tengas más datos reales.',fields:[
