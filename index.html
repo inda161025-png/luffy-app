@@ -2726,10 +2726,11 @@ function comPaqQuincena(recId){ const qk=quincenaKey(hoyStr()); return paquetesS
 function pctPaquete(n){ let p=0; (promos.paquetes||[]).forEach(s=>{ if(n>=s.n) p=s.pct; }); return p; }
 function abrirVentaPaquete(cid){
   const c=clienteDe(cid); if(!c) return;
-  ventaSel={tipo:'paq',cid,medio:'efectivo',sel:[]};
+  ventaSel={tipo:'paq',cid,medio:'efectivo',sel:[],rubroAbierto:null};
   renderVentaPaquete(); openModal('modal-registro');
 }
 function ventaToggleSvc(id){ const s=ventaSel; if(!s) return; const i=s.sel.indexOf(id); if(i>=0) s.sel.splice(i,1); else s.sel.push(id); renderVentaPaquete(); }
+function ventaAbrirRubro(rid){ const s=ventaSel; if(!s) return; s.rubroAbierto=s.rubroAbierto===rid?null:rid; renderVentaPaquete(); }
 function renderVentaPaquete(){
   const s=ventaSel; const c=clienteDe(s.cid); const color=(profile&&profile.color)||'#7B337E';
   const box=document.querySelector('#modal-registro .modal-box'); const st=box?box.scrollTop:0;
@@ -2737,11 +2738,17 @@ function renderVentaPaquete(){
   const ctx=ctxCobro(c);
   const R=calcPaqueteItems(items,c,ctx,s.medio==='efectivo');
   const grupos={}; servicios.forEach(x=>{ (grupos[x.rubro||'']=grupos[x.rubro||'']||[]).push(x); });
+  const rids=Object.keys(grupos);
+  const pill=(x)=>`<button onclick="ventaToggleSvc('${x.id}')" style="${pillStyle(s.sel.includes(x.id),color)}">${escH(x.nombre)} · ${fp(x.precio)}</button>`;
   const escala=(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ');
+  const rubrosHtml=rids.length<=1
+    ?`<div style="display:flex;flex-wrap:wrap;gap:6px">${(grupos[rids[0]]||[]).map(pill).join('')}</div>`
+    :`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${rids.map(rid=>{ const n=grupos[rid].filter(x=>s.sel.includes(x.id)).length; return `<button type="button" onclick="ventaAbrirRubro('${rid}')" style="${pillStyle(s.rubroAbierto===rid,color)}">${escH(nombreRubro(rid)||'Otros')}${n?' ('+n+')':''}</button>`; }).join('')}</div>`
+      +(s.rubroAbierto&&grupos[s.rubroAbierto]?`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[s.rubroAbierto].map(pill).join('')}</div>`:'<div style="font-size:11.5px;color:var(--muted2)">Tocá un rubro para ver sus servicios.</div>');
   document.getElementById('registro-content').innerHTML=cabeceraModal('Vender paquete 🎁')+`
     <div style="font-size:12.5px;font-weight:700;margin-bottom:2px">${escH(c.nombre)}</div>
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">Primero el descuento de cada servicio (como si fuera solo) y recién después el % del paquete: 1 = normal · ${escala}</div>
-    ${Object.entries(grupos).map(([rid,list])=>`<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px">${escH(nombreRubro(rid)||'Otros')}</div><div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(x=>`<button onclick="ventaToggleSvc('${x.id}')" style="${pillStyle(s.sel.includes(x.id),color)}">${escH(x.nombre)} · ${fp(x.precio)}</button>`).join('')}</div>`).join('')}
+    ${rubrosHtml}
     <div class="card" style="margin:14px 0 10px">
       ${R.items.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${escH(x.svc.nombre)}</span><span>${fp(x.lista)}</span></div>${x.descInd?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#34d399"><span>↳ ${escH(x.descInd.label)} (−${Math.round(x.descInd.pct*10)/10}%)</span><span>−${fp(x.descInd.monto)}</span></div>`:''}${x.dq>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#7B337E"><span>↳ Descuento del paquete</span><span>−${fp(x.dq)}</span></div>`:''}<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700"><span>Queda en</span><span>${fp(x.final)}${x.descPct>0?' ('+x.descPct+'% off en total)':''}</span></div></div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Elegí los servicios del paquete.</div>'}
       ${items.length?`<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">TOTAL</span><span style="font-size:22px;font-weight:900">${fp(R.total)}</span></div><div style="font-size:11px;color:var(--muted2)">Precio de lista ${fp(R.lista)} · ahorra ${fp(R.lista-R.total)} en total</div>`:''}
@@ -5987,7 +5994,7 @@ let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:
 // Cuando recepcion cobra un turno que un profesional dejo "registrado" en Diego Laure (ver turnosPendientesSt),
 // el cobro tiene que quedar guardado en la quincena de ESE profesional, no en la de quien lo cobra.
 let cobroParaProf=null, cobroPendienteId=null;
-function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:''}; cobroParaProf=null; cobroPendienteId=null; }
+function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', rubroAbierto:null}; cobroParaProf=null; cobroPendienteId=null; }
 function elegirDescCobro(g){ cobro.descGrupo=(cobro.descGrupo===g?null:g); refreshCobro(); }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
@@ -6069,16 +6076,23 @@ function refreshCobro(){
   const r=calcCobro();
   const serv=document.getElementById('cb-serv');
   if(!serv) return;
-  // --- servicios visibles segun los rubros del profesional ---
+  // --- servicios: si hay un solo rubro se listan directo; si hay varios, primero el rubro y recien al tocarlo se despliegan sus servicios ---
   const vis=serviciosVisibles();
   const q=(cobro.q||'').trim().toLowerCase();
   const grupos={};
-  vis.filter(s=>!q||s.nombre.toLowerCase().includes(q)).forEach(s=>{ (grupos[s.rubro||'']=grupos[s.rubro||'']||[]).push(s); });
-  const multi=Object.keys(grupos).length>1;
-  serv.innerHTML=!vis.length?'<div style="font-size:12px;color:var(--muted)">El admin todavía no cargó servicios para tu rubro.</div>'
-    :!Object.keys(grupos).length?'<div style="font-size:12px;color:var(--muted)">No hay servicios que coincidan.</div>'
-    :Object.entries(grupos).map(([rid,list])=>`${multi?`<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px">${escH(nombreRubro(rid)||'Otros')}</div>`:''}
-      <div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(s=>`<button onclick="cobroToggleServicio('${s.id}')" style="${pillStyle(cobro.servicios.includes(s.id),color)}">${escH(s.nombre)} · ${s.variable?'desde ':''}${fp(s.precio)}</button>`).join('')}</div>`).join('');
+  vis.forEach(s=>{ (grupos[s.rubro||'']=grupos[s.rubro||'']||[]).push(s); });
+  const rids=Object.keys(grupos);
+  const pill=(s)=>`<button onclick="cobroToggleServicio('${s.id}')" style="${pillStyle(cobro.servicios.includes(s.id),color)}">${escH(s.nombre)} · ${s.variable?'desde ':''}${fp(s.precio)}</button>`;
+  if(!vis.length) serv.innerHTML='<div style="font-size:12px;color:var(--muted)">El admin todavía no cargó servicios para tu rubro.</div>';
+  else if(q){
+    const filtrados=vis.filter(s=>s.nombre.toLowerCase().includes(q));
+    serv.innerHTML=filtrados.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${filtrados.map(pill).join('')}</div>`:'<div style="font-size:12px;color:var(--muted)">No hay servicios que coincidan.</div>';
+  } else if(rids.length<=1){
+    serv.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[rids[0]].map(pill).join('')}</div>`;
+  } else {
+    serv.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${rids.map(rid=>{ const n=grupos[rid].filter(s=>cobro.servicios.includes(s.id)).length; return `<button type="button" onclick="cobroAbrirRubro('${rid}')" style="${pillStyle(cobro.rubroAbierto===rid,color)}">${escH(nombreRubro(rid)||'Otros')}${n?' ('+n+')':''}</button>`; }).join('')}</div>`
+      +(cobro.rubroAbierto&&grupos[cobro.rubroAbierto]?`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[cobro.rubroAbierto].map(pill).join('')}</div>`:'<div style="font-size:11.5px;color:var(--muted2)">Tocá un rubro para ver sus servicios.</div>');
+  }
 
   // --- combos aplicados, largo de barba, precio final de los "desde" ---
   const ex=[];
@@ -6139,6 +6153,7 @@ function cobroToggleServicio(id){
   if(i>=0){ cobro.servicios.splice(i,1); delete cobro.opciones[id]; delete cobro.precios[id]; } else cobro.servicios.push(id);
   refreshCobro();
 }
+function cobroAbrirRubro(rid){ cobro.rubroAbierto=cobro.rubroAbierto===rid?null:rid; if(document.getElementById('rt-paq')) refreshRegistroTurno(); else refreshCobro(); }
 function cobroOpcion(id,i){ const s=servicios.find(x=>x.id===id); if(!s||!s.variante) return; cobro.opciones[id]=s.variante.opciones[i].n; refreshCobro(); }
 function cobroPrecio(id,v){ const n=parseFloat(v)||0; if(n>0) cobro.precios[id]=n; else delete cobro.precios[id]; refreshCobro(); }
 function cobroToggleOferta(id){ cobro.ofertaId=(cobro.ofertaId===id?'':id); refreshCobro(); }
@@ -6295,12 +6310,19 @@ function refreshRegistroTurno(){
   const vis=serviciosVisibles();
   const q=(cobro.q||'').trim().toLowerCase();
   const grupos={};
-  vis.filter(s=>!q||s.nombre.toLowerCase().includes(q)).forEach(s=>{ (grupos[s.rubro||'']=grupos[s.rubro||'']||[]).push(s); });
-  const multi=Object.keys(grupos).length>1;
-  serv.innerHTML=!vis.length?'<div style="font-size:12px;color:var(--muted)">El admin todavía no cargó servicios para tu rubro.</div>'
-    :!Object.keys(grupos).length?'<div style="font-size:12px;color:var(--muted)">No hay servicios que coincidan.</div>'
-    :Object.entries(grupos).map(([rid,list])=>`${multi?`<div style="font-size:10px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:10px 0 6px">${escH(nombreRubro(rid)||'Otros')}</div>`:''}
-      <div style="display:flex;flex-wrap:wrap;gap:6px">${list.map(s=>`<button onclick="rtToggleServicio('${s.id}')" style="${pillStyle(cobro.servicios.includes(s.id),color)}">${escH(s.nombre)} · ${s.variable?'desde ':''}${fp(s.precio)}</button>`).join('')}</div>`).join('');
+  vis.forEach(s=>{ (grupos[s.rubro||'']=grupos[s.rubro||'']||[]).push(s); });
+  const rids=Object.keys(grupos);
+  const pill=(s)=>`<button onclick="rtToggleServicio('${s.id}')" style="${pillStyle(cobro.servicios.includes(s.id),color)}">${escH(s.nombre)} · ${s.variable?'desde ':''}${fp(s.precio)}</button>`;
+  if(!vis.length) serv.innerHTML='<div style="font-size:12px;color:var(--muted)">El admin todavía no cargó servicios para tu rubro.</div>';
+  else if(q){
+    const filtrados=vis.filter(s=>s.nombre.toLowerCase().includes(q));
+    serv.innerHTML=filtrados.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${filtrados.map(pill).join('')}</div>`:'<div style="font-size:12px;color:var(--muted)">No hay servicios que coincidan.</div>';
+  } else if(rids.length<=1){
+    serv.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[rids[0]].map(pill).join('')}</div>`;
+  } else {
+    serv.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${rids.map(rid=>{ const n=grupos[rid].filter(s=>cobro.servicios.includes(s.id)).length; return `<button type="button" onclick="cobroAbrirRubro('${rid}')" style="${pillStyle(cobro.rubroAbierto===rid,color)}">${escH(nombreRubro(rid)||'Otros')}${n?' ('+n+')':''}</button>`; }).join('')}</div>`
+      +(cobro.rubroAbierto&&grupos[cobro.rubroAbierto]?`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[cobro.rubroAbierto].map(pill).join('')}</div>`:'<div style="font-size:11.5px;color:var(--muted2)">Tocá un rubro para ver sus servicios.</div>');
+  }
   const ex=[];
   cobro.servicios.forEach(id=>{
     const s=servicios.find(x=>x.id===id); if(!s) return;
