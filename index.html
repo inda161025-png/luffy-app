@@ -8929,6 +8929,7 @@ function menuIr(accion){
     modoProf:()=>cambiarModo('prof'), modoAdmin:()=>cambiarModo('admin'),
     stock:()=>{ enterEncargado(); }, dinero:()=>goTo('dinero'), clientes:()=>goTo('clientes'), banco:()=>goTo('banco'), puntos:()=>goTo('puntos'), kanban:()=>goTo('kanban'),
     stories:()=>{ if(profile.role==='recepcionista') goToRec('stories'); else goTo('stories'); },
+    pantallaFrench:()=>abrirPantallaFrench(),
     guia:()=>abrirGuia(true), pass:()=>cambiarMiPassword(), salir:()=>showLogin(),
   };
   (acc[accion]||(()=>{}))();
@@ -8939,13 +8940,15 @@ function renderMenu(){
   const claro=temaActual()==='light';
   const it=(ico,txt,accion)=>`<button class="mlat-it" onclick="menuIr('${accion}')"><span>${ico}</span>${txt}</button>`;
   const rubrosTxt=(p.role==='profesional'&&p.rubros&&p.rubros.length)?p.rubros.map(nombreRubro).filter(Boolean).join(', '):(ROLES[p.role]||'');
+  const sinRec=sucursalSinRecepcion();
+  const vePantallaFrench=sinRec&&(p.role==='admin'||sucursalesDe(p).includes(sinRec.id));
   let items='';
   if(p.role==='profesional'){
-    items=it(mi('perfil'),'Mi perfil','perfil')+it(mi('contenido'),'Contenido','contenido')+(p.esEncargado?it(mi('stock'),'Control de stock','stock'):'')+it(mi('clientes'),'Mis clientes','clientes')+it(mi('dinero'),'Mi dinero','dinero')+it(mi('banco'),'Banco de reels','banco')+it(mi('kanban'),'Tablero','kanban')+it(mi('historias'),'Historias','stories')+it(mi('puntos'),'Mis puntos','puntos')+(p.adminReal?it('👑','Volver a Admin','modoAdmin'):'');
+    items=it(mi('perfil'),'Mi perfil','perfil')+it(mi('contenido'),'Contenido','contenido')+(p.esEncargado?it(mi('stock'),'Control de stock','stock'):'')+it(mi('clientes'),'Mis clientes','clientes')+it(mi('dinero'),'Mi dinero','dinero')+it(mi('banco'),'Banco de reels','banco')+it(mi('kanban'),'Tablero','kanban')+it(mi('historias'),'Historias','stories')+it(mi('puntos'),'Mis puntos','puntos')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'')+(p.adminReal?it('👑','Volver a Admin','modoAdmin'):'');
   } else if(p.role==='recepcionista'){
     items=it(mi('perfil'),'Mi cuenta','perfil')+it(mi('historias'),'Historias','stories');
   } else {
-    items=it(mi('perfil'),'Mi cuenta','perfil')+(p.role==='admin'&&p.tambienProf?it('✂️','Mi perfil profesional','modoProf'):'');
+    items=it(mi('perfil'),'Mi cuenta','perfil')+(p.role==='admin'&&p.tambienProf?it('✂️','Mi perfil profesional','modoProf'):'')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
   }
   items+=it(mi('guia'),'Guía rápida','guia')+it(mi('pass'),'Cambiar contraseña','pass');
   document.getElementById('mlat-cnt').innerHTML=`
@@ -8972,6 +8975,40 @@ function abrirMiCuenta(){
     ${p.passReset?`<div class="card" style="margin-bottom:10px;border:1.5px solid #fbbf24;background:rgba(251,191,36,.08)"><div style="display:flex;align-items:center;gap:10px"><span style="font-size:22px">🔓</span><div style="flex:1"><div style="font-size:13px;font-weight:800;color:#fbbf24">El admin te habilitó a cambiar tu contraseña</div><div style="font-size:11px;color:var(--muted2)">No hace falta que sepas la anterior. Se cierra solo apenas la definas.</div></div></div><button class="btn btn-primary" onclick="definirNuevaPasswordHabilitada()" style="margin-top:10px;width:100%">Definir nueva contraseña</button></div>`:''}
     <button class="btn btn-ghost" onclick="closeModal('modal-registro');cambiarMiPassword()">🔑 Cambiar contraseña</button>`;
   openModal('modal-registro');
+}
+
+// ---------- Pantalla de French (solo lectura, lo cobrado hoy en la sucursal sin recepcion) ----------
+function sucursalSinRecepcion(){ return sucursales.find(s=>!sucursalConRecepcion(s.id))||null; }
+let pantallaFrenchTimer=null;
+async function abrirPantallaFrench(){
+  const suc=sucursalSinRecepcion(); if(!suc){ showToast('No hay ninguna sucursal sin recepción configurada'); return; }
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📋 Pantalla de '+escH(suc.nombre))+'<div id="pf-body" style="font-size:13px;color:var(--muted2)">Cargando…</div>';
+  openModal('modal-registro');
+  await renderPantallaFrench(suc.id);
+  clearInterval(pantallaFrenchTimer);
+  pantallaFrenchTimer=setInterval(()=>{ document.getElementById('pf-body')?renderPantallaFrench(suc.id):clearInterval(pantallaFrenchTimer); },30000);
+}
+async function renderPantallaFrench(sucId){
+  const el=document.getElementById('pf-body'); if(!el) return;
+  const equipo=allUsers.filter(u=>esProf(u)&&sucursalesDe(u).includes(sucId));
+  if(DB){
+    await Promise.all(equipo.map(u=>Promise.resolve(DB.doc('luffy/dinero_'+u.id).get()).then(r=>{ if(r){ try{ localStorage.setItem('luffy_dinero_'+u.id, JSON.stringify(r)); }catch(e){} } }).catch(()=>{})));
+  }
+  if(!document.getElementById('pf-body')) return; // se cerró el modal mientras cargaba
+  const hoy=hoyStr(), filas=[];
+  equipo.forEach(u=>{
+    let dd={turnos:[]}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    (dd.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&(t.sucursal||u.sucursal||sucId)===sucId).forEach(t=>{
+      filas.push({ts:t.creadoEn||'', hora:t.horaTurno||'', cliente:t.cliente||'Cliente',
+        serv:(t.servicios&&t.servicios.length)?t.servicios.map(nomSvc).join(', '):(t.servicio||'Servicio'),
+        monto:(t.aCobrar!=null?numV(t.aCobrar):numV(t.monto)), medio:t.medio, prof:u.name});
+    });
+  });
+  filas.sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+  const totalDia=filas.reduce((s,f)=>s+f.monto,0);
+  const MEDIO_TXT={efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'};
+  el.innerHTML=`<div style="font-size:12px;color:var(--muted2);margin-bottom:10px">Hoy · ${filas.length} cobro${filas.length===1?'':'s'} · <b style="color:var(--text)">${fp(totalDia)}</b> · se actualiza sola</div>
+    ${filas.length?filas.map(f=>`<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><b style="font-size:13.5px">${escH(f.cliente)}</b><b style="font-size:13.5px">${fp(f.monto)}</b></div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${escH(f.serv)}</div><div style="font-size:11px;color:var(--muted2);margin-top:3px">✂️ ${escH(f.prof)} · ${MEDIO_TXT[f.medio]||f.medio||'—'}${f.hora?' · '+escH(f.hora):''}</div></div>`).join(''):'<div class="empty"><div class="e-icon">📋</div><p>Todavía no hay cobros hoy.</p></div>'}`;
 }
 
 // ---------- guia rapida ("consejo 1 de N") ----------
