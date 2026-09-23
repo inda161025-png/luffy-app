@@ -7461,7 +7461,7 @@ function renderAdmin(){
 
 // Acepta el id de una seccion o de una sub-seccion (y los ids viejos de las 9 pestañas)
 function switchAdminTab(tab){
-  const legacy={dashboard:'panel',banco:'contenido',cumples:'recepcion'};
+  const legacy={dashboard:'panel',cumples:'recepcion'};
   tab=legacy[tab]||tab;
   const sec=ADMIN_SECCIONES.find(s=>s.id===tab);
   if(sec){ window.adminTab=sec.id; }
