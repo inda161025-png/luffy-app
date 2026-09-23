@@ -2861,7 +2861,7 @@ function htmlPerdidaDescuentos(desde,hasta,profF){
 
 let adminCliQ='';
 function renderAdminClientes(c,sub){
-  ({directorio:adminDirectorio,membresias:adminMembresias,paquetes:adminPaquetes,tarjetas:adminTarjetas,descuentos:adminDescuentos,deudas:adminDeudas,senas:adminSenas}[sub]||adminDirectorio)(c);
+  ({directorio:adminDirectorio,crm:adminCRM,membresias:adminMembresias,paquetes:adminPaquetes,tarjetas:adminTarjetas,descuentos:adminDescuentos,deudas:adminDeudas,senas:adminSenas}[sub]||adminDirectorio)(c);
 }
 function adminDirectorio(c){
   const q=nkey(adminCliQ);
@@ -3206,9 +3206,65 @@ function htmlCumplesRec(proxCumples){
 function htmlReactivar(){
   const uv=ultimasVisitas(); const hoy=hoyStr();
   const L=clientesDir.map(c=>({c,u:uv[c.id]})).filter(x=>x.u&&diasDesdeStr(x.u.fecha)>=30&&!membresiaActivaDe(x.c.id)).sort((a,b)=>a.u.fecha.localeCompare(b.u.fecha)).slice(0,5);
-  if(!L.length) return '';
-  return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🔁 Para reactivar (hace +30 días)</span></div>
-    ${L.map(({c,u})=>{ const wa=linkWhatsApp(c.tel,'Hola '+c.nombre.split(' ')[0]+'! Te escribimos de Inda Studio 💈 Hace un tiempo que no te vemos, ¿querés que te reservemos un turno?'); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">hace ${diasDesdeStr(u.fecha)} días · ✂️ ${escH([...u.barberos].join(', '))}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:'<span style="font-size:10.5px;color:var(--muted)">sin teléfono</span>'}</div>`; }).join('')}`;
+  return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🔁 Para reactivar (hace +30 días)</span><button class="lnk" onclick="abrirCRM()">📱 Ver CRM completo</button></div>
+    ${L.length?L.map(({c,u})=>{ const wa=linkWhatsApp(c.tel,'Hola '+c.nombre.split(' ')[0]+'! Te escribimos de Inda Studio 💈 Hace un tiempo que no te vemos, ¿querés que te reservemos un turno?'); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">hace ${diasDesdeStr(u.fecha)} días · ✂️ ${escH([...u.barberos].join(', '))}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:'<span style="font-size:10.5px;color:var(--muted)">sin teléfono</span>'}</div>`; }).join(''):'<div style="font-size:12px;color:var(--muted);padding:6px 0">Nadie hace +30 días sin membresía activa. 🎉</div>'}`;
+}
+
+// ============ CRM: clientes agrupados por hace cuanto no vienen, para armar listas de WhatsApp ============
+// Fecha de "ultima visita" = la que ya calcula Luffy (ultimasVisitas), no depende de AgendaPro.
+// Una sola pantalla para las dos sucursales, porque el WhatsApp del negocio es un solo numero centralizado.
+const FRANJAS_CRM=[
+  ['activos','🟢 Activos','0 a 15 días',0,15],
+  ['porperder','🟡 Por perder','16 a 30 días',16,30],
+  ['inactivos','🟠 Inactivos','31 a 60 días',31,60],
+  ['perdidos','🔴 Perdidos','+60 días',61,Infinity],
+  ['sin','⚪ Sin visitas en Luffy','nunca se les cobró un turno acá',null,null],
+];
+const MSJ_CRM={
+  porperder:(n)=>'Hola '+n+'! Te escribimos de Inda Studio 💈 Hace unas semanas que no te vemos, ¿te reservamos un turno?',
+  inactivos:(n)=>'Hola '+n+'! Te extrañamos en Inda Studio 💈 Hace un tiempo que no venís, ¿querés que te consigamos un turno?',
+  perdidos:(n)=>'Hola '+n+'! Somos Inda Studio 💈 Hace bastante que no te vemos por acá. Si querés volver, te ayudamos a conseguir un turno cuando quieras.',
+  sin:(n)=>'Hola '+n+'! Te escribimos de Inda Studio 💈 ¿Te gustaría reservar un turno?',
+};
+function franjaCRM(dias){
+  if(dias==null) return 'sin';
+  const f=FRANJAS_CRM.find(x=>x[3]!=null&&dias>=x[3]&&dias<=x[4]);
+  return f?f[0]:'perdidos';
+}
+let crmFranja='porperder', crmQ='', crmTarget='crm-body';
+function abrirCRM(){
+  crmTarget='crm-body';
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📱 CRM · Reactivación por WhatsApp')+`<div style="font-size:12px;color:var(--muted2);margin:-8px 0 10px;line-height:1.5">Agrupa a todos los clientes según hace cuánto no vienen, para armar las listas de WhatsApp. Es la misma lista para las dos sucursales (el WhatsApp del negocio es un solo número).</div><div id="crm-body"></div>`;
+  openModal('modal-registro');
+  renderCRM();
+}
+function crmSet(f){ crmFranja=f; renderCRM(); }
+function crmBuscar(v){ crmQ=v; renderCRM(); }
+// admin la usa como sub-pestaña de Clientes: renderiza directo en el contenedor "c", sin modal
+function adminCRM(c){
+  crmTarget='crm-admin-body';
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📱 CRM · Reactivación por WhatsApp</span></div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">Agrupa a todos los clientes según hace cuánto no vienen, para armar las listas de WhatsApp. Es la misma lista para las dos sucursales (el WhatsApp del negocio es un solo número).</div>
+    <div id="crm-admin-body"></div>`;
+  renderCRM();
+}
+function renderCRM(){
+  const el=document.getElementById(crmTarget); if(!el) return;
+  const uv=ultimasVisitas();
+  const todos=clientesDir.map(c=>{ const u=uv[c.id]; const dias=u?diasDesdeStr(u.fecha):null; return {c,u,dias,franja:franjaCRM(dias)}; });
+  const counts={}; FRANJAS_CRM.forEach(([f])=>counts[f]=todos.filter(x=>x.franja===f).length);
+  const q=nkey(crmQ);
+  let L=todos.filter(x=>x.franja===crmFranja);
+  if(q) L=L.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
+  L.sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
+  const conTel=L.filter(x=>x.c.tel).length;
+  const msjFn=MSJ_CRM[crmFranja]||MSJ_CRM.sin;
+  el.innerHTML=`
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${FRANJAS_CRM.map(([f,l])=>`<button onclick="crmSet('${f}')" style="${pillStyle(crmFranja===f,'#7B337E')}">${l} (${counts[f]})</button>`).join('')}</div>
+    <input type="search" placeholder="Buscar por nombre o teléfono..." value="${escH(crmQ)}" oninput="crmBuscar(this.value)" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
+    <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${L.length} cliente${L.length===1?'':'s'} en esta franja · ${conTel} con teléfono cargado</div>
+    ${L.slice(0,80).map(({c,u,dias})=>{ const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0])); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">📱</div><p>No hay clientes en esta franja.</p></div>'}
+    ${L.length>80?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 80 de ${L.length}. Usá el buscador para encontrar a alguien puntual.</div>`:''}`;
 }
 // Cuatro medidores del dia, de las dos sucursales (los turnos de French figuran aunque recepcion no los pueda reagendar en persona)
 function medidoresRec(){
@@ -7788,7 +7844,7 @@ const ADMIN_SECCIONES=[
   {id:'equipo',ico:mi('equipo',16),label:'Equipo',subs:[['estado','Estado'],['cuentas','Cuentas'],['comisiones','Comisiones'],['sucursales','Sucursales'],['stories','Stories'],['puntos','Puntos']]},
   {id:'catalogo',ico:mi('catalogo',16),label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Stock (para vender)'],['proveedores','Proveedores'],['insumos','Insumos']]},
   {id:'contenido',ico:mi('contenido',16),label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
-  {id:'clientes',ico:mi('clientes',16),label:'Clientes',subs:[['directorio','Clientes'],['deudas','Deudas'],['senas','Señas'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas'],['descuentos','Descuentos']]},
+  {id:'clientes',ico:mi('clientes',16),label:'Clientes',subs:[['directorio','Clientes'],['crm','CRM'],['deudas','Deudas'],['senas','Señas'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas'],['descuentos','Descuentos']]},
   {id:'finanzas',ico:mi('finanzas',16),label:'Finanzas',subs:[['balance','Balance'],['gastos','Gastos'],['fijos','Gastos fijos'],['costos','Costo por servicio'],['equilibrio','Punto de equilibrio'],['flujo','Flujo anual'],['caja','Caja']]},
   {id:'recepcion',ico:mi('recepcion',16),label:'Recepción'},
 ];
