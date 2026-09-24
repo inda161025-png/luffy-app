@@ -6496,6 +6496,7 @@ async function guardarCobro(){
   if(profile.role==='profesional'&&cli&&!cobro.paqueteOfrecido){ showToast('Respondé si le ofreciste un paquete'); return; }
   if(profile.role==='profesional'&&cli&&cobro.paqueteOfrecido==='si'&&!cobro.paqueteRubro){ showToast('Elegí qué combinación le gustaría'); return; }
   if(cli&&!cli.yaDejoResena&&!cobro.resena){ showToast('Respondé si dejó una reseña en Google'); return; }
+  if(cobroParaProf&&cobro.reag.estado==='si'&&!cobro.reagFecha){ showToast('Elegí día y hora del reagendo en la Agenda'); return; }
   guardandoCobro=true;
   const profTarget=cobroParaProf, pendId=cobroPendienteId; // capturados antes de que resetCobro() los borre: es el turno "registrado" de otro profesional que recepcion esta cobrando
   try{
