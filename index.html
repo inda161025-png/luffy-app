@@ -4160,13 +4160,14 @@ function resumenDiaSuc(sid,fecha){
 function htmlResumenDia(){
   const L=sucursales.filter(x=>sucursalConRecepcion(x.id)); if(!L.length) return '';
   const hoy=hoyStr();
-  return L.map(su=>{
+  const cards=L.map(su=>{
     const R=resumenDiaSuc(su.id,hoy); const pp=Object.entries(R.porProf).sort((a,b)=>b[1]-a[1]);
-    return `<div class="card" style="margin-top:10px;border-left:5px solid ${su.color}"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:12.5px;font-weight:800">📊 Hoy en ${escH(su.nombre)}</div><div style="font-size:21px;font-weight:900">${fp(R.total)}</div></div>
+    return `<div class="card" style="margin:0;border-left:5px solid ${su.color}"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:12.5px;font-weight:800">📊 Hoy en ${escH(su.nombre)}</div><div style="font-size:21px;font-weight:900">${fp(R.total)}</div></div>
       <div style="display:flex;gap:6px;margin:8px 0">${[['💵','Efectivo',R.ef],['📱','M. Pago',R.mp],['💳','Tarjeta',R.tj]].map(([e,l,v])=>`<div style="flex:1;background:var(--s2);border-radius:10px;padding:7px 8px;min-width:0"><div style="font-size:10px;color:var(--muted2);font-weight:700">${e} ${l}</div><div style="font-size:14px;font-weight:800">${fp(v)}</div></div>`).join('')}</div>
       <div style="font-size:11px;color:var(--muted2)">${R.n} ${R.n===1?'turno':'turnos'}${R.otros?' + '+R.otros+' de productos, señas, membresías o paquetes':''}${R.debe>0?' · <span style="color:#f472b6">quedaron debiendo '+fp(R.debe)+'</span>':''}</div>
       ${pp.length?`<details style="margin-top:6px"><summary style="cursor:pointer;font-size:11.5px;font-weight:700;color:var(--muted2)">Por profesional</summary>${pp.map(([n,v])=>`<div class="ln"><span>${escH(n)}</span><b>${fp(v)}</b></div>`).join('')}</details>`:''}</div>`;
   }).join('');
+  return `<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:10px;margin-top:10px">${cards}</div>`;
 }
 // La caja anterior ya cerro: lo cobrado desde ese cierre hasta la apertura siguiente entra en la caja que se abre (no se pierde)
 function cubiertoPorCaja(iso,sid){
@@ -9385,11 +9386,11 @@ function renderRecepcion(){
   const cierresHoyRec=cierresLista().filter(c=>c.fecha===hoy&&c.porId===profile.id);
   const body=document.getElementById('rec-body');
   body.innerHTML=`
-    <button onclick="abrirVentaPaquete()" style="width:100%;margin-bottom:14px;padding:12px;border-radius:12px;border:none;background:#4A136B;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">🎁 Armar paquete</button>
+    ${htmlCajaRec()}
+    <button onclick="abrirVentaPaquete()" style="width:100%;margin:14px 0;padding:12px;border-radius:12px;border:none;background:#4A136B;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">🎁 Armar paquete</button>
     ${htmlTurnosPendientesRec()}
     ${htmlPaquetesNuevosRec()}
     ${htmlSugerenciasPaqRec()}
-    ${htmlCajaRec()}
     ${htmlTableroRec()}
     ${htmlMisTurnosRec()}
     ${htmlCobradosRec()}
