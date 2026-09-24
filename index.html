@@ -3068,8 +3068,28 @@ function cobroTogglePrepago(kind,refId,itemId){
 }
 const REAG_OPC=[['si','✅ Lo reagendé yo'],['no_pregunte','🤐 No le pregunté'],['no_quiso','🙅 Le pregunté y no quiso'],['recepcion','📞 Lo hace recepción']];
 function cobroReag(e){ cobro.reag.estado=(cobro.reag.estado===e?'':e); if(e==='si'||e==='recepcion') cobro.reag.motivo=''; renderReagCobro(); }
+function cobroReagSiNo(v){ cobro.reag.estado=(cobro.reag.estado===v?'':v); if(cobro.reag.estado!=='si'){ cobro.reagFecha=''; cobro.reagHora=''; } renderReagCobro(); }
+async function cobroReagAgendar(){
+  const cli=clienteDe(cobro.clienteId);
+  const v=await uiDialog({title:'¿Cuándo vuelve?',msg:'Queda anotado en la Agenda.',fields:[{label:'Fecha',type:'date',value:cobro.reagFecha||''},{label:'Hora',type:'time',value:cobro.reagHora||horaAhora()}],ok:'Guardar'});
+  if(!v) return;
+  cobro.reagFecha=v[0]||''; cobro.reagHora=v[1]||'';
+  if(cobro.reagFecha){
+    const profTarget=cobroParaProf||profile, ahora=new Date().toISOString();
+    await agendaSt.cambiar(l=>{ l.push({id:'ag'+Date.now().toString(36),sucursal:sucursalActual(),fecha:cobro.reagFecha,hora:cobro.reagHora,duracion:30,
+      profId:profTarget.id,profNombre:profTarget.name,clienteId:cli?cli.id:null,clienteNombre:cli?cli.nombre:(cobro.cliente||'Cliente'),
+      servicios:cobro.servicios.map(id=>{ const s=servicios.find(x=>x.id===id); return s?{svcId:s.id,nombre:s.nombre}:null; }).filter(Boolean),
+      nota:'Reagendado',paqueteId:null,itemId:null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora}); });
+  }
+  renderReagCobro();
+}
 function renderReagCobro(){
   const el=document.getElementById('cb-reag'); if(!el) return; const color=profile.color, r=cobro.reag||{estado:'',motivo:''};
+  if(cobroParaProf){
+    el.innerHTML=`<div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button onclick="cobroReagSiNo('${v}')" style="flex:1;${pillStyle(r.estado===v,color)}">${l}</button>`).join('')}</div>
+      ${r.estado==='si'?`<button class="lnk" style="margin-top:8px" onclick="cobroReagAgendar()">${cobro.reagFecha?'📅 '+fechaCortaStr(cobro.reagFecha)+' · '+cobro.reagHora+'hs — cambiar':'📅 Elegir día y hora en la Agenda'}</button>`:''}`;
+    return;
+  }
   el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${REAG_OPC.map(([v,l])=>`<button onclick="cobroReag('${v}')" style="${pillStyle(r.estado===v,color)}">${l}</button>`).join('')}</div>
     ${(r.estado==='no_pregunte'||r.estado==='no_quiso')?`<input type="text" placeholder="${r.estado==='no_quiso'?'¿Por qué no quiso? (ej: viaja, no sabe su agenda)':'Explicación (opcional)'}" value="${escH(r.motivo||'')}" oninput="cobro.reag.motivo=this.value" style="margin-top:8px"/>`:''}
     ${r.estado===''?'<div style="font-size:11px;color:var(--muted);margin-top:6px">Queda anotado en la ficha del cliente.</div>':''}`;
@@ -3080,7 +3100,10 @@ function renderPrepagoCobro(r){
   const color=profile.color, cli=clienteDe(cobro.clienteId);
   const disp=prepagosDisponibles();
   let h='';
-  if(cobroParaProf) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#4A136B;font-weight:700">📝 Registrado por ${escH(cobroParaProf.name)}${cobro.paqueteRubro?' · 🎁 le comentó algo de '+escH(nombreRubro(cobro.paqueteRubro)||cobro.paqueteRubro):''}</div>`;
+  if(cobroParaProf){
+    const paqTxt=cobro.paqueteRubro?'🎁 Le comentó algo de '+escH(nombreRubro(cobro.paqueteRubro)||cobro.paqueteRubro):(cobro.paqueteOfrecidoPrev==='si'?'🎁 Le ofreció un paquete':'🎁 No le ofreció ningún paquete');
+    h+=`<div style="font-size:12.5px;margin:-2px 0 10px;color:var(--accent2);font-weight:700">${paqTxt}</div>`;
+  }
   if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#4A136B')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
   if(r.tarj){ const inf=r.tarj; h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(inf)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones de referidos':''}`}</div>`; }
   const debeC=cli?saldoDeCliente(cli.id,cli.nombre):0;
@@ -6274,11 +6297,11 @@ async function regSelTipo(tipo){ if((tipo==='turno'||tipo==='producto')&&!await 
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
-let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:''};
+let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', reagFecha:'', reagHora:''};
 // Cuando recepcion cobra un turno que un profesional dejo "registrado" en Diego Laure (ver turnosPendientesSt),
 // el cobro tiene que quedar guardado en la quincena de ESE profesional, no en la de quien lo cobra.
 let cobroParaProf=null, cobroPendienteId=null;
-function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', rubroAbierto:null}; cobroParaProf=null; cobroPendienteId=null; }
+function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', reagFecha:'', reagHora:'', rubroAbierto:null}; cobroParaProf=null; cobroPendienteId=null; }
 function elegirDescCobro(g){ cobro.descGrupo=(cobro.descGrupo===g?null:g); refreshCobro(); }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
@@ -6342,12 +6365,11 @@ function renderCobroForm(c,back,color){
     <div class="field"><label>Cliente * <span style="color:var(--muted);font-weight:500">(nombre y apellido, teléfono y nacimiento: recepción los necesita)</span></label><input id="turno-nombre" type="text" autocomplete="off" placeholder="Buscá o escribí el nombre..." value="${escH(cobro.cliente)}" oninput="cobroClienteInput(this.value)"/><div id="cb-cli-sug"></div></div>
     <div id="cb-suc"></div>
     <div id="cb-prepago"></div>
-    <div class="field"><label>¿Qué le hiciste?</label>
-      ${vis.length>10?`<input id="cb-q" type="search" placeholder="Buscar servicio..." value="${escH(cobro.q)}" oninput="cobro.q=this.value;refreshCobro()" style="margin-bottom:8px"/>`:''}
+    <div class="field"><label>${cobroParaProf?'Qué se hizo':'¿Qué le hiciste?'}</label>
+      ${(!cobroParaProf&&vis.length>10)?`<input id="cb-q" type="search" placeholder="Buscar servicio..." value="${escH(cobro.q)}" oninput="cobro.q=this.value;refreshCobro()" style="margin-bottom:8px"/>`:''}
       <div id="cb-serv"></div><div id="cb-extra"></div></div>
-    <div class="field" id="cb-ofertas-wrap"><label>¿Tiene alguna oferta?</label><div id="cb-ofertas"></div></div>
     <div class="field"><label>¿Le vendiste algún producto?</label><div id="cb-prods"></div></div>
-    <div class="field"><label>🔁 ¿Le reagendaste el turno?</label><div id="cb-reag"></div></div>
+    <div class="field"><label>${cobroParaProf?'🔁 ¿Reagendó?':'🔁 ¿Le reagendaste el turno?'}</label><div id="cb-reag"></div></div>
     <div class="field"><label>Medio de pago</label><div id="cb-medio" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px"></div></div>
     <div class="field" id="cb-motivo-wrap" style="display:none"><label>Motivo (opcional)</label><input id="cb-motivo" type="text" placeholder="Ej: se le olvidó la billetera, paga mañana..." value="${escH(cobro.motivo)}" oninput="cobro.motivo=this.value"/></div>
     <div class="field" style="display:flex;align-items:center;gap:10px"><label style="margin:0;flex:1">🕐 Hora del turno <span style="color:var(--muted);font-weight:500">(para promos por horario)</span></label><input type="time" value="${escH(cobro.hora||horaAhora())}" onchange="cobroHora(this.value)" style="width:120px"/></div>
@@ -6361,28 +6383,33 @@ function refreshCobro(){
   const r=calcCobro();
   const serv=document.getElementById('cb-serv');
   if(!serv) return;
-  // --- servicios: si hay un solo rubro se listan directo; si hay varios, primero el rubro y recien al tocarlo se despliegan sus servicios ---
-  const vis=serviciosVisibles();
-  const q=(cobro.q||'').trim().toLowerCase();
-  const grupos={};
-  vis.forEach(s=>{ (grupos[s.rubro||'']=grupos[s.rubro||'']||[]).push(s); });
-  const rids=Object.keys(grupos);
-  const pill=(s)=>`<button onclick="cobroToggleServicio('${s.id}')" style="${pillStyle(cobro.servicios.includes(s.id),color)}">${escH(s.nombre)} · ${s.variable?'desde ':''}${fp(s.precio)}</button>`;
-  if(!vis.length) serv.innerHTML='<div style="font-size:12px;color:var(--muted)">El admin todavía no cargó servicios para tu rubro.</div>';
-  else if(q){
-    const filtrados=vis.filter(s=>s.nombre.toLowerCase().includes(q));
-    serv.innerHTML=filtrados.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${filtrados.map(pill).join('')}</div>`:'<div style="font-size:12px;color:var(--muted)">No hay servicios que coincidan.</div>';
-  } else if(rids.length<=1){
-    serv.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[rids[0]].map(pill).join('')}</div>`;
+  // --- servicios: si viene de un turno ya registrado (recepcion cobrando), es de solo lectura: ya lo decidio el profesional ---
+  if(cobroParaProf){
+    serv.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px">${cobro.servicios.map(id=>{ const s=servicios.find(x=>x.id===id); if(!s) return ''; const op=cobro.opciones[id]; return `<div style="font-size:13px;font-weight:700">✓ ${escH(s.nombre)}${op?' — '+escH(op):''}</div>`; }).join('')||'<div style="font-size:12px;color:var(--muted)">Sin servicios cargados.</div>'}</div>`;
   } else {
-    serv.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${rids.map(rid=>{ const n=grupos[rid].filter(s=>cobro.servicios.includes(s.id)).length; return `<button type="button" onclick="cobroAbrirRubro('${rid}')" style="${pillStyle(cobro.rubroAbierto===rid,color)}">${escH(nombreRubro(rid)||'Otros')}${n?' ('+n+')':''}</button>`; }).join('')}</div>`
-      +(cobro.rubroAbierto&&grupos[cobro.rubroAbierto]?`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[cobro.rubroAbierto].map(pill).join('')}</div>`:'<div style="font-size:11.5px;color:var(--muted2)">Tocá un rubro para ver sus servicios.</div>');
+    // --- si hay un solo rubro se listan directo; si hay varios, primero el rubro y recien al tocarlo se despliegan sus servicios ---
+    const vis=serviciosVisibles();
+    const q=(cobro.q||'').trim().toLowerCase();
+    const grupos={};
+    vis.forEach(s=>{ (grupos[s.rubro||'']=grupos[s.rubro||'']||[]).push(s); });
+    const rids=Object.keys(grupos);
+    const pill=(s)=>`<button onclick="cobroToggleServicio('${s.id}')" style="${pillStyle(cobro.servicios.includes(s.id),color)}">${escH(s.nombre)} · ${s.variable?'desde ':''}${fp(s.precio)}</button>`;
+    if(!vis.length) serv.innerHTML='<div style="font-size:12px;color:var(--muted)">El admin todavía no cargó servicios para tu rubro.</div>';
+    else if(q){
+      const filtrados=vis.filter(s=>s.nombre.toLowerCase().includes(q));
+      serv.innerHTML=filtrados.length?`<div style="display:flex;flex-wrap:wrap;gap:6px">${filtrados.map(pill).join('')}</div>`:'<div style="font-size:12px;color:var(--muted)">No hay servicios que coincidan.</div>';
+    } else if(rids.length<=1){
+      serv.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[rids[0]].map(pill).join('')}</div>`;
+    } else {
+      serv.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${rids.map(rid=>{ const n=grupos[rid].filter(s=>cobro.servicios.includes(s.id)).length; return `<button type="button" onclick="cobroAbrirRubro('${rid}')" style="${pillStyle(cobro.rubroAbierto===rid,color)}">${escH(nombreRubro(rid)||'Otros')}${n?' ('+n+')':''}</button>`; }).join('')}</div>`
+        +(cobro.rubroAbierto&&grupos[cobro.rubroAbierto]?`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[cobro.rubroAbierto].map(pill).join('')}</div>`:'<div style="font-size:11.5px;color:var(--muted2)">Tocá un rubro para ver sus servicios.</div>');
+    }
   }
 
-  // --- combos aplicados, largo de barba, precio final de los "desde" ---
+  // --- combos aplicados, largo de barba, precio final de los "desde" (la variante ya no se pregunta de nuevo si viene de un turno registrado) ---
   const ex=[];
   r.lineas.filter(l=>l.tipo==='combo').forEach(l=>ex.push(`<div style="background:rgba(52,211,153,.1);border:1px solid rgba(52,211,153,.3);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#34d399;font-weight:700">✨ Combo aplicado: ${escH(l.nombre)} ${fp(l.precio)} <span style="font-weight:600;opacity:.85">(ahorrás ${fp(l.lista-l.precio)})</span></div>`));
-  cobro.servicios.forEach(id=>{
+  if(!cobroParaProf) cobro.servicios.forEach(id=>{
     const s=servicios.find(x=>x.id===id); if(!s) return;
     if(s.variable) ex.push(`<div style="margin-top:8px;display:flex;align-items:center;gap:8px;font-size:12px"><span style="flex:1;color:var(--muted2)">${escH(s.nombre)} — precio final</span><input type="number" inputmode="decimal" placeholder="${s.precio}" value="${cobro.precios[id]||''}" onchange="cobroPrecio('${id}',this.value)" style="width:110px;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:14px;font-weight:700;outline:none"/></div>`);
     if(svcConVariante(id)){
@@ -6392,21 +6419,22 @@ function refreshCobro(){
   if(r.esNoche) ex.unshift(`<div style="background:rgba(74,19,107,.12);border:1px solid rgba(74,19,107,.35);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#a89fff;font-weight:700">🌙 Turno de noche (desde las ${escH(nocheCfg().desde)}): precio de lista, sin descuentos. Tu comisión es ${numV(nocheCfg().pct)}% fijo.</div>`);
   document.getElementById('cb-extra').innerHTML=ex.join('');
 
-  const acts=ofertasVisibles();
-  document.getElementById('cb-ofertas-wrap').style.display=acts.length?'':'none';
-  document.getElementById('cb-ofertas').innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${acts.map(o=>`<button onclick="cobroToggleOferta('${o.id}')" style="${pillStyle(cobro.ofertaId===o.id,color)}">🏷️ ${escH(o.nombre)} (−${o.pct}%)</button>`).join('')}</div>`;
-
   const prodsEl=document.getElementById('cb-prods');
-  const disp=productos.filter(p=>p.stock>0||(cobro.prods[p.id]||0)>0);
-  prodsEl.innerHTML=disp.length?disp.map(p=>{
-    const qn=cobro.prods[p.id]||0;
-    return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-      <div style="flex:1"><div style="font-size:13px;font-weight:600">${escH(p.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${fp(p.precioVenta)} · quedan ${p.stock}</div></div>
-      <button onclick="cobroQty('${p.id}',-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-size:18px;cursor:pointer">−</button>
-      <div style="min-width:20px;text-align:center;font-size:15px;font-weight:800;${qn?`color:${color}`:'color:var(--muted)'}">${qn}</div>
-      <button onclick="cobroQty('${p.id}',1)" style="width:32px;height:32px;border-radius:50%;border:none;background:${color};color:#fff;font-size:18px;cursor:pointer">+</button>
-    </div>`;
-  }).join(''):'<div style="font-size:12px;color:var(--muted)">No hay productos con stock cargados.</div>';
+  const hayProdsElegidos=Object.values(cobro.prods).some(n=>n>0);
+  if(cobro.venderProd!=='si'&&!hayProdsElegidos){
+    prodsEl.innerHTML=`<div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button type="button" onclick="cobroVenderProd('${v}')" style="flex:1;${pillStyle(cobro.venderProd===v,color)}">${l}</button>`).join('')}</div>`;
+  } else {
+    const disp=productos.filter(p=>p.stock>0||(cobro.prods[p.id]||0)>0);
+    prodsEl.innerHTML=`<button class="lnk" style="margin-bottom:8px" onclick="cobroVenderProd('no')">✕ No, sin productos</button>`+(disp.length?disp.map(p=>{
+      const qn=cobro.prods[p.id]||0;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1"><div style="font-size:13px;font-weight:600">${escH(p.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${fp(p.precioVenta)} · quedan ${p.stock}</div></div>
+        <button onclick="cobroQty('${p.id}',-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-size:18px;cursor:pointer">−</button>
+        <div style="min-width:20px;text-align:center;font-size:15px;font-weight:800;${qn?`color:${color}`:'color:var(--muted)'}">${qn}</div>
+        <button onclick="cobroQty('${p.id}',1)" style="width:32px;height:32px;border-radius:50%;border:none;background:${color};color:#fff;font-size:18px;cursor:pointer">+</button>
+      </div>`;
+    }).join(''):'<div style="font-size:12px;color:var(--muted)">No hay productos con stock cargados.</div>');
+  }
 
   document.getElementById('cb-medio').innerHTML=[['💵','Efectivo','efectivo',r.esNoche?'':`−${DESC_EFECTIVO_PCT}% servicios`],['📱','Mercado Pago','mp',''],['💳','Tarjeta','tarjeta',''],['⏳','Paga después','debe','queda debiendo']].map(([e,l,v,sub])=>{
     const sel=cobro.medio===v;
@@ -6449,6 +6477,7 @@ function cobroQty(id,delta){
   if(q>0) cobro.prods[id]=q; else delete cobro.prods[id];
   refreshCobro();
 }
+function cobroVenderProd(v){ cobro.venderProd=v; if(v==='no') cobro.prods={}; refreshCobro(); }
 
 let guardandoCobro=false;
 async function guardarCobro(){
@@ -6631,10 +6660,14 @@ async function guardarRegistroTurno(){
   if(!nombre){ showToast('Poné el nombre del cliente'); return; }
   const cli=cobro.clienteId?clienteDe(cobro.clienteId):clientesDir.find(x=>x.nkey===nkey(nombre));
   const ahora=new Date().toISOString();
+  const opciones={}, precios={};
+  elegidos.forEach(id=>{ if(cobro.opciones[id]!=null) opciones[id]=cobro.opciones[id]; if(cobro.precios[id]!=null) precios[id]=cobro.precios[id]; });
   const item={id:'rt'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
     clienteId:cli?cli.id:null, clienteNombre:cli?cli.nombre:nombre, clienteNumero:cli?cli.numero:null,
     servicios:elegidos.map(id=>({id, nombre:(servicios.find(s=>s.id===id)||{}).nombre, precio:precioSvc(id)})),
+    opciones, precios,
     reagendo:cobro.reag.estado==='si'?'si':'no',
+    paqueteOfrecido:cobro.paqueteRubro?'si':'',
     paqueteRubro:cobro.paqueteRubro||null,
     profId:profile.id, profNombre:profile.name, sucursal:sucursalActual(),
     ts:ahora, estado:'pendiente', upd:ahora};
@@ -6654,9 +6687,12 @@ async function abrirCobrarPendiente(id){
   cobro.clienteId=pt.clienteId; cobro.cliente=pt.clienteNombre;
   cobro.servicios=pt.servicios.map(s=>s.id);
   pt.servicios.forEach(s=>{ const real=servicios.find(x=>x.id===s.id); if(real&&real.variable&&s.precio!==real.precio) cobro.precios[s.id]=s.precio; });
+  Object.assign(cobro.opciones, pt.opciones||{});
+  Object.assign(cobro.precios, pt.precios||{});
   cobro.sucursal=pt.sucursal;
   if(pt.reagendo==='si') cobro.reag.estado='si';
   cobro.paqueteRubro=pt.paqueteRubro||null;
+  cobro.paqueteOfrecidoPrev=pt.paqueteOfrecido||'';
   cobroParaProf=prof; cobroPendienteId=pt.id;
   regState={step:1,tipo:'turno',monto:0,medio:'',categoria:'',directo:true};
   openModal('modal-registro');
