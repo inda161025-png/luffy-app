@@ -4194,15 +4194,48 @@ function bloqueParaApertura(){
 
 // ---------- pantalla de recepcion ----------
 function htmlCajaRec(){ return htmlCajaRecBase()+htmlResumenDia(); }
+// Quien esta a cargo AHORA: el ultimo cambio de recepcionista si hubo, sino quien abrio
+function recepcionistaActual(s){
+  const L=s.entregas||[]; const ult=L[L.length-1];
+  return ult?{id:ult.aId,nombre:ult.aNombre}:{id:s.recId,nombre:s.recNombre};
+}
 function htmlCajaRecBase(){
   const s=sesionAbierta(); const hoy=hoyStr();
   const btn=(t,f,st)=>`<button onclick="${f}" style="padding:10px 14px;border-radius:12px;border:${st?'none':'1.5px solid var(--border2)'};background:${st||'transparent'};color:${st?'#fff':'var(--text)'};font-family:var(--font);font-size:12.5px;font-weight:800;cursor:pointer">${t}</button>`;
   if(!s) return `<div class="card" style="margin-top:14px;border-color:rgba(251,191,36,.4)"><div style="display:flex;align-items:center;gap:12px"><div style="font-size:26px">💰</div><div style="flex:1"><div style="font-size:14px;font-weight:800">${todasSesiones().some(x=>x.fecha===hoy)?'Caja cerrada':'🔒 Caja sin abrir'}</div><div style="font-size:11.5px;color:var(--muted2)">${todasSesiones().some(x=>x.fecha===hoy)?'Si los profesionales siguen cobrando, lo ves mañana en "Para cobrar".':'Hasta que no la abras nadie puede cobrar en Diego Laure. Contá el efectivo, compará con la app y abrila.'}</div></div>${btn('Abrir caja','abrirFormCaja()','#34d399')}</div></div>`;
-  const sd=cajaSaldos(s); const otraFecha=s.fecha!==hoy;
+  const sd=cajaSaldos(s); const otraFecha=s.fecha!==hoy; const actual=recepcionistaActual(s); const huboCambio=(s.entregas||[]).length>0;
   return `<div class="card" style="margin-top:14px;border-color:${otraFecha?'rgba(244,114,182,.5)':'rgba(52,211,153,.4)'}">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="font-size:24px">💰</div><div style="flex:1"><div style="font-size:14px;font-weight:800">Caja abierta</div><div style="font-size:11.5px;color:${otraFecha?'#f472b6':'var(--muted2)'}">${otraFecha?'⚠️ Quedó abierta del '+fechaCortaStr(s.fecha)+' · ':''}la abrió ${escH(s.recNombre)} a las ${horaDeIso(s.apertura.ts)}</div></div></div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px"><div style="font-size:24px">💰</div><div style="flex:1"><div style="font-size:14px;font-weight:800">Caja abierta</div><div style="font-size:11.5px;color:${otraFecha?'#f472b6':'var(--muted2)'}">${otraFecha?'⚠️ Quedó abierta del '+fechaCortaStr(s.fecha)+' · ':''}la abrió ${escH(s.recNombre)} a las ${horaDeIso(s.apertura.ts)}${huboCambio?' · ahora a cargo: <b style="color:var(--text)">'+escH(actual.nombre)+'</b>':''}</div></div></div>
     <div style="display:flex;gap:10px;margin-bottom:10px"><div style="flex:1;background:var(--s2);border-radius:12px;padding:10px 12px"><div style="font-size:10.5px;color:var(--muted2);font-weight:700">💵 EFECTIVO</div><div style="font-size:20px;font-weight:900">${fp(sd.ef)}</div></div><div style="flex:1;background:var(--s2);border-radius:12px;padding:10px 12px"><div style="font-size:10.5px;color:var(--muted2);font-weight:700">🏦 CUENTA</div><div style="font-size:20px;font-weight:900">${fp(sd.cta)}</div></div></div>
-    <div style="display:flex;gap:8px;flex-wrap:wrap">${btn('+ Movimiento','abrirMovCaja()','#4A136B')}${btn('Ver detalle','cajaDetalle(\''+s.id+'\')')}${btn('Cerrar caja','abrirCierreCaja()','#f472b6')}</div></div>`;
+    <div style="display:flex;gap:8px;flex-wrap:wrap">${btn('🔄 Cambio de recepcionista','abrirCambioRecepcionista()','#60a5fa')}${btn('+ Movimiento','abrirMovCaja()','#4A136B')}${btn('Ver detalle','cajaDetalle(\''+s.id+'\')')}${btn('Cerrar caja','abrirCierreCaja()','#f472b6')}</div></div>`;
+}
+function abrirCambioRecepcionista(){
+  const s=sesionAbierta(); if(!s) return; const sd=cajaSaldos(s); const actual=recepcionistaActual(s);
+  if(profile.id===actual.id){ showToast('Ya figurás vos como recepcionista a cargo'); return; }
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Cambio de recepcionista 🔄')+`
+    <div style="font-size:12.5px;color:var(--muted2);margin-bottom:10px">La caja sigue abierta — esto no la cierra, solo deja anotado que a partir de ahora quedás vos a cargo, ${escH(profile.name)}. Contá lo que hay antes de recibirla.</div>
+    <div class="card" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Según el sistema debería haber</div>${linea('💵 Efectivo',`<b>${fp(sd.ef)}</b>`)}${linea('🏦 Cuenta',`<b>${fp(sd.cta)}</b>`)}</div>
+    <div class="field"><label>💵 Efectivo que contaste</label><input id="cb-ef" type="number" inputmode="decimal" placeholder="0" oninput="cambioCajaDif()"/></div>
+    <div class="field" style="margin-top:8px"><label>🏦 Saldo real en la cuenta</label><input id="cb-cta" type="number" inputmode="decimal" placeholder="0" oninput="cambioCajaDif()"/></div>
+    <div id="cb-dif" style="font-size:12.5px;font-weight:700;margin:8px 0"></div>
+    <div class="field"><label>Nota (si hay diferencia, ¿por qué?)</label><input id="cb-nota" placeholder="Opcional"/></div>
+    <button class="btn btn-primary" onclick="confirmarCambioRecepcionista()" style="margin-top:12px;background:#60a5fa">Recibir la caja</button>`;
+  openModal('modal-registro');
+}
+function cambioCajaDif(){
+  const s=sesionAbierta(); if(!s) return; const sd=cajaSaldos(s); const e=document.getElementById('cb-ef').value, c=document.getElementById('cb-cta').value; const el=document.getElementById('cb-dif');
+  if(e===''||c===''){ el.innerHTML=''; return; }
+  const de=numV(e)-sd.ef, dc=numV(c)-sd.cta; const ok=Math.abs(de)<1&&Math.abs(dc)<1;
+  el.innerHTML=`<span style="color:${ok?'#34d399':'#fbbf24'}">${ok?'✓ Cuadra perfecto':'Diferencia: efectivo '+fp(de)+' · cuenta '+fp(dc)}</span>`;
+}
+async function confirmarCambioRecepcionista(){
+  const s=sesionAbierta(); if(!s) return; const sd=cajaSaldos(s); const actual=recepcionistaActual(s);
+  const e=document.getElementById('cb-ef').value, c=document.getElementById('cb-cta').value; if(e===''||c===''){ showToast('Poné cuánto contaste en efectivo y en la cuenta'); return; }
+  const ef=numV(e), cta=numV(c), de=ef-sd.ef, dc=cta-sd.cta;
+  if((Math.abs(de)>=1||Math.abs(dc)>=1)&&!await uiConfirm('Hay una diferencia','Efectivo '+fp(de)+' y cuenta '+fp(dc)+' respecto de lo que debería haber. Queda registrado para el admin. ¿Recibir igual?',{ok:'Recibir igual'})) return;
+  const nota=document.getElementById('cb-nota').value.trim(); const ts=new Date().toISOString();
+  await cambiarCaja(s.fecha.slice(0,7),l=>{ const x=l.find(z=>z.id===s.id); if(x){ x.entregas=[...(x.entregas||[]),{ts,deId:actual.id,deNombre:actual.nombre,aId:profile.id,aNombre:profile.name,efectivo:ef,cuenta:cta,esperadoEf:sd.ef,esperadoCta:sd.cta,difEf:de,difCta:dc,nota}]; x.upd=ts; } });
+  closeModal('modal-registro'); showToast('Cambio de recepcionista registrado ✓ — ahora estás vos a cargo'); refreshCurrentView();
 }
 function abrirFormCaja(){
   const ab=sesionAbierta(); if(ab){ showToast('Hay una caja abierta: primero hay que cerrarla'); return; }
@@ -4227,7 +4260,7 @@ async function confirmarAperturaCaja(){
   const r=await cambiarCaja(ymHoy(),l=>{
     if(todasSesiones().some(s=>!s.cierre)) return {error:true};
     const s={id:'cj'+Date.now().toString(36),fecha:hoyStr(),bloque:b?b.id:null,recId:profile.id,recNombre:profile.name,sucursal:profile.sucursal||((sucursales.find(x=>sucursalConRecepcion(x.id))||{}).id)||null,sucursales:sucursalesDe(profile).length?sucursalesDe(profile):sucursales.filter(x=>sucursalConRecepcion(x.id)).map(x=>x.id),
-      apertura:{efectivo:ef,cuenta:cta,ts:ahora,difEf:uc?ef-numV(uc.efectivo):0,difCta:uc?cta-numV(uc.cuenta):0,nota,esperadoEf:uc?numV(uc.efectivo):null,esperadoCta:uc?numV(uc.cuenta):null},movs:[],cierre:null,upd:ahora};
+      apertura:{efectivo:ef,cuenta:cta,ts:ahora,difEf:uc?ef-numV(uc.efectivo):0,difCta:uc?cta-numV(uc.cuenta):0,nota,esperadoEf:uc?numV(uc.efectivo):null,esperadoCta:uc?numV(uc.cuenta):null},movs:[],entregas:[],cierre:null,upd:ahora};
     l.push(s); return {s};
   });
   if(r.error){ showToast('Alguien ya abrió la caja'); return; }
@@ -4241,6 +4274,8 @@ function cajaDetalle(id){
     <div style="font-size:12px;color:var(--muted2);margin-bottom:10px">${escH(s.recNombre)} · ${fechaCortaStr(s.fecha)} · abrió ${horaDeIso(s.apertura.ts)}${s.cierre?' · cerró '+horaDeIso(s.cierre.ts):''}</div>
     <div class="card" style="margin-bottom:8px">${linea('<b>Apertura</b>',`💵 ${f(s.apertura.efectivo)} · 🏦 ${f(s.apertura.cuenta)}`)}
       ${(s.apertura.difEf||s.apertura.difCta)?`<div style="font-size:11px;color:#fbbf24;margin-top:2px">Difiere de lo que cerró la caja anterior (efectivo ${fp(s.apertura.difEf)}, cuenta ${fp(s.apertura.difCta)})</div>`:''}${s.apertura.nota?`<div style="font-size:11.5px;color:var(--muted2);margin-top:4px">📝 ${escH(s.apertura.nota)}</div>`:''}</div>
+    ${(s.entregas||[]).length?`<div class="sec-title" style="margin:10px 0 6px">🔄 Cambios de recepcionista</div>
+    <div class="card" style="margin-bottom:8px">${s.entregas.map(e=>`<div class="ln" style="align-items:flex-start"><span>${escH(e.deNombre)} → <b>${escH(e.aNombre)}</b><span style="color:var(--muted);font-size:10.5px"> · ${horaDeIso(e.ts)}</span>${(e.difEf||e.difCta)?`<div style="font-size:11px;color:#fbbf24">Diferencia: efectivo ${fp(e.difEf)} · cuenta ${fp(e.difCta)}</div>`:''}${e.nota?`<div style="font-size:11px;color:var(--muted2)">📝 ${escH(e.nota)}</div>`:''}</span><span style="white-space:nowrap;font-size:12px">💵 ${f(e.efectivo)}</span></div>`).join('')}</div>`:''}
     <div class="sec-title" style="margin:10px 0 6px">⬆️ Cobros (entran solos)</div>
     <div class="card" style="margin-bottom:8px">${sd.auto.map(x=>linea(escH(x.nombre),`💵 ${f(x.ef)} · 🏦 ${f(x.cta)}`)).join('')||'<div style="font-size:12px;color:var(--muted)">Todavía no hubo cobros.</div>'}</div>
     <div class="sec-title" style="margin:10px 0 6px">✍️ Movimientos anotados</div>
