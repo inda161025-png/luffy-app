@@ -9224,6 +9224,9 @@ function marcarAvisoVisto(key){ /* solo para ventas de mostrador */
 // hace el dashboard de admin, para poder armar el feed de avisos.
 function prefetchRecepcionTeamData(){
   loadCaja();
+  // Turnos pendientes, paquetes, sugerencias y agenda los puede tocar cualquier profesional desde otro dispositivo:
+  // sin este refresh periódico, recepción no los veía aparecer/desaparecer hasta recargar la página (F5).
+  turnosPendientesSt.load(); paquetesSt.load(); sugerenciasPaqSt.load(); agendaSt.load();
   if(!DB) return Promise.resolve();
   const targets=allUsers.filter(u=>esProf(u));
   const jobs=targets.map(u=>DB.doc('luffy/dinero_'+u.id).get().then(r=>{
