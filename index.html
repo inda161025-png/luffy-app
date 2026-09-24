@@ -6514,7 +6514,7 @@ async function guardarCobro(){
     showToast(esDeuda?'Anotado como deuda — recepción lo ve para cobrarle':(profTarget?'Cobro guardado ✓ — se sumó a la quincena de '+profTarget.name:'Cobro guardado — recepción ya lo ve ✓'));
     const resenaResp=cobro.resena, paqueteResp=cobro.paqueteOfrecido, paqueteRubroResp=cobro.paqueteRubro, rolQueCobra=profile.role;
     resetCobro();
-    renderHub();
+    refreshCurrentView();
     if(currentScreenId==='dinero') renderDineroContent();
     await postCobroCliente(cli,r,turnoId,profTarget?profTarget.id:null);
     await marcarSenasUsadas(r,turnoId);
