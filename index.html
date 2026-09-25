@@ -2333,8 +2333,8 @@ function htmlSugerenciasPaqRec(){
   const L=sugerenciasPaqSt.list.filter(x=>!x.atendido).sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
   if(!L.length) return '';
   return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🎁 Combos sugeridos (${L.length})</span></div>
-    ${L.map(x=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #4A136B"><div style="font-size:13px;font-weight:800">${escH(x.clienteNombre)}${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
-      <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${x.tipo==='recordatorio'?'🔔 Nadie le ofreció un combo todavía':escH(nombreRubro(x.rubro)||x.rubro)} · lo dejó ${escH(x.profNombre)} · hace ${minutosDesde(x.ts)}</div>
+    ${L.map(x=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #4A136B"><div style="font-size:14px;font-weight:800;text-transform:capitalize">${escH(x.clienteNombre)}${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
+      <div style="font-size:12px;color:var(--muted2);margin:3px 0"><span style="text-transform:capitalize">${x.tipo==='recordatorio'?'🔔 Nadie le ofreció un combo todavía':escH(nombreRubro(x.rubro)||x.rubro)}</span> · lo dejó <span style="text-transform:capitalize">${escH(x.profNombre)}</span> · ${minutosDesde(x.ts)}</div>
       <div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost" style="flex:1" onclick="abrirVentaPaquete('${x.clienteId}')">🎁 Armar paquete</button><button class="btn btn-ghost" style="flex:0 0 auto" onclick="marcarSugerenciaAtendida('${x.id}')">✓ Atendido</button></div></div>`).join('')}`;
 }
 // Paquetes recién vendidos por cualquier profesional: recepción los ve acá para coordinar, en la Agenda, con qué profesional y a qué hora se hace cada servicio
@@ -2353,8 +2353,8 @@ function htmlPaquetesNuevosRec(){
   if(!L.length) return '';
   return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🎁 Paquetes nuevos (${L.length})</span></div>
     ${L.map(p=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #34d399">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:13px;font-weight:800">${escH(p.clienteNombre)}${p.clienteNumero&&verNumeroCliente()?' #'+p.clienteNumero:''}</div><b>${fp(p.total)}</b></div>
-      <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">vendió ${escH(p.vendedorNombre||'')} · hace ${minutosDesde(p.creadoEn||new Date().toISOString())}</div>
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:14px;font-weight:800;text-transform:capitalize">${escH(p.clienteNombre)}${p.clienteNumero&&verNumeroCliente()?' #'+p.clienteNumero:''}</div><b>${fp(p.total)}</b></div>
+      <div style="font-size:12px;color:var(--muted2);margin:3px 0">vendió <span style="text-transform:capitalize">${escH(p.vendedorNombre||'')}</span> · ${minutosDesde(p.creadoEn||new Date().toISOString())}</div>
       ${p.items.map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;padding:3px 0">
         <span>${it.usado?'✅':'⬜'} ${escH(it.nombre)}${it.coord&&it.coord.fecha?` <span style="color:#34d399;font-weight:700">· ${fechaCortaStr(it.coord.fecha)}${it.coord.hora?' '+it.coord.hora+'hs':''}</span>`:''}</span>
         ${!it.usado?`<button class="lnk" style="flex-shrink:0" onclick="coordinarItemPaquete('${p.id}','${it.id}')">${it.coord&&it.coord.fecha?'Editar':'📅 Coordinar'}</button>`:''}
@@ -2865,15 +2865,14 @@ function cobradosDelDia(fecha){
     normalizarFechas(dd);
     const ventas=(dd.ventas||[]).filter(v=>v.fecha===fecha&&!v.deudaId); const usadas=new Set();
     (dd.turnos||[]).filter(t=>t.fecha===fecha).forEach(t=>{
+      // dd.turnos solo tiene turnos YA cobrados (se empuja recien al guardar el cobro) — no hace falta ningun filtro extra, todo lo de aca ya esta cobrado
       const key='t:'+u.id+':'+t.id, c=cierres[key];
-      if(!(c||avisosLeidos.includes(key)||t.deudaId||u.role==='recepcionista')) return; // los que faltan cobrar estan arriba, en "Para cobrar"
       const ex=ventas.filter(v=>v.turnoId===t.id); ex.forEach(v=>usadas.add(v.id));
       const desc=(t.descDetalle&&t.descDetalle.length)?t.descDetalle.map(d=>d.label+' −'+d.pct+'%').join(' · '):(numV(t.descuento)>0?'descuento −'+fp(t.descuento):'');
       L.push({ts:t.creadoEn,suc:t.sucursal||u.sucursal,cliente:t.cliente||'Cliente',num:t.clienteNumero,prof:u.name,detalle:t.servicio||'Servicio',extras:ex.map(v=>v.productoNombre+' x'+v.cantidad),
         monto:numV(t.aCobrar!=null?t.aCobrar:t.monto)+ex.reduce((a,v)=>a+numV(v.total),0),medio:t.medio,desc,deuda:!!t.deudaId,cierre:c});
     });
     ventas.filter(v=>!usadas.has(v.id)).forEach(v=>{
-      if(u.role!=='recepcionista'&&!avisosLeidos.includes('v:'+u.id+':'+v.id)) return;
       L.push({ts:v.creadoEn,suc:v.sucursal||u.sucursal,cliente:v.cliente||'Venta de mostrador',prof:u.name,detalle:v.productoNombre+' x'+v.cantidad,extras:[],monto:numV(v.total),medio:v.medio,venta:true});
     });
   });
@@ -3581,11 +3580,11 @@ function medidoresRec(){
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+p.id)||'{}'); }catch(e){}
     (dd.turnos||[]).filter(t=>t.fecha===hoy&&!t.deudaId&&enVentana(t.creadoEn,w)).forEach(t=>{
       const o=S.find(x=>x.s.id===(t.sucursal||p.sucursal)); if(!o) return;
-      const c=cierres['t:'+p.id+':'+t.id]; o.total++;
-      if(c) o.cerrados++;
-      if((c&&c.r&&c.r.reagendo==='si')||(t.reag&&t.reag.estado==='si')) o.reag++;
-      if(c&&c.r&&c.r.resena==='si') o.resenas++;
-      if(c&&c.r&&c.r.sena==='si') o.senas++;
+      // Ya no existe un paso de "cerrar" aparte: todo lo que esta en dd.turnos ya se cobro (y con eso, reagendo/resena/seña ya se preguntaron en el propio cobro)
+      o.total++; o.cerrados++;
+      if(t.reag&&t.reag.estado==='si') o.reag++;
+      if(t.resena==='si') o.resenas++;
+      if(t.sena) o.senas++;
     });
   });
   const suma=(k)=>S.reduce((a,x)=>a+x[k],0);
@@ -6558,6 +6557,7 @@ async function guardarCobro(){
     const extra=camposDescuento(r,cli);
     const reag=cobro.reag&&cobro.reag.estado?{estado:cobro.reag.estado,motivo:(cobro.reag.motivo||'').trim(),ts:new Date().toISOString()}:null;
     if(reag) extra.reag=reag;
+    if(cobro.resena) extra.resena=cobro.resena;
     const base={clienteId:cli?cli.id:null, clienteNumero:cli?cli.numero:null, sucursal:sucursalActual()};
     let turnoId, esDeuda=cobro.medio==='debe';
     if(esDeuda){
@@ -6757,10 +6757,10 @@ function htmlTurnosPendientesRec(){
   if(!L.length) return '';
   return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">📝 Turnos para cobrar (${L.length})</span></div>
     ${L.map(x=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #4A136B">
-      <div style="font-size:13px;font-weight:800">${escH(x.clienteNombre)}${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
-      <div style="font-size:11.5px;color:var(--muted2);margin:3px 0">${escH(x.servicios.map(s=>s.nombre).join(', '))}</div>
-      <div style="font-size:11px;color:var(--muted2)">✂️ ${escH(x.profNombre)} · hace ${minutosDesde(x.ts)}${x.reagendo==='si'?' · 🔁 reagendó':''}${x.paqueteRubro?' · 🎁 comentó '+escH(nombreRubro(x.paqueteRubro)||x.paqueteRubro):''}</div>
-      <button class="btn btn-primary" onclick="abrirCobrarPendiente('${x.id}')" style="margin-top:8px;padding:9px">💳 Cobrar</button></div>`).join('')}`;
+      <div style="font-size:14px;font-weight:800"><span style="text-transform:capitalize">${escH(x.clienteNombre)}</span>${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
+      <div style="font-size:12px;color:var(--muted2);margin:3px 0;text-transform:capitalize">${escH(x.servicios.map(s=>s.nombre).join(', '))}</div>
+      <div style="font-size:11px;color:var(--muted2)">✂️ <span style="text-transform:capitalize">${escH(x.profNombre)}</span> · ${minutosDesde(x.ts)}</div>
+      <button class="btn btn-primary" onclick="abrirCobrarPendiente('${x.id}')" style="margin-top:8px;padding:9px">💳 Cobrar${x.reagendo==='si'||x.paqueteRubro?' <span style="opacity:.75;font-weight:600">('+[x.reagendo==='si'?'reagendó':null,x.paqueteRubro?'comentó '+escH(nombreRubro(x.paqueteRubro)||x.paqueteRubro):null].filter(Boolean).join(' · ')+')</span>':''}</button></div>`).join('')}`;
 }
 
 function guardarVentaProducto(){
