@@ -2378,6 +2378,8 @@ function agEstado(a){
 let agState={sucursal:null,fecha:null};
 let agSel=null; // formulario en curso
 let agPendingPaquete=null; // {paqueteId,itemId,clienteId,clienteNombre,svcId,nombre} al venir de "Coordinar" un paquete
+let agPendingReagendo=null; // {clienteId,clienteNombre,servicios,profId,profNombre} al venir de "¿Cuándo vuelve?" en un cobro
+let agProfFiltro=null; // si esta seteado, la grilla solo muestra ese profesional (ej. reagendo: no tiene sentido ver la agenda de todos)
 let agVolver=null;
 
 function abrirAgenda(sucId){
@@ -2389,7 +2391,17 @@ function abrirAgenda(sucId){
   if(!agState.fecha) agState.fecha=hoyStr();
   goTo('agenda');
 }
-function volverDeAgenda(){ agPendingPaquete=null; (agVolver||(()=>goTo('hub')))(); }
+function volverDeAgenda(){
+  agPendingPaquete=null;
+  if(agPendingReagendo){ agPendingReagendo=null; agProfFiltro=null; volverDeAgendaACobro(); return; }
+  (agVolver||(()=>goTo('hub')))();
+}
+// Vuelve al cobro que quedo pendiente mientras se elegia dia/hora del reagendo en la agenda
+function volverDeAgendaACobro(){
+  (agVolver||(()=>goTo('hub')))();
+  renderRegistro();
+  openModal('modal-registro');
+}
 function agNavDia(delta){ const d=new Date(agState.fecha+'T00:00:00'); d.setDate(d.getDate()+delta); agState.fecha=ymdLocal(d); renderAgenda(); }
 function agHoy(){ agState.fecha=hoyStr(); renderAgenda(); }
 
@@ -2400,9 +2412,10 @@ function renderAgenda(){
   const d=new Date(agState.fecha+'T00:00:00');
   const diaTxt=d.toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'});
   tb.innerHTML=`
+    ${agPendingReagendo?`<div style="background:rgba(74,19,107,.14);border:1.5px solid rgba(74,19,107,.5);border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:var(--accent2)">📅 Elegí cuándo vuelve ${escH(agPendingReagendo.clienteNombre)} — tocá un horario de ${escH(agPendingReagendo.profNombre)}</div>`:''}
     <div style="display:flex;align-items:center;gap:8px">
-      ${ss.length>1?`<select onchange="agState.sucursal=this.value;agGrid()" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:700">${ss.map(x=>`<option value="${x.id}" ${x.id===agState.sucursal?'selected':''}>${escH(x.nombre)}</option>`).join('')}</select>`:''}
-      <button class="btn btn-primary" style="width:auto;padding:8px 14px;font-size:12px;margin-left:auto" onclick="agAbrirSlot(null,${AG_INICIO+4*AG_PASO})">+ Turno</button>
+      ${(ss.length>1&&!agProfFiltro)?`<select onchange="agState.sucursal=this.value;agGrid()" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:700">${ss.map(x=>`<option value="${x.id}" ${x.id===agState.sucursal?'selected':''}>${escH(x.nombre)}</option>`).join('')}</select>`:''}
+      ${agPendingReagendo?'':`<button class="btn btn-primary" style="width:auto;padding:8px 14px;font-size:12px;margin-left:auto" onclick="agAbrirSlot(null,${AG_INICIO+4*AG_PASO})">+ Turno</button>`}
     </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:6px">
       <button onclick="agNavDia(-1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:30px;height:30px;color:var(--text);cursor:pointer">‹</button>
@@ -2414,7 +2427,7 @@ function renderAgenda(){
 }
 function agGrid(){
   const wrap=document.getElementById('ag-grid'); if(!wrap) return;
-  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal));
+  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal)&&(!agProfFiltro||u.id===agProfFiltro));
   if(!profs.length){ wrap.innerHTML='<div style="padding:24px 16px;text-align:center;color:var(--muted);font-size:13px">No hay profesionales asignados a esta sucursal.</div>'; return; }
   const slots=agSlots(), rowH=32;
   const turnos=agendaSt.list.filter(a=>a.fecha===agState.fecha&&a.sucursal===agState.sucursal&&agEstado(a)!=='cancelado');
@@ -2442,6 +2455,7 @@ function agGrid(){
 }
 
 function agAbrirSlot(profId,minutos){
+  if(agPendingReagendo){ agCrearReagendo(profId||agPendingReagendo.profId,minutos); return; }
   const prof=allUsers.find(u=>u.id===profId);
   agSel={
     editId:null, profId:profId||null, profNombre:prof?prof.name:'',
@@ -2455,6 +2469,19 @@ function agAbrirSlot(profId,minutos){
   };
   renderAgForm();
   openModal('modal-registro');
+}
+// Al tocar un horario viniendo de "¿Cuándo vuelve?" en un cobro: ya se sabe cliente y servicios, se agenda directo sin pasar por el formulario
+async function agCrearReagendo(profId,minutos){
+  const ctx=agPendingReagendo; if(!ctx) return;
+  const prof=allUsers.find(u=>u.id===profId)||{id:profId,name:ctx.profNombre};
+  const ahora=new Date().toISOString(), hora=agHM(minutos);
+  await agendaSt.cambiar(l=>{ l.push({id:'ag'+Date.now().toString(36),sucursal:agState.sucursal,fecha:agState.fecha,hora,duracion:30,
+    profId:prof.id,profNombre:prof.name,clienteId:ctx.clienteId,clienteNombre:ctx.clienteNombre,servicios:ctx.servicios,
+    nota:'Reagendado',paqueteId:null,itemId:null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora}); });
+  cobro.reagFecha=agState.fecha; cobro.reagHora=hora;
+  showToast('Turno reagendado para '+fechaCortaStr(agState.fecha)+' · '+hora+'hs ✓');
+  agPendingReagendo=null; agProfFiltro=null;
+  volverDeAgendaACobro();
 }
 function agReagendar(id){
   const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
@@ -3069,19 +3096,17 @@ function cobroTogglePrepago(kind,refId,itemId){
 const REAG_OPC=[['si','✅ Lo reagendé yo'],['no_pregunte','🤐 No le pregunté'],['no_quiso','🙅 Le pregunté y no quiso'],['recepcion','📞 Lo hace recepción']];
 function cobroReag(e){ cobro.reag.estado=(cobro.reag.estado===e?'':e); if(e==='si'||e==='recepcion') cobro.reag.motivo=''; renderReagCobro(); }
 function cobroReagSiNo(v){ cobro.reag.estado=(cobro.reag.estado===v?'':v); if(cobro.reag.estado!=='si'){ cobro.reagFecha=''; cobro.reagHora=''; } renderReagCobro(); }
-async function cobroReagAgendar(){
-  const cli=clienteDe(cobro.clienteId);
-  const v=await uiDialog({title:'¿Cuándo vuelve?',msg:'Queda anotado en la Agenda.',fields:[{label:'Fecha',type:'date',value:cobro.reagFecha||''},{label:'Hora',type:'time',value:cobro.reagHora||horaAhora()}],ok:'Guardar'});
-  if(!v) return;
-  cobro.reagFecha=v[0]||''; cobro.reagHora=v[1]||'';
-  if(cobro.reagFecha){
-    const profTarget=cobroParaProf||profile, ahora=new Date().toISOString();
-    await agendaSt.cambiar(l=>{ l.push({id:'ag'+Date.now().toString(36),sucursal:sucursalActual(),fecha:cobro.reagFecha,hora:cobro.reagHora,duracion:30,
-      profId:profTarget.id,profNombre:profTarget.name,clienteId:cli?cli.id:null,clienteNombre:cli?cli.nombre:(cobro.cliente||'Cliente'),
-      servicios:cobro.servicios.map(id=>{ const s=servicios.find(x=>x.id===id); return s?{svcId:s.id,nombre:s.nombre}:null; }).filter(Boolean),
-      nota:'Reagendado',paqueteId:null,itemId:null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora}); });
-  }
-  renderReagCobro();
+function cobroReagAgendar(){
+  const cli=clienteDe(cobro.clienteId), profTarget=cobroParaProf||profile;
+  agPendingReagendo={
+    clienteId:cli?cli.id:null, clienteNombre:cli?cli.nombre:(cobro.cliente||'Cliente'),
+    servicios:cobro.servicios.map(id=>{ const s=servicios.find(x=>x.id===id); return s?{svcId:s.id,nombre:s.nombre}:null; }).filter(Boolean),
+    profId:profTarget.id, profNombre:profTarget.name,
+  };
+  agProfFiltro=profTarget.id;
+  agState.sucursal=sucursalActual();
+  closeModal('modal-registro');
+  abrirAgenda(agState.sucursal);
 }
 function renderReagCobro(){
   const el=document.getElementById('cb-reag'); if(!el) return; const color=profile.color, r=cobro.reag||{estado:'',motivo:''};
