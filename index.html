@@ -634,7 +634,12 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
       <div style="font-size:12px;color:var(--muted2)">Recepción</div>
       <div style="font-size:20px;font-weight:900" id="rec-greeting">Buenos días 📞</div>
     </div>
-    <button class="hub-menu" onclick="abrirMenu()" aria-label="Menú"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <div style="margin-left:auto;display:flex;align-items:center;gap:2px">
+      <button onclick="abrirCRM()" aria-label="CRM" title="CRM" style="background:none;border:none;color:var(--muted2);cursor:pointer;padding:6px;font-size:19px">👥</button>
+      <button onclick="abrirAgenda()" aria-label="Agenda" title="Agenda" style="background:none;border:none;color:var(--muted2);cursor:pointer;padding:6px;font-size:19px">📅</button>
+      <button onclick="abrirReportarIncidente()" aria-label="Reportar incidente" title="Reportar incidente" style="background:none;border:none;color:var(--muted2);cursor:pointer;padding:6px;font-size:19px">⚠️</button>
+      <button class="hub-menu" onclick="abrirMenu()" aria-label="Menú" style="margin-left:0"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    </div>
   </div>
   <div class="scroll" id="rec-body"></div>
 </div>
@@ -3546,7 +3551,20 @@ function marcarCumpleCliente(cid){
   if(recData.cumpleCli[k]){ addPuntos(profile.id,'cumple',ptsDe('cumple',20),'Cumpleaños contactado','cumplecli:'+k); showToast('+'+ptsDe('cumple',20)+' puntos ⭐'); }
   saveRecData(); renderRecepcion();
 }
+function proximosCumplesManual(){
+  const today=new Date();
+  return (recData.cumpleanos||[]).filter(c=>{
+    if(!c.fecha) return false;
+    const [mes,dia]=c.fecha.split('-').map(Number);
+    for(let i=0;i<3;i++){
+      const d=new Date(today); d.setDate(today.getDate()+i);
+      if(d.getMonth()+1===mes&&d.getDate()===dia) return true;
+    }
+    return false;
+  });
+}
 function htmlCumplesRec(proxCumples){
+  proxCumples=proxCumples||proximosCumplesManual();
   const cli=cumplesClientes(3);
   const manual=proxCumples.map(c=>`<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="font-size:28px">🎂</div><div style="flex:1"><div style="font-size:13px;font-weight:700">${escH(c.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${escH(c.fecha)} · ${escH(c.telefono||'Sin teléfono')}</div></div><button onclick="marcarCumple('${c.id}')" style="padding:8px 14px;border-radius:10px;border:none;background:${c.contactado?'rgba(52,211,153,.15)':'var(--s2)'};color:${c.contactado?'#34d399':'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${c.contactado?'✓ Saludado':'Saludar'}</button></div>`).join('');
   const deCli=cli.map(({c,en})=>{ const k=new Date().getFullYear()+':'+c.id, ok=!!(recData.cumpleCli&&recData.cumpleCli[k]); const wa=linkWhatsApp(c.tel,'¡Feliz cumpleaños '+c.nombre.split(' ')[0]+'! 🎉 De parte de todo el equipo de Inda Studio. Te esperamos con una sorpresa 💈');
@@ -3609,7 +3627,9 @@ function renderCRM(){
   L.sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
   const conTel=L.filter(x=>x.c.tel).length;
   const msjFn=MSJ_CRM[crmFranja]||MSJ_CRM.sin;
+  const proxCumples=proximosCumplesManual(), cumplesN=proxCumples.length+cumplesClientes(3).length;
   el.innerHTML=`
+    <details class="card" style="margin-bottom:12px"${cumplesN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">🎂 Cumpleaños próximos${cumplesN?' ('+cumplesN+')':''}</summary><div style="margin-top:8px">${htmlCumplesRec(proxCumples).replace(/^<div class="sec-hdr"[\s\S]*?<\/div>/,'')}</div></details>
     <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${FRANJAS_CRM.map(([f,l])=>`<button onclick="crmSet('${f}')" style="${pillStyle(crmFranja===f,'#4A136B')}">${l} (${counts[f]})</button>`).join('')}</div>
     <input type="search" placeholder="Buscar por nombre o teléfono..." value="${escH(crmQ)}" oninput="crmBuscar(this.value)" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${L.length} cliente${L.length===1?'':'s'} en esta franja · ${conTel} con teléfono cargado</div>
@@ -5383,7 +5403,14 @@ const accionesSenaRec=(s)=>`<button class="lnk" onclick="resolverSena('${s.id}',
 function htmlSenasRec(){
   const L=senasPend(); const total=L.reduce((a,s)=>a+saldoSena(s),0);
   return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">💵 Señas (${L.length})</span><span style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#4A136B">${fp(total)}</span><button class="sec-btn" onclick="abrirFormSena()" style="background:#4A136B">+ Seña</button></span></div>
-    ${L.length?L.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join(''):'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay señas pendientes.</div>'}`;
+    ${L.length?htmlFilaSena(L[0],accionesSenaRec(L[0])):'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay señas pendientes.</div>'}
+    ${L.length>1?`<button onclick="abrirSenasCompleto()" style="width:100%;padding:10px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:4px">Ver las ${L.length} señas ›</button>`:''}`;
+}
+function abrirSenasCompleto(){
+  const L=senasPend();
+  document.getElementById('registro-content').innerHTML=cabeceraModal('💵 Señas pendientes ('+L.length+')')+
+    (L.length?L.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay señas pendientes.</div>');
+  openModal('modal-registro');
 }
 // ---------- profesional (Mi dinero) ----------
 function htmlSenasProf(todas){
@@ -6313,8 +6340,24 @@ function abrirVentaProducto(){
   renderRegistro();
   openModal('modal-registro');
 }
+function abrirVentasCompleto(){
+  const hoy=hoyStr();
+  const misVentas=(dineroData.ventas||[]).slice().sort((a,b)=>new Date(b.creadoEn||b.fecha)-new Date(a.creadoEn||a.fecha));
+  const ventasHoy=misVentas.filter(v=>v.fecha===hoy);
+  const paquetesHoy=paquetesSt.list.filter(p=>p.fecha===hoy&&p.vendedorId===profile.id);
+  const membresiasHoy=membresiasSt.list.filter(m=>m.fecha===hoy&&m.vendedorId===profile.id);
+  const filas=[
+    ...ventasHoy.map(v=>({ico:'📦',n:v.productoNombre+' x'+v.cantidad,cliente:v.cliente,ts:v.creadoEn,monto:v.total})),
+    ...paquetesHoy.map(p=>({ico:'🎁',n:'Paquete ('+p.pct+'% off)',cliente:p.clienteNombre,ts:p.creadoEn,monto:p.total})),
+    ...membresiasHoy.map(m=>({ico:'🎫',n:'Membresía',cliente:m.clienteNombre,ts:m.creadoEn,monto:m.precio})),
+  ].sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+  document.getElementById('registro-content').innerHTML=cabeceraModal('💰 Lo que vendiste hoy')+
+    (filas.length?filas.map(f=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:#4A136B"></div><div class="ti-info"><strong>${f.ico} ${escH(f.n)}</strong><span>${f.cliente?escH(f.cliente)+' · ':''}${f.ts?new Date(f.ts).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):''}</span></div><div class="ti-monto">${fp(f.monto)}</div></div>`).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">Todavía no vendiste nada hoy.</div>')
+    +`<button class="btn btn-ghost" style="margin-top:14px" onclick="closeModal('modal-registro');abrirVentaProducto()">+ Venta de producto</button>`;
+  openModal('modal-registro');
+}
 function openModal(id){ document.getElementById(id).classList.add('open'); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); if(id==='modal-registro') tareasModalAbierto=false; }
 
 function renderRegistro(){
   const c=document.getElementById('registro-content');
@@ -8095,6 +8138,7 @@ function toggleStory(dateStr, tipoId, esHoy){
   renderStories();
 }
 
+let tareasModalAbierto=false;
 function toggleTarea(tareaId){
   const hoy=ymdLocal(new Date());
   if(!tareasData[hoy]) tareasData[hoy]={};
@@ -8102,6 +8146,12 @@ function toggleTarea(tareaId){
   tareasData[hoy][tareaId]={done:!current.done, ts:new Date().toISOString(), por:profile.name};
   saveTareasData();
   renderRecepcion();
+  if(tareasModalAbierto) abrirTareasCompleto();
+}
+function abrirTareasCompleto(){
+  tareasModalAbierto=true;
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📋 Tareas')+htmlTareasRec();
+  openModal('modal-registro');
 }
 
 function copyText(txt){
@@ -9412,6 +9462,21 @@ function marcarDeudaVista(profId,id){
   saveAvisosLeidos();
   renderRecepcion();
 }
+function htmlFilaDeuda(d,esNueva){
+  return `<div class="card" style="margin-bottom:8px;border-color:rgba(244,114,182,${esNueva?'.55':'.25'});border-left:5px solid ${(sucursalDe(d.sucursal||d.prof.sucursal)||{}).color||'rgba(244,114,182,.25)'};background:rgba(244,114,182,${esNueva?'.07':'.03'})">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">
+      <div><div style="margin-bottom:3px">${chipSucursal(d.sucursal||d.prof.sucursal,true)}</div><div style="font-size:14px;font-weight:800">Cliente: ${escH(d.cliente)}${d.clienteNumero?' <span style="color:var(--muted2);font-weight:700">#'+d.clienteNumero+'</span>':''} ${esNueva?'<span style="font-size:9px;font-weight:800;background:#f472b6;color:#fff;border-radius:6px;padding:2px 6px;vertical-align:middle">NUEVA</span>':''}</div>
+        <div style="font-size:11.5px;color:var(--muted2)">Profesional: <b style="color:var(--text)">${escH(d.prof.name)}</b> · servicio del ${fechaCortaStr(d.fecha)} (hace ${diasDesdeStr(d.fecha)} d)</div></div>
+      <div style="font-size:18px;font-weight:900;color:#f472b6;white-space:nowrap">${fp(saldoDeuda(d))}</div>
+    </div>
+    ${detalleDeudaHtml(d,true)}
+    ${d.motivo?`<div style="font-size:11px;color:var(--muted2);margin-top:4px">Motivo: ${escH(d.motivo)}</div>`:''}
+    <div style="display:flex;gap:8px;margin-top:10px">
+      <button onclick="abrirCobroDeuda('${d.prof.id}','${d.id}')" style="flex:1;padding:11px;border-radius:12px;border:none;background:#f472b6;color:#fff;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">💰 Cobrar / pago parcial</button>
+      ${esNueva?`<button onclick="marcarDeudaVista('${d.prof.id}','${d.id}')" style="padding:11px 14px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Ya lo vi</button>`:''}
+    </div>
+  </div>`;
+}
 function htmlDeudasRecepcion(){
   const deudas=todasLasDeudas();
   if(!deudas.length) return '';
@@ -9420,19 +9485,15 @@ function htmlDeudasRecepcion(){
   const total=deudas.reduce((s,d)=>s+saldoDeuda(d),0);
   const nuevas=deudas.filter(esNueva).length;
   return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🚫 Clientes que deben (${deudas.length})${nuevas?' · <span style="color:#f472b6">'+nuevas+(nuevas===1?' nueva':' nuevas')+'</span>':''}</span><span style="font-size:12px;font-weight:800;color:#f472b6">${fp(total)}</span></div>
-  ${deudas.map(d=>`<div class="card" style="margin-bottom:8px;border-color:rgba(244,114,182,${esNueva(d)?'.55':'.25'});border-left:5px solid ${(sucursalDe(d.sucursal||d.prof.sucursal)||{}).color||'rgba(244,114,182,.25)'};background:rgba(244,114,182,${esNueva(d)?'.07':'.03'})">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px">
-      <div><div style="margin-bottom:3px">${chipSucursal(d.sucursal||d.prof.sucursal,true)}</div><div style="font-size:14px;font-weight:800">Cliente: ${escH(d.cliente)}${d.clienteNumero?' <span style="color:var(--muted2);font-weight:700">#'+d.clienteNumero+'</span>':''} ${esNueva(d)?'<span style="font-size:9px;font-weight:800;background:#f472b6;color:#fff;border-radius:6px;padding:2px 6px;vertical-align:middle">NUEVA</span>':''}</div>
-        <div style="font-size:11.5px;color:var(--muted2)">Profesional: <b style="color:var(--text)">${escH(d.prof.name)}</b> · servicio del ${fechaCortaStr(d.fecha)} (hace ${diasDesdeStr(d.fecha)} d)</div></div>
-      <div style="font-size:18px;font-weight:900;color:#f472b6;white-space:nowrap">${fp(saldoDeuda(d))}</div>
-    </div>
-    ${detalleDeudaHtml(d,true)}
-    ${d.motivo?`<div style="font-size:11px;color:var(--muted2);margin-top:4px">Motivo: ${escH(d.motivo)}</div>`:''}
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button onclick="abrirCobroDeuda('${d.prof.id}','${d.id}')" style="flex:1;padding:11px;border-radius:12px;border:none;background:#f472b6;color:#fff;font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">💰 Cobrar / pago parcial</button>
-      ${esNueva(d)?`<button onclick="marcarDeudaVista('${d.prof.id}','${d.id}')" style="padding:11px 14px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">Ya lo vi</button>`:''}
-    </div>
-  </div>`).join('')}`;
+  ${htmlFilaDeuda(deudas[0],esNueva(deudas[0]))}
+  ${deudas.length>1?`<button onclick="abrirDeudasCompleto()" style="width:100%;padding:10px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:4px">Ver las ${deudas.length} deudas ›</button>`:''}`;
+}
+function abrirDeudasCompleto(){
+  const deudas=todasLasDeudas(); const hoy=hoyStr();
+  const esNueva=(d)=>d.fecha>=addDias(hoy,-2)&&!avisosLeidos.includes('u:'+d.prof.id+':'+d.id);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🚫 Clientes que deben ('+deudas.length+')')+
+    (deudas.length?deudas.map(d=>htmlFilaDeuda(d,esNueva(d))).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay deudas.</div>');
+  openModal('modal-registro');
 }
 function minutosDesde(iso){
   const min=Math.round((Date.now()-new Date(iso).getTime())/60000);
@@ -9454,17 +9515,7 @@ function renderRecepcion(){
   const stBl=STORY_BLOQUES.map(b=>({b,d:storyRecHechas(hoy,b.id),n:storyRecItems(b.id).length}));
   const stHechas=stBl.reduce((a,x)=>a+x.d,0), stTotal=stBl.reduce((a,x)=>a+x.n,0);
 
-  // Próximos cumpleaños (3 días)
   const today=new Date();
-  const proxCumples=(recData.cumpleanos||[]).filter(c=>{
-    if(!c.fecha) return false;
-    const [mes,dia]=c.fecha.split('-').map(Number);
-    for(let i=0;i<3;i++){
-      const d=new Date(today); d.setDate(today.getDate()+i);
-      if(d.getMonth()+1===mes&&d.getDate()===dia) return true;
-    }
-    return false;
-  });
 
   const tareasHoy=tareasRecepcion.filter(t=>tareasData?.[hoy]?.[t.id]?.done).length;
 
@@ -9474,57 +9525,49 @@ function renderRecepcion(){
   const ventasQuinRec=misVentas.filter(v=>{ if(!v.fecha) return false; const d=new Date(v.fecha+'T00:00:00'); return d.getMonth()===today.getMonth()&&d.getFullYear()===today.getFullYear()&&(qRec===1?d.getDate()<=15:d.getDate()>15); });
   const sumaV=(arr,k)=>arr.reduce((s,v)=>s+(parseFloat(v[k])||0),0);
   const cierresHoyRec=cierresLista().filter(c=>c.fecha===hoy&&c.porId===profile.id);
+  const misPaquetesHoy=paquetesSt.list.filter(p=>p.fecha===hoy&&p.vendedorId===profile.id);
+  const misMembresiasHoy=membresiasSt.list.filter(m=>m.fecha===hoy&&m.vendedorId===profile.id);
+  const totalVendidoHoy=sumaV(ventasHoyRec,'total')+misPaquetesHoy.reduce((s,p)=>s+numV(p.total),0)+misMembresiasHoy.reduce((s,m)=>s+numV(m.precio),0);
+  const nVendidoHoy=ventasHoyRec.length+misPaquetesHoy.length+misMembresiasHoy.length;
+  const comQuincena=sumaV(ventasQuinRec,'comision'); // la comision de paquetes ya se ve aparte en "Llevás $X en paquetes esta quincena"
+  const tareasAhora=tareasDeRec().filter(t=>t.desde<=horaAhora()&&horaAhora()<t.hasta);
+  const tareasAtrasadas=tareasDeRec().filter(t=>t.hasta<=horaAhora()&&!hechaTarea(t.id));
+  const tareasPend=tareasAhora.filter(t=>!hechaTarea(t.id)).length+tareasAtrasadas.length;
+  const bloqueFaltante=stBl.find(x=>x.d<x.n);
   const body=document.getElementById('rec-body');
   body.innerHTML=`
     ${htmlCajaRec()}
     <button onclick="abrirVentaPaquete()" style="width:100%;margin:14px 0;padding:12px;border-radius:12px;border:none;background:#4A136B;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">🎁 Armar paquete</button>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
+      <div class="card" style="cursor:pointer;margin:0" onclick="abrirTareasCompleto()">
+        <div style="font-size:22px">📋</div>
+        <div style="font-size:13px;font-weight:800;margin-top:6px">${tareasPend?tareasPend+' '+(tareasPend===1?'tarea':'tareas')+' por hacer':'Tareas al día 🎉'}</div>
+        <div style="font-size:11px;color:var(--muted2)">${tareasAtrasadas.length?tareasAtrasadas.length+' atrasada'+(tareasAtrasadas.length===1?'':'s'):'de tu horario'}</div>
+      </div>
+      <div class="card" style="cursor:pointer;margin:0" onclick="goToRec('stories')">
+        <div style="font-size:22px">📱</div>
+        <div style="font-size:13px;font-weight:800;margin-top:6px">${stTotal-stHechas?(stTotal-stHechas)+' '+(stTotal-stHechas===1?'historia':'historias')+' por hacer':'Historias al día 🎉'}</div>
+        <div style="font-size:11px;color:var(--muted2)">${bloqueFaltante?bloqueFaltante.b.emoji+' '+bloqueFaltante.b.label:stHechas+'/'+stTotal+' publicadas'}</div>
+      </div>
+    </div>
+
     ${htmlTurnosPendientesRec()}
     ${htmlPaquetesNuevosRec()}
     ${htmlSugerenciasPaqRec()}
-    ${htmlTableroRec()}
-    ${htmlMisTurnosRec()}
-    ${htmlCobradosRec()}
 
+    <div class="card" style="cursor:pointer;margin-bottom:14px" onclick="abrirVentasCompleto()">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12.5px;font-weight:800">💰 Lo que vendiste vos</span><span style="font-size:11px;color:var(--muted2)">ver detalle ›</span></div>
+      <div style="font-size:22px;font-weight:900;margin-top:2px">${fp(totalVendidoHoy)} <span style="font-size:11px;color:var(--muted2);font-weight:600">hoy</span></div>
+      <div style="font-size:11px;color:var(--muted2)">${nVendidoHoy} ${nVendidoHoy===1?'venta':'ventas'} (productos, paquetes, membresías) · esta quincena en productos: ${fp(comQuincena)} de comisión</div>
+    </div>
+
+    ${htmlTableroRec()}
+    ${htmlCobradosRec()}
     ${htmlDeudasRecepcion()}
     ${htmlSenasRec()}
-
-    ${htmlTareasRec()}
     ${htmlClientesRec()}
     ${htmlReactivar()}
-
-    <!-- Venta de productos -->
-    <div class="sec-hdr" style="margin-bottom:8px">
-      <span class="sec-title">💰 Ventas</span>
-      <button class="sec-btn" onclick="abrirVentaProducto()" style="background:#4A136B">+ Venta</button>
-    </div>
-    <div class="stat-grid" style="margin-bottom:8px">
-      <div class="stat-card"><div class="sc-lbl">Hoy vendiste</div><div class="sc-val" style="font-size:22px">${fp(sumaV(ventasHoyRec,'total'))}</div><div class="sc-sub">${ventasHoyRec.length} ${ventasHoyRec.length===1?'venta':'ventas'} · +${fp(sumaV(ventasHoyRec,'comision'))}</div></div>
-      <div class="stat-card"><div class="sc-lbl">Tu comisión (quincena)</div><div class="sc-val" style="font-size:22px;color:#4A136B">${fp(sumaV(ventasQuinRec,'comision'))}</div><div class="sc-sub">${fp(sumaV(ventasQuinRec,'total'))} vendidos</div></div>
-    </div>
-    ${ventasHoyRec.slice(0,3).map(v=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:#4A136B"></div><div class="ti-info"><strong>${v.productoNombre}</strong><span>x${v.cantidad}${v.cliente?' · '+v.cliente:''}${v.creadoEn?' · '+new Date(v.creadoEn).toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'}):''}</span></div><div style="text-align:right"><div class="ti-monto">${fp(v.total)}</div><div class="ti-medio" style="background:#4A136B22;color:#4A136B">+${fp(v.comision)}</div></div></div>`).join('')}
-    <div class="card" style="margin-bottom:10px;display:flex;align-items:center;gap:12px"><div style="font-size:24px">🎁</div><div style="flex:1"><div style="font-size:13px;font-weight:700">Paquetes y membresías</div><div style="font-size:11px;color:var(--muted2)">Se venden desde la ficha de cada cliente (buscalo arriba)</div></div></div>
-    <div style="height:10px"></div>
-
-    <!-- Historias de hoy: Inda Barber + Inda Studio, mañana y tarde -->
-    <div class="card" style="cursor:pointer" onclick="goToRec('stories')">
-      <div style="display:flex;align-items:center;gap:12px">
-        <div style="font-size:28px">📱</div>
-        <div style="flex:1">
-          <div style="font-size:14px;font-weight:700">Historias de hoy</div>
-          <div style="font-size:12px;color:var(--muted2)">Inda Barber e Inda Studio · ${stHechas}/${stTotal} publicadas</div>
-        </div>
-      </div>
-      ${stBl.map(x=>`<div style="margin-top:10px"><div style="display:flex;justify-content:space-between;font-size:12px;font-weight:700"><span>${x.b.emoji} ${x.b.label}</span><span style="color:${x.d>=x.n?'#34d399':'var(--muted2)'}">${x.d}/${x.n}</span></div><div style="height:4px;background:var(--border2);border-radius:2px;margin-top:4px;overflow:hidden"><div style="height:100%;width:${Math.round((x.d/x.n)*100)}%;background:#34d399;border-radius:2px"></div></div></div>`).join('')}
-    </div>
-
-    ${htmlCumplesRec(proxCumples)}
-
-    <details class="card" style="margin:16px 0 6px;padding:10px 14px">
-      <summary style="cursor:pointer;font-size:12.5px;font-weight:700;color:var(--muted2)">⚠️ Reportar incidente</summary>
-      <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:10px">${allUsers.filter(u=>esProf(u)).map(u=>`<button onclick="reportarIncidente('${u.id}','${u.name}')" style="padding:7px 12px;border-radius:16px;border:1.5px solid rgba(244,114,182,.3);background:rgba(244,114,182,.06);color:var(--text);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer">${u.emoji||'✂️'} ${escH(u.name)}</button>`).join('')}</div>
-    </details>
-
-    <button onclick="showLogin()" class="btn btn-ghost" style="margin-top:16px">Salir</button>
   `;
   recRenderBusqueda();
 }
@@ -9552,6 +9595,12 @@ function marcarCumple(id){
   if(c.contactado) showToast('+'+ptsDe('cumple',20)+' puntos ⭐');
 }
 
+function abrirReportarIncidente(){
+  document.getElementById('registro-content').innerHTML=cabeceraModal('⚠️ Reportar incidente')+
+    `<div style="font-size:12.5px;color:var(--muted2);margin-bottom:12px">¿Con qué profesional?</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${allUsers.filter(u=>esProf(u)).map(u=>`<button onclick="closeModal('modal-registro');reportarIncidente('${u.id}','${escH(u.name)}')" style="padding:9px 14px;border-radius:14px;border:1.5px solid rgba(244,114,182,.3);background:rgba(244,114,182,.06);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${u.emoji||'✂️'} ${escH(u.name)}</button>`).join('')}</div>`;
+  openModal('modal-registro');
+}
 async function reportarIncidente(profId, profName){
   const r=await uiPrompt('Reportar incidente',{msg:'¿Qué pasó con '+profName+'?',type:'textarea',ok:'Reportar'});
   const razon=(r||'').trim();
@@ -9637,6 +9686,7 @@ function menuIr(accion){
     stories:()=>{ if(profile.role==='recepcionista') goToRec('stories'); else goTo('stories'); },
     pantallaFrench:()=>abrirPantallaFrench(),
     agenda:()=>abrirAgenda(),
+    misTurnos:()=>abrirCalendarioRec(),
     guia:()=>abrirGuia(true), pass:()=>cambiarMiPassword(), salir:()=>showLogin(),
   };
   (acc[accion]||(()=>{}))();
@@ -9653,7 +9703,7 @@ function renderMenu(){
   if(p.role==='profesional'){
     items=it(mi('perfil'),'Mi perfil','perfil')+it(mi('contenido'),'Contenido','contenido')+(p.esEncargado?it(mi('stock'),'Control de stock','stock'):'')+it(mi('clientes'),'Mis clientes','clientes')+it('📅','Agenda','agenda')+it(mi('dinero'),'Mi dinero','dinero')+it(mi('banco'),'Banco de reels','banco')+it(mi('kanban'),'Tablero','kanban')+it(mi('historias'),'Historias','stories')+it(mi('puntos'),'Mis puntos','puntos')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'')+(p.adminReal?it('👑','Volver a Admin','modoAdmin'):'');
   } else if(p.role==='recepcionista'){
-    items=it(mi('perfil'),'Mi cuenta','perfil')+it('📅','Agenda','agenda')+it(mi('historias'),'Historias','stories')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
+    items=it(mi('perfil'),'Mi cuenta','perfil')+it('🗓','Mis turnos de esta semana','misTurnos')+it('📅','Agenda','agenda')+it(mi('historias'),'Historias','stories')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
   } else {
     items=it(mi('perfil'),'Mi cuenta','perfil')+it('📅','Agenda','agenda')+(p.role==='admin'&&p.tambienProf?it('✂️','Mi perfil profesional','modoProf'):'')+(vePantallaFrench?it('📋','Pantalla de '+escH(sinRec.nombre),'pantallaFrench'):'');
   }
