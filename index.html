@@ -2450,11 +2450,11 @@ function agGrid(){
         <div style="font-size:9px;font-weight:600;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH((a.servicios[0]||{}).nombre||'')}${a.paqueteId?' 🎁':''}</div>
       </div>`;
     }).join('');
-    return `<div style="flex:1;min-width:118px;position:relative">${bg}${blocks}</div>`;
+    return `<div style="flex:1;min-width:0;position:relative">${bg}${blocks}</div>`;
   }).join('');
   const header=`<div style="display:flex;position:sticky;top:0;background:var(--bg);z-index:2;border-bottom:1.5px solid var(--border2)">
     <div style="width:40px;flex-shrink:0"></div>
-    ${profs.map(p=>`<div style="flex:1;min-width:118px;padding:8px 4px;text-align:center;font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(p.name)}</div>`).join('')}
+    ${profs.map(p=>`<div style="flex:1;min-width:0;padding:8px 4px;text-align:center;font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(p.name)}</div>`).join('')}
   </div>`;
   wrap.innerHTML=header+`<div style="display:flex">${labelCol}${cols}</div>`;
 }
