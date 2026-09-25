@@ -528,6 +528,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
     <!-- Tramo banner -->
     <div id="tramo-banner" onclick="goTo('dinero')" style="display:none;border-radius:16px;padding:14px 16px;margin-bottom:14px;cursor:pointer"></div>
     <div id="hub-cierres"></div>
+    <div id="hub-suc-wrap"></div>
 
     <!-- HOY: panel del día -->
     <div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin-bottom:10px">Hoy</div>
@@ -4846,6 +4847,15 @@ function sucursalActual(){
   return ss[0]||(profile&&profile.sucursal)||null;
 }
 function cobroSuc(id){ cobro.sucursal=id; try{ localStorage.setItem('luffy_suc_hoy',JSON.stringify({f:hoyStr(),id})); }catch(e){} refreshCobro(); }
+// Selector en el Inicio para quien trabaja en mas de una sucursal: elige donde esta HOY antes de arrancar a cobrar,
+// asi "Registrar turno" (Diego Laure) vs "Cobro directo" (French) se decide bien desde el vamos.
+function hubElegirSucursal(id){ try{ localStorage.setItem('luffy_suc_hoy',JSON.stringify({f:hoyStr(),id})); }catch(e){} renderHub(); }
+function htmlSucursalHub(){
+  const ss=sucursalesDe(profile); if(ss.length<2) return '';
+  const act=sucursalActual();
+  return `<div class="card" style="margin-bottom:10px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">📍 ¿Dónde estás hoy?</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${ss.map(id=>{ const s=sucursalDe(id)||{id,nombre:id,color:'#4A136B'}; return `<button onclick="hubElegirSucursal('${id}')" style="${pillStyle(act===id,s.color)}">${escH(s.nombre)}</button>`; }).join('')}</div></div>`;
+}
 function renderSucCobro(){
   const el=document.getElementById('cb-suc'); if(!el) return; const ss=sucursalesDe(profile);
   if(ss.length<2){ el.innerHTML=''; return; }
@@ -5428,6 +5438,7 @@ function renderHub(){
   // Tramo banner
   renderTramoBanner();
   renderCierresPendientesProf();
+  { const el=document.getElementById('hub-suc-wrap'); if(el) el.innerHTML=htmlSucursalHub(); }
 
   // Stories dots
   loadStoriesData();
