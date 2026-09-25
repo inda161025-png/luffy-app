@@ -5679,7 +5679,7 @@ function uiConfirm(title,msg,o={}){
 // ============ UTILS ============
 function show(id){
   currentScreenId = id;
-  document.body.classList.toggle('adm-wide', id==='admin');
+  document.body.classList.toggle('adm-wide', id==='admin'||id==='agenda');
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
