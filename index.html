@@ -10661,8 +10661,9 @@ function rpDuracion(){ return rpState.servicioIds.reduce((s,id)=>s+svcDuracion(s
 // French no tiene los demas rubros. OJO: no usar sucursalConRecepcion() aca — esa funcion mira si HAY UNA
 // RECEPCIONISTA ASIGNADA a la sucursal ahora mismo (para el bloqueo de caja/avisos), y una misma recepcionista
 // puede estar asignada a las dos sucursales a la vez (para que le llegue todo de las dos) — eso hacia que
-// French apareciera con "recepcion" y mostrara todos los rubros. Lo que hace falta es el dato estructural fijo
-// de la sucursal (s.recepcion, el mismo que prende/apaga "toggleRecepcionSuc" en Admin), no quien la atiende hoy.
+// French apareciera con "recepcion" y mostrara todos los rubros (bug real, reportado por Ivo). Lo que hace
+// falta es el dato fijo de la sucursal (s.recepcion, cargado en French desde el default de la app), no quien
+// la atiende hoy.
 function rpRubrosSucursal(sucId){ const s=sucursalDe(sucId); return (s&&s.recepcion===false)?['barberia']:rubros.map(r=>r.id); }
 // Mejor % de una promo fija para ese rubro en esa sucursal, sin mirar dia/hora (es una vidriera, no el calculo de un cobro puntual)
 // y sin contar las que dependen de la profesion del cliente (la reserva publica todavia no la conoce).
