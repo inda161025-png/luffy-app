@@ -2016,6 +2016,15 @@ function visitasDeCliente(cid){
   });
   return V.sort((a,b)=>String(b.ts||b.fecha).localeCompare(String(a.ts||a.fecha)));
 }
+// Racha de visitas (gamificacion hacia el cliente): meses seguidos con al menos una visita, contando hacia atras desde el actual.
+// Default de Claude (a confirmar con Ivo el criterio exacto y si corresponde algun premio ademas del reconocimiento).
+function rachaMeses(c){
+  const meses=new Set(visitasDeCliente(c.id).map(v=>String(v.fecha).slice(0,7)));
+  if(!meses.size) return 0;
+  let racha=0; const cursor=new Date();
+  while(meses.has(cursor.getFullYear()+'-'+pad2(cursor.getMonth()+1))){ racha++; cursor.setMonth(cursor.getMonth()-1); }
+  return racha;
+}
 function statsCliente(c){
   const V=visitasDeCliente(c.id);
   const fechas=[...new Set(V.map(v=>v.fecha))].sort();
@@ -2073,6 +2082,7 @@ function abrirClienteDetalle(id){
     </div>
     <div class="field" style="margin-bottom:12px"><label>✉️ Mail</label><input id="cd-email" type="email" placeholder="nombre@mail.com" value="${escH(c.email||'')}" onblur="guardarEmailRapido('${c.id}',this.value)"/></div>
     ${typeof htmlTarjetaCliente==='function'?htmlTarjetaCliente(c):''}
+    ${tarjetaConRegaloListo(c)?`<button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="abrirCanjeRegaloProducto('${c.id}')">🎁 Canjear el regalo por un producto (en vez de corte gratis)</button>`:''}
     ${htmlDeudaCliente(c)}${htmlSenaCliente(c)}
     ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(74,19,107,.4)"><div style="font-size:12px;font-weight:800;color:#4A136B">💳 Membresía activa</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} cortes · pagó ${fp(m.precio)} el ${fch(m.fecha)}</div></div>`:''}
     ${paqs.map(p=>`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.4)"><div style="font-size:12px;font-weight:800;color:#34d399">🎁 Paquete pagado (${p.pct}% off)</div><div style="font-size:12.5px;margin-top:3px">Le faltan: ${p.items.filter(i=>!i.usado).map(i=>escH(i.nombre)+(i.coord&&i.coord.fecha?' ('+fechaCortaStr(i.coord.fecha)+(i.coord.hora?' '+i.coord.hora+'hs':'')+')':'')).join(', ')}</div></div>`).join('')}
@@ -2081,6 +2091,7 @@ function abrirClienteDetalle(id){
       <div class="stat-card"><div class="sc-lbl">Viene cada</div><div class="sc-val" style="font-size:21px">${s.cada?'~'+s.cada+' d':'—'}</div></div>
       <div class="stat-card"><div class="sc-lbl">Gastó</div><div class="sc-val" style="font-size:22px">${fp(s.gastado)}</div></div>
     </div>
+    ${rachaMeses(c)>=2?`<div class="card" style="margin-bottom:10px;border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.08);text-align:center"><div style="font-size:13px;font-weight:800;color:#fbbf24">🔥 Racha de ${rachaMeses(c)} meses seguidos viniendo</div><div style="font-size:11px;color:var(--muted2);margin-top:2px">Se ve, se mide — cliente fiel</div></div>`:''}
     <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 12px">Primera visita: ${fch(s.primera)} · Última: ${fch(s.ultima)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirFormCliente('${c.id}')">✏️ Editar datos</button>
@@ -2126,6 +2137,27 @@ async function guardarEmailRapido(id,val){
   if(email&&!/^\S+@\S+\.\S+$/.test(email)){ showToast('El mail no parece válido'); return; }
   await cambiarClientes(list=>{ const x=list.find(z=>z.id===id); if(x){ x.email=email; x.upd=new Date().toISOString(); } });
   showToast('Mail guardado ✓');
+}
+// Canjear el "regalo" de una tarjeta completa por un producto en vez de un corte gratis (puntos canjeables por productos)
+function tarjetaConRegaloListo(c){ return ((c&&c.tarjetas)||[]).find(t=>{ const inf=infoDeTarjeta(t); return inf&&inf.regalo; })||null; }
+function abrirCanjeRegaloProducto(clienteId){
+  const c=clienteDe(clienteId); const t=tarjetaConRegaloListo(c); if(!t){ showToast('No tiene un regalo listo para canjear'); return; }
+  const disp=productos.filter(p=>p.stock>0);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🎁 Canjear por un producto')+
+    `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 12px">En vez del corte gratis, ${escH(c.nombre)} se lleva un producto sin cargo.</div>`+
+    (disp.length?disp.map(p=>`<button onclick="confirmarCanjeRegaloProducto('${clienteId}','${t.cardId}','${p.id}')" style="width:100%;text-align:left;padding:11px 14px;border-radius:12px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13.5px;font-weight:700;cursor:pointer;margin-bottom:6px;display:flex;justify-content:space-between"><span>${escH(p.nombre)}</span><span style="color:var(--muted2);font-weight:600">stock ${p.stock}</span></button>`).join(''):'<div style="font-size:13px;color:var(--muted)">No hay productos con stock.</div>');
+  openModal('modal-registro');
+}
+async function confirmarCanjeRegaloProducto(clienteId,cardId,productoId){
+  const c=clienteDe(clienteId), p=productos.find(x=>x.id===productoId); if(!c||!p) return;
+  if(!await uiConfirm('¿Confirmar canje?','Se le entrega "'+p.nombre+'" gratis y se marca el regalo de la tarjeta como usado.',{ok:'Confirmar'})) return;
+  const fecha=hoyStr(), creadoEn=new Date().toISOString(), id=Date.now().toString();
+  const venta={id:id+'g', turnoId:null, cliente:c.nombre, clienteId:c.id, sucursal:sucursalActual(), productoId:p.id, productoNombre:p.nombre, cantidad:1, precioUnitario:0, total:0, comision:0, costoUnitario:p.costo||0, medio:'efectivo', fecha, creadoEn, regaloTarjeta:true};
+  if(profile.role==='profesional') await modificarDineroDe(profile.id,dd=>{ dd.ventas.push(venta); return true; });
+  else { if(!dineroData.ventas) dineroData.ventas=[]; dineroData.ventas.push(venta); saveDinero(); }
+  ajustarStock([{id:p.id,delta:-1}]);
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===clienteId); const ct=x&&(x.tarjetas||[]).find(tt=>tt.cardId===cardId); if(ct) ct.regalo='usado'; });
+  closeModal('modal-registro'); showToast('Canjeado por '+p.nombre+' ✓'); abrirClienteDetalle(clienteId);
 }
 async function toggleClienteProblema(id){
   const c=clienteDe(id); if(!c) return;
@@ -2694,9 +2726,32 @@ async function agCancelar(id){
   const ahora=new Date().toISOString();
   await agendaSt.cambiar(l=>{ const x=l.find(y=>y.id===id); if(x){ x.estado='cancelado'; x.upd=ahora; } });
   if(a.paqueteId){ await paquetesSt.cambiar(l=>{ const p=l.find(x=>x.id===a.paqueteId); const it=p&&p.items.find(x=>x.id===a.itemId); if(it){ it.coord=null; p.upd=ahora; } }); }
-  closeModal('modal-registro');
   showToast('Turno cancelado');
   renderAgenda();
+  if(a.fecha>=hoyStr()) abrirWaitlist(a); else closeModal('modal-registro');
+}
+// Waitlist: al liberarse un horario (cancelacion), ofrecerlo a clientes en riesgo/perdidos del CRM con la oferta de la hora si corresponde
+function agCandidatosWaitlist(a){
+  const uv=ultimasVisitas();
+  return clientesDir.filter(c=>c.tel&&!c.problematico).map(c=>({c,dias:uv[c.id]?diasDesdeStr(uv[c.id].fecha):null})).filter(x=>x.dias!=null&&x.dias>=16).sort((a,b)=>b.dias-a.dias).slice(0,5);
+}
+function agMensajeWaitlist(a,c){
+  const rubroIds=(a.servicios||[]).map(s=>(servicios.find(x=>x.id===s.svcId)||{}).rubro).filter(Boolean);
+  const ctx={dia:new Date(a.fecha+'T00:00:00').getDay(),hora:a.hora,sucursal:a.sucursal,cliente:null};
+  let oferta=null;
+  (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{ if(!rubroIds.some(rb=>rubroEn(f.rubro,rb))) return; if(!oferta||numV(f.pct)>numV(oferta.pct)) oferta=f; });
+  const nombresSvc=(a.servicios||[]).map(s=>s.nombre).join(', ');
+  let txt='Hola '+c.nombre.split(' ')[0]+'! Se liberó un horario con '+a.profNombre+' el '+fechaCortaStr(a.fecha)+' a las '+a.hora+'hs'+(nombresSvc?' para '+nombresSvc:'')+'. ¿Te sirve?';
+  if(oferta) txt+=' Encima tiene '+oferta.pct+'% de descuento por caer en el horario de oferta 🎉';
+  return txt;
+}
+function abrirWaitlist(a){
+  const cands=agCandidatosWaitlist(a);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📤 Avisar que se liberó un horario')+
+    `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 12px">${fechaCortaStr(a.fecha)} ${a.hora}hs con ${escH(a.profNombre)} — mandale un WhatsApp a alguien que hace tiempo no viene.</div>`+
+    (cands.length?cands.map(({c,dias})=>{ const wa=linkWhatsApp(c.tel,agMensajeWaitlist(a,c)); return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0">${escH(c.nombre)}<div style="font-size:11px;color:var(--muted2);font-weight:400">hace ${dias} días</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}</div>`; }).join(''):'<div style="font-size:13px;color:var(--muted)">No hay clientes inactivos con teléfono para ofrecerles.</div>')
+    +'<button class="btn btn-ghost" style="width:100%;margin-top:10px" onclick="closeModal(\'modal-registro\')">Cerrar</button>';
+  openModal('modal-registro');
 }
 async function agMarcarHecho(id){
   await agendaSt.cambiar(l=>{ const x=l.find(y=>y.id===id); if(x){ x.estado='hecho'; x.upd=new Date().toISOString(); } });
@@ -6998,6 +7053,12 @@ function refreshCobro(){
     const s=servicios.find(x=>x.id===id);
     if(s&&svcConVariante(id)&&!cobro.opciones[id]) ex.push(`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:5px">${escH(s.nombre)}: ${escH(s.variante.titulo||'Opción')} <span style="color:#f472b6">*</span> <span style="color:var(--muted2);font-weight:500">(no quedó cargado, elegilo para poder cobrar)</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.variante.opciones.map((o,oi)=>`<button onclick="cobroOpcion('${id}',${oi})" style="${pillStyle(cobro.opciones[id]===o.n,color)}">${escH(o.n)}${numV(o.extra)?' +'+fp(o.extra):''}</button>`).join('')}</div></div>`);
   });
+  // Venta cruzada: si algun servicio elegido tiene "sugiere" configurado (Admin -> Catalogo -> Servicios), ofrecer sumarlo con un toque
+  if(!cobroParaProf){
+    const sugeridos=new Set();
+    cobro.servicios.forEach(id=>{ const s=servicios.find(x=>x.id===id); (s&&s.sugiere||[]).forEach(sid=>{ if(!cobro.servicios.includes(sid)&&servicios.find(x=>x.id===sid)) sugeridos.add(sid); }); });
+    if(sugeridos.size) ex.push(`<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.3)"><div style="font-size:11.5px;font-weight:800;color:#60a5fa;margin-bottom:6px">💡 También le podés ofrecer</div><div style="display:flex;flex-wrap:wrap;gap:6px">${[...sugeridos].map(sid=>{ const sv=servicios.find(x=>x.id===sid); return `<button onclick="cobroToggleServicio('${sid}');refreshCobro()" style="${pillStyle(false,'#60a5fa')}">+ ${escH(sv.nombre)} (${fp(sv.precio)})</button>`; }).join('')}</div></div>`);
+  }
   if(r.esNoche) ex.unshift(`<div style="background:rgba(74,19,107,.12);border:1px solid rgba(74,19,107,.35);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#a89fff;font-weight:700">🌙 Turno de noche (desde las ${escH(nocheCfg().desde)}): precio de lista, sin descuentos. Tu comisión es ${numV(nocheCfg().pct)}% fijo.</div>`);
   document.getElementById('cb-extra').innerHTML=ex.join('');
 
@@ -9362,6 +9423,7 @@ function abrirFormServicio(id){
     <div class="field"><label>Opciones a elegir al cobrar (opcional)</label>
       <input id="sv-vtit" placeholder="Nombre de la opción. Ej: Largo de barba" value="${escH(s&&s.variante?s.variante.titulo:'')}" style="margin-bottom:6px"/>
       <input id="sv-vops" placeholder="Corta, Media, Larga   (con extra: Larga:2000)" value="${escH(ops)}"/></div>
+    <div class="field"><label>💡 Venta cruzada: al elegir este servicio, sugerir también</label>${servicios.filter(x=>x.id!==(s?s.id:'')).map(x=>`<label class="rub-opt"><input type="checkbox" class="sv-sug" value="${x.id}" ${s&&(s.sugiere||[]).includes(x.id)?'checked':''}/> ${escH(x.nombre)}</label>`).join('')||'<div style="font-size:12px;color:var(--muted)">Cargá otros servicios primero.</div>'}</div>
     <button class="btn btn-primary" onclick="guardarServicio()" style="margin-top:14px">${s?'Guardar cambios':'Agregar servicio'}</button>`;
   openModal('modal-registro');
 }
@@ -9370,7 +9432,8 @@ function guardarServicio(){
   const nombre=val('sv-nombre'), precio=parseFloat(val('sv-precio'))||0;
   if(!nombre||precio<=0){ showToast('Poné nombre y precio'); return; }
   const ops=val('sv-vops').split(',').map(t=>t.trim()).filter(Boolean).map(t=>{ const p=t.split(':'); return {n:p[0].trim(), extra:parseFloat(p[1])||0}; });
-  const campos={nombre, precio, rubro:val('sv-rubro'), duracion:parseInt(val('sv-dur'))||0, variable:document.getElementById('sv-var').checked||undefined, variante:ops.length?{titulo:val('sv-vtit')||'Opción',opciones:ops}:undefined};
+  const sugiere=[...document.querySelectorAll('.sv-sug:checked')].map(x=>x.value);
+  const campos={nombre, precio, rubro:val('sv-rubro'), duracion:parseInt(val('sv-dur'))||0, variable:document.getElementById('sv-var').checked||undefined, variante:ops.length?{titulo:val('sv-vtit')||'Opción',opciones:ops}:undefined, sugiere:sugiere.length?sugiere:undefined};
   const id=val('sv-id');
   if(id){ const s=servicios.find(x=>x.id===id); if(!s) return; Object.keys(campos).forEach(k=>{ if(campos[k]===undefined) delete s[k]; else s[k]=campos[k]; }); showToast('Servicio actualizado ✓'); }
   else { const s={id:Date.now().toString()}; Object.keys(campos).forEach(k=>{ if(campos[k]!==undefined) s[k]=campos[k]; }); servicios.push(s); showToast('Servicio agregado ✓'); }
