@@ -503,6 +503,12 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
   <div class="scroll" id="pk-body"></div>
 </div>
 
+<!-- RESERVA PUBLICA (sin login, para clientes — se entra con #reserva en la URL) -->
+<div id="reserva-publica" class="screen">
+  <div class="inner-hdr"><h2 id="rp-titulo">📅 Reservar un turno</h2></div>
+  <div class="scroll" id="rp-body" style="padding:16px"></div>
+</div>
+
 <!-- AGENDA (propia de Luffy, separada de AgendaPro) -->
 <div id="agenda" class="screen">
   <div class="inner-hdr"><button class="back" onclick="volverDeAgenda()">←</button><h2>📅 Agenda</h2></div>
@@ -3396,7 +3402,12 @@ function adminDescuentos(c){
   const hoy=hoyStr(); const r=rangoPeriodo('quincena'); const P=htmlPerdidaDescuentos(r.desde,r.hasta);
   const sv=servicioMembresia(); const cm=promos.comision, mb=promos.membresia, nc=nocheCfg();
   const diasTxt=(d)=>d&&d.length?d.map(x=>DIAS_NOM[x]).join(', '):'todos los días';
-  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🏷️ Descuentos fijos</span><button class="lnk" onclick="editarReglaFija('')">+ Nuevo</button></div>
+  c.innerHTML=`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.35)">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:13px;font-weight:800">🌐 Reserva pública</span><button class="lnk" onclick="abrirConfigReservaPublica()">Configurar</button></div>
+    <div style="font-size:11.5px;color:var(--muted2);line-height:1.5">Link para compartir (sitio web, Instagram, WhatsApp): <b style="color:var(--text);word-break:break-all">${escH(location.origin+location.pathname+'#reserva')}</b></div>
+    <div style="font-size:11.5px;color:var(--muted2);margin-top:4px">WhatsApp del negocio: ${promos.whatsappNegocio?escH(promos.whatsappNegocio):'<span style="color:#fbbf24">sin configurar — el cliente va a tener que elegir el contacto a mano</span>'} · Seña obligatoria con oferta: <b style="color:var(--text)">${numV(promos.senaPublicaPct)||30}%</b></div>
+  </div>
+  <div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🏷️ Descuentos fijos</span><button class="lnk" onclick="editarReglaFija('')">+ Nuevo</button></div>
     <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Se aplican solos según el <b style="color:var(--text)">horario del turno</b>, el día, la sucursal y la profesión del cliente. En cada cobro se aplica <b style="color:var(--text)">un solo descuento: el más alto</b> entre estas promos, el efectivo, las ofertas, la fidelidad y los referidos. Nunca se suman, <b style="color:var(--text)">salvo el adicional que tenga configurada una promo</b> (hoy: +15% para fuerzas en las promos de peluquería).</div>
     ${(promos.fijos||[]).map(f=>`<div class="card" style="margin-bottom:8px;${f.activo===false?'opacity:.55':''}"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(f.nombre)} · ${f.pct}%</div>
       <div style="font-size:11px;color:var(--muted2);line-height:1.6">${escH(rubrosNombres(f.rubro))}${f.servicioIds&&f.servicioIds.length?' ('+f.servicioIds.map(id=>escH(nombreSvcId(id))).join(', ')+')':''} · ${diasTxt(f.dias)}${f.horaDesde||f.horaHasta?' · de '+(f.horaDesde||'apertura')+' a '+(f.horaHasta||'cierre'):''}${f.sucursales&&f.sucursales.length?' · '+f.sucursales.map(s=>escH((sucursalDe(s)||{}).nombre||s)).join(', '):' · todas las sucursales'}${f.profesion?' · clientes: '+escH(f.profesion):''}${f.extra&&f.extra.profesion?' · <b style="color:#34d399">+'+numV(f.extra.pct)+'% adicional si es '+escH(f.extra.profesion)+' (se suma)</b>':''}</div></div>
@@ -5812,6 +5823,7 @@ async function init(){
     if(typeof claude!=='undefined'){ DB=await claude.use('db'); }
     else if(supaClient){ DB=makeSupabaseDB(supaClient); }
   } catch(e){}
+  if(location.hash==='#reserva'){ await mostrarReservaPublica(); return; }
   // Sin sesion la base no deja leer: no se carga nada de la nube hasta que la persona inicie sesion.
   const rolInicio=await cargarMiRol();
   // Keep the session across reloads/app switches — without this, iOS
@@ -10125,6 +10137,19 @@ function abrirMiCuenta(){
   openModal('modal-registro');
 }
 
+function abrirConfigReservaPublica(){
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🌐 Reserva pública')+
+    `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 12px;line-height:1.5">El cliente entra sin login a <b style="color:var(--text)">${escH(location.origin+location.pathname+'#reserva')}</b>, ve los horarios libres y arma el pedido — el turno se confirma por WhatsApp con recepción/el profesional, no se agenda solo.</div>
+    <div class="field"><label>WhatsApp del negocio (a donde llega el pedido)</label><input id="crp-wa" type="tel" placeholder="11 2345 6789" value="${escH(promos.whatsappNegocio||'')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Seña obligatoria cuando hay oferta (% del servicio)</label><input id="crp-sena" type="number" inputmode="numeric" value="${numV(promos.senaPublicaPct)||30}"/></div>
+    <button class="btn btn-primary" onclick="guardarConfigReservaPublica()" style="margin-top:14px">Guardar</button>`;
+  openModal('modal-registro');
+}
+function guardarConfigReservaPublica(){
+  promos.whatsappNegocio=(document.getElementById('crp-wa').value||'').trim();
+  const pct=numV(document.getElementById('crp-sena').value); promos.senaPublicaPct=pct>0?pct:30;
+  savePromos(); closeModal('modal-registro'); showToast('Guardado ✓'); renderAdmin();
+}
 async function cambiarPinPantalla(){
   const v=await uiPrompt('PIN de la Pantalla local',{msg:'Lo van a usar los chicos de French (o quien corresponda) para entrar a esta pantalla sin loguearse con ninguna cuenta.',label:'PIN (4 a 8 dígitos)',value:(promos&&promos.pinPantalla)||'0000',ok:'Guardar'});
   if(v===null) return;
@@ -10162,6 +10187,174 @@ function volverDePantallaKiosco(){
   if(kioscoVolverRol==='admin'){ show('admin'); enterAdmin(); }
   else if(kioscoVolverRol==='recepcionista'){ show('recepcion'); renderRecepcion(); }
   else { goTo('hub'); }
+}
+// ---------- Reserva pública (sin login, para clientes — ver negocio/pendientes-app.md) ----------
+// V1: no cobra de verdad (no hay backend para guardar la clave de Mercado Pago de cada profesional con seguridad).
+// El cliente arma el pedido y elige como quiere pagar, y eso se manda por WhatsApp al negocio para que confirme
+// y (si corresponde) le pase el link de pago a mano. No escribe nada en la Agenda real: la crea recepcion/el profesional
+// al confirmar, igual que ya se hace hoy con "compartir por WhatsApp".
+let rpState={paso:'sucursal',sucursal:null,servicioIds:[],profId:null,fecha:'',hora:'',nombre:'',whatsapp:'',pago:''};
+async function mostrarReservaPublica(){
+  show('reserva-publica');
+  const nav=document.getElementById('nav'); if(nav) nav.style.display='none';
+  document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Cargando…</div>';
+  await rpCargarDatos();
+  rpState={paso:'sucursal',sucursal:null,servicioIds:[],profId:null,fecha:hoyStr(),hora:'',nombre:'',whatsapp:'',pago:''};
+  if(sucursales.length<=1){ rpState.sucursal=(sucursales[0]||{}).id||null; rpState.paso='servicios'; }
+  rpRender();
+}
+async function rpCargarDatos(){
+  if(!DB) return;
+  try{
+    const [sucR,userR,promR,svcR,agR]=await Promise.all([
+      Promise.resolve(DB.doc('luffy/sucursales').get()).catch(()=>null),
+      Promise.resolve(DB.doc('luffy/users').get()).catch(()=>null),
+      Promise.resolve(DB.doc('luffy/promos_cfg').get()).catch(()=>null),
+      Promise.resolve(DB.doc('luffy/servicios').get()).catch(()=>null),
+      Promise.resolve(DB.doc('luffy/agenda').get()).catch(()=>null),
+    ]);
+    if(sucR&&sucR.list&&sucR.list.length) sucursales=sucR.list;
+    if(userR&&Array.isArray(userR.list)) allUsers=userR.list;
+    if(promR) promos=aplicarPromosRemotas(promR);
+    if(svcR&&svcR.list&&svcR.list.length) servicios=svcR.list;
+    if(agR&&Array.isArray(agR.list)) agendaSt.list=agR.list;
+  }catch(e){}
+}
+function rpOrden(){ return sucursales.length>1?['sucursal','servicios','profesional','horario','confirmar']:['servicios','profesional','horario','confirmar']; }
+function rpVolver(){ const o=rpOrden(); const i=o.indexOf(rpState.paso); if(i>0){ rpState.paso=o[i-1]; rpRender(); } }
+function rpBackBtn(){ return rpOrden().indexOf(rpState.paso)>0?`<button onclick="rpVolver()" class="lnk" style="margin-bottom:10px">‹ Atrás</button>`:''; }
+function rpDuracion(){ return rpState.servicioIds.reduce((s,id)=>{ const sv=servicios.find(x=>x.id===id); return s+(sv&&sv.duracion?sv.duracion:30); },0); }
+function rpSlotsLibres(profId,fecha){
+  const dur=Math.max(AG_PASO,rpDuracion()), pasos=Math.max(1,Math.round(dur/AG_PASO));
+  const ocupadoMin=new Set();
+  agendaSt.list.filter(a=>a.profId===profId&&a.fecha===fecha&&agEstado(a)!=='cancelado').forEach(a=>{
+    const ini=agMin(a.hora), d=Math.max(1,Math.round((a.duracion||30)/AG_PASO)); for(let i=0;i<d;i++) ocupadoMin.add(ini+i*AG_PASO);
+  });
+  const hoy=hoyStr(), ahoraMin=fecha===hoy?(new Date().getHours()*60+new Date().getMinutes()):-1;
+  return agSlots().filter(m=>{
+    if(m+dur>AG_FIN) return false;
+    for(let i=0;i<pasos;i++) if(ocupadoMin.has(m+i*AG_PASO)) return false;
+    if(fecha===hoy&&m<=ahoraMin+30) return false;
+    return true;
+  });
+}
+function rpPrecioBase(){ return rpState.servicioIds.reduce((s,id)=>{ const sv=servicios.find(x=>x.id===id); return s+numV(sv?sv.precio:0); },0); }
+function rpRubrosElegidos(){ return [...new Set(rpState.servicioIds.map(id=>(servicios.find(s=>s.id===id)||{}).rubro).filter(Boolean))]; }
+function rpOfertaPara(fecha,hora){
+  const ctx={dia:new Date(fecha+'T00:00:00').getDay(),hora,sucursal:rpState.sucursal,cliente:null};
+  let mejor=null;
+  (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{ if(!rpRubrosElegidos().some(rb=>rubroEn(f.rubro,rb))) return; if(!mejor||numV(f.pct)>numV(mejor.pct)) mejor=f; });
+  return mejor;
+}
+function rpPrecioSlot(fecha,hora){ const base=rpPrecioBase(); const oferta=rpOfertaPara(fecha,hora); const total=oferta?Math.round(base*(1-numV(oferta.pct)/100)):base; return {base,oferta,total}; }
+function rpRender(){
+  const body=document.getElementById('rp-body');
+  ({sucursal:rpRenderSucursal,servicios:rpRenderServicios,profesional:rpRenderProfesional,horario:rpRenderHorario,confirmar:rpRenderConfirmar,gracias:rpRenderGracias}[rpState.paso]||rpRenderSucursal)(body);
+}
+function rpRenderSucursal(body){
+  body.innerHTML=`<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">Elegí la sucursal</div>
+    ${sucursales.map(s=>`<button onclick="rpElegirSucursal('${s.id}')" class="btn btn-ghost" style="width:100%;margin-bottom:8px;text-align:left;border-left:5px solid ${s.color}">${escH(s.nombre)}</button>`).join('')}`;
+}
+function rpElegirSucursal(id){ rpState.sucursal=id; rpState.paso='servicios'; rpRender(); }
+function rpRenderServicios(body){
+  const porRubro={}; servicios.forEach(s=>{ (porRubro[s.rubro||'']=porRubro[s.rubro||'']||[]).push(s); });
+  body.innerHTML=`${rpBackBtn()}<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">¿Qué te querés hacer? (elegí uno o más)</div>
+    ${Object.entries(porRubro).map(([r,L])=>`<div style="font-size:11.5px;font-weight:800;margin:10px 0 6px;color:var(--muted2);text-transform:uppercase;letter-spacing:.04em">${escH(nombreRubro(r)||'Otros')}</div>
+      ${L.map(s=>`<label class="rub-opt" style="display:flex;justify-content:space-between;align-items:center"><span><input type="checkbox" onchange="rpToggleServicio('${s.id}')" ${rpState.servicioIds.includes(s.id)?'checked':''}/> ${escH(s.nombre)}</span><b>${fp(s.precio)}</b></label>`).join('')}`).join('')||'<div style="font-size:13px;color:var(--muted)">No hay servicios cargados todavía.</div>'}
+    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="rpContinuarServicios()">Continuar</button>`;
+}
+function rpToggleServicio(id){ const i=rpState.servicioIds.indexOf(id); if(i>=0) rpState.servicioIds.splice(i,1); else rpState.servicioIds.push(id); }
+function rpContinuarServicios(){ if(!rpState.servicioIds.length){ showToast('Elegí al menos un servicio'); return; } rpState.paso='profesional'; rpRender(); }
+function rpRenderProfesional(body){
+  const profs=allUsers.filter(u=>esProf(u)&&sucursalesDe(u).includes(rpState.sucursal));
+  body.innerHTML=`${rpBackBtn()}<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">¿Con quién?</div>
+    ${profs.length?profs.map(u=>`<div class="card" style="cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="rpElegirProfesional('${u.id}')"><div style="font-size:24px">${escH(u.emoji||'✂️')}</div><div style="font-size:14px;font-weight:800">${escH(u.name)}</div></div>`).join(''):'<div style="font-size:13px;color:var(--muted)">No hay profesionales cargados en esta sucursal todavía.</div>'}`;
+}
+function rpElegirProfesional(id){ rpState.profId=id; rpState.paso='horario'; rpRender(); }
+function rpNavDia(n){ rpState.fecha=addDias(rpState.fecha,n); if(rpState.fecha<hoyStr()) rpState.fecha=hoyStr(); rpRender(); }
+function rpRenderHorario(body){
+  const prof=allUsers.find(u=>u.id===rpState.profId);
+  const libres=rpSlotsLibres(rpState.profId,rpState.fecha);
+  const d=new Date(rpState.fecha+'T00:00:00');
+  const diaTxt=d.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+  body.innerHTML=`${rpBackBtn()}<div style="font-size:13px;color:var(--muted2);margin-bottom:6px">Con ${escH(prof?prof.name:'')}</div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px">
+      <button onclick="rpNavDia(-1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">‹</button>
+      <span style="font-size:13.5px;font-weight:800;text-transform:capitalize;min-width:180px;text-align:center">${diaTxt}</span>
+      <button onclick="rpNavDia(1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">›</button>
+    </div>
+    ${libres.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{ const hora=agHM(m); const {oferta,total}=rpPrecioSlot(rpState.fecha,hora); return `<button onclick="rpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid ${oferta?'#34d399':'var(--border2)'};background:${oferta?'rgba(52,211,153,.08)':'var(--s2)'};color:var(--text);font-family:var(--font);cursor:pointer;text-align:center">
+      <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${oferta?'#34d399':'var(--muted2)'};font-weight:700">${fp(total)}</div>${oferta?'<div style="font-size:9px;color:#34d399">🎉 oferta</div>':''}</button>`; }).join('')}</div>`
+      :'<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0">No hay horarios libres este día. Probá otro día ›</div>'}`;
+}
+function rpElegirHorario(hora){ rpState.hora=hora; rpState.paso='confirmar'; rpRender(); }
+function rpRenderConfirmar(body){
+  const prof=allUsers.find(u=>u.id===rpState.profId), suc=sucursales.find(x=>x.id===rpState.sucursal);
+  const {oferta,total}=rpPrecioSlot(rpState.fecha,rpState.hora);
+  const nombresSvc=rpState.servicioIds.map(id=>(servicios.find(x=>x.id===id)||{}).nombre).filter(Boolean).join(', ');
+  const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(total*pct/100);
+  body.innerHTML=`${rpBackBtn()}<div class="card" style="margin-bottom:14px">
+      <div style="font-size:14px;font-weight:800">${escH(nombresSvc)}</div>
+      <div style="font-size:12.5px;color:var(--muted2);margin-top:2px">con ${escH(prof?prof.name:'')} · ${escH(suc?suc.nombre:'')}</div>
+      <div style="font-size:12.5px;color:var(--muted2)">${fechaCortaStr(rpState.fecha)} a las ${rpState.hora}hs</div>
+      <div style="font-size:20px;font-weight:900;margin-top:6px">${fp(total)}${oferta?` <span style="font-size:11px;color:#34d399;font-weight:700">(con ${oferta.pct}% de oferta)</span>`:''}</div>
+    </div>
+    <div class="field"><label>Tu nombre</label><input id="rp-nombre" placeholder="Nombre y apellido" value="${escH(rpState.nombre)}"/></div>
+    <div class="field" style="margin-top:8px"><label>Tu WhatsApp</label><input id="rp-wa" type="tel" placeholder="11 2345 6789" value="${escH(rpState.whatsapp)}"/></div>
+    <div class="field" style="margin-top:12px"><label>¿Cómo querés pagar?</label>
+      <label class="rub-opt"><input type="radio" name="rp-pago" value="total"/> Pago todo ahora por Mercado Pago</label>
+      ${oferta?
+        `<label class="rub-opt"><input type="radio" name="rp-pago" value="sena"/> Dejo una seña de ${fp(montoSena)} (${pct}%) por Mercado Pago — obligatoria por la oferta</label>`
+        :`<label class="rub-opt"><input type="radio" name="rp-pago" value="sena_opcional"/> Dejo una seña de ${fp(montoSena)} (${pct}%) por Mercado Pago</label>
+          <label class="rub-opt"><input type="radio" name="rp-pago" value="recepcion"/> Pago todo en el local cuando vaya</label>`}
+    </div>
+    <div id="rp-pago-nota" style="font-size:11px;color:var(--muted2);margin-top:6px"></div>
+    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="rpEnviarWhatsApp()">📲 Reservar por WhatsApp</button>
+    <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Esto no confirma el turno solo: se abre WhatsApp con el pedido armado, y el local te confirma ahí mismo.</div>`;
+  [...body.querySelectorAll('input[name="rp-pago"]')].forEach(r=>r.onchange=()=>{
+    const nota=document.getElementById('rp-pago-nota');
+    nota.textContent = r.value==='recepcion' ? 'Si no avisás con 3 horas de anticipación que no vas a venir, se te cobra el turno completo.' : 'El local te manda el link de pago de Mercado Pago por WhatsApp para completarlo.';
+  });
+}
+function rpMensajeWhatsApp(){
+  const s=rpState, prof=allUsers.find(u=>u.id===s.profId), suc=sucursales.find(x=>x.id===s.sucursal);
+  const nombresSvc=s.servicioIds.map(id=>(servicios.find(x=>x.id===id)||{}).nombre).filter(Boolean).join(', ');
+  const {oferta,total}=rpPrecioSlot(s.fecha,s.hora);
+  let pagoTxt='';
+  if(s.pago==='total') pagoTxt='Quiero pagar el total ahora por Mercado Pago.';
+  else if(s.pago==='sena'||s.pago==='sena_opcional'){ const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(total*pct/100); pagoTxt='Quiero dejar una seña de '+fp(montoSena)+' ('+pct+'%) por Mercado Pago.'; }
+  else pagoTxt='Pago todo en el local cuando vaya.';
+  let txt='¡Hola! Quiero reservar un turno 💈\n\n'+
+    (suc?'📍 '+suc.nombre+'\n':'')+
+    '✂️ '+nombresSvc+'\n'+
+    '🧔 Con: '+(prof?prof.name:'')+'\n'+
+    '📅 '+fechaCortaStr(s.fecha)+' a las '+s.hora+'hs\n'+
+    '💰 Total: '+fp(total)+(oferta?' (con la oferta de '+oferta.pct+'% ya aplicada)':'')+'\n\n'+
+    pagoTxt+'\n\n'+
+    'Soy '+s.nombre+' — mi WhatsApp: '+s.whatsapp;
+  if(s.pago==='recepcion') txt+='\n\n(Entiendo que si no aviso con 3hs de anticipación que no puedo ir, se me cobra el turno completo.)';
+  return txt;
+}
+function rpEnviarWhatsApp(){
+  const nombre=(document.getElementById('rp-nombre')?.value||'').trim();
+  const whatsapp=(document.getElementById('rp-wa')?.value||'').trim();
+  if(!nombre){ showToast('Poné tu nombre'); return; }
+  if(whatsapp.replace(/\D/g,'').length<8){ showToast('Poné tu WhatsApp con característica'); return; }
+  const pago=(document.querySelector('input[name="rp-pago"]:checked')||{}).value;
+  if(!pago){ showToast('Elegí cómo vas a pagar'); return; }
+  rpState.nombre=nombre; rpState.whatsapp=whatsapp; rpState.pago=pago;
+  const txt=rpMensajeWhatsApp();
+  const wa=promos.whatsappNegocio?linkWhatsApp(promos.whatsappNegocio,txt):('https://api.whatsapp.com/send?text='+encodeURIComponent(txt));
+  window.open(wa,'_blank');
+  rpState.paso='gracias'; rpRender();
+}
+function rpRenderGracias(body){
+  body.innerHTML=`<div style="text-align:center;padding:40px 16px">
+    <div style="font-size:44px;margin-bottom:12px">✅</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px">¡Listo, ${escH((rpState.nombre||'').split(' ')[0]||'')}!</div>
+    <div style="font-size:13px;color:var(--muted2);line-height:1.6">Se abrió WhatsApp con tu pedido. Mandalo y esperá la confirmación del local.</div>
+    <button class="btn btn-ghost" style="margin-top:20px" onclick="mostrarReservaPublica()">Hacer otra reserva</button>
+  </div>`;
 }
 async function editarMetasSalud(){
   const v=await uiDialog({title:'Metas del medidor de salud',msg:'Con esto se arma el % de "salud" de cada sucursal. Son puntos de partida, ajustalos cuando tengas más datos reales.',fields:[
