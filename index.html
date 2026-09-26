@@ -10313,16 +10313,20 @@ function rpRenderConfirmar(body){
     <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Esto no confirma el turno solo: se abre WhatsApp con el pedido armado, y el local te confirma ahí mismo.</div>`;
   [...body.querySelectorAll('input[name="rp-pago"]')].forEach(r=>r.onchange=()=>{
     const nota=document.getElementById('rp-pago-nota');
-    nota.textContent = r.value==='recepcion' ? 'Si no avisás con 3 horas de anticipación que no vas a venir, se te cobra el turno completo.' : 'El local te manda el link de pago de Mercado Pago por WhatsApp para completarlo.';
+    if(r.value==='recepcion'){ nota.innerHTML='Si no avisás con 3 horas de anticipación que no vas a venir, se te cobra el turno completo.'; return; }
+    nota.innerHTML = prof&&prof.aliasMP
+      ? 'Transferí por Mercado Pago al alias: <b style="color:var(--text)">'+escH(prof.aliasMP)+'</b>'
+      : 'Este profesional todavía no cargó su alias de Mercado Pago — te lo va a pasar por WhatsApp al confirmar.';
   });
 }
 function rpMensajeWhatsApp(){
   const s=rpState, prof=allUsers.find(u=>u.id===s.profId), suc=sucursales.find(x=>x.id===s.sucursal);
   const nombresSvc=s.servicioIds.map(id=>(servicios.find(x=>x.id===id)||{}).nombre).filter(Boolean).join(', ');
   const {oferta,total}=rpPrecioSlot(s.fecha,s.hora);
+  const aliasTxt=prof&&prof.aliasMP?' al alias '+prof.aliasMP:'';
   let pagoTxt='';
-  if(s.pago==='total') pagoTxt='Quiero pagar el total ahora por Mercado Pago.';
-  else if(s.pago==='sena'||s.pago==='sena_opcional'){ const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(total*pct/100); pagoTxt='Quiero dejar una seña de '+fp(montoSena)+' ('+pct+'%) por Mercado Pago.'; }
+  if(s.pago==='total') pagoTxt='Quiero pagar el total ahora por Mercado Pago'+aliasTxt+'.';
+  else if(s.pago==='sena'||s.pago==='sena_opcional'){ const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(total*pct/100); pagoTxt='Quiero dejar una seña de '+fp(montoSena)+' ('+pct+'%) por Mercado Pago'+aliasTxt+'.'; }
   else pagoTxt='Pago todo en el local cuando vaya.';
   let txt='¡Hola! Quiero reservar un turno 💈\n\n'+
     (suc?'📍 '+suc.nombre+'\n':'')+
