@@ -1898,7 +1898,7 @@ async function crearCliente(d){
     if(dup) return {error:'dup',existente:dup};
     const numero=list.reduce((m,c)=>Math.max(m,numV(c.numero)),0)+1;
     const ahora=new Date().toISOString();
-    const c={id:'c'+numero+'x'+Date.now().toString(36), numero, nombre, nkey:nkey(nombre), profesion:d.profesion||'', tel:(d.tel||'').trim(), nacimiento:d.nacimiento||'', email:(d.email||'').trim(), ref:(d.ref||'').trim(), nota:(d.nota||'').trim(), cumple:d.cumple||'',
+    const c={id:'c'+numero+'x'+Date.now().toString(36), numero, nombre, nkey:nkey(nombre), profesion:d.profesion||'', tel:(d.tel||'').trim(), nacimiento:d.nacimiento||'', email:(d.email||'').trim(), ref:(d.ref||'').trim(), nota:(d.nota||'').trim(), cumple:d.cumple||'', genero:d.genero||'',
       creadoPor:profile.id, creadoPorNombre:profile.name, profs:profile.role==='profesional'?[profile.id]:[], sucursal:profile.sucursal||null, refPor:d.refPor||null, tarjetas:[], creado:ahora, upd:ahora};
     if(d.tarjeta) c.tarjetas.push(nuevaTarjetaCliente(d.tarjeta));
     list.push(c);
@@ -2144,6 +2144,13 @@ function abrirFormCliente(id,ctx){
       <input id="cl-prof-otra" placeholder="Ej: Albañil, Contador…" value="${!enLista?escH(actual):''}" style="margin-top:6px;${enLista?'display:none':''}"/></div>
     <div class="field" style="margin-top:8px"><label>Teléfono * <span style="color:var(--muted);font-weight:500">(recepción lo necesita para AgendaPro)</span></label><input id="cl-tel" type="tel" placeholder="11 2345 6789" value="${v('tel')}"/></div>
     <div class="field" style="margin-top:8px"><label>🎂 Fecha de nacimiento * <span style="color:var(--muted);font-weight:500">(día, mes y año)</span></label>${htmlCumpleSel(c?c.cumple:'',c?c.nacimiento:'')}</div>
+    <div class="field" style="margin-top:8px"><label>⚧ Género <span style="color:var(--muted);font-weight:500">(opcional)</span></label>
+      <select id="cl-genero" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:12px;color:var(--text);font-family:var(--font);font-size:14px">
+        <option value="" ${!c||!c.genero?'selected':''}>Prefiero no decir / sin dato</option>
+        <option value="F" ${c&&c.genero==='F'?'selected':''}>Femenino</option>
+        <option value="M" ${c&&c.genero==='M'?'selected':''}>Masculino</option>
+        <option value="X" ${c&&c.genero==='X'?'selected':''}>Otro</option>
+      </select></div>
     <div class="field" style="margin-top:8px"><label>✉️ Mail <span style="color:var(--muted);font-weight:500">(opcional: lo pide recepción)</span></label><input id="cl-email" type="email" placeholder="nombre@mail.com" value="${v('email')}"/></div>
     <div class="field" style="margin-top:8px"><label>¿Cómo reconocerlo? (opcional)</label><input id="cl-ref" placeholder="Ej: el de la moto, trabaja en la farmacia" value="${v('ref')}"/></div>
     <div class="field" style="margin-top:8px"><label>Notas (opcional)</label><input id="cl-nota" placeholder="Ej: le gusta el fade bajo" value="${v('nota')}"/></div>
@@ -2168,7 +2175,7 @@ async function guardarFormCliente(){
     const r=await cambiarClientes(list=>{
       const c=list.find(x=>x.id===id); if(!c) return {error:'no'};
       const dup=list.find(x=>x.id!==id&&x.nkey===nkey(nombre)); if(dup) return {error:'dup',existente:dup};
-      Object.assign(c,{nombre,nkey:nkey(nombre),profesion:prof,tel,nacimiento:nac,email,ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),upd:new Date().toISOString()});
+      Object.assign(c,{nombre,nkey:nkey(nombre),profesion:prof,tel,nacimiento:nac,email,ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),genero:val('cl-genero'),upd:new Date().toISOString()});
       return {cliente:c};
     });
     if(r.error==='dup'){ dupMsg(r.existente); return; }
@@ -2180,7 +2187,7 @@ async function guardarFormCliente(){
   let refPor=null; const rn=val('cl-refpor');
   if(rn){ const rc=clientesDir.find(x=>x.nkey===nkey(rn)&&x.tarjetas&&x.tarjetas.length); if(!rc){ showToast('Quien lo refirió tiene que ser un cliente con tarjeta'); return; } refPor=rc.id; }
   const tarj=document.getElementById('cl-tarjeta')?.checked?tarjetaParaRubros((document.getElementById('cl-tarjeta-sel')||{}).value):null;
-  const r=await crearCliente({nombre,profesion:prof,tel,nacimiento:nac,email,ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),refPor,tarjeta:tarj});
+  const r=await crearCliente({nombre,profesion:prof,tel,nacimiento:nac,email,ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),genero:val('cl-genero'),refPor,tarjeta:tarj});
   if(r.error==='dup'){
     if(ctx&&ctx.deCobro){ dupMsg(r.existente); return; }
     dupMsg(r.existente); return;
@@ -3600,6 +3607,110 @@ function franjaCRM(dias){
   return f?f[0]:'perdidos';
 }
 let crmFranja='porperder', crmQ='', crmTarget='crm-body';
+let crmFiltros=null, crmFiltrosAbierto=false;
+const CRM_GENEROS=[['M','Masculino'],['F','Femenino'],['X','Otro'],['','Sin dato']];
+const CRM_ESTADOS_RES=[['','Todos'],['agendado','Agendado'],['hecho','Hecho'],['cancelado','Cancelado'],['sin-agenda','Sin nada en la Agenda']];
+// Reune, en una sola pasada, sucursales/profesionales/servicios/fechas de cada cliente para los filtros avanzados del CRM
+function datosCRM(){
+  const m={};
+  const get=(cid)=>m[cid]||(m[cid]={fecha:'',sucursales:new Set(),profIds:new Set(),servicioIds:new Set(),fechas:[]});
+  todosLosUsuarios().filter(u=>esProf(u)).forEach(u=>{
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    const add=(x)=>{
+      if(!x.clienteId) return;
+      const y=get(x.clienteId);
+      y.profIds.add(u.id);
+      if(x.fecha>y.fecha) y.fecha=x.fecha;
+      if(x.fecha) y.fechas.push(x.fecha);
+      const sid=x.sucursal||u.sucursal; if(sid) y.sucursales.add(sid);
+      (x.servicios||[]).forEach(s=>{ if(s&&s.id) y.servicioIds.add(s.id); });
+    };
+    (dd.turnos||[]).filter(t=>!t.deudaId).forEach(add);
+    (dd.deudores||[]).forEach(add);
+  });
+  return m;
+}
+function estadosAgendaCRM(){
+  const m={};
+  agendaSt.list.forEach(a=>{ if(!a.clienteId) return; (m[a.clienteId]=m[a.clienteId]||new Set()).add(agEstado(a)); });
+  return m;
+}
+function mmddFiltro(d,m){ return d&&m?pad2(Number(m))+'-'+pad2(Number(d)):''; }
+function enRangoMMDD(cumple,desde,hasta){
+  if(!cumple) return false;
+  const d=desde||'01-01', h=hasta||'12-31';
+  return d<=h?(cumple>=d&&cumple<=h):(cumple>=d||cumple<=h);
+}
+function crmFiltroActivo(f){ return !!(f&&(f.sucursales.length||f.profesionales.length||f.servicios.length||f.estadoReserva||f.generos.length||f.cumpleDesde||f.cumpleHasta||f.creadoDesde||f.creadoHasta||f.haReservado||f.nota)); }
+function clientePasaFiltros(c,datos,estAg,f){
+  const d=datos[c.id];
+  if(f.sucursales.length&&!(d&&f.sucursales.some(s=>d.sucursales.has(s)))) return false;
+  if(f.profesionales.length&&!(d&&f.profesionales.some(p=>d.profIds.has(p)))) return false;
+  if(f.servicios.length&&!(d&&f.servicios.some(s=>d.servicioIds.has(s)))) return false;
+  if(f.estadoReserva){
+    const est=estAg[c.id];
+    if(f.estadoReserva==='sin-agenda'){ if(est&&est.size) return false; }
+    else if(!est||!est.has(f.estadoReserva)) return false;
+  }
+  if(f.generos.length&&!f.generos.includes(c.genero||'')) return false;
+  if((f.cumpleDesde||f.cumpleHasta)&&!enRangoMMDD(c.cumple,f.cumpleDesde,f.cumpleHasta)) return false;
+  if(f.creadoDesde&&String(c.creado||'').slice(0,10)<f.creadoDesde) return false;
+  if(f.creadoHasta&&String(c.creado||'').slice(0,10)>f.creadoHasta) return false;
+  if(f.haReservado){
+    const fechas=(d&&d.fechas)||[];
+    const enRango=fechas.some(fe=>(!f.haDesde||fe>=f.haDesde)&&(!f.haHasta||fe<=f.haHasta));
+    if(f.haReservado==='si'&&!enRango) return false;
+    if(f.haReservado==='no'&&enRango) return false;
+  }
+  if(f.nota&&!String(c.nota||'').toLowerCase().includes(f.nota)) return false;
+  return true;
+}
+function crmAplicarFiltros(){
+  const checked=(name)=>[...document.querySelectorAll(`input[name="${name}"]:checked`)].map(x=>x.value);
+  const val=(id)=>document.getElementById(id)?.value||'';
+  const svcSel=document.getElementById('cf-svc');
+  crmFiltrosAbierto=true;
+  crmFiltros={
+    sucursales:checked('cf-suc'), profesionales:checked('cf-prof'),
+    servicios:svcSel?[...svcSel.selectedOptions].map(o=>o.value):[],
+    estadoReserva:val('cf-estado'), generos:checked('cf-genero'),
+    cumpleDesde:mmddFiltro(val('cf-cd1'),val('cf-cm1')), cumpleHasta:mmddFiltro(val('cf-cd2'),val('cf-cm2')),
+    creadoDesde:val('cf-creado-desde'), creadoHasta:val('cf-creado-hasta'),
+    haReservado:val('cf-ha'), haDesde:val('cf-ha-desde'), haHasta:val('cf-ha-hasta'),
+    nota:val('cf-nota').trim().toLowerCase()
+  };
+  renderCRM();
+}
+function crmLimpiarFiltros(){ crmFiltros=null; renderCRM(); }
+function htmlFiltrosCRM(f){
+  const chk=(name,value,label,on)=>`<label style="display:inline-flex;align-items:center;gap:5px;font-size:12px;background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:6px 10px;margin:2px;cursor:pointer"><input type="checkbox" name="${name}" value="${value}" ${on?'checked':''} style="margin:0"/> ${escH(label)}</label>`;
+  const selSt='background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:9px 10px;color:var(--text);font-family:var(--font);font-size:13px';
+  const dSel=(id,sel)=>`<select id="${id}" style="${selSt};flex:1"><option value="">Día</option>${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${Number(sel)===i+1?'selected':''}>${i+1}</option>`).join('')}</select>`;
+  const mSel=(id,sel)=>`<select id="${id}" style="${selSt};flex:1"><option value="">Mes</option>${MESES.map((n,i)=>`<option value="${i+1}" ${Number(sel)===i+1?'selected':''}>${n}</option>`).join('')}</select>`;
+  const profs=allUsers.filter(u=>esProf(u));
+  const porRubro={}; servicios.forEach(s=>{ (porRubro[s.rubro||'']=porRubro[s.rubro||'']||[]).push(s); });
+  const cd1=(f&&f.cumpleDesde?f.cumpleDesde:'-').split('-'), cd2=(f&&f.cumpleHasta?f.cumpleHasta:'-').split('-');
+  return `<div style="font-size:12px;font-weight:800;margin-bottom:8px">📍 Local/sede</div>
+    <div style="margin-bottom:10px">${sucursales.map(s=>chk('cf-suc',s.id,s.nombre,!!(f&&f.sucursales.includes(s.id)))).join('')}</div>
+    <div style="font-size:12px;font-weight:800;margin-bottom:8px">✂️ Profesional</div>
+    <div style="margin-bottom:10px">${profs.map(p=>chk('cf-prof',p.id,p.name,!!(f&&f.profesionales.includes(p.id)))).join('')}</div>
+    <div style="font-size:12px;font-weight:800;margin-bottom:8px">🧾 Servicios</div>
+    <select id="cf-svc" multiple style="${selSt};width:100%;height:110px;margin-bottom:10px">${Object.entries(porRubro).map(([r,L])=>`<optgroup label="${escH(nombreRubro(r)||'Otros')}">${L.map(s=>`<option value="${s.id}" ${f&&f.servicios.includes(s.id)?'selected':''}>${escH(s.nombre)}</option>`).join('')}</optgroup>`).join('')}</select>
+    <div style="font-size:12px;font-weight:800;margin-bottom:6px">📅 Estado de la reserva (Agenda)</div>
+    <select id="cf-estado" style="${selSt};width:100%;margin-bottom:10px">${CRM_ESTADOS_RES.map(([v,l])=>`<option value="${v}" ${f&&f.estadoReserva===v?'selected':''}>${l}</option>`).join('')}</select>
+    <div style="font-size:12px;font-weight:800;margin-bottom:8px">⚧ Género</div>
+    <div style="margin-bottom:10px">${CRM_GENEROS.map(([v,l])=>chk('cf-genero',v,l,!!(f&&f.generos.includes(v)))).join('')}</div>
+    <div style="font-size:12px;font-weight:800;margin-bottom:6px">🎂 Cumpleaños entre</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px">${dSel('cf-cd1',cd1[1])}${mSel('cf-cm1',cd1[0])}<span style="align-self:center;color:var(--muted2)">y</span>${dSel('cf-cd2',cd2[1])}${mSel('cf-cm2',cd2[0])}</div>
+    <div style="font-size:12px;font-weight:800;margin-bottom:6px">🆕 Cliente creado entre</div>
+    <div style="display:flex;gap:6px;margin-bottom:10px"><input id="cf-creado-desde" type="date" value="${f?f.creadoDesde||'':''}" style="${selSt};flex:1"/><input id="cf-creado-hasta" type="date" value="${f?f.creadoHasta||'':''}" style="${selSt};flex:1"/></div>
+    <div style="font-size:12px;font-weight:800;margin-bottom:6px">🔁 ¿Ha reservado?</div>
+    <div style="display:flex;gap:6px;margin-bottom:6px"><select id="cf-ha" style="${selSt};flex:1"><option value="">Cualquiera</option><option value="si" ${f&&f.haReservado==='si'?'selected':''}>Sí</option><option value="no" ${f&&f.haReservado==='no'?'selected':''}>No</option></select><input id="cf-ha-desde" type="date" value="${f?f.haDesde||'':''}" style="${selSt};flex:1"/><input id="cf-ha-hasta" type="date" value="${f?f.haHasta||'':''}" style="${selSt};flex:1"/></div>
+    <div style="font-size:11px;color:var(--muted2);margin-bottom:10px">Ej: "No" + últimos 60 días = no vino en esos 60 días (base para reactivación).</div>
+    <div style="font-size:12px;font-weight:800;margin-bottom:6px">🔎 Personalizado (busca en las notas del cliente)</div>
+    <input id="cf-nota" placeholder="Ej: fade, alérgico, VIP…" value="${f?escH(f.nota||''):''}" style="${selSt};width:100%;margin-bottom:12px"/>
+    <div style="display:flex;gap:8px"><button class="btn btn-primary" style="flex:1;margin:0" onclick="crmAplicarFiltros()">Aplicar filtros</button>${crmFiltroActivo(f)?`<button class="lnk" onclick="crmLimpiarFiltros()">Limpiar</button>`:''}</div>`;
+}
 function abrirCRM(){
   crmTarget='crm-body';
   document.getElementById('registro-content').innerHTML=cabeceraModal('📱 CRM · Reactivación por WhatsApp')+`<div style="font-size:12px;color:var(--muted2);margin:-8px 0 10px;line-height:1.5">Agrupa a todos los clientes según hace cuánto no vienen, para armar las listas de WhatsApp. Es la misma lista para las dos sucursales (el WhatsApp del negocio es un solo número).</div><div id="crm-body"></div>`;
@@ -3618,19 +3729,32 @@ function adminCRM(c){
 }
 function renderCRM(){
   const el=document.getElementById(crmTarget); if(!el) return;
+  const proxCumples=proximosCumplesManual(), cumplesN=proxCumples.length+cumplesClientes(3).length;
+  const cabecera=`<details class="card" style="margin-bottom:12px"${cumplesN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">🎂 Cumpleaños próximos${cumplesN?' ('+cumplesN+')':''}</summary><div style="margin-top:8px">${htmlCumplesRec(proxCumples).replace(/^<div class="sec-hdr"[\s\S]*?<\/div>/,'')}</div></details>
+    <details class="card" style="margin-bottom:12px"${crmFiltrosAbierto?' open':''} ontoggle="crmFiltrosAbierto=this.open"><summary style="cursor:pointer;font-size:13px;font-weight:800">🔎 Filtros avanzados${crmFiltroActivo(crmFiltros)?' · activos':''}</summary><div style="margin-top:10px">${htmlFiltrosCRM(crmFiltros)}</div></details>`;
+  const q=nkey(crmQ);
+  if(crmFiltroActivo(crmFiltros)){
+    const datos=datosCRM(), estAg=estadosAgendaCRM();
+    let L=clientesDir.filter(c=>clientePasaFiltros(c,datos,estAg,crmFiltros));
+    if(q) L=L.filter(c=>c.nkey.includes(q)||String(c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
+    const conDias=L.map(c=>{ const d=datos[c.id]; const dias=d&&d.fecha?diasDesdeStr(d.fecha):null; return {c,dias}; }).sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
+    el.innerHTML=cabecera+
+      `<input type="search" placeholder="Buscar por nombre o teléfono..." value="${escH(crmQ)}" oninput="crmBuscar(this.value)" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
+      <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${conDias.length} cliente${conDias.length===1?'':'s'} con estos filtros · ${conDias.filter(x=>x.c.tel).length} con teléfono cargado</div>
+      ${conDias.slice(0,80).map(({c,dias})=>{ const msjFn=MSJ_CRM[franjaCRM(dias)]||MSJ_CRM.sin; const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0])); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">🔎</div><p>Nadie coincide con estos filtros.</p></div>'}
+      ${conDias.length>80?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 80 de ${conDias.length}. Usá el buscador para encontrar a alguien puntual.</div>`:''}`;
+    return;
+  }
   const uv=ultimasVisitas();
   const todos=clientesDir.map(c=>{ const u=uv[c.id]; const dias=u?diasDesdeStr(u.fecha):null; return {c,u,dias,franja:franjaCRM(dias)}; });
   const counts={}; FRANJAS_CRM.forEach(([f])=>counts[f]=todos.filter(x=>x.franja===f).length);
-  const q=nkey(crmQ);
   let L=todos.filter(x=>x.franja===crmFranja);
   if(q) L=L.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
   L.sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
   const conTel=L.filter(x=>x.c.tel).length;
   const msjFn=MSJ_CRM[crmFranja]||MSJ_CRM.sin;
-  const proxCumples=proximosCumplesManual(), cumplesN=proxCumples.length+cumplesClientes(3).length;
-  el.innerHTML=`
-    <details class="card" style="margin-bottom:12px"${cumplesN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">🎂 Cumpleaños próximos${cumplesN?' ('+cumplesN+')':''}</summary><div style="margin-top:8px">${htmlCumplesRec(proxCumples).replace(/^<div class="sec-hdr"[\s\S]*?<\/div>/,'')}</div></details>
-    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${FRANJAS_CRM.map(([f,l])=>`<button onclick="crmSet('${f}')" style="${pillStyle(crmFranja===f,'#4A136B')}">${l} (${counts[f]})</button>`).join('')}</div>
+  el.innerHTML=cabecera+
+    `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${FRANJAS_CRM.map(([f,l])=>`<button onclick="crmSet('${f}')" style="${pillStyle(crmFranja===f,'#4A136B')}">${l} (${counts[f]})</button>`).join('')}</div>
     <input type="search" placeholder="Buscar por nombre o teléfono..." value="${escH(crmQ)}" oninput="crmBuscar(this.value)" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${L.length} cliente${L.length===1?'':'s'} en esta franja · ${conTel} con teléfono cargado</div>
     ${L.slice(0,80).map(({c,u,dias})=>{ const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0])); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">📱</div><p>No hay clientes en esta franja.</p></div>'}
