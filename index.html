@@ -932,6 +932,7 @@ function productosCambiar(fn){
 
 // ============ SERVICIOS Y OFERTAS (los carga el admin) ============
 const DESC_EFECTIVO_PCT = 10; // 10% off en servicios si pagan en efectivo
+const CUMPLE_DESC_PCT = 15, CUMPLE_DESC_DIAS = 2; // regalo de cumpleaños: 15% el dia y los 2 siguientes (default de Claude, confirmar con Ivo)
 const SERVICIOS_DEFAULT = [{id:'s1',nombre:'Corte',precio:18000,rubro:'barberia'},{id:'s2',nombre:'Corte + Barba',precio:20000,rubro:'barberia'}];
 let servicios = [...SERVICIOS_DEFAULT]; // {id, nombre, precio}
 let ofertas = [];                       // {id, nombre, pct, servicioIds:[] (vacío = todos), activa}
@@ -1831,6 +1832,12 @@ function diasHastaCumple(v){
   let s=new Date(n.getFullYear(),m-1,d); if(s<hoy0) s=new Date(n.getFullYear()+1,m-1,d);
   return Math.round((s-hoy0)/864e5);
 }
+// Dias desde que paso el cumple este año (0 = hoy, negativo = todavia no llego) — para saber si el descuento de cumpleaños sigue vigente
+function diasDesdeCumple(v){
+  if(!v) return null; const [m,d]=v.split('-').map(Number); const n=new Date(); const hoy0=new Date(n.getFullYear(),n.getMonth(),n.getDate());
+  const s=new Date(n.getFullYear(),m-1,d);
+  return Math.round((hoy0-s)/864e5);
+}
 function htmlCumpleSel(v,nac){
   let [m,d]=(v||'').split('-').map(Number), y='';
   if(nac){ const p=String(nac).split('-').map(Number); y=p[0]; m=p[1]; d=p[2]; }
@@ -2060,7 +2067,11 @@ function abrirClienteDetalle(id){
   const paqs=typeof paquetesAbiertosDe==='function'?paquetesAbiertosDe(c.id):[];
   cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="modal-title" style="margin:0">${escH(c.nombre)}${verNumeroCliente()?` <span style="color:var(--muted2)">#${c.numero}</span>`:''}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     ${c.problematico?`<div class="card" style="margin-bottom:10px;border-color:rgba(244,114,182,.5);background:rgba(244,114,182,.08)"><div style="font-size:12.5px;font-weight:800;color:#f472b6">🗑️ Marcado como cliente problemático</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Va a avisar cuando alguien lo elija para cobrarle o agendarle un turno.</div></div>`:''}
-    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.7">🏷️ ${escH(c.profesion||'Sin profesión')}${c.cumple?'<br>🎂 '+(c.nacimiento?nacTxt(c):cumpleTxt(c.cumple))+(diasHastaCumple(c.cumple)===0?' — <b style="color:#fbbf24">¡es hoy!</b>':''):''}${c.tel?'<br>📞 '+escH(c.tel):''}${c.email?'<br>✉️ '+escH(c.email):''}${c.ref?'<br>🔎 '+escH(c.ref):''}${c.nota?'<br>📝 '+escH(c.nota):''}${todos&&s.barberos.length?'<br>✂️ Se atiende con: '+escH(s.barberos.join(', ')):''}</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.7">🏷️ ${escH(c.profesion||'Sin profesión')}${c.tel?'<br>📞 '+escH(c.tel):''}${c.ref?'<br>🔎 '+escH(c.ref):''}${c.nota?'<br>📝 '+escH(c.nota):''}${todos&&s.barberos.length?'<br>✂️ Se atiende con: '+escH(s.barberos.join(', ')):''}</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <div class="field" style="flex:1"><label>🎂 Cumpleaños${diasHastaCumple(c.cumple)===0?' <b style="color:#fbbf24">¡es hoy!</b>':''}</label>${htmlCumpleRapido(c)}</div>
+    </div>
+    <div class="field" style="margin-bottom:12px"><label>✉️ Mail</label><input id="cd-email" type="email" placeholder="nombre@mail.com" value="${escH(c.email||'')}" onblur="guardarEmailRapido('${c.id}',this.value)"/></div>
     ${typeof htmlTarjetaCliente==='function'?htmlTarjetaCliente(c):''}
     ${htmlDeudaCliente(c)}${htmlSenaCliente(c)}
     ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(74,19,107,.4)"><div style="font-size:12px;font-weight:800;color:#4A136B">💳 Membresía activa</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} cortes · pagó ${fp(m.precio)} el ${fch(m.fecha)}</div></div>`:''}
@@ -2093,6 +2104,29 @@ function abrirClienteDetalle(id){
   openModal('modal-registro');
 }
 
+// Cumpleaños y mail editables desde la ficha por cualquiera (no solo Admin), guardado al toque sin boton aparte
+function htmlCumpleRapido(c){
+  let [m,d]=(c.cumple||'').split('-').map(Number);
+  const st='background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:11px;color:var(--text);font-family:var(--font);font-size:13px;flex:1';
+  return `<div style="display:flex;gap:6px">
+    <select id="cd-cumple-d" onchange="guardarCumpleRapido('${c.id}')" style="${st}"><option value="">Día</option>${Array.from({length:31},(_,i)=>`<option value="${i+1}" ${d===i+1?'selected':''}>${i+1}</option>`).join('')}</select>
+    <select id="cd-cumple-m" onchange="guardarCumpleRapido('${c.id}')" style="${st}"><option value="">Mes</option>${MESES.map((n,i)=>`<option value="${i+1}" ${m===i+1?'selected':''}>${n}</option>`).join('')}</select>
+  </div>`;
+}
+async function guardarCumpleRapido(id){
+  const d=document.getElementById('cd-cumple-d')?.value, m=document.getElementById('cd-cumple-m')?.value;
+  if(!d||!m) return;
+  const cumple=pad2(m)+'-'+pad2(d);
+  await cambiarClientes(list=>{ const c=list.find(x=>x.id===id); if(c){ c.cumple=cumple; c.upd=new Date().toISOString(); } });
+  showToast('Cumpleaños guardado ✓ 🎂');
+}
+async function guardarEmailRapido(id,val){
+  const c=clienteDe(id); const email=(val||'').trim().toLowerCase();
+  if(c&&email===(c.email||'')) return; // no toco nada si no cambio
+  if(email&&!/^\S+@\S+\.\S+$/.test(email)){ showToast('El mail no parece válido'); return; }
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===id); if(x){ x.email=email; x.upd=new Date().toISOString(); } });
+  showToast('Mail guardado ✓');
+}
 async function toggleClienteProblema(id){
   const c=clienteDe(id); if(!c) return;
   const marcar=!c.problematico;
@@ -2353,7 +2387,9 @@ const sugerenciasPaqSt=almacenLista('luffy/sugerencias_paq','luffy_sugerencias_p
 const turnosPendientesSt=almacenLista('luffy/turnos_pendientes','luffy_turnos_pendientes',nuevoMayor);
 // Agenda propia de Luffy (separada de AgendaPro): turnos agendados a futuro, cargados desde acá. Ver "Agenda".
 const agendaSt=almacenLista('luffy/agenda','luffy_agenda',nuevoMayor);
-function loadSocial(){ loadClientes(); membresiasSt.load(); paquetesSt.load(); senasSt.load(); sugerenciasPaqSt.load(); turnosPendientesSt.load(); agendaSt.load(); }
+// Clientes a contactar (hoy: solo por resena negativa) — cola separada de "incidentes" (esa es para restar puntos al profesional, no aplica aca)
+const contactosPendientesSt=almacenLista('luffy/contactos_pendientes','luffy_contactos_pendientes',nuevoMayor);
+function loadSocial(){ loadClientes(); membresiasSt.load(); paquetesSt.load(); senasSt.load(); sugerenciasPaqSt.load(); turnosPendientesSt.load(); agendaSt.load(); contactosPendientesSt.load(); }
 // El "Sugerir combo" viejo (boton opcional) quedo reemplazado por la pregunta obligatoria
 // "¿Le ofreciste un paquete?" dentro del cobro (ver renderPrepagoCobro / guardarCobro).
 async function marcarSugerenciaAtendida(id){
@@ -2525,6 +2561,7 @@ function agAbrirSlot(profId,minutos){
     rubroAbierto:null, nota:'',
     paqueteId:agPendingPaquete?agPendingPaquete.paqueteId:null,
     itemId:agPendingPaquete?agPendingPaquete.itemId:null,
+    repiteSemanas:0, repiteVeces:4,
   };
   renderAgForm();
   openModal('modal-registro');
@@ -2586,7 +2623,9 @@ function renderAgForm(){
     <div class="field"><label>¿Qué le va a hacer?</label>${serviciosHtml}</div>
     <div class="field"><label>Duración (minutos)</label><input type="number" inputmode="numeric" value="${s.duracion}" onchange="agSel.duracion=parseInt(this.value)||30"/></div>
     <div class="field"><label>Nota (opcional)</label><input type="text" value="${escH(s.nota)}" oninput="agSel.nota=this.value" placeholder="Ej: viene con su hijo"/></div>
-    <button class="btn btn-primary" style="background:${color};margin-top:6px" onclick="agGuardar()">${s.editId?'Guardar cambios':'Agendar'}</button>`;
+    ${(!s.editId&&!s.paqueteId)?`<label class="rub-opt" style="margin-top:4px"><input type="checkbox" ${s.repiteSemanas>0?'checked':''} onchange="agSel.repiteSemanas=this.checked?1:0;renderAgForm()"/> 🔁 Turno recurrente (cliente fiel)</label>
+    ${s.repiteSemanas>0?`<div style="display:flex;gap:8px;align-items:center;margin:6px 0 4px"><span style="font-size:12.5px;color:var(--muted2)">Cada</span><input type="number" min="1" max="8" value="${s.repiteSemanas}" oninput="agSel.repiteSemanas=parseInt(this.value)||1" style="width:60px;text-align:center"/><span style="font-size:12.5px;color:var(--muted2)">semana(s), durante</span><input type="number" min="2" max="26" value="${s.repiteVeces}" oninput="agSel.repiteVeces=parseInt(this.value)||1" style="width:60px;text-align:center"/><span style="font-size:12.5px;color:var(--muted2)">veces</span></div><div style="font-size:11px;color:var(--muted2);margin-bottom:6px">Se cargan todos los turnos de una — si algún horario ya está ocupado, ese día se salta.</div>`:''}`:''}
+    <button class="btn btn-primary" style="background:${color};margin-top:6px" onclick="agGuardar()">${s.editId?'Guardar cambios':(s.repiteSemanas>0?'Agendar todos':'Agendar')}</button>`;
   if(box) box.scrollTop=st;
   agRenderSugerencias();
 }
@@ -2622,6 +2661,21 @@ async function agGuardar(){
   const ahora=new Date().toISOString();
   if(s.editId){
     await agendaSt.cambiar(l=>{ const a=l.find(x=>x.id===s.editId); if(a){ Object.assign(a,{profId:s.profId,profNombre:s.profNombre,fecha:s.fecha,hora:s.hora,duracion:s.duracion||30,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||''}); a.upd=ahora; } });
+  } else if(s.repiteSemanas>0&&s.repiteVeces>1){
+    // Turno recurrente: crea todas las ocurrencias de una, salteando las que ya tienen algo agendado a esa hora
+    let creados=0, saltados=0;
+    await agendaSt.cambiar(l=>{
+      for(let i=0;i<s.repiteVeces;i++){
+        const fecha=addDias(s.fecha,i*s.repiteSemanas*7);
+        if(l.some(a=>a.profId===s.profId&&a.fecha===fecha&&a.hora===s.hora&&a.estado!=='cancelado')){ saltados++; continue; }
+        l.push({id:'ag'+Date.now().toString(36)+i,sucursal:agState.sucursal,fecha,hora:s.hora,duracion:s.duracion||30,profId:s.profId,profNombre:s.profNombre,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||'',paqueteId:null,itemId:null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora});
+        creados++;
+      }
+    });
+    agSel=null; closeModal('modal-registro');
+    showToast(creados+' turno'+(creados===1?'':'s')+' agendado'+(creados===1?'':'s')+(saltados?' ('+saltados+' saltead'+(saltados===1?'o':'os')+' por estar ocupado)':'')+' ✓');
+    renderAgenda();
+    return;
   } else {
     await agendaSt.cambiar(l=>{ l.push({id:'ag'+Date.now().toString(36),sucursal:agState.sucursal,fecha:s.fecha,hora:s.hora,duracion:s.duracion||30,profId:s.profId,profNombre:s.profNombre,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||'',paqueteId:s.paqueteId||null,itemId:s.itemId||null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora}); });
   }
@@ -2774,9 +2828,12 @@ function calcCobro(){
   if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
   const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
   if(descEfectivo>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:descEfectivo});
+  // Descuento de cumpleaños: el dia y los 2 siguientes (mismo "valido por 3 dias" que se usa en el resto de la app)
+  const diasCumple=cli?diasDesdeCumple(cli.cumple):null;
+  if(diasCumple!=null&&diasCumple>=0&&diasCumple<=CUMPLE_DESC_DIAS&&subNormal>0) cand.push({tipo:'cumple',label:'🎂 Cumpleaños',pct:CUMPLE_DESC_PCT,monto:Math.round(subNormal*CUMPLE_DESC_PCT/100)});
   // Tarjeta vs. descuento del dia: si los dos aplican y dan plata, el profesional elige cual usar (capaz le conviene mas el del dia).
   // Si solo aplica uno de los dos (o ninguno), sigue siendo automatico como antes.
-  const GRUPO_DESC={regalo:'tarjeta',fidelidad:'tarjeta',referidos:'tarjeta',fijo:'dia',oferta:'dia'};
+  const GRUPO_DESC={regalo:'tarjeta',fidelidad:'tarjeta',referidos:'tarjeta',fijo:'dia',oferta:'dia',cumple:'dia'};
   cand.forEach(c=>{ c.grupo=GRUPO_DESC[c.tipo]||null; });
   const mejorDe=(g)=>cand.filter(c=>c.grupo===g&&c.monto>0).sort((a,b)=>b.monto-a.monto)[0]||null;
   const opcTarjeta=mejorDe('tarjeta'), opcDia=mejorDe('dia');
@@ -3227,13 +3284,17 @@ function renderPrepagoCobro(r){
     h+=`<div class="field"><label>🎁 ¿Le ofreciste un paquete?</label><div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button type="button" onclick="cobroPaqueteOfrecido('${v}')" style="flex:1;${pillStyle(cobro.paqueteOfrecido===v,color)}">${l}</button>`).join('')}</div></div>`;
     if(cobro.paqueteOfrecido==='si') h+=`<div class="field"><label>¿Qué combinación le gustaría?</label><div style="display:flex;flex-wrap:wrap;gap:6px">${rubros.map(r2=>`<button type="button" onclick="cobro.paqueteRubro=('${r2.id}'===cobro.paqueteRubro?null:'${r2.id}');refreshCobro()" style="${pillStyle(cobro.paqueteRubro===r2.id,color)}">${escH(r2.nombre)}</button>`).join('')}</div></div>`;
   }
-  if(cli&&!cli.yaDejoResena) h+=`<div class="field"><label>⭐ ¿Dejó una reseña en Google?</label><div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button type="button" onclick="cobroResena('${v}')" style="flex:1;${pillStyle(cobro.resena===v,color)}">${l}</button>`).join('')}</div></div>`;
+  if(cli&&!cli.yaDejoResena){
+    h+=`<div class="field"><label>⭐ ¿Dejó una reseña en Google?</label><div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button type="button" onclick="cobroResena('${v}')" style="flex:1;${pillStyle(cobro.resena===v,color)}">${l}</button>`).join('')}</div></div>`;
+    if(cobro.resena==='si') h+=`<div class="field"><label>¿Cómo fue?</label><div style="display:flex;gap:8px">${[['buena','🙂 Buena'],['mala','😞 Mala']].map(([v,l])=>`<button type="button" onclick="cobroResenaSent('${v}')" style="flex:1;${pillStyle(cobro.resenaSent===v,color)}">${l}</button>`).join('')}</div>${cobro.resenaSent==='mala'?'<div style="font-size:11px;color:#f472b6;margin-top:4px">Se le va a avisar al admin para que lo contacte.</div>':''}</div>`;
+  }
   el.innerHTML=h;
 }
 function cobroPaqueteOfrecido(v){ cobro.paqueteOfrecido=(cobro.paqueteOfrecido===v?'':v); if(cobro.paqueteOfrecido!=='si') cobro.paqueteRubro=null; refreshCobro(); }
-function cobroResena(v){ cobro.resena=(cobro.resena===v?'':v); refreshCobro(); }
+function cobroResena(v){ cobro.resena=(cobro.resena===v?'':v); if(cobro.resena!=='si') cobro.resenaSent=''; refreshCobro(); }
+function cobroResenaSent(v){ cobro.resenaSent=(cobro.resenaSent===v?'':v); refreshCobro(); }
 function htmlDescuentosCobro(r,row){
-  return r.descuentos.map(d=>row(({oferta:'🏷️',efectivo:'💵',fijo:'🏷️',fidelidad:'⭐',referidos:'🤝',regalo:'🎁'}[d.tipo]||'🏷️')+' '+escH(d.label)+' (−'+d.pct+'%)','−'+fp(d.monto),'color:#34d399')).join('')
+  return r.descuentos.map(d=>row(({oferta:'🏷️',efectivo:'💵',fijo:'🏷️',fidelidad:'⭐',referidos:'🤝',regalo:'🎁',cumple:'🎂'}[d.tipo]||'🏷️')+' '+escH(d.label)+' (−'+d.pct+'%)','−'+fp(d.monto),'color:#34d399')).join('')
     +r.prepagos.map(p=>row('✓ '+escH(p.nombre)+' (ya pagado)','−'+fp(p.linea.precio),'color:#4A136B')).join('')
     +(r.senaTotal>0?row('💵 Seña que ya dejó','−'+fp(r.senaTotal),'color:#4A136B'):'');
 }
@@ -3626,7 +3687,7 @@ function htmlCumplesRec(proxCumples){
   proxCumples=proxCumples||proximosCumplesManual();
   const cli=cumplesClientes(3);
   const manual=proxCumples.map(c=>`<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="font-size:28px">🎂</div><div style="flex:1"><div style="font-size:13px;font-weight:700">${escH(c.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${escH(c.fecha)} · ${escH(c.telefono||'Sin teléfono')}</div></div><button onclick="marcarCumple('${c.id}')" style="padding:8px 14px;border-radius:10px;border:none;background:${c.contactado?'rgba(52,211,153,.15)':'var(--s2)'};color:${c.contactado?'#34d399':'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${c.contactado?'✓ Saludado':'Saludar'}</button></div>`).join('');
-  const deCli=cli.map(({c,en})=>{ const k=new Date().getFullYear()+':'+c.id, ok=!!(recData.cumpleCli&&recData.cumpleCli[k]); const wa=linkWhatsApp(c.tel,'¡Feliz cumpleaños '+c.nombre.split(' ')[0]+'! 🎉 De parte de todo el equipo de Inda Studio. Te esperamos con una sorpresa 💈');
+  const deCli=cli.map(({c,en})=>{ const k=new Date().getFullYear()+':'+c.id, ok=!!(recData.cumpleCli&&recData.cumpleCli[k]); const wa=linkWhatsApp(c.tel,'¡Feliz cumpleaños '+c.nombre.split(' ')[0]+'! 🎉 De parte de todo el equipo de Inda Studio. Como regalo, tenés '+CUMPLE_DESC_PCT+'% off en tu próximo turno — válido hoy y los próximos '+CUMPLE_DESC_DIAS+' días 🎂💈');
     return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="font-size:28px">🎂</div><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:700">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${en===0?'<b style="color:#fbbf24">¡Hoy!</b>':en===1?'Mañana':'En '+en+' días'} · ${cumpleTxt(c.cumple)}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 10px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}<button onclick="marcarCumpleCliente('${c.id}')" style="padding:8px 12px;border-radius:10px;border:none;background:${ok?'rgba(52,211,153,.15)':'var(--s2)'};color:${ok?'#34d399':'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${ok?'✓ Saludado':'Saludar'}</button></div>`; }).join('');
   return `<div class="sec-hdr" style="margin-bottom:10px"><span class="sec-title">🎂 Cumpleaños próximos</span></div>${(manual||deCli)?manual+deCli:'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Sin cumpleaños en los próximos 3 días 🎉</div>'}`;
 }
@@ -3786,10 +3847,34 @@ function adminCRM(c){
     <div id="crm-admin-body"></div>`;
   renderCRM();
 }
+// Membresias a las que le queda 1 credito nomas -- avisar antes de que se quede sin nada, para que renueve
+function membresiasPorVencer(){
+  const out=[];
+  membresiasSt.list.forEach(m=>{ const restantes=numV(m.creditos)-(m.usos||[]).length; if(restantes===1){ const c=clienteDe(m.clienteId); if(c) out.push({c,m,restantes}); } });
+  return out;
+}
+function htmlMembresiasPorVencerRec(){
+  const L=membresiasPorVencer();
+  if(!L.length) return '<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Nadie está por quedarse sin cortes 🎉</div>';
+  return L.map(({c,restantes})=>{ const wa=linkWhatsApp(c.tel,'Hola '+c.nombre.split(' ')[0]+'! Te queda '+restantes+' corte en tu membresía de Inda Studio 💈 ¿Querés renovarla para no quedarte sin nada?'); return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="font-size:28px">💳</div><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:700">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">Le queda ${restantes} corte</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 10px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}</div>`; }).join('');
+}
+function htmlParaContactarRec(){
+  const L=contactosPendientesSt.list.filter(x=>!x.atendido).sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));
+  if(!L.length) return '<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Nada pendiente por ahora 🎉</div>';
+  return L.map(x=>{ const c=clienteDe(x.clienteId); const wa=c?linkWhatsApp(c.tel,'Hola '+x.clienteNombre.split(' ')[0]+'! Somos Inda Studio 💈 Vimos tu comentario y queríamos saber qué pasó, para poder mejorarlo. ¿Tenés un minuto?'):''; return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="font-size:28px">📞</div><div style="flex:1;min-width:0" ${c?`onclick="abrirClienteDetalle('${c.id}')"`:''}><div style="font-size:13px;font-weight:700">${escH(x.clienteNombre)}</div><div style="font-size:11px;color:var(--muted2)">${escH(x.razon)} · ${fechaCortaStr(x.fecha)}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 10px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}<button onclick="marcarContactado('${x.id}')" style="padding:8px 10px;border-radius:10px;border:none;background:var(--s2);color:var(--muted2);font-family:var(--font);font-size:11.5px;font-weight:700;cursor:pointer">✓ Listo</button></div>`; }).join('');
+}
+async function marcarContactado(id){
+  await contactosPendientesSt.cambiar(l=>{ const x=l.find(z=>z.id===id); if(x){ x.atendido=true; x.upd=new Date().toISOString(); } });
+  showToast('Marcado como contactado ✓'); renderCRM();
+}
 function renderCRM(){
   const el=document.getElementById(crmTarget); if(!el) return;
   const proxCumples=proximosCumplesManual(), cumplesN=proxCumples.length+cumplesClientes(3).length;
+  const membVencerN=membresiasPorVencer().length;
+  const contactarN=contactosPendientesSt.list.filter(x=>!x.atendido).length;
   const cabecera=`<details class="card" style="margin-bottom:12px"${cumplesN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">🎂 Cumpleaños próximos${cumplesN?' ('+cumplesN+')':''}</summary><div style="margin-top:8px">${htmlCumplesRec(proxCumples).replace(/^<div class="sec-hdr"[\s\S]*?<\/div>/,'')}</div></details>
+    <details class="card" style="margin-bottom:12px"${membVencerN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">💳 Membresías por vencer${membVencerN?' ('+membVencerN+')':''}</summary><div style="margin-top:8px">${htmlMembresiasPorVencerRec()}</div></details>
+    <details class="card" style="margin-bottom:12px"${contactarN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">📞 Para contactar${contactarN?' ('+contactarN+')':''}</summary><div style="margin-top:8px">${htmlParaContactarRec()}</div></details>
     <details class="card" style="margin-bottom:12px"${crmFiltrosAbierto?' open':''} ontoggle="crmFiltrosAbierto=this.open"><summary style="cursor:pointer;font-size:13px;font-weight:800">🔎 Filtros avanzados${crmFiltroActivo(crmFiltros)?' · activos':''}</summary><div style="margin-top:10px">${htmlFiltrosCRM(crmFiltros)}</div></details>`;
   const q=nkey(crmQ);
   if(crmFiltroActivo(crmFiltros)){
@@ -6789,11 +6874,11 @@ async function regSelTipo(tipo){ if((tipo==='turno'||tipo==='producto')&&!await 
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
-let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', reagFecha:'', reagHora:''};
+let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:''};
 // Cuando recepcion cobra un turno que un profesional dejo "registrado" en Diego Laure (ver turnosPendientesSt),
 // el cobro tiene que quedar guardado en la quincena de ESE profesional, no en la de quien lo cobra.
 let cobroParaProf=null, cobroPendienteId=null;
-function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', reagFecha:'', reagHora:'', rubroAbierto:null}; cobroParaProf=null; cobroPendienteId=null; }
+function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:'', rubroAbierto:null}; cobroParaProf=null; cobroPendienteId=null; }
 function elegirDescCobro(g){ cobro.descGrupo=(cobro.descGrupo===g?null:g); refreshCobro(); }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
@@ -7004,6 +7089,7 @@ async function guardarCobro(){
     const reag=cobro.reag&&cobro.reag.estado?{estado:cobro.reag.estado,motivo:(cobro.reag.motivo||'').trim(),ts:new Date().toISOString()}:null;
     if(reag) extra.reag=reag;
     if(cobro.resena) extra.resena=cobro.resena;
+    if(cobro.resenaSent) extra.resenaSent=cobro.resenaSent;
     const base={clienteId:cli?cli.id:null, clienteNumero:cli?cli.numero:null, sucursal:sucursalActual()};
     let turnoId, esDeuda=cobro.medio==='debe';
     if(esDeuda){
@@ -7041,7 +7127,11 @@ async function guardarCobro(){
     if(r.prodLineas.length) ajustarStock(r.prodLineas.map(l=>({id:l.producto.id,delta:-l.cantidad})));
     closeModal('modal-registro');
     showToast(esDeuda?'Anotado como deuda — recepción lo ve para cobrarle':(profTarget?'Cobro guardado ✓ — se sumó a la quincena de '+profTarget.name:'Cobro guardado — recepción ya lo ve ✓'));
-    const resenaResp=cobro.resena, paqueteResp=cobro.paqueteOfrecido, paqueteRubroResp=cobro.paqueteRubro, rolQueCobra=profile.role;
+    const resenaResp=cobro.resena, resenaSentResp=cobro.resenaSent, paqueteResp=cobro.paqueteOfrecido, paqueteRubroResp=cobro.paqueteRubro, rolQueCobra=profile.role;
+    if(resenaSentResp==='mala'&&cli){
+      const profNombre=(profTarget?profTarget.name:profile.name), ahoraIso=new Date().toISOString();
+      contactosPendientesSt.cambiar(l=>{ l.push({id:'cp'+Date.now().toString(36),clienteId:cli.id,clienteNombre:cli.nombre,razon:'Dejó una reseña mala con '+profNombre,fecha:hoyStr(),creadoEn:ahoraIso,upd:ahoraIso,atendido:false}); });
+    }
     resetCobro();
     refreshCurrentView();
     if(currentScreenId==='dinero') renderDineroContent();
@@ -9030,6 +9120,28 @@ function deltaHtml(cur,prev,neutral){
 function pnl(cls,titulo,inner,extra=''){ return `<div class="pnl ${cls}"><div class="pnl-h"><h3>${titulo}</h3>${extra}</div>${inner}</div>`; }
 const vacio=(t)=>`<div style="font-size:12px;color:var(--muted);padding:14px 4px;text-align:center">${t}</div>`;
 
+// Resumen semanal para Ivo: no hay envio automatico por WhatsApp (sin API de WhatsApp Business), asi que se genera
+// el texto y lo manda el mismo a mano/lo revisa, mismo patron "cola manual" que el resto de la app.
+function resumenSemanalTexto(){
+  const hasta=hoyStr(), desde=addDias(hasta,-6);
+  const D=adminDatos(), pctMap=pctPorQuincena(D);
+  const r=panelResumen(D,pctMap,desde,hasta,'todos');
+  const resenasBuenas=r.T.filter(t=>t.resenaSent==='buena').length, resenasMalas=r.T.filter(t=>t.resenaSent==='mala').length;
+  const stockBajo=productos.filter(p=>numV(p.stock)<=numV(p.alertaStock));
+  const deudas=todasLasDeudas(), totalDeuda=deudas.reduce((s,d)=>s+saldoDeuda(d),0);
+  const contactarN=contactosPendientesSt.list.filter(x=>!x.atendido).length;
+  let txt='📊 Resumen de la semana — Inda Studio\n'+fechaCortaStr(desde)+' al '+fechaCortaStr(hasta)+'\n\n'+
+    '💰 Facturado: '+fp(r.fact)+' ('+r.nT+' turno'+(r.nT===1?'':'s')+', ticket promedio '+fp(r.ticket)+')\n'+
+    '📦 Productos vendidos: '+fp(r.prodVendido)+'\n'+
+    '⭐ Reseñas: '+resenasBuenas+' buenas'+(resenasMalas?', '+resenasMalas+' malas':'');
+  const alertas=[];
+  if(totalDeuda>0) alertas.push('🚫 '+deudas.length+' cliente'+(deudas.length===1?'':'s')+' debe'+(deudas.length===1?'':'n')+' '+fp(totalDeuda));
+  if(stockBajo.length) alertas.push('📦 '+stockBajo.length+' producto'+(stockBajo.length===1?'':'s')+' con poco stock');
+  if(contactarN) alertas.push('📞 '+contactarN+' cliente'+(contactarN===1?'':'s')+' para contactar');
+  txt+=alertas.length?'\n\n⚠️ Alertas:\n'+alertas.map(a=>'· '+a).join('\n'):'\n\n✅ Sin alertas pendientes.';
+  return txt;
+}
+function compartirResumenSemanal(){ window.open('https://api.whatsapp.com/send?text='+encodeURIComponent(resumenSemanalTexto()),'_blank'); }
 function renderAdminPanel(c){
   const P=adminPanel;
   const hoy=hoyStr();
@@ -9132,6 +9244,7 @@ function renderAdminPanel(c){
     <div class="adm-chips">${periodos.map(([k,l])=>`<button class="${P.periodo===k?'on':''}" onclick="adminPanelPeriodo('${k}')">${l}</button>`).join('')}</div>
     <div class="adm-bar-r">
       <select onchange="adminPanelProfSet(this.value)" class="adm-sel"><option value="todos">👥 Todo el equipo</option>${sucursales.length>1?'<optgroup label="Por sucursal">'+sucursales.map(s=>`<option value="suc:${s.id}" ${P.prof==='suc:'+s.id?'selected':''}>📍 ${escH(s.nombre)}</option>`).join('')+'</optgroup>':''}${vendedores.map(u=>`<option value="${u.id}" ${P.prof===u.id?'selected':''}>${escH(u.name)}${u.role==='recepcionista'?' (recepción)':''}</option>`).join('')}</select>
+      <button class="adm-btn" onclick="compartirResumenSemanal()" title="Arma un resumen de los últimos 7 días para mandar por WhatsApp">📲 Resumen semanal</button>
       <button class="adm-btn" onclick="adminExportCSV()" title="Descargar los movimientos del período">⬇ CSV</button>
       <button class="adm-btn" onclick="adminPanelRefrescar()" title="Actualizar ahora">⟳ ${adminUltAct.toLocaleTimeString('es-AR',{hour:'2-digit',minute:'2-digit'})}</button>
     </div>
