@@ -2052,6 +2052,7 @@ function abrirClienteDetalle(id){
   const m=typeof membresiaActivaDe==='function'?membresiaActivaDe(c.id):null;
   const paqs=typeof paquetesAbiertosDe==='function'?paquetesAbiertosDe(c.id):[];
   cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="modal-title" style="margin:0">${escH(c.nombre)}${verNumeroCliente()?` <span style="color:var(--muted2)">#${c.numero}</span>`:''}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    ${c.problematico?`<div class="card" style="margin-bottom:10px;border-color:rgba(244,114,182,.5);background:rgba(244,114,182,.08)"><div style="font-size:12.5px;font-weight:800;color:#f472b6">🗑️ Marcado como cliente problemático</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Va a avisar cuando alguien lo elija para cobrarle o agendarle un turno.</div></div>`:''}
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.7">🏷️ ${escH(c.profesion||'Sin profesión')}${c.cumple?'<br>🎂 '+(c.nacimiento?nacTxt(c):cumpleTxt(c.cumple))+(diasHastaCumple(c.cumple)===0?' — <b style="color:#fbbf24">¡es hoy!</b>':''):''}${c.tel?'<br>📞 '+escH(c.tel):''}${c.email?'<br>✉️ '+escH(c.email):''}${c.ref?'<br>🔎 '+escH(c.ref):''}${c.nota?'<br>📝 '+escH(c.nota):''}${todos&&s.barberos.length?'<br>✂️ Se atiende con: '+escH(s.barberos.join(', ')):''}</div>
     ${typeof htmlTarjetaCliente==='function'?htmlTarjetaCliente(c):''}
     ${htmlDeudaCliente(c)}${htmlSenaCliente(c)}
@@ -2068,6 +2069,7 @@ function abrirClienteDetalle(id){
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirVentaMembresia('${c.id}')">💳 Vender membresía</button>
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirVentaPaquete('${c.id}')">🎁 Vender paquete</button>
       ${typeof tarjetasDisponibles==='function'&&tarjetasDisponibles().some(t=>!(c.tarjetas||[]).some(x=>x.cardId===t.id))?`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="activarTarjetaCliente('${c.id}')">⭐ Activar tarjeta</button>`:''}
+      <button class="btn btn-ghost" style="flex:1;min-width:120px;color:#f472b6" onclick="toggleClienteProblema('${c.id}')">${c.problematico?'✓ Quitar marca':'🗑️ Marcar problemático'}</button>
     </div>
     ${profile.role==='admin'?`<button class="btn btn-ghost" style="margin-bottom:14px;color:#f472b6" onclick="borrarClienteAdmin('${c.id}')">🗑️ Eliminar cliente</button>`:''}
     <div class="sec-title" style="margin-bottom:8px">Historial</div>
@@ -2084,6 +2086,14 @@ function abrirClienteDetalle(id){
   openModal('modal-registro');
 }
 
+async function toggleClienteProblema(id){
+  const c=clienteDe(id); if(!c) return;
+  const marcar=!c.problematico;
+  if(marcar&&!await uiConfirm('¿Marcar a '+c.nombre+' como problemático?','Va a aparecer en una lista aparte del CRM ("🗑️ Problemáticos"), y se va a avisar cuando alguien lo elija para cobrarle o agendarle un turno.',{ok:'Marcar',danger:true})) return;
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===id); if(x){ x.problematico=marcar; x.upd=new Date().toISOString(); } });
+  showToast(marcar?'Marcado como problemático 🗑️':'Marca quitada ✓');
+  abrirClienteDetalle(id);
+}
 // ---------- eliminar cliente (solo admin, para borrar fichas de prueba o cargadas por error) ----------
 async function borrarClienteAdmin(id){
   if(!profile||profile.role!=='admin'){ showToast('Solo el admin puede eliminar clientes'); return; }
@@ -2217,11 +2227,13 @@ function cobroClienteInput(v){
   const c=clienteDe(cobro.clienteId); if(c&&c.nombre!==v){ cobro.clienteId=null; cobro.senasSel=[]; }
   renderSugerenciasCliente(); if(typeof refreshCobro==='function') refreshCobro();
 }
+function avisoSiProblema(c){ if(c&&c.problematico) showToast('🗑️ '+c.nombre+' está marcado como cliente problemático'); }
 function cobroElegirCliente(id){
   const c=clienteDe(id); if(!c) return;
   cobro.clienteId=c.id; cobro.cliente=c.nombre; cobroAutoSenas();
   const inp=document.getElementById('turno-nombre'); if(inp) inp.value=c.nombre;
   renderSugerenciasCliente(); refreshCobro();
+  avisoSiProblema(c);
 }
 function cobroQuitarCliente(){ cobro.senasSel=[]; cobro.clienteId=null; cobro.cliente=''; const i=document.getElementById('turno-nombre'); if(i){ i.value=''; i.focus(); } renderSugerenciasCliente(); refreshCobro(); }
 function cobroAgregarCliente(){ abrirFormCliente(null,{deCobro:true,nombre:(cobro.cliente||'').trim()}); }
@@ -2544,7 +2556,7 @@ function renderAgForm(){
   agRenderSugerencias();
 }
 function agClienteInput(v){ agSel.clienteNombre=v; const c=clienteDe(agSel.clienteId); if(c&&c.nombre!==v) agSel.clienteId=null; agRenderSugerencias(); }
-function agElegirCliente(id){ const c=clienteDe(id); if(!c) return; agSel.clienteId=c.id; agSel.clienteNombre=c.nombre; const i=document.getElementById('ag-cli'); if(i) i.value=c.nombre; agRenderSugerencias(); }
+function agElegirCliente(id){ const c=clienteDe(id); if(!c) return; agSel.clienteId=c.id; agSel.clienteNombre=c.nombre; const i=document.getElementById('ag-cli'); if(i) i.value=c.nombre; agRenderSugerencias(); avisoSiProblema(c); }
 function agQuitarCliente(){ agSel.clienteId=null; agSel.clienteNombre=''; const i=document.getElementById('ag-cli'); if(i){ i.value=''; i.focus(); } agRenderSugerencias(); }
 function agRenderSugerencias(){
   const el=document.getElementById('ag-cli-sug'); if(!el) return;
@@ -3584,21 +3596,34 @@ function htmlCumplesRec(proxCumples){
 // Una sola pantalla para las dos sucursales, porque el WhatsApp del negocio es un solo numero centralizado.
 const FRANJAS_CRM=[
   ['activos','🟢 Activos','0 a 15 días',0,15],
+  ['espera','🔵 Turno reservado','ya tiene turno agendado',null,null],
   ['porperder','🟡 Por perder','16 a 30 días',16,30],
   ['inactivos','🟠 Inactivos','31 a 60 días',31,60],
   ['perdidos','🔴 Perdidos','+60 días',61,Infinity],
   ['sin','⚪ Sin visitas en Luffy','nunca se les cobró un turno acá',null,null],
+  ['problema','🗑️ Problemáticos','marcados a mano',null,null],
 ];
 const MSJ_CRM={
   porperder:(n)=>'Hola '+n+'! Te escribimos de Inda Studio 💈 Hace unas semanas que no te vemos, ¿te reservamos un turno?',
   inactivos:(n)=>'Hola '+n+'! Te extrañamos en Inda Studio 💈 Hace un tiempo que no venís, ¿querés que te consigamos un turno?',
   perdidos:(n)=>'Hola '+n+'! Somos Inda Studio 💈 Hace bastante que no te vemos por acá. Si querés volver, te ayudamos a conseguir un turno cuando quieras.',
   sin:(n)=>'Hola '+n+'! Te escribimos de Inda Studio 💈 ¿Te gustaría reservar un turno?',
+  espera:()=>'', problema:()=>'',
 };
 function franjaCRM(dias){
   if(dias==null) return 'sin';
   const f=FRANJAS_CRM.find(x=>x[3]!=null&&dias>=x[3]&&dias<=x[4]);
   return f?f[0]:'perdidos';
+}
+// Estado automatico del cliente: si esta marcado o tiene un turno futuro agendado, eso pesa mas que los dias sin venir
+function clienteTieneTurnoFuturo(cid){
+  const hoy=hoyStr();
+  return agendaSt.list.some(a=>a.clienteId===cid&&a.fecha>=hoy&&agEstado(a)==='agendado');
+}
+function franjaClienteCRM(c,dias){
+  if(c.problematico) return 'problema';
+  if(clienteTieneTurnoFuturo(c.id)) return 'espera';
+  return franjaCRM(dias);
 }
 let crmFranja='porperder', crmQ='', crmTarget='crm-body';
 let crmFiltros=null, crmFiltrosAbierto=false;
@@ -3735,12 +3760,12 @@ function renderCRM(){
     el.innerHTML=cabecera+
       `<input type="search" placeholder="Buscar por nombre o teléfono..." value="${escH(crmQ)}" oninput="crmBuscar(this.value)" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
       <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${conDias.length} cliente${conDias.length===1?'':'s'} con estos filtros · ${conDias.filter(x=>x.c.tel).length} con teléfono cargado</div>
-      ${conDias.slice(0,80).map(({c,dias})=>{ const msjFn=MSJ_CRM[franjaCRM(dias)]||MSJ_CRM.sin; const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0])); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">🔎</div><p>Nadie coincide con estos filtros.</p></div>'}
+      ${conDias.slice(0,80).map(({c,dias})=>{ const msjFn=MSJ_CRM[franjaClienteCRM(c,dias)]||MSJ_CRM.sin; const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0])); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">🔎</div><p>Nadie coincide con estos filtros.</p></div>'}
       ${conDias.length>80?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 80 de ${conDias.length}. Usá el buscador para encontrar a alguien puntual.</div>`:''}`;
     return;
   }
   const uv=ultimasVisitas();
-  const todos=clientesDir.map(c=>{ const u=uv[c.id]; const dias=u?diasDesdeStr(u.fecha):null; return {c,u,dias,franja:franjaCRM(dias)}; });
+  const todos=clientesDir.map(c=>{ const u=uv[c.id]; const dias=u?diasDesdeStr(u.fecha):null; return {c,u,dias,franja:franjaClienteCRM(c,dias)}; });
   const counts={}; FRANJAS_CRM.forEach(([f])=>counts[f]=todos.filter(x=>x.franja===f).length);
   let L=todos.filter(x=>x.franja===crmFranja);
   if(q) L=L.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
@@ -6961,6 +6986,7 @@ async function abrirCobrarPendiente(id){
   openModal('modal-registro');
   if(!pt.clienteId){ abrirFormCliente(null,{deCobro:true,nombre:pt.clienteNombre}); return; } // cliente nuevo: primero carga sus datos completos
   renderRegistro();
+  avisoSiProblema(clienteDe(pt.clienteId));
 }
 function htmlTurnosPendientesRec(){
   const L=turnosPendientesSt.list.filter(x=>x.estado==='pendiente').sort((a,b)=>String(a.ts).localeCompare(String(b.ts)));
@@ -9653,7 +9679,7 @@ function htmlCardCobrar(){
 }
 function htmlCardCRM(){
   const uv=ultimasVisitas();
-  const nReactivar=clientesDir.filter(c=>{ const u=uv[c.id]; return u&&diasDesdeStr(u.fecha)>=30&&!membresiaActivaDe(c.id); }).length;
+  const nReactivar=clientesDir.filter(c=>{ if(c.problematico) return false; const u=uv[c.id]; return u&&diasDesdeStr(u.fecha)>=30&&!membresiaActivaDe(c.id)&&!clienteTieneTurnoFuturo(c.id); }).length;
   const nCumples=proximosCumplesManual().length+cumplesClientes(3).length;
   return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirCRM()">
     <div style="font-size:22px">👥</div>
