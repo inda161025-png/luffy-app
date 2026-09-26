@@ -1011,6 +1011,9 @@ function nombreRubro(id){ return (rubros.find(r=>r.id===id)||{}).nombre||''; }
 function rubrosDeUsuario(u){ return (u&&Array.isArray(u.rubros)&&u.rubros.length)?u.rubros:null; }
 function visiblePorRubro(item,rb){ return !rb||!item.rubro||rb.includes(item.rubro); }
 function serviciosVisibles(){ const rb=rubrosDeUsuario(profile); return servicios.filter(s=>visiblePorRubro(s,rb)); }
+// Duracion para calcular huecos libres en la Agenda: la que cargó el admin en el servicio, o 45min por defecto en barbería
+// (pedido de Ivo, 26/09/2026 — antes el default generico de 30 quedaba corto), 30 para el resto sin cargar.
+function svcDuracion(sv){ return numV(sv&&sv.duracion)||((sv&&sv.rubro==='barberia')?45:30); }
 function nomSvc(s){ return s.nombre+(s.opcion?' ('+s.opcion+')':''); }
 
 // ============ TAREAS DE RECEPCION ============
@@ -2694,7 +2697,7 @@ function agElegirProf(id){ const p=allUsers.find(u=>u.id===id); agSel.profId=id;
 function agToggleServicio(id){
   const i=agSel.servicios.indexOf(id);
   if(i>=0) agSel.servicios.splice(i,1); else agSel.servicios.push(id);
-  const dur=agSel.servicios.reduce((s,sid)=>{ const sv=servicios.find(x=>x.id===sid); return s+(sv&&sv.duracion?sv.duracion:30); },0);
+  const dur=agSel.servicios.reduce((s,sid)=>s+svcDuracion(servicios.find(x=>x.id===sid)),0);
   if(dur>0) agSel.duracion=dur;
   renderAgForm();
 }
@@ -10619,27 +10622,28 @@ function volverDePantallaKiosco(){
 // de la base (paso 2, todavia pendiente) y haya que revisar los permisos de escritura sin login.
 const holdsSt=almacenLista('luffy/reservas_holds','luffy_reservas_holds',nuevoMayor);
 let rpSesionId='';
-let rpState={paso:'sucursal',sucursal:null,servicioIds:[],profId:null,fecha:'',hora:'',nombre:'',whatsapp:''};
+let rpState={paso:'sucursal',sucursal:null,servicioIds:[],rubroAbierto:null,profId:null,fecha:'',hora:'',nombre:'',whatsapp:''};
 async function mostrarReservaPublica(){
   show('reserva-publica');
   const nav=document.getElementById('nav'); if(nav) nav.style.display='none';
   document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Cargando…</div>';
   rpSesionId='rp'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
   await rpCargarDatos();
-  rpState={paso:'sucursal',sucursal:null,servicioIds:[],profId:null,fecha:hoyStr(),hora:'',nombre:'',whatsapp:''};
+  rpState={paso:'sucursal',sucursal:null,servicioIds:[],rubroAbierto:null,profId:null,fecha:hoyStr(),hora:'',nombre:'',whatsapp:''};
   if(sucursales.length<=1){ rpState.sucursal=(sucursales[0]||{}).id||null; rpState.paso='servicios'; }
   rpRender();
 }
 async function rpCargarDatos(){
   if(!DB) return;
   try{
-    const [sucR,userR,promR,svcR,agR,holdR]=await Promise.all([
+    const [sucR,userR,promR,svcR,agR,holdR,rubR]=await Promise.all([
       Promise.resolve(DB.doc('luffy/sucursales').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/users').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/promos_cfg').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/servicios').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/agenda').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/reservas_holds').get()).catch(()=>null),
+      Promise.resolve(DB.doc('luffy/rubros').get()).catch(()=>null),
     ]);
     if(sucR&&sucR.list&&sucR.list.length) sucursales=sucR.list;
     if(userR&&Array.isArray(userR.list)) allUsers=userR.list;
@@ -10647,12 +10651,36 @@ async function rpCargarDatos(){
     if(svcR&&svcR.list&&svcR.list.length) servicios=svcR.list;
     if(holdR&&Array.isArray(holdR.list)) holdsSt.list=holdR.list;
     if(agR&&Array.isArray(agR.list)) agendaSt.list=agR.list;
+    if(rubR&&rubR.list&&rubR.list.length) rubros=rubR.list;
   }catch(e){}
 }
 function rpOrden(){ return sucursales.length>1?['sucursal','servicios','profesional','horario','confirmar']:['servicios','profesional','horario','confirmar']; }
 function rpVolver(){ const o=rpOrden(); const i=o.indexOf(rpState.paso); if(i>0){ rpState.paso=o[i-1]; rpRender(); } }
 function rpBackBtn(){ return rpOrden().indexOf(rpState.paso)>0?`<button onclick="rpVolver()" class="lnk" style="margin-bottom:10px">‹ Atrás</button>`:''; }
-function rpDuracion(){ return rpState.servicioIds.reduce((s,id)=>{ const sv=servicios.find(x=>x.id===id); return s+(sv&&sv.duracion?sv.duracion:30); },0); }
+function rpDuracion(){ return rpState.servicioIds.reduce((s,id)=>s+svcDuracion(servicios.find(x=>x.id===id)),0); }
+// French no tiene los demas rubros (es la sucursal sin recepcion, senal que ya usa el resto de la app para distinguirla,
+// en vez de hardcodear un id) — Diego Laure ofrece todos los rubros cargados.
+function rpRubrosSucursal(sucId){ return sucursalConRecepcion(sucId)?rubros.map(r=>r.id):['barberia']; }
+// Mejor % de una promo fija para ese rubro en esa sucursal, sin mirar dia/hora (es una vidriera, no el calculo de un cobro puntual)
+// y sin contar las que dependen de la profesion del cliente (la reserva publica todavia no la conoce).
+function rpMejorFijoRubro(sucId,rubroId){
+  let mejor=0;
+  (promos.fijos||[]).forEach(f=>{
+    if(f.activo===false||f.profesion) return;
+    if(f.sucursales&&f.sucursales.length&&!f.sucursales.includes(sucId)) return;
+    if(!rubroEn(f.rubro,rubroId)) return;
+    if(numV(f.pct)>mejor) mejor=numV(f.pct);
+  });
+  return mejor;
+}
+function rpItems(){ return rpState.servicioIds.map(id=>servicios.find(x=>x.id===id)).filter(Boolean); }
+function rpCtx(fecha,hora){ return {dia:new Date(fecha+'T00:00:00').getDay(),hora,sucursal:rpState.sucursal,cliente:null}; }
+// Mismo motor de descuentos que "Armar paquete": primero el mejor descuento individual de cada servicio (acá,
+// sin cliente ni pago en efectivo, el unico que puede ganar es una promo fija de franja horaria), y recien
+// despues el % de paquete (5/10/15%) sobre lo que quede — asi la reserva publica queda integrada de verdad,
+// no es una pantalla aparte con su propia cuenta.
+function rpCalc(fecha,hora){ return calcPaqueteItems(rpItems(),null,rpCtx(fecha,hora),false); }
+function rpTieneOferta(R){ return R.items.some(x=>x.descInd); }
 function rpHoldsVivos(){ const ahora=Date.now(); return holdsSt.list.filter(h=>numV(h.expira)>ahora); }
 function rpSlotsLibres(profId,fecha){
   const dur=Math.max(AG_PASO,rpDuracion()), pasos=Math.max(1,Math.round(dur/AG_PASO));
@@ -10677,37 +10705,68 @@ async function rpCrearHold(minutos){
     l.push({id:'h'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),profId:rpState.profId,fecha:rpState.fecha,hora:rpState.hora,sesionId:rpSesionId,expira:ahora+minutos*60000,upd:new Date().toISOString()});
   });
 }
-function rpPrecioBase(){ return rpState.servicioIds.reduce((s,id)=>{ const sv=servicios.find(x=>x.id===id); return s+numV(sv?sv.precio:0); },0); }
-function rpRubrosElegidos(){ return [...new Set(rpState.servicioIds.map(id=>(servicios.find(s=>s.id===id)||{}).rubro).filter(Boolean))]; }
-function rpOfertaPara(fecha,hora){
-  const ctx={dia:new Date(fecha+'T00:00:00').getDay(),hora,sucursal:rpState.sucursal,cliente:null};
-  let mejor=null;
-  (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{ if(!rpRubrosElegidos().some(rb=>rubroEn(f.rubro,rb))) return; if(!mejor||numV(f.pct)>numV(mejor.pct)) mejor=f; });
-  return mejor;
-}
-function rpPrecioSlot(fecha,hora){ const base=rpPrecioBase(); const oferta=rpOfertaPara(fecha,hora); const total=oferta?Math.round(base*(1-numV(oferta.pct)/100)):base; return {base,oferta,total}; }
 function rpRender(){
   const body=document.getElementById('rp-body');
   ({sucursal:rpRenderSucursal,servicios:rpRenderServicios,profesional:rpRenderProfesional,horario:rpRenderHorario,confirmar:rpRenderConfirmar,gracias:rpRenderGracias}[rpState.paso]||rpRenderSucursal)(body);
 }
 function rpRenderSucursal(body){
   body.innerHTML=`<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">Elegí la sucursal</div>
-    ${sucursales.map(s=>`<button onclick="rpElegirSucursal('${s.id}')" class="btn btn-ghost" style="width:100%;margin-bottom:8px;text-align:left;border-left:5px solid ${s.color}">${escH(s.nombre)}</button>`).join('')}`;
+    ${sucursales.map(s=>{
+      const rbs=rpRubrosSucursal(s.id);
+      const linea=rbs.map(rid=>{ const pct=rpMejorFijoRubro(s.id,rid); return escH(nombreRubro(rid)||rid)+(pct?' hasta '+pct+'%':''); }).join(' · ');
+      return `<div class="card" style="cursor:pointer;margin-bottom:10px;border-left:5px solid ${s.color}" onclick="rpElegirSucursal('${s.id}')">
+        <div style="font-size:15px;font-weight:800">${escH(s.nombre)}</div>
+        <div style="font-size:11.5px;color:var(--muted2);margin-top:4px;line-height:1.5">${linea||'Sin promos fijas cargadas'}</div>
+      </div>`;
+    }).join('')}
+    <div style="font-size:10.5px;color:var(--muted);margin-top:4px">Eligiendo 2 o más servicios juntos (donde haya) sumás además hasta 15% extra por paquete.</div>`;
 }
-function rpElegirSucursal(id){ rpState.sucursal=id; rpState.paso='servicios'; rpRender(); }
+function rpElegirSucursal(id){ rpState.sucursal=id; rpState.servicioIds=[]; rpState.rubroAbierto=null; rpState.paso='servicios'; rpRender(); }
+function rpResumenSeleccion(){
+  const items=rpItems(); if(!items.length) return '';
+  const lista=items.reduce((s,x)=>s+numV(x.precio),0), pct=pctPaquete(items.length), total=Math.round(lista*(1-pct/100));
+  return `<div class="card" style="margin-top:14px;background:rgba(74,19,107,.08);border-color:rgba(74,19,107,.3)">
+    <div style="font-size:12px;font-weight:800;margin-bottom:4px">${items.length} servicio${items.length===1?'':'s'} elegido${items.length===1?'':'s'}${pct?' · 🎁 '+pct+'% de descuento por paquete':''}</div>
+    <div style="font-size:11.5px;color:var(--muted2)">${items.map(x=>escH(x.nombre)).join(', ')}</div>
+    <div style="font-size:16px;font-weight:900;margin-top:4px">${fp(total)}${pct?` <span style="font-size:11px;color:var(--muted2);font-weight:600">antes ${fp(lista)}</span>`:''}</div>
+    <div style="font-size:10px;color:var(--muted);margin-top:2px">Estimado — el precio final se termina de calcular con el horario que elijas (puede sumar más descuento).</div>
+  </div>`;
+}
 function rpRenderServicios(body){
-  const porRubro={}; servicios.forEach(s=>{ (porRubro[s.rubro||'']=porRubro[s.rubro||'']||[]).push(s); });
-  body.innerHTML=`${rpBackBtn()}<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">¿Qué te querés hacer? (elegí uno o más)</div>
-    ${Object.entries(porRubro).map(([r,L])=>`<div style="font-size:11.5px;font-weight:800;margin:10px 0 6px;color:var(--muted2);text-transform:uppercase;letter-spacing:.04em">${escH(nombreRubro(r)||'Otros')}</div>
-      ${L.map(s=>`<label class="rub-opt" style="display:flex;justify-content:space-between;align-items:center"><span><input type="checkbox" onchange="rpToggleServicio('${s.id}')" ${rpState.servicioIds.includes(s.id)?'checked':''}/> ${escH(s.nombre)}</span><b>${fp(s.precio)}</b></label>`).join('')}`).join('')||'<div style="font-size:13px;color:var(--muted)">No hay servicios cargados todavía.</div>'}
+  const rbs=rpRubrosSucursal(rpState.sucursal);
+  if(rbs.length<=1){ rpRenderServiciosDeRubro(body,rbs[0]||null,true); return; }
+  if(!rpState.rubroAbierto){
+    body.innerHTML=`${rpBackBtn()}<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">¿Qué te querés hacer?</div>
+      ${rbs.map(rid=>{
+        const L=servicios.filter(s=>(s.rubro||'')===rid), sel=rpState.servicioIds.filter(id=>{ const sv=servicios.find(x=>x.id===id); return sv&&sv.rubro===rid; }).length;
+        return `<div class="card" style="cursor:pointer;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center" onclick="rpAbrirRubro('${rid}')"><div><div style="font-size:14px;font-weight:800">${escH(nombreRubro(rid)||rid)}</div><div style="font-size:11px;color:var(--muted2)">${L.length} servicio${L.length===1?'':'s'}${sel?' · '+sel+' elegido'+(sel===1?'':'s'):''}</div></div><span style="color:var(--muted)">›</span></div>`;
+      }).join('')}
+      ${rpResumenSeleccion()}
+      ${rpState.servicioIds.length?`<button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="rpContinuarServicios()">Continuar</button>`:''}`;
+    return;
+  }
+  rpRenderServiciosDeRubro(body,rpState.rubroAbierto,false);
+}
+function rpAbrirRubro(rid){ rpState.rubroAbierto=rid; rpRender(); }
+function rpCerrarRubro(){ rpState.rubroAbierto=null; rpRender(); }
+function rpRenderServiciosDeRubro(body,rid,unico){
+  const L=servicios.filter(s=>(s.rubro||'')===rid);
+  body.innerHTML=`${unico?rpBackBtn():`<button onclick="rpCerrarRubro()" class="lnk" style="margin-bottom:10px">‹ Otros rubros</button>`}
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:14px">${unico?'¿Qué te querés hacer? (elegí uno o más)':escH(nombreRubro(rid)||rid)+' — elegí uno o más'}</div>
+    ${L.map(s=>`<label class="rub-opt" style="display:flex;justify-content:space-between;align-items:center"><span><input type="checkbox" onchange="rpToggleServicio('${s.id}')" ${rpState.servicioIds.includes(s.id)?'checked':''}/> ${escH(s.nombre)}</span><b>${fp(s.precio)}</b></label>`).join('')||'<div style="font-size:13px;color:var(--muted)">No hay servicios cargados en este rubro.</div>'}
+    ${rpResumenSeleccion()}
     <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="rpContinuarServicios()">Continuar</button>`;
 }
-function rpToggleServicio(id){ const i=rpState.servicioIds.indexOf(id); if(i>=0) rpState.servicioIds.splice(i,1); else rpState.servicioIds.push(id); }
+function rpToggleServicio(id){ const i=rpState.servicioIds.indexOf(id); if(i>=0) rpState.servicioIds.splice(i,1); else rpState.servicioIds.push(id); rpRender(); }
 function rpContinuarServicios(){ if(!rpState.servicioIds.length){ showToast('Elegí al menos un servicio'); return; } rpState.paso='profesional'; rpRender(); }
 function rpRenderProfesional(body){
-  const profs=allUsers.filter(u=>esProf(u)&&sucursalesDe(u).includes(rpState.sucursal));
+  const rbs=[...new Set(rpItems().map(s=>s.rubro).filter(Boolean))];
+  const profs=allUsers.filter(u=>{
+    if(!esProf(u)||!sucursalesDe(u).includes(rpState.sucursal)) return false;
+    const ru=rubrosDeUsuario(u); return !ru||rbs.every(r=>ru.includes(r));
+  });
   body.innerHTML=`${rpBackBtn()}<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">¿Con quién?</div>
-    ${profs.length?profs.map(u=>`<div class="card" style="cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="rpElegirProfesional('${u.id}')"><div style="font-size:24px">${escH(u.emoji||'✂️')}</div><div style="font-size:14px;font-weight:800">${escH(u.name)}</div></div>`).join(''):'<div style="font-size:13px;color:var(--muted)">No hay profesionales cargados en esta sucursal todavía.</div>'}`;
+    ${profs.length?profs.map(u=>`<div class="card" style="cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="rpElegirProfesional('${u.id}')"><div style="font-size:24px">${escH(u.emoji||'✂️')}</div><div style="font-size:14px;font-weight:800">${escH(u.name)}</div></div>`).join(''):'<div style="font-size:13px;color:var(--muted)">No hay profesionales que hagan todo lo que elegiste en esta sucursal. Probá con menos servicios.</div>'}`;
 }
 function rpElegirProfesional(id){ rpState.profId=id; rpState.paso='horario'; rpRender(); }
 function rpNavDia(n){ rpState.fecha=addDias(rpState.fecha,n); if(rpState.fecha<hoyStr()) rpState.fecha=hoyStr(); rpRender(); }
@@ -10722,8 +10781,8 @@ function rpRenderHorario(body){
       <span style="font-size:13.5px;font-weight:800;text-transform:capitalize;min-width:180px;text-align:center">${diaTxt}</span>
       <button onclick="rpNavDia(1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">›</button>
     </div>
-    ${libres.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{ const hora=agHM(m); const {oferta,total}=rpPrecioSlot(rpState.fecha,hora); return `<button onclick="rpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid ${oferta?'#34d399':'var(--border2)'};background:${oferta?'rgba(52,211,153,.08)':'var(--s2)'};color:var(--text);font-family:var(--font);cursor:pointer;text-align:center">
-      <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${oferta?'#34d399':'var(--muted2)'};font-weight:700">${fp(total)}</div>${oferta?'<div style="font-size:9px;color:#34d399">🎉 oferta</div>':''}</button>`; }).join('')}</div>`
+    ${libres.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{ const hora=agHM(m); const R=rpCalc(rpState.fecha,hora); const conDesc=R.total<R.lista; return `<button onclick="rpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid ${conDesc?'#34d399':'var(--border2)'};background:${conDesc?'rgba(52,211,153,.08)':'var(--s2)'};color:var(--text);font-family:var(--font);cursor:pointer;text-align:center">
+      <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${conDesc?'#34d399':'var(--muted2)'};font-weight:700">${fp(R.total)}</div>${conDesc?'<div style="font-size:9px;color:#34d399">🎉 desc.</div>':''}</button>`; }).join('')}</div>`
       :'<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0">No hay horarios libres este día. Probá otro día ›</div>'}`;
 }
 async function rpElegirHorario(hora){
@@ -10736,38 +10795,37 @@ async function rpElegirHorario(hora){
 }
 function rpRenderConfirmar(body){
   const prof=allUsers.find(u=>u.id===rpState.profId), suc=sucursales.find(x=>x.id===rpState.sucursal);
-  const {oferta,total}=rpPrecioSlot(rpState.fecha,rpState.hora);
-  const nombresSvc=rpState.servicioIds.map(id=>(servicios.find(x=>x.id===id)||{}).nombre).filter(Boolean).join(', ');
-  const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(total*pct/100);
+  const R=rpCalc(rpState.fecha,rpState.hora), tieneOferta=rpTieneOferta(R);
+  const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(R.total*pct/100);
   body.innerHTML=`${rpBackBtn()}<div class="card" style="margin-bottom:14px">
-      <div style="font-size:14px;font-weight:800">${escH(nombresSvc)}</div>
-      <div style="font-size:12.5px;color:var(--muted2);margin-top:2px">con ${escH(prof?prof.name:'')} · ${escH(suc?suc.nombre:'')}</div>
+      <div style="font-size:12.5px;color:var(--muted2)">con ${escH(prof?prof.name:'')} · ${escH(suc?suc.nombre:'')}</div>
       <div style="font-size:12.5px;color:var(--muted2)">${fechaCortaStr(rpState.fecha)} a las ${rpState.hora}hs</div>
-      <div style="font-size:20px;font-weight:900;margin-top:6px">${fp(total)}${oferta?` <span style="font-size:11px;color:#34d399;font-weight:700">(con ${oferta.pct}% de oferta)</span>`:''}</div>
+      <div style="margin-top:8px">${R.items.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${escH(x.svc.nombre)}</span><span>${fp(x.lista)}</span></div>${x.descInd?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#34d399"><span>↳ ${escH(x.descInd.label)}</span><span>−${fp(x.descInd.monto)}</span></div>`:''}${x.dq>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#a89fff"><span>↳ Descuento por paquete</span><span>−${fp(x.dq)}</span></div>`:''}</div>`).join('')}</div>
+      <div style="font-size:20px;font-weight:900;margin-top:8px">${fp(R.total)}${R.total<R.lista?` <span style="font-size:11px;color:#34d399;font-weight:700">(ahorrás ${fp(R.lista-R.total)})</span>`:''}</div>
     </div>
     <div style="font-size:11px;color:var(--muted2);margin:-8px 0 12px">⏳ Te lo reservamos por unos minutos mientras completás esto.</div>
     <div class="field"><label>Tu nombre</label><input id="rp-nombre" placeholder="Nombre y apellido" value="${escH(rpState.nombre)}"/></div>
     <div class="field" style="margin-top:8px"><label>Tu WhatsApp</label><input id="rp-wa" type="tel" placeholder="11 2345 6789" value="${escH(rpState.whatsapp)}"/></div>
-    ${oferta?`<div class="card" style="margin-top:12px;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06)"><div style="font-size:12.5px;font-weight:800;color:#34d399">💵 Este horario tiene oferta — hace falta dejar una seña</div><div style="font-size:12px;color:var(--muted2);margin-top:3px">Seña obligatoria: <b style="color:var(--text)">${fp(montoSena)}</b> (${pct}% del total). El local te va a pasar el alias de Mercado Pago para transferirla cuando confirme tu turno por WhatsApp.</div></div>`
+    ${tieneOferta?`<div class="card" style="margin-top:12px;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06)"><div style="font-size:12.5px;font-weight:800;color:#34d399">💵 Este horario tiene descuento — hace falta dejar una seña</div><div style="font-size:12px;color:var(--muted2);margin-top:3px">Seña obligatoria: <b style="color:var(--text)">${fp(montoSena)}</b> (${pct}% del total). El local te va a pasar el alias de Mercado Pago para transferirla cuando confirme tu turno por WhatsApp.</div></div>`
       :`<div style="font-size:11px;color:var(--muted2);margin-top:10px">Pagás todo en el local cuando vengas. Si no podés venir, avisá con 3 horas de anticipación o se te cobra el turno completo.</div>`}
     <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="rpEnviarWhatsApp()">📲 Reservar por WhatsApp</button>
     <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Esto no confirma el turno solo: se abre WhatsApp con el pedido armado, y el local te confirma ahí mismo.</div>`;
 }
 function rpMensajeWhatsApp(){
   const s=rpState, suc=sucursales.find(x=>x.id===s.sucursal), prof=allUsers.find(u=>u.id===s.profId);
-  const nombresSvc=s.servicioIds.map(id=>(servicios.find(x=>x.id===id)||{}).nombre).filter(Boolean).join(', ');
-  const {oferta,total}=rpPrecioSlot(s.fecha,s.hora);
-  const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(total*pct/100);
-  const pagoTxt=oferta?('Este horario tiene oferta, así que dejo una seña de '+fp(montoSena)+' ('+pct+'%) — me pasan el alias de Mercado Pago para transferirla.'):'Pago todo en el local cuando vaya.';
+  const R=rpCalc(s.fecha,s.hora), tieneOferta=rpTieneOferta(R);
+  const nombresSvc=R.items.map(x=>x.svc.nombre).join(', ');
+  const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(R.total*pct/100);
+  const pagoTxt=tieneOferta?('Este horario tiene descuento, así que dejo una seña de '+fp(montoSena)+' ('+pct+'%) — me pasan el alias de Mercado Pago para transferirla.'):'Pago todo en el local cuando vaya.';
   let txt='¡Hola! Quiero reservar un turno 💈\n\n'+
     (suc?'📍 '+suc.nombre+'\n':'')+
     '✂️ '+nombresSvc+'\n'+
     '🧔 Con: '+(prof?prof.name:'')+'\n'+
     '📅 '+fechaCortaStr(s.fecha)+' a las '+s.hora+'hs\n'+
-    '💰 Total: '+fp(total)+(oferta?' (con la oferta de '+oferta.pct+'% ya aplicada)':'')+'\n\n'+
+    '💰 Total: '+fp(R.total)+(R.total<R.lista?' (ya con el descuento aplicado)':'')+'\n\n'+
     pagoTxt+'\n\n'+
     'Soy '+s.nombre+' — mi WhatsApp: '+s.whatsapp;
-  if(!oferta) txt+='\n\n(Entiendo que si no aviso con 3hs de anticipación que no puedo ir, se me cobra el turno completo.)';
+  if(!tieneOferta) txt+='\n\n(Entiendo que si no aviso con 3hs de anticipación que no puedo ir, se me cobra el turno completo.)';
   return txt;
 }
 async function rpEnviarWhatsApp(){
