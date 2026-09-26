@@ -10190,33 +10190,44 @@ function volverDePantallaKiosco(){
 }
 // ---------- Reserva pública (sin login, para clientes — ver negocio/pendientes-app.md) ----------
 // V1: no cobra de verdad (no hay backend para guardar la clave de Mercado Pago de cada profesional con seguridad).
-// El cliente arma el pedido y elige como quiere pagar, y eso se manda por WhatsApp al negocio para que confirme
-// y (si corresponde) le pase el link de pago a mano. No escribe nada en la Agenda real: la crea recepcion/el profesional
-// al confirmar, igual que ya se hace hoy con "compartir por WhatsApp".
-let rpState={paso:'sucursal',sucursal:null,servicioIds:[],profId:null,fecha:'',hora:'',nombre:'',whatsapp:'',pago:''};
+// El cliente arma el pedido; si el horario tiene oferta, la seña queda anotada en el mensaje pero el alias de MP
+// se lo manda recepcion a mano recien cuando confirma por WhatsApp que el horario sigue libre (asi no se le pasan
+// datos de pago para un turno que otro cliente ya agarro mientras tanto). No escribe nada en la Agenda real: la
+// crea recepcion/el profesional al confirmar, igual que ya se hace hoy con "compartir por WhatsApp".
+// Bloqueo temporal del horario: al elegirlo se anota un "hold" con vencimiento, para que no lo vea libre otra
+// persona navegando al mismo tiempo. 3 min mientras completa el formulario, extendido a 20 min al mandar el WhatsApp
+// (le da tiempo a recepcion a confirmarlo). Vence solo si lo abandona. Mismo patron sin sesion que el resto de la
+// reserva publica — igual que el resto, deja de funcionar tal cual una vez que se corra el bloqueo de seguridad
+// de la base (paso 2, todavia pendiente) y haya que revisar los permisos de escritura sin login.
+const holdsSt=almacenLista('luffy/reservas_holds','luffy_reservas_holds',nuevoMayor);
+let rpSesionId='';
+let rpState={paso:'sucursal',sucursal:null,servicioIds:[],profId:null,fecha:'',hora:'',nombre:'',whatsapp:''};
 async function mostrarReservaPublica(){
   show('reserva-publica');
   const nav=document.getElementById('nav'); if(nav) nav.style.display='none';
   document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Cargando…</div>';
+  rpSesionId='rp'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
   await rpCargarDatos();
-  rpState={paso:'sucursal',sucursal:null,servicioIds:[],profId:null,fecha:hoyStr(),hora:'',nombre:'',whatsapp:'',pago:''};
+  rpState={paso:'sucursal',sucursal:null,servicioIds:[],profId:null,fecha:hoyStr(),hora:'',nombre:'',whatsapp:''};
   if(sucursales.length<=1){ rpState.sucursal=(sucursales[0]||{}).id||null; rpState.paso='servicios'; }
   rpRender();
 }
 async function rpCargarDatos(){
   if(!DB) return;
   try{
-    const [sucR,userR,promR,svcR,agR]=await Promise.all([
+    const [sucR,userR,promR,svcR,agR,holdR]=await Promise.all([
       Promise.resolve(DB.doc('luffy/sucursales').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/users').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/promos_cfg').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/servicios').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/agenda').get()).catch(()=>null),
+      Promise.resolve(DB.doc('luffy/reservas_holds').get()).catch(()=>null),
     ]);
     if(sucR&&sucR.list&&sucR.list.length) sucursales=sucR.list;
     if(userR&&Array.isArray(userR.list)) allUsers=userR.list;
     if(promR) promos=aplicarPromosRemotas(promR);
     if(svcR&&svcR.list&&svcR.list.length) servicios=svcR.list;
+    if(holdR&&Array.isArray(holdR.list)) holdsSt.list=holdR.list;
     if(agR&&Array.isArray(agR.list)) agendaSt.list=agR.list;
   }catch(e){}
 }
@@ -10224,18 +10235,28 @@ function rpOrden(){ return sucursales.length>1?['sucursal','servicios','profesio
 function rpVolver(){ const o=rpOrden(); const i=o.indexOf(rpState.paso); if(i>0){ rpState.paso=o[i-1]; rpRender(); } }
 function rpBackBtn(){ return rpOrden().indexOf(rpState.paso)>0?`<button onclick="rpVolver()" class="lnk" style="margin-bottom:10px">‹ Atrás</button>`:''; }
 function rpDuracion(){ return rpState.servicioIds.reduce((s,id)=>{ const sv=servicios.find(x=>x.id===id); return s+(sv&&sv.duracion?sv.duracion:30); },0); }
+function rpHoldsVivos(){ const ahora=Date.now(); return holdsSt.list.filter(h=>numV(h.expira)>ahora); }
 function rpSlotsLibres(profId,fecha){
   const dur=Math.max(AG_PASO,rpDuracion()), pasos=Math.max(1,Math.round(dur/AG_PASO));
   const ocupadoMin=new Set();
   agendaSt.list.filter(a=>a.profId===profId&&a.fecha===fecha&&agEstado(a)!=='cancelado').forEach(a=>{
     const ini=agMin(a.hora), d=Math.max(1,Math.round((a.duracion||30)/AG_PASO)); for(let i=0;i<d;i++) ocupadoMin.add(ini+i*AG_PASO);
   });
+  rpHoldsVivos().filter(h=>h.profId===profId&&h.fecha===fecha&&h.sesionId!==rpSesionId).forEach(h=>{ ocupadoMin.add(agMin(h.hora)); });
   const hoy=hoyStr(), ahoraMin=fecha===hoy?(new Date().getHours()*60+new Date().getMinutes()):-1;
   return agSlots().filter(m=>{
     if(m+dur>AG_FIN) return false;
     for(let i=0;i<pasos;i++) if(ocupadoMin.has(m+i*AG_PASO)) return false;
     if(fecha===hoy&&m<=ahoraMin+30) return false;
     return true;
+  });
+}
+// Crea un hold nuevo (no actualiza el anterior: mas simple, y los vencidos se limpian solos de la lista en cada escritura)
+async function rpCrearHold(minutos){
+  const ahora=Date.now();
+  await holdsSt.cambiar(l=>{
+    for(let i=l.length-1;i>=0;i--) if(numV(l[i].expira)<=ahora) l.splice(i,1); // limpia vencidos de paso
+    l.push({id:'h'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),profId:rpState.profId,fecha:rpState.fecha,hora:rpState.hora,sesionId:rpSesionId,expira:ahora+minutos*60000,upd:new Date().toISOString()});
   });
 }
 function rpPrecioBase(){ return rpState.servicioIds.reduce((s,id)=>{ const sv=servicios.find(x=>x.id===id); return s+numV(sv?sv.precio:0); },0); }
@@ -10287,7 +10308,14 @@ function rpRenderHorario(body){
       <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${oferta?'#34d399':'var(--muted2)'};font-weight:700">${fp(total)}</div>${oferta?'<div style="font-size:9px;color:#34d399">🎉 oferta</div>':''}</button>`; }).join('')}</div>`
       :'<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0">No hay horarios libres este día. Probá otro día ›</div>'}`;
 }
-function rpElegirHorario(hora){ rpState.hora=hora; rpState.paso='confirmar'; rpRender(); }
+async function rpElegirHorario(hora){
+  rpState.hora=hora;
+  document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Reservando el horario…</div>';
+  await rpCrearHold(3);
+  if(rpSlotsLibres(rpState.profId,rpState.fecha).includes(agMin(hora))){ rpState.paso='confirmar'; }
+  else { showToast('Justo lo tomó otra persona — elegí otro horario'); rpState.paso='horario'; }
+  rpRender();
+}
 function rpRenderConfirmar(body){
   const prof=allUsers.find(u=>u.id===rpState.profId), suc=sucursales.find(x=>x.id===rpState.sucursal);
   const {oferta,total}=rpPrecioSlot(rpState.fecha,rpState.hora);
@@ -10299,35 +10327,20 @@ function rpRenderConfirmar(body){
       <div style="font-size:12.5px;color:var(--muted2)">${fechaCortaStr(rpState.fecha)} a las ${rpState.hora}hs</div>
       <div style="font-size:20px;font-weight:900;margin-top:6px">${fp(total)}${oferta?` <span style="font-size:11px;color:#34d399;font-weight:700">(con ${oferta.pct}% de oferta)</span>`:''}</div>
     </div>
+    <div style="font-size:11px;color:var(--muted2);margin:-8px 0 12px">⏳ Te lo reservamos por unos minutos mientras completás esto.</div>
     <div class="field"><label>Tu nombre</label><input id="rp-nombre" placeholder="Nombre y apellido" value="${escH(rpState.nombre)}"/></div>
     <div class="field" style="margin-top:8px"><label>Tu WhatsApp</label><input id="rp-wa" type="tel" placeholder="11 2345 6789" value="${escH(rpState.whatsapp)}"/></div>
-    <div class="field" style="margin-top:12px"><label>¿Cómo querés pagar?</label>
-      <label class="rub-opt"><input type="radio" name="rp-pago" value="total"/> Pago todo ahora por Mercado Pago</label>
-      ${oferta?
-        `<label class="rub-opt"><input type="radio" name="rp-pago" value="sena"/> Dejo una seña de ${fp(montoSena)} (${pct}%) por Mercado Pago — obligatoria por la oferta</label>`
-        :`<label class="rub-opt"><input type="radio" name="rp-pago" value="sena_opcional"/> Dejo una seña de ${fp(montoSena)} (${pct}%) por Mercado Pago</label>
-          <label class="rub-opt"><input type="radio" name="rp-pago" value="recepcion"/> Pago todo en el local cuando vaya</label>`}
-    </div>
-    <div id="rp-pago-nota" style="font-size:11px;color:var(--muted2);margin-top:6px"></div>
+    ${oferta?`<div class="card" style="margin-top:12px;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06)"><div style="font-size:12.5px;font-weight:800;color:#34d399">💵 Este horario tiene oferta — hace falta dejar una seña</div><div style="font-size:12px;color:var(--muted2);margin-top:3px">Seña obligatoria: <b style="color:var(--text)">${fp(montoSena)}</b> (${pct}% del total). El local te va a pasar el alias de Mercado Pago para transferirla cuando confirme tu turno por WhatsApp.</div></div>`
+      :`<div style="font-size:11px;color:var(--muted2);margin-top:10px">Pagás todo en el local cuando vengas. Si no podés venir, avisá con 3 horas de anticipación o se te cobra el turno completo.</div>`}
     <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="rpEnviarWhatsApp()">📲 Reservar por WhatsApp</button>
     <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Esto no confirma el turno solo: se abre WhatsApp con el pedido armado, y el local te confirma ahí mismo.</div>`;
-  [...body.querySelectorAll('input[name="rp-pago"]')].forEach(r=>r.onchange=()=>{
-    const nota=document.getElementById('rp-pago-nota');
-    if(r.value==='recepcion'){ nota.innerHTML='Si no avisás con 3 horas de anticipación que no vas a venir, se te cobra el turno completo.'; return; }
-    nota.innerHTML = prof&&prof.aliasMP
-      ? 'Transferí por Mercado Pago al alias: <b style="color:var(--text)">'+escH(prof.aliasMP)+'</b>'
-      : 'Este profesional todavía no cargó su alias de Mercado Pago — te lo va a pasar por WhatsApp al confirmar.';
-  });
 }
 function rpMensajeWhatsApp(){
-  const s=rpState, prof=allUsers.find(u=>u.id===s.profId), suc=sucursales.find(x=>x.id===s.sucursal);
+  const s=rpState, suc=sucursales.find(x=>x.id===s.sucursal), prof=allUsers.find(u=>u.id===s.profId);
   const nombresSvc=s.servicioIds.map(id=>(servicios.find(x=>x.id===id)||{}).nombre).filter(Boolean).join(', ');
   const {oferta,total}=rpPrecioSlot(s.fecha,s.hora);
-  const aliasTxt=prof&&prof.aliasMP?' al alias '+prof.aliasMP:'';
-  let pagoTxt='';
-  if(s.pago==='total') pagoTxt='Quiero pagar el total ahora por Mercado Pago'+aliasTxt+'.';
-  else if(s.pago==='sena'||s.pago==='sena_opcional'){ const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(total*pct/100); pagoTxt='Quiero dejar una seña de '+fp(montoSena)+' ('+pct+'%) por Mercado Pago'+aliasTxt+'.'; }
-  else pagoTxt='Pago todo en el local cuando vaya.';
+  const pct=numV(promos.senaPublicaPct)||30, montoSena=Math.round(total*pct/100);
+  const pagoTxt=oferta?('Este horario tiene oferta, así que dejo una seña de '+fp(montoSena)+' ('+pct+'%) — me pasan el alias de Mercado Pago para transferirla.'):'Pago todo en el local cuando vaya.';
   let txt='¡Hola! Quiero reservar un turno 💈\n\n'+
     (suc?'📍 '+suc.nombre+'\n':'')+
     '✂️ '+nombresSvc+'\n'+
@@ -10336,17 +10349,16 @@ function rpMensajeWhatsApp(){
     '💰 Total: '+fp(total)+(oferta?' (con la oferta de '+oferta.pct+'% ya aplicada)':'')+'\n\n'+
     pagoTxt+'\n\n'+
     'Soy '+s.nombre+' — mi WhatsApp: '+s.whatsapp;
-  if(s.pago==='recepcion') txt+='\n\n(Entiendo que si no aviso con 3hs de anticipación que no puedo ir, se me cobra el turno completo.)';
+  if(!oferta) txt+='\n\n(Entiendo que si no aviso con 3hs de anticipación que no puedo ir, se me cobra el turno completo.)';
   return txt;
 }
-function rpEnviarWhatsApp(){
+async function rpEnviarWhatsApp(){
   const nombre=(document.getElementById('rp-nombre')?.value||'').trim();
   const whatsapp=(document.getElementById('rp-wa')?.value||'').trim();
   if(!nombre){ showToast('Poné tu nombre'); return; }
   if(whatsapp.replace(/\D/g,'').length<8){ showToast('Poné tu WhatsApp con característica'); return; }
-  const pago=(document.querySelector('input[name="rp-pago"]:checked')||{}).value;
-  if(!pago){ showToast('Elegí cómo vas a pagar'); return; }
-  rpState.nombre=nombre; rpState.whatsapp=whatsapp; rpState.pago=pago;
+  rpState.nombre=nombre; rpState.whatsapp=whatsapp;
+  rpCrearHold(20); // extiende el bloqueo del horario para darle tiempo a recepcion a confirmarlo
   const txt=rpMensajeWhatsApp();
   const wa=promos.whatsappNegocio?linkWhatsApp(promos.whatsappNegocio,txt):('https://api.whatsapp.com/send?text='+encodeURIComponent(txt));
   window.open(wa,'_blank');
