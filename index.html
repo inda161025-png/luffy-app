@@ -3578,12 +3578,6 @@ function htmlCumplesRec(proxCumples){
     return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="font-size:28px">🎂</div><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:700">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${en===0?'<b style="color:#fbbf24">¡Hoy!</b>':en===1?'Mañana':'En '+en+' días'} · ${cumpleTxt(c.cumple)}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 10px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}<button onclick="marcarCumpleCliente('${c.id}')" style="padding:8px 12px;border-radius:10px;border:none;background:${ok?'rgba(52,211,153,.15)':'var(--s2)'};color:${ok?'#34d399':'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${ok?'✓ Saludado':'Saludar'}</button></div>`; }).join('');
   return `<div class="sec-hdr" style="margin-bottom:10px"><span class="sec-title">🎂 Cumpleaños próximos</span></div>${(manual||deCli)?manual+deCli:'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Sin cumpleaños en los próximos 3 días 🎉</div>'}`;
 }
-function htmlReactivar(){
-  const uv=ultimasVisitas(); const hoy=hoyStr();
-  const L=clientesDir.map(c=>({c,u:uv[c.id]})).filter(x=>x.u&&diasDesdeStr(x.u.fecha)>=30&&!membresiaActivaDe(x.c.id)).sort((a,b)=>a.u.fecha.localeCompare(b.u.fecha)).slice(0,5);
-  return `<div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🔁 Para reactivar (hace +30 días)</span><button class="lnk" onclick="abrirCRM()">📱 Ver CRM completo</button></div>
-    ${L.length?L.map(({c,u})=>{ const wa=linkWhatsApp(c.tel,'Hola '+c.nombre.split(' ')[0]+'! Te escribimos de Inda Studio 💈 Hace un tiempo que no te vemos, ¿querés que te reservemos un turno?'); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">hace ${diasDesdeStr(u.fecha)} días · ✂️ ${escH([...u.barberos].join(', '))}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:'<span style="font-size:10.5px;color:var(--muted)">sin teléfono</span>'}</div>`; }).join(''):'<div style="font-size:12px;color:var(--muted);padding:6px 0">Nadie hace +30 días sin membresía activa. 🎉</div>'}`;
-}
 
 // ============ CRM: clientes agrupados por hace cuanto no vienen, para armar listas de WhatsApp ============
 // Fecha de "ultima visita" = la que ya calcula Luffy (ultimasVisitas), no depende de AgendaPro.
@@ -5532,16 +5526,13 @@ function htmlFilaSena(s,acciones){
 }
 const accionesSenaRec=(s)=>`<button class="lnk" onclick="resolverSena('${s.id}','devuelta')">Devolver</button><button class="lnk" style="color:var(--muted2)" onclick="resolverSena('${s.id}','retenida')">Se queda el salón</button>`;
 // ---------- recepcion ----------
-function htmlSenasRec(){
-  const L=senasPend(); const total=L.reduce((a,s)=>a+saldoSena(s),0);
-  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">💵 Señas (${L.length})</span><span style="display:flex;align-items:center;gap:10px"><span style="font-size:12px;font-weight:800;color:#4A136B">${fp(total)}</span><button class="sec-btn" onclick="abrirFormSena()" style="background:#4A136B">+ Seña</button></span></div>
-    ${L.length?htmlFilaSena(L[0],accionesSenaRec(L[0])):'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay señas pendientes.</div>'}
-    ${L.length>1?`<button onclick="abrirSenasCompleto()" style="width:100%;padding:10px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:4px">Ver las ${L.length} señas ›</button>`:''}`;
+function htmlSenasFullBody(){
+  const L=senasPend();
+  return L.length?L.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay señas pendientes.</div>';
 }
 function abrirSenasCompleto(){
   const L=senasPend();
-  document.getElementById('registro-content').innerHTML=cabeceraModal('💵 Señas pendientes ('+L.length+')')+
-    (L.length?L.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay señas pendientes.</div>');
+  document.getElementById('registro-content').innerHTML=cabeceraModal('💵 Señas pendientes ('+L.length+')')+htmlSenasFullBody();
   openModal('modal-registro');
 }
 // ---------- profesional (Mi dinero) ----------
@@ -9609,22 +9600,97 @@ function htmlFilaDeuda(d,esNueva){
     </div>
   </div>`;
 }
-function htmlDeudasRecepcion(){
-  const deudas=todasLasDeudas();
-  if(!deudas.length) return '';
-  const hoy=hoyStr();
-  const esNueva=(d)=>d.fecha>=addDias(hoy,-2)&&!avisosLeidos.includes('u:'+d.prof.id+':'+d.id);
-  const total=deudas.reduce((s,d)=>s+saldoDeuda(d),0);
-  const nuevas=deudas.filter(esNueva).length;
-  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🚫 Clientes que deben (${deudas.length})${nuevas?' · <span style="color:#f472b6">'+nuevas+(nuevas===1?' nueva':' nuevas')+'</span>':''}</span><span style="font-size:12px;font-weight:800;color:#f472b6">${fp(total)}</span></div>
-  ${htmlFilaDeuda(deudas[0],esNueva(deudas[0]))}
-  ${deudas.length>1?`<button onclick="abrirDeudasCompleto()" style="width:100%;padding:10px;border-radius:12px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer;margin-bottom:4px">Ver las ${deudas.length} deudas ›</button>`:''}`;
-}
-function abrirDeudasCompleto(){
+function htmlDeudasFullBody(){
   const deudas=todasLasDeudas(); const hoy=hoyStr();
   const esNueva=(d)=>d.fecha>=addDias(hoy,-2)&&!avisosLeidos.includes('u:'+d.prof.id+':'+d.id);
-  document.getElementById('registro-content').innerHTML=cabeceraModal('🚫 Clientes que deben ('+deudas.length+')')+
-    (deudas.length?deudas.map(d=>htmlFilaDeuda(d,esNueva(d))).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay deudas.</div>');
+  return deudas.length?deudas.map(d=>htmlFilaDeuda(d,esNueva(d))).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay deudas.</div>';
+}
+function abrirDeudasCompleto(){
+  const deudas=todasLasDeudas();
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🚫 Clientes que deben ('+deudas.length+')')+htmlDeudasFullBody();
+  openModal('modal-registro');
+}
+// ============ Inicio de recepción: 4 cards grandes (Agenda / Cosas por cobrar / CRM / Caja) ============
+// Cada card muestra un numero resumen grande y al tocarla abre el detalle completo (mismo patron en las 4).
+function htmlVentasResumenRec(){
+  const hoy=hoyStr(), today=new Date();
+  const misVentas=dineroData.ventas||[];
+  const ventasHoyRec=misVentas.filter(v=>v.fecha===hoy);
+  const qRec=today.getDate()<=15?1:2;
+  const ventasQuinRec=misVentas.filter(v=>{ if(!v.fecha) return false; const d=new Date(v.fecha+'T00:00:00'); return d.getMonth()===today.getMonth()&&d.getFullYear()===today.getFullYear()&&(qRec===1?d.getDate()<=15:d.getDate()>15); });
+  const sumaV=(arr,k)=>arr.reduce((s,v)=>s+(parseFloat(v[k])||0),0);
+  const misPaquetesHoy=paquetesSt.list.filter(p=>p.fecha===hoy&&p.vendedorId===profile.id);
+  const misMembresiasHoy=membresiasSt.list.filter(m=>m.fecha===hoy&&m.vendedorId===profile.id);
+  const totalVendidoHoy=sumaV(ventasHoyRec,'total')+misPaquetesHoy.reduce((s,p)=>s+numV(p.total),0)+misMembresiasHoy.reduce((s,m)=>s+numV(m.precio),0);
+  const nVendidoHoy=ventasHoyRec.length+misPaquetesHoy.length+misMembresiasHoy.length;
+  const comQuincena=sumaV(ventasQuinRec,'comision'); // la comision de paquetes ya se ve aparte en "Llevás $X en paquetes esta quincena"
+  return `<div class="card" style="cursor:pointer;margin-top:14px" onclick="abrirVentasCompleto()">
+    <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12.5px;font-weight:800">💰 Lo que vendiste vos</span><span style="font-size:11px;color:var(--muted2)">ver detalle ›</span></div>
+    <div style="font-size:22px;font-weight:900;margin-top:2px">${fp(totalVendidoHoy)} <span style="font-size:11px;color:var(--muted2);font-weight:600">hoy</span></div>
+    <div style="font-size:11px;color:var(--muted2)">${nVendidoHoy} ${nVendidoHoy===1?'venta':'ventas'} (productos, paquetes, membresías) · esta quincena en productos: ${fp(comQuincena)} de comisión</div>
+  </div>`;
+}
+function htmlCardAgenda(){
+  const n=agendaSt.list.filter(a=>a.fecha===hoyStr()&&agEstado(a)==='agendado').length;
+  return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirAgenda()">
+    <div style="font-size:22px">📅</div>
+    <div style="font-size:24px;font-weight:900;margin-top:2px">${n}</div>
+    <div style="font-size:12.5px;font-weight:800">turno${n===1?'':'s'} agendado${n===1?'':'s'} hoy</div>
+    <div style="font-size:11px;color:var(--muted2)">Ver Agenda ›</div>
+  </div>`;
+}
+function htmlCardCobrar(){
+  const nCobrar=turnosPendientesSt.list.filter(x=>x.estado==='pendiente').length;
+  const nDeudas=todasLasDeudas().length, nSenas=senasPend().length;
+  const total=nCobrar+nDeudas+nSenas;
+  const cobradoHoy=cobradosDelDia(hoyStr()).reduce((a,x)=>a+x.monto,0);
+  return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirCosasPorCobrar()">
+    <div style="font-size:22px">💳</div>
+    <div style="font-size:24px;font-weight:900;margin-top:2px">${total}</div>
+    <div style="font-size:12.5px;font-weight:800">${total===1?'cosa':'cosas'} por cobrar</div>
+    <div style="font-size:11px;color:var(--muted2)">${fp(cobradoHoy)} cobrado hoy</div>
+  </div>`;
+}
+function htmlCardCRM(){
+  const uv=ultimasVisitas();
+  const nReactivar=clientesDir.filter(c=>{ const u=uv[c.id]; return u&&diasDesdeStr(u.fecha)>=30&&!membresiaActivaDe(c.id); }).length;
+  const nCumples=proximosCumplesManual().length+cumplesClientes(3).length;
+  return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirCRM()">
+    <div style="font-size:22px">👥</div>
+    <div style="font-size:24px;font-weight:900;margin-top:2px">${nReactivar}</div>
+    <div style="font-size:12.5px;font-weight:800">para reactivar</div>
+    <div style="font-size:11px;color:var(--muted2)">${nCumples?nCumples+' cumpleaños esta semana':'CRM completo ›'}</div>
+  </div>`;
+}
+function htmlCardCaja(){
+  const s=sesionAbierta();
+  if(!s) return `<div class="card" style="cursor:pointer;margin:0;border-color:rgba(251,191,36,.4)" onclick="abrirCajaCompleto()">
+    <div style="font-size:22px">🔒</div>
+    <div style="font-size:14.5px;font-weight:800;margin-top:4px">Caja sin abrir</div>
+    <div style="font-size:11px;color:var(--muted2)">Diego Laure · tocá para abrirla</div>
+  </div>`;
+  const sd=cajaSaldos(s);
+  return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirCajaCompleto()">
+    <div style="font-size:22px">💰</div>
+    <div style="font-size:24px;font-weight:900;margin-top:2px">${fp(sd.ef)}</div>
+    <div style="font-size:12.5px;font-weight:800">en efectivo</div>
+    <div style="font-size:11px;color:var(--muted2)">+${fp(sd.cta)} en cuenta · Diego Laure y French</div>
+  </div>`;
+}
+function html4CardsRec(){
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">${htmlCardAgenda()}${htmlCardCobrar()}${htmlCardCRM()}${htmlCardCaja()}</div>`;
+}
+function abrirCosasPorCobrar(){
+  const deudas=todasLasDeudas(), sen=senasPend();
+  document.getElementById('registro-content').innerHTML=cabeceraModal('💳 Cosas por cobrar')+
+    htmlTurnosPendientesRec()+htmlPaquetesNuevosRec()+htmlSugerenciasPaqRec()+
+    (deudas.length?`<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🚫 Clientes que deben (${deudas.length})</span></div>${htmlDeudasFullBody()}`:'')+
+    `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">💵 Señas pendientes (${sen.length})</span><button class="sec-btn" onclick="abrirFormSena()" style="background:#4A136B">+ Seña</button></div>${htmlSenasFullBody()}`+
+    htmlCobradosRec();
+  openModal('modal-registro');
+}
+function abrirCajaCompleto(){
+  document.getElementById('registro-content').innerHTML=cabeceraModal('💰 Caja')+htmlCajaRecBase()+htmlResumenDia()+htmlTableroRec()+htmlVentasResumenRec();
   openModal('modal-registro');
 }
 function minutosDesde(iso){
@@ -9642,34 +9708,16 @@ function renderRecepcion(){
   document.getElementById('rec-greeting').textContent=gr;
 
   const hoy=ymdLocal(new Date());
-  const mananaDate=new Date(); mananaDate.setDate(mananaDate.getDate()+1);
-  const manana=ymdLocal(mananaDate);
   const stBl=STORY_BLOQUES.map(b=>({b,d:storyRecHechas(hoy,b.id),n:storyRecItems(b.id).length}));
   const stHechas=stBl.reduce((a,x)=>a+x.d,0), stTotal=stBl.reduce((a,x)=>a+x.n,0);
-
-  const today=new Date();
-
-  const tareasHoy=tareasRecepcion.filter(t=>tareasData?.[hoy]?.[t.id]?.done).length;
-
-  const misVentas=(dineroData.ventas||[]).slice().sort((a,b)=>new Date(b.creadoEn||b.fecha)-new Date(a.creadoEn||a.fecha));
-  const ventasHoyRec=misVentas.filter(v=>v.fecha===hoy);
-  const qRec=today.getDate()<=15?1:2;
-  const ventasQuinRec=misVentas.filter(v=>{ if(!v.fecha) return false; const d=new Date(v.fecha+'T00:00:00'); return d.getMonth()===today.getMonth()&&d.getFullYear()===today.getFullYear()&&(qRec===1?d.getDate()<=15:d.getDate()>15); });
-  const sumaV=(arr,k)=>arr.reduce((s,v)=>s+(parseFloat(v[k])||0),0);
-  const cierresHoyRec=cierresLista().filter(c=>c.fecha===hoy&&c.porId===profile.id);
-  const misPaquetesHoy=paquetesSt.list.filter(p=>p.fecha===hoy&&p.vendedorId===profile.id);
-  const misMembresiasHoy=membresiasSt.list.filter(m=>m.fecha===hoy&&m.vendedorId===profile.id);
-  const totalVendidoHoy=sumaV(ventasHoyRec,'total')+misPaquetesHoy.reduce((s,p)=>s+numV(p.total),0)+misMembresiasHoy.reduce((s,m)=>s+numV(m.precio),0);
-  const nVendidoHoy=ventasHoyRec.length+misPaquetesHoy.length+misMembresiasHoy.length;
-  const comQuincena=sumaV(ventasQuinRec,'comision'); // la comision de paquetes ya se ve aparte en "Llevás $X en paquetes esta quincena"
   const tareasAhora=tareasDeRec().filter(t=>t.desde<=horaAhora()&&horaAhora()<t.hasta);
   const tareasAtrasadas=tareasDeRec().filter(t=>t.hasta<=horaAhora()&&!hechaTarea(t.id));
   const tareasPend=tareasAhora.filter(t=>!hechaTarea(t.id)).length+tareasAtrasadas.length;
   const bloqueFaltante=stBl.find(x=>x.d<x.n);
   const body=document.getElementById('rec-body');
   body.innerHTML=`
-    ${htmlCajaRec()}
-    <button onclick="abrirVentaPaquete()" style="width:100%;margin:14px 0;padding:12px;border-radius:12px;border:none;background:#4A136B;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">🎁 Armar paquete</button>
+    ${html4CardsRec()}
+    <button onclick="abrirVentaPaquete()" style="width:100%;margin-bottom:14px;padding:12px;border-radius:12px;border:none;background:#4A136B;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">🎁 Armar paquete</button>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
       <div class="card" style="cursor:pointer;margin:0" onclick="abrirTareasCompleto()">
@@ -9684,22 +9732,7 @@ function renderRecepcion(){
       </div>
     </div>
 
-    ${htmlTurnosPendientesRec()}
-    ${htmlPaquetesNuevosRec()}
-    ${htmlSugerenciasPaqRec()}
-
-    <div class="card" style="cursor:pointer;margin-bottom:14px" onclick="abrirVentasCompleto()">
-      <div style="display:flex;justify-content:space-between;align-items:baseline"><span style="font-size:12.5px;font-weight:800">💰 Lo que vendiste vos</span><span style="font-size:11px;color:var(--muted2)">ver detalle ›</span></div>
-      <div style="font-size:22px;font-weight:900;margin-top:2px">${fp(totalVendidoHoy)} <span style="font-size:11px;color:var(--muted2);font-weight:600">hoy</span></div>
-      <div style="font-size:11px;color:var(--muted2)">${nVendidoHoy} ${nVendidoHoy===1?'venta':'ventas'} (productos, paquetes, membresías) · esta quincena en productos: ${fp(comQuincena)} de comisión</div>
-    </div>
-
-    ${htmlTableroRec()}
-    ${htmlCobradosRec()}
-    ${htmlDeudasRecepcion()}
-    ${htmlSenasRec()}
     ${htmlClientesRec()}
-    ${htmlReactivar()}
   `;
   recRenderBusqueda();
 }
