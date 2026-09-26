@@ -336,6 +336,13 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 .kanban-card .kc-titulo{font-size:13px;font-weight:600;margin-bottom:4px}
 .kanban-card .kc-sub{font-size:11px;color:var(--muted2)}
 
+/* ── CRM: tablero arrastrable ── */
+.crm-kcol-body{display:flex;flex-direction:column;gap:8px;min-height:44px;max-height:60vh;overflow-y:auto;padding:4px;border-radius:12px;transition:background .12s,outline-color .12s;outline:2px dashed transparent;outline-offset:-2px}
+.crm-kcol-body.drop-target{background:rgba(74,19,107,.08);outline-color:var(--accent)}
+.crm-kcard{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:10px 12px;cursor:grab;touch-action:none;user-select:none}
+.crm-kcard.dragging{opacity:.35}
+.crm-drag-ghost{position:fixed;z-index:9999;pointer-events:none;opacity:.92;box-shadow:0 10px 28px rgba(0,0,0,.4);margin:0!important}
+
 /* REPUTACION */
 .rep-bar{height:10px;background:var(--border2);border-radius:5px;overflow:hidden;margin:8px 0}
 .rep-fill{height:100%;border-radius:5px;transition:width .5s}
@@ -2076,6 +2083,7 @@ function abrirClienteDetalle(id){
   const paqs=typeof paquetesAbiertosDe==='function'?paquetesAbiertosDe(c.id):[];
   cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="modal-title" style="margin:0">${escH(c.nombre)}${verNumeroCliente()?` <span style="color:var(--muted2)">#${c.numero}</span>`:''}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     ${c.problematico?`<div class="card" style="margin-bottom:10px;border-color:rgba(244,114,182,.5);background:rgba(244,114,182,.08)"><div style="font-size:12.5px;font-weight:800;color:#f472b6">🗑️ Marcado como cliente problemático</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Va a avisar cuando alguien lo elija para cobrarle o agendarle un turno.</div></div>`:''}
+    ${c.crmManual?`<div class="card" style="margin-bottom:10px;border-color:rgba(96,165,250,.4);background:rgba(96,165,250,.08);display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:12.5px;font-weight:800;color:#60a5fa">📌 Fijado a mano en "${escH((FRANJAS_CRM.find(f=>f[0]===c.crmManual)||[,c.crmManual])[1].replace(/^\S+\s/,''))}" en el tablero del CRM</div></div><button class="lnk" onclick="crmQuitarPin('${c.id}')">Volver a automático</button></div>`:''}
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.7">🏷️ ${escH(c.profesion||'Sin profesión')}${c.tel?'<br>📞 '+escH(c.tel):''}${c.ref?'<br>🔎 '+escH(c.ref):''}${c.nota?'<br>📝 '+escH(c.nota):''}${todos&&s.barberos.length?'<br>✂️ Se atiende con: '+escH(s.barberos.join(', ')):''}</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <div class="field" style="flex:1"><label>🎂 Cumpleaños${diasHastaCumple(c.cumple)===0?' <b style="color:#fbbf24">¡es hoy!</b>':''}</label>${htmlCumpleRapido(c)}</div>
@@ -3777,11 +3785,13 @@ function clienteTieneTurnoFuturo(cid){
   return agendaSt.list.some(a=>a.clienteId===cid&&a.fecha>=hoy&&agEstado(a)==='agendado');
 }
 function franjaClienteCRM(c,dias){
+  if(c.crmManual) return c.crmManual;
   if(c.problematico) return 'problema';
   if(clienteTieneTurnoFuturo(c.id)) return 'espera';
   return franjaCRM(dias);
 }
-let crmFranja='porperder', crmQ='', crmTarget='crm-body';
+const CRM_COL_COLOR={activos:'#34d399',espera:'#60a5fa',porperder:'#fbbf24',inactivos:'#fb923c',perdidos:'#f472b6',sin:'#9ca3af',problema:'#6b7280'};
+let crmFranja='porperder', crmQ='', crmTarget='crm-body', crmVista='tablero';
 let crmFiltros=null, crmFiltrosAbierto=false;
 const CRM_GENEROS=[['M','Masculino'],['F','Femenino'],['X','Otro'],['','Sin dato']];
 const CRM_ESTADOS_RES=[['','Todos'],['agendado','Agendado'],['hecho','Hecho'],['cancelado','Cancelado'],['sin-agenda','Sin nada en la Agenda']];
@@ -3922,6 +3932,111 @@ async function marcarContactado(id){
   await contactosPendientesSt.cambiar(l=>{ const x=l.find(z=>z.id===id); if(x){ x.atendido=true; x.upd=new Date().toISOString(); } });
   showToast('Marcado como contactado ✓'); renderCRM();
 }
+function crmSetVista(v){ crmVista=v; renderCRM(); }
+// ---------- tablero del CRM: columnas por franja, tarjetas arrastrables (mouse y touch via Pointer Events) ----------
+function renderCRMTablero(el){
+  if(!el) return;
+  const uv=ultimasVisitas();
+  const q=nkey(crmQ);
+  let todos=clientesDir.map(c=>{ const u=uv[c.id]; const dias=u?diasDesdeStr(u.fecha):null; return {c,dias,franja:franjaClienteCRM(c,dias)}; });
+  if(q) todos=todos.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
+  el.innerHTML=`<div class="kanban-scroll" style="padding:0 0 4px">${FRANJAS_CRM.map(([f,l])=>{
+    const col=todos.filter(x=>x.franja===f).sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
+    const mostrar=col.slice(0,40);
+    const color=CRM_COL_COLOR[f]||'var(--muted2)';
+    return `<div class="kanban-col" style="width:220px">
+      <div class="kanban-col-hdr"><div style="width:8px;height:8px;border-radius:50%;background:${color}"></div>${l} <span style="color:var(--muted)">${col.length}</span></div>
+      <div class="crm-kcol-body" data-franja="${f}">
+        ${mostrar.map(({c,dias})=>crmCardHtml(c,dias,f,color)).join('')||`<div style="text-align:center;color:var(--muted);font-size:11.5px;padding:14px 6px">Sin clientes</div>`}
+        ${col.length>40?`<div style="text-align:center;font-size:10.5px;color:var(--muted);padding:4px">+${col.length-40} más — buscá por nombre</div>`:''}
+      </div>
+    </div>`;
+  }).join('')}</div>
+  <div style="font-size:11px;color:var(--muted2);margin:2px 20px 0">Tocá y arrastrá una tarjeta para moverla de columna. Tocarla sin arrastrar abre la ficha del cliente.</div>`;
+}
+function crmCardHtml(c,dias,franja,color){
+  const msjFn=MSJ_CRM[franja]||MSJ_CRM.sin;
+  const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0]));
+  return `<div class="crm-kcard" style="border-left:3px solid ${color}" onpointerdown="crmPointerDown(event,'${c.id}')">
+    <div style="font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH(c.nombre)}${c.crmManual?' 📌':''}</div>
+    <div style="font-size:10.5px;color:var(--muted2);margin-top:2px">${dias==null?'Sin visitas':'hace '+dias+' días'}${c.tel?'':' · sin teléfono'}</div>
+    ${wa?`<a href="${wa}" target="_blank" rel="noopener" style="display:inline-block;margin-top:6px;padding:5px 9px;border-radius:8px;background:rgba(52,211,153,.15);color:#34d399;font-size:10.5px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}
+  </div>`;
+}
+let crmDrag=null;
+function crmPointerDown(e,cid){
+  if(e.button!=null&&e.button!==0) return;
+  if(e.target.closest('a,button')) return;
+  const card=e.currentTarget;
+  crmDrag={cid,startX:e.clientX,startY:e.clientY,moved:false,card,ghost:null,pointerId:e.pointerId};
+  try{ card.setPointerCapture(e.pointerId); }catch(err){}
+  card.addEventListener('pointermove',crmPointerMove);
+  card.addEventListener('pointerup',crmPointerUp);
+  card.addEventListener('pointercancel',crmPointerEnd);
+}
+function crmPointerMove(e){
+  if(!crmDrag) return;
+  const d=crmDrag;
+  const dx=e.clientX-d.startX, dy=e.clientY-d.startY;
+  if(!d.moved){
+    if(Math.hypot(dx,dy)<8) return;
+    d.moved=true;
+    const r=d.card.getBoundingClientRect();
+    const ghost=d.card.cloneNode(true);
+    ghost.className='crm-kcard crm-drag-ghost';
+    ghost.style.width=r.width+'px';
+    document.body.appendChild(ghost);
+    d.ghost=ghost; d.offX=d.startX-r.left; d.offY=d.startY-r.top;
+    d.card.classList.add('dragging');
+  }
+  if(d.ghost){
+    d.ghost.style.left=(e.clientX-d.offX)+'px';
+    d.ghost.style.top=(e.clientY-d.offY)+'px';
+    document.querySelectorAll('.crm-kcol-body.drop-target').forEach(x=>x.classList.remove('drop-target'));
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    const col=under&&under.closest('.crm-kcol-body');
+    if(col) col.classList.add('drop-target');
+  }
+}
+function crmPointerEnd(e){
+  if(!crmDrag) return;
+  const d=crmDrag;
+  d.card.removeEventListener('pointermove',crmPointerMove);
+  d.card.removeEventListener('pointerup',crmPointerUp);
+  d.card.removeEventListener('pointercancel',crmPointerEnd);
+  if(d.ghost) d.ghost.remove();
+  d.card.classList.remove('dragging');
+  document.querySelectorAll('.crm-kcol-body.drop-target').forEach(x=>x.classList.remove('drop-target'));
+  crmDrag=null;
+  return d;
+}
+function crmPointerUp(e){
+  const d=crmPointerEnd(e); if(!d) return;
+  if(!d.moved){ abrirClienteDetalle(d.cid); return; }
+  const under=document.elementFromPoint(e.clientX,e.clientY);
+  const col=under&&under.closest('.crm-kcol-body');
+  if(col&&col.dataset.franja) crmMoverManual(d.cid,col.dataset.franja);
+  else renderCRM();
+}
+async function crmMoverManual(cid,franja){
+  const c=clienteDe(cid); if(!c) return;
+  if(c.crmManual===franja||(franja==='problema'&&c.problematico&&!c.crmManual)){ renderCRM(); return; }
+  if(franja==='problema'){
+    await cambiarClientes(list=>{ const x=list.find(z=>z.id===cid); if(x){ x.problematico=true; x.crmManual=null; x.upd=new Date().toISOString(); } });
+  } else {
+    await cambiarClientes(list=>{ const x=list.find(z=>z.id===cid); if(x){ if(x.problematico) x.problematico=false; x.crmManual=franja; x.upd=new Date().toISOString(); } });
+  }
+  showToast('Movido a '+(FRANJAS_CRM.find(f=>f[0]===franja)||[,franja])[1].replace(/^\S+\s/,'')+' ✓');
+  renderCRM();
+}
+async function crmQuitarPin(id){
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===id); if(x){ x.crmManual=null; x.upd=new Date().toISOString(); } });
+  showToast('Vuelve a calcularse solo ✓');
+  abrirClienteDetalle(id);
+}
+function htmlBuscadorCRM(){
+  return `<input type="search" placeholder="Buscar por nombre o teléfono..." value="${escH(crmQ)}" oninput="crmBuscar(this.value)" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>`;
+}
 function renderCRM(){
   const el=document.getElementById(crmTarget); if(!el) return;
   const proxCumples=proximosCumplesManual(), cumplesN=proxCumples.length+cumplesClientes(3).length;
@@ -3929,17 +4044,23 @@ function renderCRM(){
   const contactarN=contactosPendientesSt.list.filter(x=>!x.atendido).length;
   const cabecera=`<details class="card" style="margin-bottom:12px"${cumplesN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">🎂 Cumpleaños próximos${cumplesN?' ('+cumplesN+')':''}</summary><div style="margin-top:8px">${htmlCumplesRec(proxCumples).replace(/^<div class="sec-hdr"[\s\S]*?<\/div>/,'')}</div></details>
     <details class="card" style="margin-bottom:12px"${membVencerN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">💳 Membresías por vencer${membVencerN?' ('+membVencerN+')':''}</summary><div style="margin-top:8px">${htmlMembresiasPorVencerRec()}</div></details>
-    <details class="card" style="margin-bottom:12px"${contactarN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">📞 Para contactar${contactarN?' ('+contactarN+')':''}</summary><div style="margin-top:8px">${htmlParaContactarRec()}</div></details>
-    <details class="card" style="margin-bottom:12px"${crmFiltrosAbierto?' open':''} ontoggle="crmFiltrosAbierto=this.open"><summary style="cursor:pointer;font-size:13px;font-weight:800">🔎 Filtros avanzados${crmFiltroActivo(crmFiltros)?' · activos':''}</summary><div style="margin-top:10px">${htmlFiltrosCRM(crmFiltros)}</div></details>`;
+    <details class="card" style="margin-bottom:12px"${contactarN?' open':''}><summary style="cursor:pointer;font-size:13px;font-weight:800">📞 Para contactar${contactarN?' ('+contactarN+')':''}</summary><div style="margin-top:8px">${htmlParaContactarRec()}</div></details>`;
+  const vistaTog=`<div style="display:flex;gap:6px;margin-bottom:10px">${[['tablero','🗂️ Tablero'],['lista','📋 Lista']].map(([v,l])=>`<button onclick="crmSetVista('${v}')" style="${pillStyle(crmVista===v,'#4A136B')}">${l}</button>`).join('')}</div>`;
+  if(crmVista==='tablero'){
+    el.innerHTML=cabecera+vistaTog+htmlBuscadorCRM()+`<div id="crm-tablero-wrap"></div>`;
+    renderCRMTablero(document.getElementById('crm-tablero-wrap'));
+    return;
+  }
+  const filtrosBlock=`<details class="card" style="margin-bottom:12px"${crmFiltrosAbierto?' open':''} ontoggle="crmFiltrosAbierto=this.open"><summary style="cursor:pointer;font-size:13px;font-weight:800">🔎 Filtros avanzados${crmFiltroActivo(crmFiltros)?' · activos':''}</summary><div style="margin-top:10px">${htmlFiltrosCRM(crmFiltros)}</div></details>`;
   const q=nkey(crmQ);
   if(crmFiltroActivo(crmFiltros)){
     const datos=datosCRM(), estAg=estadosAgendaCRM();
     let L=clientesDir.filter(c=>clientePasaFiltros(c,datos,estAg,crmFiltros));
     if(q) L=L.filter(c=>c.nkey.includes(q)||String(c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
     const conDias=L.map(c=>{ const d=datos[c.id]; const dias=d&&d.fecha?diasDesdeStr(d.fecha):null; return {c,dias}; }).sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
-    el.innerHTML=cabecera+
-      `<input type="search" placeholder="Buscar por nombre o teléfono..." value="${escH(crmQ)}" oninput="crmBuscar(this.value)" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
-      <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${conDias.length} cliente${conDias.length===1?'':'s'} con estos filtros · ${conDias.filter(x=>x.c.tel).length} con teléfono cargado</div>
+    el.innerHTML=cabecera+vistaTog+filtrosBlock+
+      htmlBuscadorCRM()+
+      `<div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${conDias.length} cliente${conDias.length===1?'':'s'} con estos filtros · ${conDias.filter(x=>x.c.tel).length} con teléfono cargado</div>
       ${conDias.slice(0,80).map(({c,dias})=>{ const msjFn=MSJ_CRM[franjaClienteCRM(c,dias)]||MSJ_CRM.sin; const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0])); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">🔎</div><p>Nadie coincide con estos filtros.</p></div>'}
       ${conDias.length>80?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 80 de ${conDias.length}. Usá el buscador para encontrar a alguien puntual.</div>`:''}`;
     return;
@@ -3952,9 +4073,9 @@ function renderCRM(){
   L.sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
   const conTel=L.filter(x=>x.c.tel).length;
   const msjFn=MSJ_CRM[crmFranja]||MSJ_CRM.sin;
-  el.innerHTML=cabecera+
+  el.innerHTML=cabecera+vistaTog+filtrosBlock+
     `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${FRANJAS_CRM.map(([f,l])=>`<button onclick="crmSet('${f}')" style="${pillStyle(crmFranja===f,'#4A136B')}">${l} (${counts[f]})</button>`).join('')}</div>
-    <input type="search" placeholder="Buscar por nombre o teléfono..." value="${escH(crmQ)}" oninput="crmBuscar(this.value)" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
+    ${htmlBuscadorCRM()}
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${L.length} cliente${L.length===1?'':'s'} en esta franja · ${conTel} con teléfono cargado</div>
     ${L.slice(0,80).map(({c,u,dias})=>{ const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0])); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">📱</div><p>No hay clientes en esta franja.</p></div>'}
     ${L.length>80?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 80 de ${L.length}. Usá el buscador para encontrar a alguien puntual.</div>`:''}`;
