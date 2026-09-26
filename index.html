@@ -10652,6 +10652,10 @@ async function rpCargarDatos(){
     if(holdR&&Array.isArray(holdR.list)) holdsSt.list=holdR.list;
     if(agR&&Array.isArray(agR.list)) agendaSt.list=agR.list;
     if(rubR&&rubR.list&&rubR.list.length) rubros=rubR.list;
+    // Los rubros de cada profesional (Admin -> Equipo -> Cuentas) viven en un documento aparte
+    // (luffy/rubros_prof), no en luffy/users -- sin este paso, rubrosDeUsuario() siempre daba "sin
+    // restriccion" acá y el filtro de profesional por rubro no filtraba nada (bug real, reportado por Ivo).
+    await cargarRubrosProf();
   }catch(e){}
 }
 function rpOrden(){ return sucursales.length>1?['sucursal','servicios','profesional','horario','confirmar']:['servicios','profesional','horario','confirmar']; }
@@ -10796,8 +10800,13 @@ function rpRenderHorario(body){
       <span style="font-size:13.5px;font-weight:800;text-transform:capitalize;min-width:180px;text-align:center">${diaTxt}</span>
       <button onclick="rpNavDia(1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">›</button>
     </div>
-    ${libres.length?`<div style="font-size:10.5px;color:var(--muted2);margin-bottom:8px;display:flex;gap:14px"><span>🟢 con descuento por franja horaria</span><span>🔴 precio normal</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{ const hora=agHM(m); const R=rpCalc(rpState.fecha,hora); const conOferta=rpTieneOferta(R); return `<button onclick="rpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid ${conOferta?'#34d399':'#f87171'};background:${conOferta?'rgba(52,211,153,.1)':'rgba(248,113,113,.08)'};color:var(--text);font-family:var(--font);cursor:pointer;text-align:center">
-      <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${conOferta?'#34d399':'#f87171'};font-weight:700">${fp(R.total)}</div>${conOferta?'<div style="font-size:9px;color:#34d399">🎉 desc.</div>':''}</button>`; }).join('')}</div>`
+    ${libres.length?`<div style="font-size:10.5px;color:var(--muted2);margin-bottom:8px;display:flex;gap:14px;flex-wrap:wrap"><span>🟢 con descuento por franja horaria</span>${libres.length<=2?`<span>🔴 quedan pocos lugares</span>`:''}</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{
+      const hora=agHM(m); const R=rpCalc(rpState.fecha,hora); const conOferta=rpTieneOferta(R); const pocosLugares=!conOferta&&libres.length<=2;
+      const color=conOferta?'#34d399':pocosLugares?'#f87171':'var(--border2)';
+      const bg=conOferta?'rgba(52,211,153,.1)':pocosLugares?'rgba(248,113,113,.08)':'var(--s2)';
+      const txtColor=conOferta?'#34d399':pocosLugares?'#f87171':'var(--muted2)';
+      return `<button onclick="rpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid ${color};background:${bg};color:var(--text);font-family:var(--font);cursor:pointer;text-align:center">
+      <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${txtColor};font-weight:700">${fp(R.total)}</div>${conOferta?'<div style="font-size:9px;color:#34d399">🎉 desc.</div>':pocosLugares?'<div style="font-size:9px;color:#f87171">🔥 últimos</div>':''}</button>`; }).join('')}</div>`
       :'<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0">No hay horarios libres este día. Probá otro día ›</div>'}`;
 }
 async function rpElegirHorario(hora){
