@@ -3968,7 +3968,7 @@ function crmPointerDown(e,cid){
   if(e.button!=null&&e.button!==0) return;
   if(e.target.closest('a,button')) return;
   const card=e.currentTarget;
-  crmDrag={cid,startX:e.clientX,startY:e.clientY,moved:false,card,ghost:null,pointerId:e.pointerId};
+  crmDrag={cid,startX:e.clientX,startY:e.clientY,moved:false,card,ghost:null,pointerId:e.pointerId,scrollEl:card.closest('.kanban-scroll'),scrollDir:0,scrollTimer:null};
   try{ card.setPointerCapture(e.pointerId); }catch(err){}
   card.addEventListener('pointermove',crmPointerMove);
   card.addEventListener('pointerup',crmPointerUp);
@@ -3996,7 +3996,20 @@ function crmPointerMove(e){
     const under=document.elementFromPoint(e.clientX,e.clientY);
     const col=under&&under.closest('.crm-kcol-body');
     if(col) col.classList.add('drop-target');
+    crmAutoScroll(e.clientX);
   }
+}
+// El tablero hace scroll horizontal (7 columnas no entran juntas en pantalla): sin esto, arrastrar de una punta a la otra era imposible.
+function crmAutoScroll(clientX){
+  const d=crmDrag; if(!d||!d.scrollEl) return;
+  const r=d.scrollEl.getBoundingClientRect(), edge=44;
+  let dir=0;
+  if(clientX<r.left+edge) dir=-1;
+  else if(clientX>r.right-edge) dir=1;
+  if(dir===d.scrollDir) return;
+  d.scrollDir=dir;
+  if(d.scrollTimer){ clearInterval(d.scrollTimer); d.scrollTimer=null; }
+  if(dir) d.scrollTimer=setInterval(()=>{ d.scrollEl.scrollLeft+=dir*14; },16);
 }
 function crmPointerEnd(e){
   if(!crmDrag) return;
@@ -4005,6 +4018,7 @@ function crmPointerEnd(e){
   d.card.removeEventListener('pointerup',crmPointerUp);
   d.card.removeEventListener('pointercancel',crmPointerEnd);
   if(d.ghost) d.ghost.remove();
+  if(d.scrollTimer) clearInterval(d.scrollTimer);
   d.card.classList.remove('dragging');
   document.querySelectorAll('.crm-kcol-body.drop-target').forEach(x=>x.classList.remove('drop-target'));
   crmDrag=null;
