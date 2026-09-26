@@ -4222,8 +4222,12 @@ function resumenDiaSuc(sid,fecha){
   return R;
 }
 function htmlResumenDia(){
-  const L=sucursales.filter(x=>sucursalConRecepcion(x.id)); if(!L.length) return '';
   const hoy=hoyStr();
+  // Ademas de las sucursales con recepcion propia, mostrar las que hoy quedaron sincronizadas dentro de alguna caja (ej. French con Diego Laure)
+  const idsConRecepcion=sucursales.filter(x=>sucursalConRecepcion(x.id)).map(x=>x.id);
+  const idsEnSesionHoy=todasSesiones().filter(s=>s.fecha===hoy).flatMap(s=>s.sucursales||[]);
+  const idsMostrar=[...new Set([...idsConRecepcion,...idsEnSesionHoy])];
+  const L=sucursales.filter(x=>idsMostrar.includes(x.id)); if(!L.length) return '';
   const cards=L.map(su=>{
     const R=resumenDiaSuc(su.id,hoy); const pp=Object.entries(R.porProf).sort((a,b)=>b[1]-a[1]);
     return `<div class="card" style="margin:0;border-left:5px solid ${su.color}"><div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:12.5px;font-weight:800">📊 Hoy en ${escH(su.nombre)}</div><div style="font-size:21px;font-weight:900">${fp(R.total)}</div></div>
@@ -4321,9 +4325,13 @@ async function confirmarAperturaCaja(){
   const uc=ultimoCierre();
   if(uc&&(Math.abs(ef-numV(uc.efectivo))>=1||Math.abs(cta-numV(uc.cuenta))>=1)&&!await uiConfirm('No coincide con la app','Efectivo '+fp(ef-numV(uc.efectivo))+' y cuenta '+fp(cta-numV(uc.cuenta))+' respecto de lo que dejó la caja anterior. Queda registrado para el admin. ¿Abrir igual?',{ok:'Abrir igual'})) return;
   const b=bloqueParaApertura(); const ahora=new Date().toISOString();
+  // Las sucursales sin recepcion propia (ej. French) quedan siempre sincronizadas dentro de la misma caja: se abren y cierran junto con esta
+  const propias=sucursalesDe(profile).length?sucursalesDe(profile):sucursales.filter(x=>sucursalConRecepcion(x.id)).map(x=>x.id);
+  const sinRecepcion=sucursales.filter(x=>!sucursalConRecepcion(x.id)).map(x=>x.id);
+  const sucursalesSesion=[...new Set([...propias,...sinRecepcion])];
   const r=await cambiarCaja(ymHoy(),l=>{
     if(todasSesiones().some(s=>!s.cierre)) return {error:true};
-    const s={id:'cj'+Date.now().toString(36),fecha:hoyStr(),bloque:b?b.id:null,recId:profile.id,recNombre:profile.name,sucursal:profile.sucursal||((sucursales.find(x=>sucursalConRecepcion(x.id))||{}).id)||null,sucursales:sucursalesDe(profile).length?sucursalesDe(profile):sucursales.filter(x=>sucursalConRecepcion(x.id)).map(x=>x.id),
+    const s={id:'cj'+Date.now().toString(36),fecha:hoyStr(),bloque:b?b.id:null,recId:profile.id,recNombre:profile.name,sucursal:profile.sucursal||((sucursales.find(x=>sucursalConRecepcion(x.id))||{}).id)||null,sucursales:sucursalesSesion,
       apertura:{efectivo:ef,cuenta:cta,ts:ahora,difEf:uc?ef-numV(uc.efectivo):0,difCta:uc?cta-numV(uc.cuenta):0,nota,esperadoEf:uc?numV(uc.efectivo):null,esperadoCta:uc?numV(uc.cuenta):null},movs:[],entregas:[],cierre:null,upd:ahora};
     l.push(s); return {s};
   });
