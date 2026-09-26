@@ -2429,14 +2429,42 @@ function volverDeAgendaACobro(){
 function agNavDia(delta){ const d=new Date(agState.fecha+'T00:00:00'); d.setDate(d.getDate()+delta); agState.fecha=ymdLocal(d); renderAgenda(); }
 function agHoy(){ agState.fecha=hoyStr(); renderAgenda(); }
 
+// Recordatorio de turno 24hs antes: cola manual (sin API de WhatsApp Business) con boton para mandar a mano
+function turnosRecordatorioManana(){
+  const manana=addDias(hoyStr(),1);
+  return agendaSt.list.filter(a=>a.fecha===manana&&agEstado(a)==='agendado'&&!a.recordado).sort((a,b)=>a.hora.localeCompare(b.hora));
+}
+function abrirRecordatoriosManana(){
+  const L=turnosRecordatorioManana(), manana=addDias(hoyStr(),1);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📲 Recordatorios de mañana')+
+    `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 10px">Turnos agendados para ${fechaCortaStr(manana)}. Mandale un WhatsApp para confirmar y bajar los que no vienen.</div>`+
+    (L.length?L.map(a=>{
+      const c=clienteDe(a.clienteId);
+      const nombre=c?c.nombre:a.clienteNombre;
+      const txt='Hola '+nombre.split(' ')[0]+'! Te recordamos tu turno mañana '+fechaCortaStr(manana)+' a las '+a.hora+'hs en Inda Studio 💈 ¿Todo bien para venir?';
+      const wa=linkWhatsApp(c?c.tel:'',txt);
+      return `<div class="card" style="margin-bottom:8px">
+        <div style="font-size:13.5px;font-weight:800">${escH(nombre)}</div>
+        <div style="font-size:11.5px;color:var(--muted2);margin:2px 0">${a.hora}hs · ${escH((a.servicios[0]||{}).nombre||'')} · ${escH(a.profNombre||'')}</div>
+        <div style="display:flex;gap:8px;margin-top:6px">${wa?`<a href="${wa}" target="_blank" rel="noopener" class="btn btn-primary" style="flex:1;text-align:center;text-decoration:none;padding:9px">📲 WhatsApp</a>`:'<span style="font-size:11px;color:var(--muted);flex:1">Sin teléfono cargado</span>'}<button class="btn btn-ghost" onclick="marcarRecordatorioHecho('${a.id}')">✓ Ya avisé</button></div>
+      </div>`;
+    }).join(''):'<div class="empty"><div class="e-icon">📲</div><p>No hay recordatorios pendientes.</p></div>');
+  openModal('modal-registro');
+}
+async function marcarRecordatorioHecho(id){
+  await agendaSt.cambiar(l=>{ const a=l.find(x=>x.id===id); if(a){ a.recordado=true; a.upd=new Date().toISOString(); } });
+  abrirRecordatoriosManana();
+}
 function renderAgenda(){
   const ss = profile.role==='admin' ? sucursales : (sucursalesDe(profile).length?sucursales.filter(x=>sucursalesDe(profile).includes(x.id)):sucursales);
   if(!ss.some(x=>x.id===agState.sucursal)) agState.sucursal = (ss[0]&&ss[0].id)||agState.sucursal;
   const tb=document.getElementById('ag-toolbar');
   const d=new Date(agState.fecha+'T00:00:00');
   const diaTxt=d.toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'});
+  const nRec=turnosRecordatorioManana().length;
   tb.innerHTML=`
     ${agPendingReagendo?`<div style="background:rgba(74,19,107,.14);border:1.5px solid rgba(74,19,107,.5);border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:var(--accent2)">📅 Elegí cuándo vuelve ${escH(agPendingReagendo.clienteNombre)} — tocá un horario de ${escH(agPendingReagendo.profNombre)}</div>`:''}
+    ${(!agPendingReagendo&&nRec)?`<div class="card" style="margin:0;padding:10px 12px;cursor:pointer;border-color:rgba(96,165,250,.4)" onclick="abrirRecordatoriosManana()"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:800">📲 ${nRec} recordatorio${nRec===1?'':'s'} de mañana</span><span style="font-size:11px;color:var(--muted2)">enviar ›</span></div></div>`:''}
     <div style="display:flex;align-items:center;gap:8px">
       ${(ss.length>1&&!agProfFiltro)?`<select onchange="agState.sucursal=this.value;agGrid()" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:700">${ss.map(x=>`<option value="${x.id}" ${x.id===agState.sucursal?'selected':''}>${escH(x.nombre)}</option>`).join('')}</select>`:''}
       ${agPendingReagendo?'':`<button class="btn btn-primary" style="width:auto;padding:8px 14px;font-size:12px;margin-left:auto" onclick="agAbrirSlot(null,${AG_INICIO+4*AG_PASO})">+ Turno</button>`}
@@ -9658,11 +9686,12 @@ function htmlVentasResumenRec(){
 }
 function htmlCardAgenda(){
   const n=agendaSt.list.filter(a=>a.fecha===hoyStr()&&agEstado(a)==='agendado').length;
+  const nRec=turnosRecordatorioManana().length;
   return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirAgenda()">
     <div style="font-size:22px">📅</div>
     <div style="font-size:24px;font-weight:900;margin-top:2px">${n}</div>
     <div style="font-size:12.5px;font-weight:800">turno${n===1?'':'s'} agendado${n===1?'':'s'} hoy</div>
-    <div style="font-size:11px;color:var(--muted2)">Ver Agenda ›</div>
+    <div style="font-size:11px;color:${nRec?'#60a5fa':'var(--muted2)'}">${nRec?'📲 '+nRec+' recordatorio'+(nRec===1?'':'s')+' de mañana':'Ver Agenda ›'}</div>
   </div>`;
 }
 function htmlCardCobrar(){
