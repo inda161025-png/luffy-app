@@ -573,6 +573,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
         <button onclick="abrirRegistroTurno()" style="flex:1;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">+ Registrar turno</button>
         <button onclick="abrirArmarPaquete()" style="flex:1;padding:11px;border-radius:12px;border:none;background:#4A136B;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">🎁 Armar paquete</button>
       </div>
+      <button onclick="abrirPaqueteProximaVisita()" style="width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1.5px solid rgba(74,19,107,.4);background:transparent;color:#a89fff;font-family:var(--font);font-size:12.5px;font-weight:700;cursor:pointer">🎁 Paquete para la próxima visita (mientras el cliente sigue con vos)</button>
     </div>
 
     <!-- Puntos: franja chica -->
@@ -3200,6 +3201,36 @@ function abrirVentaPaquete(cid){
   ventaSel={tipo:'paq',cid:cid||null,clienteQ:'',medio:'efectivo',sel:[],rubroAbierto:null,modo:cid?'asignar':''};
   renderVentaPaquete(); openModal('modal-registro');
 }
+// Herramienta de venta para el profesional: armarle a mano el paquete de la PROXIMA visita, con el cliente todavia sentado
+// (no es un paso del cobro de hoy). Arranca preguntando que se le hizo hoy para sugerir con que combinarlo, usando
+// "sugiere" (Admin -> Catalogo -> Servicios) — si todavia no hay nada cargado ahi, arranca vacio y se arma a mano igual.
+let ppvHoy=[];
+function abrirPaqueteProximaVisita(){ ppvHoy=[]; renderPaqueteProximaVisita(); openModal('modal-registro'); }
+function ppvToggleHoy(id){ const i=ppvHoy.indexOf(id); if(i>=0) ppvHoy.splice(i,1); else ppvHoy.push(id); renderPaqueteProximaVisita(); }
+function ppvSugeridos(){
+  const out=new Set();
+  ppvHoy.forEach(id=>{ const s=servicios.find(x=>x.id===id); (s&&s.sugiere||[]).forEach(sid=>{ if(servicios.find(x=>x.id===sid)) out.add(sid); }); });
+  return out;
+}
+function renderPaqueteProximaVisita(){
+  const vis=serviciosVisibles(), color=(profile&&profile.color)||'#4A136B';
+  const pill=(s)=>`<button onclick="ppvToggleHoy('${s.id}')" style="${pillStyle(ppvHoy.includes(s.id),color)}">${escH(s.nombre)}</button>`;
+  const nSug=ppvSugeridos().size;
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🎁 Paquete para la próxima visita')+
+    `<div style="font-size:12.5px;color:var(--muted2);margin-bottom:12px">Mostrale el beneficio ahí en el momento: elegí qué le hiciste hoy y te armamos una propuesta para su próxima visita, ya con el descuento calculado.</div>
+    <div style="font-size:12px;font-weight:800;margin-bottom:8px">¿Qué le hiciste hoy?</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:16px">${vis.length?vis.map(pill).join(''):'<div style="font-size:12px;color:var(--muted)">No hay servicios cargados para tu rubro.</div>'}</div>
+    <button class="btn btn-primary" style="background:${color}" onclick="ppvContinuar()">${nSug?'Ver propuesta sugerida ('+nSug+') →':'Armar el paquete →'}</button>
+    ${nSug?`<button class="lnk" style="margin-top:8px;display:block;text-align:center" onclick="ppvSaltar()">Prefiero elegir yo los servicios</button>`:''}`;
+}
+function ppvContinuar(){
+  ventaSel={tipo:'paq',cid:null,clienteQ:'',medio:'efectivo',sel:[...ppvSugeridos()],rubroAbierto:null,modo:'',proximaVisita:true};
+  renderVentaPaquete();
+}
+function ppvSaltar(){
+  ventaSel={tipo:'paq',cid:null,clienteQ:'',medio:'efectivo',sel:[],rubroAbierto:null,modo:'',proximaVisita:true};
+  renderVentaPaquete();
+}
 function compartirPaqueteWhatsApp(){
   const s=ventaSel; if(!s) return;
   const items=s.sel.map(id=>servicios.find(x=>x.id===id)).filter(Boolean);
@@ -3208,7 +3239,7 @@ function compartirPaqueteWhatsApp(){
   const ctx=ctxCobro(c);
   const R=calcPaqueteItems(items,c,ctx,s.medio==='efectivo');
   const lineas=R.items.map(x=>'• '+x.svc.nombre+': '+fp(x.final)).join('\n');
-  const txt='🎁 Arma tu combo en Inda Studio:\n'+lineas+'\n\nTotal: '+fp(R.total)+' (antes '+fp(R.lista)+', ahorrás '+fp(R.lista-R.total)+')\n\n¿Te copa? Coordinamos cuando quieras 💈';
+  const txt=(s.proximaVisita?'🎁 Para tu próxima visita a Inda Studio:\n':'🎁 Arma tu combo en Inda Studio:\n')+lineas+'\n\nTotal: '+fp(R.total)+' (antes '+fp(R.lista)+', ahorrás '+fp(R.lista-R.total)+')\n\n¿Te copa? Coordinamos cuando quieras 💈';
   window.open('https://api.whatsapp.com/send?text='+encodeURIComponent(txt),'_blank');
 }
 // Entrada directa (hub del profesional, inicio de recepcion): arma el paquete y ve el total primero, el cliente se elige despues
@@ -3253,7 +3284,7 @@ function renderVentaPaquete(){
         <button class="btn btn-ghost" style="flex:1;min-width:160px" onclick="compartirPaqueteWhatsApp()">📤 Compartir por WhatsApp</button>
         <button class="btn btn-primary" style="flex:1;min-width:160px;background:${color}" onclick="ventaSel.modo='asignar';renderVentaPaquete()">👤 Asignar a un cliente</button>
       </div>`;
-  document.getElementById('registro-content').innerHTML=cabeceraModal('Armar paquete 🎁')+`
+  document.getElementById('registro-content').innerHTML=cabeceraModal(s.proximaVisita?'🎁 Paquete para la próxima visita':'Armar paquete 🎁')+`
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">Primero el descuento de cada servicio (como si fuera solo) y recién después el % del paquete: 1 = normal · ${escala}</div>
     ${rubrosHtml}
     <div class="card" style="margin:14px 0 10px">
@@ -4895,7 +4926,7 @@ function sucCajaDe(){
 }
 async function cajaOkAccion(){ return cajaOkParaCobrar(sucCajaDe()); }
 // Todo lo que mueve plata pide la caja abierta
-['abrirVentaMembresia','abrirVentaPaquete','abrirCobroDeuda','abrirFormSena','abrirVentaProducto'].forEach(n=>{
+['abrirVentaMembresia','abrirVentaPaquete','abrirPaqueteProximaVisita','abrirCobroDeuda','abrirFormSena','abrirVentaProducto'].forEach(n=>{
   const f=window[n]; if(typeof f!=='function') return;
   window[n]=async function(...a){ if(!await cajaOkAccion()) return; return f.apply(this,a); };
 });
@@ -7262,12 +7293,6 @@ function refreshCobro(){
     const s=servicios.find(x=>x.id===id);
     if(s&&svcConVariante(id)&&!cobro.opciones[id]) ex.push(`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:5px">${escH(s.nombre)}: ${escH(s.variante.titulo||'Opción')} <span style="color:#f472b6">*</span> <span style="color:var(--muted2);font-weight:500">(no quedó cargado, elegilo para poder cobrar)</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.variante.opciones.map((o,oi)=>`<button onclick="cobroOpcion('${id}',${oi})" style="${pillStyle(cobro.opciones[id]===o.n,color)}">${escH(o.n)}${numV(o.extra)?' +'+fp(o.extra):''}</button>`).join('')}</div></div>`);
   });
-  // Venta cruzada: si algun servicio elegido tiene "sugiere" configurado (Admin -> Catalogo -> Servicios), ofrecer sumarlo con un toque
-  if(!cobroParaProf){
-    const sugeridos=new Set();
-    cobro.servicios.forEach(id=>{ const s=servicios.find(x=>x.id===id); (s&&s.sugiere||[]).forEach(sid=>{ if(!cobro.servicios.includes(sid)&&servicios.find(x=>x.id===sid)) sugeridos.add(sid); }); });
-    if(sugeridos.size) ex.push(`<div style="margin-top:10px;padding:10px 12px;border-radius:12px;background:rgba(96,165,250,.08);border:1px solid rgba(96,165,250,.3)"><div style="font-size:11.5px;font-weight:800;color:#60a5fa;margin-bottom:6px">💡 También le podés ofrecer</div><div style="display:flex;flex-wrap:wrap;gap:6px">${[...sugeridos].map(sid=>{ const sv=servicios.find(x=>x.id===sid); return `<button onclick="cobroToggleServicio('${sid}');refreshCobro()" style="${pillStyle(false,'#60a5fa')}">+ ${escH(sv.nombre)} (${fp(sv.precio)})</button>`; }).join('')}</div></div>`);
-  }
   if(r.esNoche) ex.unshift(`<div style="background:rgba(74,19,107,.12);border:1px solid rgba(74,19,107,.35);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#a89fff;font-weight:700">🌙 Turno de noche (desde las ${escH(nocheCfg().desde)}): precio de lista, sin descuentos. Tu comisión es ${numV(nocheCfg().pct)}% fijo.</div>`);
   document.getElementById('cb-extra').innerHTML=ex.join('');
 
