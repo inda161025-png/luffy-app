@@ -772,6 +772,7 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
 <script>
 // ============ ANTHROPIC API ============
 async function callClaude(prompt, system='') {
@@ -4051,7 +4052,8 @@ function finBalance(c){
   const pctI=(v)=>ing>0?Math.round(v/ing*100)+'%':'—';
   const porGrupo=GRUPOS_FIN.map(([t,n])=>({t,n,cats:Object.entries(T.eg).filter(([id,v])=>v>0.5&&catFin(id).t===t).sort((a,b)=>b[1]-a[1])})).filter(g=>g.cats.length);
   const kpi=(l,v,col,sub2)=>`<div class="stat-card"><div class="sc-lbl">${l}</div><div class="sc-val" style="color:${col||'var(--text)'}">${v}</div><div class="sc-sub">${sub2||''}</div></div>`;
-  c.innerHTML=chipsFin()+`<div style="font-size:11.5px;color:var(--muted2);margin:-4px 2px 10px">${r.label} · ${finState.suc==='todas'?'todo el salón':escH((sucursalDe(finState.suc)||{}).nombre||'')}</div>
+  c.innerHTML=chipsFin()+`<button onclick="abrirExportExcel()" class="btn btn-ghost" style="width:100%;margin-bottom:10px">📥 Exportar a Excel para el contador</button>
+    <div style="font-size:11.5px;color:var(--muted2);margin:-4px 2px 10px">${r.label} · ${finState.suc==='todas'?'todo el salón':escH((sucursalDe(finState.suc)||{}).nombre||'')}</div>
     <div class="stat-grid" style="grid-template-columns:repeat(2,1fr)">${kpi('Ingresos',fp(ing),'#34d399')}${kpi('Egresos',fp(egr),'#f472b6')}${kpi('Resultado operativo',fp(gan),gan>=0?'#34d399':'#f472b6',gan>=0?'te queda':'estás perdiendo')}${kpi('Margen',mg+'%',mg>=0?'var(--text)':'#f472b6','de cada $100 que entran')}</div>
     ${reinv>0?`<div class="card" style="margin-bottom:10px;border-color:rgba(34,211,238,.35);background:rgba(34,211,238,.06)">${linea('Resultado operativo (antes de reinvertir)',`<b>${fp(gan)}</b>`)}${linea('− Reinversión del período',`<b style="color:#22d3ee">${fp(reinv)}</b>`)}${linea('<b>= Resultado después de reinversión</b>',`<b style="color:${ganDespues>=0?'#34d399':'#f472b6'}">${fp(ganDespues)}</b>`,'border-top:1px solid var(--border2);margin-top:4px;padding-top:6px')}</div>`:''}
     ${torta(T,'🥧 En qué se va la plata'+(finState.suc==='todas'?' (todo el salón)':''))}
@@ -4081,6 +4083,170 @@ function htmlProximosPagos(){
     ${L.map(({f,fe})=>{ const dd=diasEntre(hoy,fe); return linea(`${escH(f.nombre)} <span style="color:var(--muted);font-size:10.5px">${fechaCortaStr(fe)} · ${dd===0?'hoy':dd===1?'mañana':'en '+dd+' días'}</span>`,`<b>${fp(f.monto)}</b>`,dd<=3?'color:#fbbf24':''); }).join('')}
     ${linea(`💰 Comisiones de la quincena <span style="color:var(--muted);font-size:10.5px">se pagan el ${fechaCortaStr(q.hasta)} · en ${Math.max(0,diasEntre(hoy,q.hasta))} días</span>`,`<b>${fp(com)}</b>`)}
     ${!L.length?'<div style="font-size:12px;color:var(--muted);padding:6px 0">Cargá tus gastos fijos para ver cuándo vence cada uno.</div>':''}</div>`;
+}
+
+// ============ Exportar a Excel para el contador (ver finanzas/mockup-exportacion-contador.md) ============
+let exportFinState={suc:'todas',mes:''};
+function abrirExportExcel(){
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📥 Exportar a Excel')+
+    `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 12px;line-height:1.5">Arma un .xlsx prolijo para el contador (una hoja por sucursal, formato contable sin $), con los datos reales de la app.</div>
+    <div class="field"><label>Sucursal</label><select id="exf-suc" style="${selFin}">
+      <option value="todas" ${exportFinState.suc==='todas'?'selected':''}>Ambas (hojas separadas)</option>
+      ${sucursales.map(s=>`<option value="${s.id}" ${exportFinState.suc===s.id?'selected':''}>${escH(s.nombre)}</option>`).join('')}
+    </select></div>
+    <div class="field" style="margin-top:8px"><label>Período</label>
+      <select id="exf-modo" onchange="document.getElementById('exf-mes-w').style.display=this.value==='mes'?'':'none'" style="${selFin};width:100%">
+        <option value="todo" ${!exportFinState.mes?'selected':''}>Todo junto (histórico completo)</option>
+        <option value="mes" ${exportFinState.mes?'selected':''}>Un mes puntual</option>
+      </select>
+      <div id="exf-mes-w" style="margin-top:6px;${exportFinState.mes?'':'display:none'}"><input id="exf-mes" type="month" value="${exportFinState.mes||hoyStr().slice(0,7)}" style="${selFin};width:100%"/></div>
+    </div>
+    <button class="btn btn-primary" onclick="generarExcelContador()" style="margin-top:14px">📥 Generar y descargar</button>`;
+  openModal('modal-registro');
+}
+function hojaNombre(base,suc){ const n=base+' - '+suc.nombre; return n.length>31?n.slice(0,31):n; }
+function xlsxSheetFromRows(headerLines,colHeaders,rows,moneyCols,totalRow){
+  const aoa=[]; headerLines.forEach(l=>aoa.push([l])); aoa.push([]); aoa.push(colHeaders);
+  rows.forEach(r=>aoa.push(r)); if(totalRow) aoa.push(totalRow);
+  const ws=XLSX.utils.aoa_to_sheet(aoa);
+  const headerRowIdx=headerLines.length+1, fmt='#,##0;(#,##0)';
+  if(ws['!ref']){
+    const range=XLSX.utils.decode_range(ws['!ref']);
+    for(let R=headerRowIdx+1;R<=range.e.r;R++) moneyCols.forEach(C=>{ const addr=XLSX.utils.encode_cell({r:R,c:C}); if(ws[addr]&&typeof ws[addr].v==='number') ws[addr].z=fmt; });
+  }
+  ws['!cols']=colHeaders.map(h=>({wch:Math.max(12,String(h).length+2)}));
+  return ws;
+}
+function quincenasEnRango(D,desde,hasta){
+  const out=new Set();
+  D.turnos.forEach(t=>{ if(t.fecha>=desde&&t.fecha<=hasta) out.add(quincenaKey(t.fecha)); });
+  D.ventas.forEach(v=>{ if(v.fecha>=desde&&v.fecha<=hasta) out.add(quincenaKey(v.fecha)); });
+  return [...out].sort();
+}
+function qLabel(qk){ const p=qk.split('-'); return (p[2]==='1'?'1-15 ':'16-fin ')+(MESES[Number(p[1])-1]||'').slice(0,3)+' '+p[0].slice(2); }
+function agregarHojaResumen(wb,suc,T,periodoLabel){
+  const ing=sumaIng(T);
+  const ingRows=[['Servicios cobrados',T.ing.servicios],['Productos vendidos',T.ing.productos],['Membresías vendidas',T.ing.membresias],['Paquetes vendidos',T.ing.paquetes],['Señas recibidas',T.ing.senas||0]].filter(([,v])=>v>0.5);
+  const comisiones=T.eg.comisiones||0, quedaLocal=ing-comisiones;
+  const gastoRows=Object.entries(T.eg).filter(([id,v])=>id!=='comisiones'&&v>0.5).sort((a,b)=>b[1]-a[1]).map(([id,v])=>[catFin(id).n,-v]);
+  const totGastos=gastoRows.reduce((s,[,v])=>s+v,0);
+  const gan=quedaLocal+totGastos, reinv=T.reinversion||0, ganDespues=gan-reinv;
+  const rows=[...ingRows,['Total ingresos',ing],['Comisiones a profesionales',-comisiones],['Queda al local',quedaLocal],...gastoRows,['Resultado operativo',gan],['Reinversión del período',-reinv],['Resultado después de reinversión',ganDespues]];
+  const ws=xlsxSheetFromRows(['INDA STUDIO — '+suc.nombre,periodoLabel,'Generado: '+fechaCortaStr(hoyStr())],['Concepto','Monto'],rows,[1],null);
+  XLSX.utils.book_append_sheet(wb,ws,hojaNombre('Resumen',suc));
+}
+function agregarHojaIngresos(wb,suc,D,desde,hasta){
+  const items=[];
+  D.turnos.filter(t=>t.fecha>=desde&&t.fecha<=hasta&&sucDeReg(t,t.prof)===suc.id).forEach(t=>{
+    items.push({fecha:t.fecha,row:[fechaCortaStr(t.fecha),nombreRubro(rubroDeTurno(t,t.prof))||'—',t.servicio||'Servicio',numV(t.subtotal!=null?t.subtotal:t.monto),numV(t.descuento||0),numV(t.aCobrar!=null?t.aCobrar:t.monto),medioTxt(t.medio),t.prof.name]});
+  });
+  D.ventas.filter(v=>v.fecha>=desde&&v.fecha<=hasta&&sucDeReg(v,v.vendedor)===suc.id).forEach(v=>{
+    items.push({fecha:v.fecha,row:[fechaCortaStr(v.fecha),'Producto',v.productoNombre+' x'+v.cantidad,numV(v.precioUnitario)*numV(v.cantidad),0,numV(v.total),medioTxt(v.medio),v.vendedor.name]});
+  });
+  items.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const rows=items.map(x=>x.row), total=rows.reduce((s,r)=>s+r[5],0);
+  const ws=xlsxSheetFromRows(['INDA STUDIO — '+suc.nombre,'Ingresos','Generado: '+fechaCortaStr(hoyStr())],['Fecha','Rubro','Servicio','Precio lista','Descuento','Total cobrado','Medio de pago','Profesional'],rows,[3,4,5],['Total del período','','','','',total,'','']);
+  XLSX.utils.book_append_sheet(wb,ws,hojaNombre('Ingresos',suc));
+}
+// Reune, por profesional, lo facturado/efectivo/MP/comision en UNA sucursal y un rango — mismo criterio que finCalc (sucDeReg, comTurno, extrasAsegurado)
+function resumenProfPorSucursal(sucId,desde,hasta,D,pctMap){
+  const m={}; const get=(u)=>m[u.id]||(m[u.id]={prof:u,facturado:0,efectivo:0,mp:0,comision:0});
+  D.turnos.filter(t=>t.fecha>=desde&&t.fecha<=hasta&&sucDeReg(t,t.prof)===sucId).forEach(t=>{
+    const y=get(t.prof), cash=numV(t.aCobrar!=null?t.aCobrar:t.monto);
+    y.facturado+=cash; if(t.medio==='efectivo') y.efectivo+=cash; else y.mp+=cash;
+    const pct=pctMap[t.prof.id+'|'+quincenaKey(t.fecha)]||0; y.comision+=comTurno(t,pct);
+  });
+  D.ventas.filter(v=>v.fecha>=desde&&v.fecha<=hasta&&sucDeReg(v,v.vendedor)===sucId).forEach(v=>{
+    const y=get(v.vendedor), cash=numV(v.total);
+    y.facturado+=cash; if(v.medio==='efectivo') y.efectivo+=cash; else y.mp+=cash;
+    y.comision+=numV(v.comision);
+  });
+  extrasAsegurado(D,desde,hasta).forEach(x=>{ if(sucDeReg({},x.prof)===sucId){ const y=get(x.prof); y.comision+=extraAplicable(x); } });
+  return Object.values(m);
+}
+function agregarHojaResumenProf(wb,suc,D,pctMap,desde,hasta){
+  const L=resumenProfPorSucursal(suc.id,desde,hasta,D,pctMap).sort((a,b)=>b.facturado-a.facturado);
+  const rows=L.map(x=>{
+    const pctMPv=x.facturado>0?Math.round(x.mp/x.facturado*100):0, saldo=x.comision-x.mp;
+    const saldoTxt=saldo>1?('Local le debe '+fp(saldo)):saldo<-1?('Depositá '+fp(-saldo)):'Cuentas saldadas';
+    return [x.prof.name,x.facturado,x.efectivo,x.mp,pctMPv,x.comision,saldoTxt];
+  });
+  const totFact=L.reduce((s,x)=>s+x.facturado,0);
+  const ws=xlsxSheetFromRows(['INDA STUDIO — '+suc.nombre,'Resumen por profesional','Generado: '+fechaCortaStr(hoyStr())],['Profesional','Facturado total','Efectivo (queda en el local)','Mercado Pago (cuenta propia)','% en MP','Comisión que le corresponde','Saldo del período'],rows,[1,2,3,5],['Total',totFact,'','','','','']);
+  XLSX.utils.book_append_sheet(wb,ws,hojaNombre('Por profesional',suc));
+}
+function agregarHojaFichaProf(wb,suc){
+  const profs=allUsers.filter(u=>esProf(u)&&sucursalesDe(u).includes(suc.id));
+  const rows=profs.map(u=>[u.name,u.aliasMP||'(a completar)',u.monotributo||'(a completar)',u.obraSocial||'(a completar)']);
+  const ws=xlsxSheetFromRows(['INDA STUDIO — '+suc.nombre,'Ficha de cada profesional (referencia)','Generado: '+fechaCortaStr(hoyStr())],['Profesional','Alias / cuenta de Mercado Pago','Monotributo (categoría / costo mensual)','Obra social'],rows,[],null);
+  XLSX.utils.book_append_sheet(wb,ws,hojaNombre('Ficha prof.',suc));
+}
+function agregarHojaGastos(wb,suc,desde,hasta){
+  const items=[];
+  finData.gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta&&(g.sucursal===suc.id||!g.sucursal||g.sucursal==='todas')).forEach(g=>{
+    const compartido=!g.sucursal||g.sucursal==='todas', monto=compartido?numV(g.monto)/Math.max(1,sucursales.length):numV(g.monto);
+    items.push({fecha:g.fecha,row:[fechaCortaStr(g.fecha),catFin(g.categoria).n,(g.desc||'')+(compartido?' (compartido entre sucursales)':''),monto,g.origen==='proveedor'?'Compra a proveedor':'Carga manual']});
+  });
+  todasSesiones().forEach(s=>movsVivos(s).filter(m=>m.tipo==='salida'&&m.gasto).forEach(m=>{
+    const f=ymdLocal(new Date(m.ts)); if(f<desde||f>hasta) return;
+    const sId=s.sucursal||suc.id; if(sId!==suc.id) return;
+    items.push({fecha:f,row:[fechaCortaStr(f),catFin(m.cat||'otros').n,m.detalle||m.concepto||'',numV(m.monto),'Movimiento de caja']});
+  }));
+  items.sort((a,b)=>a.fecha.localeCompare(b.fecha));
+  const rows=items.map(x=>x.row), total=rows.reduce((s,r)=>s+r[3],0);
+  const ws=xlsxSheetFromRows(['INDA STUDIO — '+suc.nombre,'Gastos','Generado: '+fechaCortaStr(hoyStr())],['Fecha','Categoría','Detalle','Monto','Origen'],rows,[3],['Total del período','','',total,'']);
+  XLSX.utils.book_append_sheet(wb,ws,hojaNombre('Gastos',suc));
+}
+function agregarHojaLiquidacion(wb,suc,D,pctMap,desde,hasta){
+  const profs=allUsers.filter(u=>esProf(u)&&sucursalesDe(u).includes(suc.id));
+  const qks=quincenasEnRango(D,desde,hasta), rows=[];
+  profs.forEach(u=>{
+    const turnosSuc=D.turnos.filter(t=>t.prof.id===u.id&&sucDeReg(t,u)===suc.id);
+    const ventasSuc=D.ventas.filter(v=>v.vendedor.id===u.id&&sucDeReg(v,u)===suc.id);
+    const fmGlobal=factPorQuincena(D.turnos.filter(t=>t.prof.id===u.id));
+    qks.forEach(qk=>{
+      const c=comisionQuincenaDe(u,qk,turnosSuc); if(!c.fact&&!c.comision) return;
+      const aseg=estadoAsegurado(u,qk,fmGlobal,c.comision), extra=extraAplicable(aseg);
+      const tq=turnosSuc.filter(t=>t.fecha&&quincenaKey(t.fecha)===qk), vq=ventasSuc.filter(v=>v.fecha&&quincenaKey(v.fecha)===qk);
+      const porMedio=(m)=>tq.filter(t=>t.medio===m).reduce((s,t)=>s+numV(t.aCobrar!=null?t.aCobrar:t.monto),0)+vq.filter(v=>v.medio===m).reduce((s,v)=>s+numV(v.total),0);
+      const efectivo=porMedio('efectivo'), mp=porMedio('mp')+porMedio('tarjeta'), totalLiq=c.comision+extra, saldo=totalLiq-mp;
+      const saldoTxt=saldo>1?('Local le debe '+fp(saldo)):saldo<-1?('Depositá '+fp(-saldo)):'Cuentas saldadas';
+      rows.push([qLabel(qk),u.name,nombreRubro((u.rubros&&u.rubros[0])||'')||'—',c.fact,Math.round(c.pct*10)/10,c.normal+c.paqNormal,c.extra+c.paqExtra+extra,totalLiq,efectivo,mp,saldoTxt]);
+    });
+  });
+  const ws=xlsxSheetFromRows(['INDA STUDIO — '+suc.nombre,'Liquidación de empleados','Generado: '+fechaCortaStr(hoyStr())],['Quincena','Profesional','Rubro','Facturado','% comisión','Comisión normal','Plata extra','Total liquidado','Cobró en efectivo','Cobró por MP','Saldo'],rows,[3,5,6,7,8,9],null);
+  XLSX.utils.book_append_sheet(wb,ws,hojaNombre('Liquidación',suc));
+}
+function agregarHojaCaja(wb,suc,T){
+  const rows=T.interno.slice().sort((a,b)=>String(a.ts).localeCompare(String(b.ts))).map(m=>[fechaCortaStr(ymdLocal(new Date(m.ts))),catInterno(m.interno).n,m.detalle||'',numV(m.monto)]);
+  const ws=xlsxSheetFromRows(['INDA STUDIO — '+suc.nombre,'Caja y movimientos internos','Generado: '+fechaCortaStr(hoyStr())],['Fecha','Tipo','Detalle','Monto'],rows,[3],null);
+  XLSX.utils.book_append_sheet(wb,ws,hojaNombre('Caja interno',suc));
+}
+function generarExcelContador(){
+  if(typeof XLSX==='undefined'){ showToast('No se pudo cargar la librería de Excel (revisá la conexión a internet e intentá de nuevo)'); return; }
+  const sucSel=document.getElementById('exf-suc').value, modo=document.getElementById('exf-modo').value;
+  const mes=modo==='mes'?document.getElementById('exf-mes').value:'';
+  if(modo==='mes'&&!mes){ showToast('Elegí el mes'); return; }
+  exportFinState={suc:sucSel,mes};
+  const desde=mes?mes+'-01':'2000-01-01';
+  const hasta=mes?(()=>{ const [y,m]=mes.split('-').map(Number); return mes+'-'+pad2(finMesUTC(y,m)); })():hoyStr();
+  const periodoLabel=mes?(MESES[Number(mes.split('-')[1])-1]+' '+mes.split('-')[0]):'Todo el histórico (hasta '+fechaCortaStr(hoyStr())+')';
+  const sucs=sucSel==='todas'?sucursales:sucursales.filter(s=>s.id===sucSel);
+  if(!sucs.length){ showToast('No hay sucursales cargadas'); return; }
+  const D=adminDatos(), pctMap=pctPorQuincena(D), S=finCalc(desde,hasta,{D,pctMap});
+  const wb=XLSX.utils.book_new();
+  sucs.forEach(suc=>{
+    agregarHojaResumen(wb,suc,S[suc.id]||{ing:{servicios:0,productos:0,membresias:0,paquetes:0,senas:0},eg:{},reinversion:0,interno:[]},periodoLabel);
+    agregarHojaIngresos(wb,suc,D,desde,hasta);
+    agregarHojaResumenProf(wb,suc,D,pctMap,desde,hasta);
+    agregarHojaFichaProf(wb,suc);
+    agregarHojaGastos(wb,suc,desde,hasta);
+    agregarHojaLiquidacion(wb,suc,D,pctMap,desde,hasta);
+    agregarHojaCaja(wb,suc,S[suc.id]||{interno:[]});
+  });
+  const nombreSuc=sucSel==='todas'?'Ambas sucursales':sucs[0].nombre;
+  XLSX.writeFile(wb,'Inda Studio - '+nombreSuc+' - '+(mes||'historico')+'.xlsx');
+  closeModal('modal-registro'); showToast('Excel generado ✓');
 }
 
 // ---------- gastos (dia a dia) ----------
@@ -5139,7 +5305,11 @@ function editarCuenta(id){
     ${esAdm?'':`<div class="field" style="margin-top:8px"><label>Rol</label><select id="ec-rol" style="${selFin}"><option value="profesional" ${u.role==='profesional'?'selected':''}>Profesional</option><option value="recepcionista" ${u.role==='recepcionista'?'selected':''}>Recepcionista</option>${u.role==='encargado'?'<option value="encargado" selected>Encargado (cuenta vieja)</option>':''}</select></div>
     <div class="field" style="margin-top:8px"><label>Sucursales donde trabaja${esRec?' (a cuáles atiende)':''}</label>${sucursales.map(s=>`<label class="rub-opt" style="border-left:5px solid ${s.color}"><input type="checkbox" class="ec-suc" value="${s.id}" ${sucursalesDe(u).includes(s.id)?'checked':''}/> ${escH(s.nombre)}</label>`).join('')}<div style="font-size:11px;color:var(--muted);margin-top:4px">${esRec?'Si atiende las dos sucursales, le llega todo de las dos y en French los profesionales ya no cierran sus turnos.':'Si trabaja en dos, al cobrar elige en cuál está.'}</div></div>`}
     ${esPro?`<div style="display:flex;gap:8px;margin-top:10px"><button class="btn btn-ghost" style="flex:1" onclick="abrirRubrosProf('${u.id}')">🏷️ Rubros</button><button class="btn btn-ghost" style="flex:1" onclick="abrirComisionUsuario('${u.id}')">💰 Comisión</button></div>
-    <label class="rub-opt" style="margin-top:8px"><input type="checkbox" id="ec-enc" ${u.esEncargado?'checked':''}/> 📦 Es encargado (controla el stock, comisión fija)</label>`:''}
+    <label class="rub-opt" style="margin-top:8px"><input type="checkbox" id="ec-enc" ${u.esEncargado?'checked':''}/> 📦 Es encargado (controla el stock, comisión fija)</label>
+    <div class="sec-title" style="margin:14px 0 8px">Datos para el contador (ficha de referencia)</div>
+    <div class="field"><label>Alias o cuenta de Mercado Pago</label><input id="ec-mp" value="${escH(u.aliasMP||'')}" placeholder="Ej: fede.barbero.mp"/></div>
+    <div class="field" style="margin-top:8px"><label>Monotributo (categoría / costo mensual)</label><input id="ec-mono" value="${escH(u.monotributo||'')}" placeholder="Ej: Categoría C, $45.000/mes"/></div>
+    <div class="field" style="margin-top:8px"><label>Obra social</label><input id="ec-os" value="${escH(u.obraSocial||'')}" placeholder="Ej: OSDE, propia"/></div>`:''}
     <button class="btn btn-primary" onclick="guardarCuenta('${u.id}')" style="margin-top:14px">Guardar cambios</button>
     ${profile&&profile.id!==u.id?(u.passReset?`<div class="card" style="margin-top:10px;border:1.5px solid #fbbf24;background:rgba(251,191,36,.08);font-size:12px;color:#fbbf24;font-weight:700">🔓 Habilitado: puede definir una contraseña nueva la próxima vez que entre. Se cierra solo apenas la cambie.</div><button class="btn btn-ghost" onclick="cancelarCambioPassword('${u.id}')" style="margin-top:8px">Cancelar habilitación</button>`:`<button class="btn btn-ghost" onclick="habilitarCambioPassword('${u.id}')" style="margin-top:8px">🔓 Habilitar cambio de contraseña</button>`):''}
     ${esAdm?'':`<button class="btn btn-ghost" onclick="darDeBaja('${u.id}')" style="margin-top:8px;color:#f472b6">🗄 Dar de baja</button>`}`;
@@ -5169,6 +5339,7 @@ async function guardarCuenta(id){
   const tp=document.getElementById('ec-tprof');
   if(tp){ patch.tambienProf=tp.checked; const ss=[...document.querySelectorAll('.ec-suc:checked')].map(x=>x.value); patch.sucursales=ss; patch.sucursal=ss[0]||null; }
   const enc=document.getElementById('ec-enc'); if(enc){ patch.esEncargado=enc.checked; if(enc.checked!==!!u.esEncargado) patch.comisionFija=null; }
+  const mp=document.getElementById('ec-mp'); if(mp){ patch.aliasMP=mp.value.trim(); patch.monotributo=document.getElementById('ec-mono').value.trim(); patch.obraSocial=document.getElementById('ec-os').value.trim(); }
   if(await editarUsuario(id,patch)){ closeModal('modal-registro'); showToast('Cuenta actualizada ✓'); renderAdmin(); }
 }
 async function darDeBaja(id){
