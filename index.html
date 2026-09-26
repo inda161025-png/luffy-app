@@ -10658,9 +10658,12 @@ function rpOrden(){ return sucursales.length>1?['sucursal','servicios','profesio
 function rpVolver(){ const o=rpOrden(); const i=o.indexOf(rpState.paso); if(i>0){ rpState.paso=o[i-1]; rpRender(); } }
 function rpBackBtn(){ return rpOrden().indexOf(rpState.paso)>0?`<button onclick="rpVolver()" class="lnk" style="margin-bottom:10px">‹ Atrás</button>`:''; }
 function rpDuracion(){ return rpState.servicioIds.reduce((s,id)=>s+svcDuracion(servicios.find(x=>x.id===id)),0); }
-// French no tiene los demas rubros (es la sucursal sin recepcion, senal que ya usa el resto de la app para distinguirla,
-// en vez de hardcodear un id) — Diego Laure ofrece todos los rubros cargados.
-function rpRubrosSucursal(sucId){ return sucursalConRecepcion(sucId)?rubros.map(r=>r.id):['barberia']; }
+// French no tiene los demas rubros. OJO: no usar sucursalConRecepcion() aca — esa funcion mira si HAY UNA
+// RECEPCIONISTA ASIGNADA a la sucursal ahora mismo (para el bloqueo de caja/avisos), y una misma recepcionista
+// puede estar asignada a las dos sucursales a la vez (para que le llegue todo de las dos) — eso hacia que
+// French apareciera con "recepcion" y mostrara todos los rubros. Lo que hace falta es el dato estructural fijo
+// de la sucursal (s.recepcion, el mismo que prende/apaga "toggleRecepcionSuc" en Admin), no quien la atiende hoy.
+function rpRubrosSucursal(sucId){ const s=sucursalDe(sucId); return (s&&s.recepcion===false)?['barberia']:rubros.map(r=>r.id); }
 // Mejor % de una promo fija para ese rubro en esa sucursal, sin mirar dia/hora (es una vidriera, no el calculo de un cobro puntual)
 // y sin contar las que dependen de la profesion del cliente (la reserva publica todavia no la conoce).
 function rpMejorFijoRubro(sucId,rubroId){
@@ -10713,10 +10716,10 @@ function rpRenderSucursal(body){
   body.innerHTML=`<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">Elegí la sucursal</div>
     ${sucursales.map(s=>{
       const rbs=rpRubrosSucursal(s.id);
-      const linea=rbs.map(rid=>{ const pct=rpMejorFijoRubro(s.id,rid); return escH(nombreRubro(rid)||rid)+(pct?' hasta '+pct+'%':''); }).join(' · ');
+      const filas=rbs.map(rid=>{ const pct=rpMejorFijoRubro(s.id,rid); return `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12.5px"><span style="color:var(--muted2)">${escH(nombreRubro(rid)||rid)}</span><span style="font-weight:700;color:${pct?'#34d399':'var(--muted)'}">${pct?'hasta '+pct+'%':'sin promo'}</span></div>`; }).join('');
       return `<div class="card" style="cursor:pointer;margin-bottom:10px;border-left:5px solid ${s.color}" onclick="rpElegirSucursal('${s.id}')">
-        <div style="font-size:15px;font-weight:800">${escH(s.nombre)}</div>
-        <div style="font-size:11.5px;color:var(--muted2);margin-top:4px;line-height:1.5">${linea||'Sin promos fijas cargadas'}</div>
+        <div style="font-size:17px;font-weight:900;margin-bottom:6px">${escH(s.nombre)}</div>
+        ${filas||'<div style="font-size:11.5px;color:var(--muted2)">Sin rubros cargados</div>'}
       </div>`;
     }).join('')}
     <div style="font-size:10.5px;color:var(--muted);margin-top:4px">Eligiendo 2 o más servicios juntos (donde haya) sumás además hasta 15% extra por paquete.</div>`;
@@ -10742,20 +10745,31 @@ function rpRenderServicios(body){
         return `<div class="card" style="cursor:pointer;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center" onclick="rpAbrirRubro('${rid}')"><div><div style="font-size:14px;font-weight:800">${escH(nombreRubro(rid)||rid)}</div><div style="font-size:11px;color:var(--muted2)">${L.length} servicio${L.length===1?'':'s'}${sel?' · '+sel+' elegido'+(sel===1?'':'s'):''}</div></div><span style="color:var(--muted)">›</span></div>`;
       }).join('')}
       ${rpResumenSeleccion()}
-      ${rpState.servicioIds.length?`<button class="btn btn-primary" style="margin-top:14px;width:100%" onclick="rpContinuarServicios()">Continuar</button>`:''}`;
+      ${rpBotonesSeleccion(false)}`;
     return;
   }
   rpRenderServiciosDeRubro(body,rpState.rubroAbierto,false);
 }
 function rpAbrirRubro(rid){ rpState.rubroAbierto=rid; rpRender(); }
 function rpCerrarRubro(){ rpState.rubroAbierto=null; rpRender(); }
+// Que elegir uno solo y listo se sienta tan valido como seguir agregando (pedido de Ivo, ronda 3): una vez que hay
+// algo elegido, "Reservar ahora" queda siempre como opcion principal, y "Agregar otro servicio" (volver a los
+// rubros) solo aparece cuando de verdad hay a donde volver — en la lista de un solo rubro ya se ve todo, alcanza
+// con seguir tildando ahi mismo.
+function rpBotonesSeleccion(conAgregarOtroRubro){
+  if(!rpState.servicioIds.length) return '';
+  return `<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+    <button class="btn btn-primary" style="width:100%;margin:0" onclick="rpContinuarServicios()">📅 Reservar ahora</button>
+    ${conAgregarOtroRubro?`<button class="btn btn-ghost" style="width:100%;margin:0" onclick="rpCerrarRubro()">+ Agregar otro servicio</button>`:''}
+  </div>`;
+}
 function rpRenderServiciosDeRubro(body,rid,unico){
   const L=servicios.filter(s=>(s.rubro||'')===rid);
   body.innerHTML=`${unico?rpBackBtn():`<button onclick="rpCerrarRubro()" class="lnk" style="margin-bottom:10px">‹ Otros rubros</button>`}
     <div style="font-size:13px;color:var(--muted2);margin-bottom:14px">${unico?'¿Qué te querés hacer? (elegí uno o más)':escH(nombreRubro(rid)||rid)+' — elegí uno o más'}</div>
     ${L.map(s=>`<label class="rub-opt" style="display:flex;justify-content:space-between;align-items:center"><span><input type="checkbox" onchange="rpToggleServicio('${s.id}')" ${rpState.servicioIds.includes(s.id)?'checked':''}/> ${escH(s.nombre)}</span><b>${fp(s.precio)}</b></label>`).join('')||'<div style="font-size:13px;color:var(--muted)">No hay servicios cargados en este rubro.</div>'}
     ${rpResumenSeleccion()}
-    <button class="btn btn-primary" style="margin-top:16px;width:100%" onclick="rpContinuarServicios()">Continuar</button>`;
+    ${rpBotonesSeleccion(!unico)}`;
 }
 function rpToggleServicio(id){ const i=rpState.servicioIds.indexOf(id); if(i>=0) rpState.servicioIds.splice(i,1); else rpState.servicioIds.push(id); rpRender(); }
 function rpContinuarServicios(){ if(!rpState.servicioIds.length){ showToast('Elegí al menos un servicio'); return; } rpState.paso='profesional'; rpRender(); }
@@ -10781,8 +10795,8 @@ function rpRenderHorario(body){
       <span style="font-size:13.5px;font-weight:800;text-transform:capitalize;min-width:180px;text-align:center">${diaTxt}</span>
       <button onclick="rpNavDia(1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">›</button>
     </div>
-    ${libres.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{ const hora=agHM(m); const R=rpCalc(rpState.fecha,hora); const conDesc=R.total<R.lista; return `<button onclick="rpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid ${conDesc?'#34d399':'var(--border2)'};background:${conDesc?'rgba(52,211,153,.08)':'var(--s2)'};color:var(--text);font-family:var(--font);cursor:pointer;text-align:center">
-      <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${conDesc?'#34d399':'var(--muted2)'};font-weight:700">${fp(R.total)}</div>${conDesc?'<div style="font-size:9px;color:#34d399">🎉 desc.</div>':''}</button>`; }).join('')}</div>`
+    ${libres.length?`<div style="font-size:10.5px;color:var(--muted2);margin-bottom:8px;display:flex;gap:14px"><span>🟢 con descuento por franja horaria</span><span>🔴 precio normal</span></div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{ const hora=agHM(m); const R=rpCalc(rpState.fecha,hora); const conOferta=rpTieneOferta(R); return `<button onclick="rpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid ${conOferta?'#34d399':'#f87171'};background:${conOferta?'rgba(52,211,153,.1)':'rgba(248,113,113,.08)'};color:var(--text);font-family:var(--font);cursor:pointer;text-align:center">
+      <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${conOferta?'#34d399':'#f87171'};font-weight:700">${fp(R.total)}</div>${conOferta?'<div style="font-size:9px;color:#34d399">🎉 desc.</div>':''}</button>`; }).join('')}</div>`
       :'<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0">No hay horarios libres este día. Probá otro día ›</div>'}`;
 }
 async function rpElegirHorario(hora){
