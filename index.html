@@ -6716,7 +6716,7 @@ function abrirVentasCompleto(){
   openModal('modal-registro');
 }
 function openModal(id){ document.getElementById(id).classList.add('open'); }
-function closeModal(id){ document.getElementById(id).classList.remove('open'); if(id==='modal-registro') tareasModalAbierto=false; }
+function closeModal(id){ document.getElementById(id).classList.remove('open'); if(id==='modal-registro'){ tareasModalAbierto=false; cosasPorCobrarAbierto=false; cajaCompletaAbierta=false; } }
 
 function renderRegistro(){
   const c=document.getElementById('registro-content');
@@ -9918,7 +9918,9 @@ function htmlCardCaja(){
 function html4CardsRec(){
   return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:14px 0">${htmlCardAgenda()}${htmlCardCobrar()}${htmlCardCRM()}${htmlCardCaja()}</div>`;
 }
+let cosasPorCobrarAbierto=false, cajaCompletaAbierta=false;
 function abrirCosasPorCobrar(){
+  cosasPorCobrarAbierto=true;
   const deudas=todasLasDeudas(), sen=senasPend();
   document.getElementById('registro-content').innerHTML=cabeceraModal('💳 Cosas por cobrar')+
     htmlTurnosPendientesRec()+htmlPaquetesNuevosRec()+htmlSugerenciasPaqRec()+
@@ -9928,6 +9930,7 @@ function abrirCosasPorCobrar(){
   openModal('modal-registro');
 }
 function abrirCajaCompleto(){
+  cajaCompletaAbierta=true;
   document.getElementById('registro-content').innerHTML=cabeceraModal('💰 Caja')+htmlCajaRecBase()+htmlResumenDia()+htmlTableroRec()+htmlVentasResumenRec();
   openModal('modal-registro');
 }
@@ -9973,6 +9976,11 @@ function renderRecepcion(){
     ${htmlClientesRec()}
   `;
   recRenderBusqueda();
+  // Si recepcion dejo abierto el modal de "Cosas por cobrar" o "Caja" (algo que otro dispositivo puede
+  // estar tocando en cualquier momento), lo refrescamos tambien en cada poll — si no, quedaba mostrando
+  // datos viejos hasta que lo cerraba y volvia a abrir (turnos pendientes que no "aparecian" sin F5).
+  if(cosasPorCobrarAbierto) abrirCosasPorCobrar();
+  else if(cajaCompletaAbierta) abrirCajaCompleto();
 }
 
 function goToRec(dest){
