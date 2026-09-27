@@ -6334,6 +6334,23 @@ function htmlSenaCliente(c){
   return `<div class="card" style="margin-bottom:10px;border-color:rgba(74,19,107,.5);background:rgba(74,19,107,.06)"><div style="font-size:12.5px;font-weight:800;color:#4A136B">💵 Dejó seña: ${fp(L.reduce((a,s)=>a+saldoSena(s),0))}</div>${L.map(s=>`<div style="font-size:12px;margin-top:4px">${fp(saldoSena(s))} · el ${fechaCortaStr(s.fecha)} · para su turno con <b>${escH(s.profNombre)}</b> (se descuenta sola)</div>`).join('')}</div>`;
 }
 // ============ INIT ============
+// Pantallas publicas por hash (#reserva, #cuenta): un cambio de hash SIN recarga real de documento (click en
+// un link con # de la misma pagina, "atras/adelante" del navegador, o un navegador in-app tipo Instagram/
+// WhatsApp que reusa la misma pestaña y la restaura desde el bfcache) NUNCA vuelve a ejecutar init() -- eso
+// haria que se siga viendo la pantalla vieja (el login de staff) con el hash correcto en la barra pero la
+// pantalla equivocada en patalla. Bug real encontrado por Central el 27/09/2026, antes de la campaña de Meta
+// Ads. Por eso esta logica vive aparte, en una funcion que se puede volver a llamar sola con 'hashchange' y
+// con 'pageshow' (bfcache), no solo una vez al cargar.
+async function enrutarHashPublico(){
+  if(location.hash==='#reserva'){ await mostrarReservaPublica(); return true; }
+  // "inda_cuenta_flow" cubre la vuelta del login con Google: Supabase reemplaza el hash #cuenta por
+  // el token de sesion (#access_token=...) al volver, asi que el hash solo no alcanza para saber que
+  // hay que mostrar esta pantalla.
+  if(location.hash==='#cuenta'||sessionStorage.getItem('inda_cuenta_flow')==='1'){ await mostrarCuenta(); return true; }
+  return false;
+}
+window.addEventListener('hashchange',()=>{ enrutarHashPublico(); });
+window.addEventListener('pageshow',(e)=>{ if(e.persisted) enrutarHashPublico(); });
 async function init(){
   try { reels=JSON.parse(localStorage.getItem('luffy_reels')||'[]'); } catch(e){}
   try { reelsBorrados=JSON.parse(localStorage.getItem('luffy_reels_del')||'[]'); } catch(e){}
@@ -6342,11 +6359,7 @@ async function init(){
     if(typeof claude!=='undefined'){ DB=await claude.use('db'); }
     else if(supaClient){ DB=makeSupabaseDB(supaClient); }
   } catch(e){}
-  if(location.hash==='#reserva'){ await mostrarReservaPublica(); return; }
-  // "inda_cuenta_flow" cubre la vuelta del login con Google: Supabase reemplaza el hash #cuenta por
-  // el token de sesion (#access_token=...) al volver, asi que el hash solo no alcanza para saber que
-  // hay que mostrar esta pantalla.
-  if(location.hash==='#cuenta'||sessionStorage.getItem('inda_cuenta_flow')==='1'){ await mostrarCuenta(); return; }
+  if(await enrutarHashPublico()) return;
   // Sin sesion la base no deja leer: no se carga nada de la nube hasta que la persona inicie sesion.
   const rolInicio=await cargarMiRol();
   // Keep the session across reloads/app switches — without this, iOS
