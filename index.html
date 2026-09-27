@@ -2893,6 +2893,9 @@ function reglaAplica(r,ctx){
   if(r.horaHasta&&!(ctx.hora<r.horaHasta)) return false;
   if(r.sucursales&&r.sucursales.length&&!r.sucursales.includes(ctx.sucursal)) return false;
   if(r.profesion&&!(ctx.cliente&&nkey(ctx.cliente.profesion)===nkey(r.profesion))) return false;
+  // Ofertas exclusivas para clientes logueados (creador de ofertas, 27/09/2026): solo aplican si el
+  // cliente tiene cuenta con Google (authUid) -- nadie mas las ve ni las cobra, ni en el mostrador ni en /#reserva.
+  if(r.soloCuenta&&!(ctx.cliente&&ctx.cliente.authUid)) return false;
   // Vigencia y cupo de las ofertas armadas con el "Creador de ofertas" (26/09/2026) — opcionales, no afectan a las reglas viejas que no los tienen.
   if(ctx.fecha){ if(r.fechaDesde&&ctx.fecha<r.fechaDesde) return false; if(r.fechaHasta&&ctx.fecha>r.fechaHasta) return false; }
   if(r.cupo!=null&&numV(r.usos)>=numV(r.cupo)) return false;
@@ -3645,7 +3648,7 @@ function adminDescuentos(c){
   </div>
   <div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🏷️ Descuentos fijos</span><div style="display:flex;gap:10px"><button class="lnk" onclick="abrirCreadorOferta()">🎯 Armar oferta</button><button class="lnk" onclick="editarReglaFija('')">+ Nuevo</button></div></div>
     <div class="card" style="margin-bottom:8px;font-size:12px;color:var(--muted2);line-height:1.5">Se aplican solos según el <b style="color:var(--text)">horario del turno</b>, el día, la sucursal y la profesión del cliente. En cada cobro se aplica <b style="color:var(--text)">un solo descuento: el más alto</b> entre estas promos, el efectivo, las ofertas, la fidelidad y los referidos. Nunca se suman, <b style="color:var(--text)">salvo el adicional que tenga configurada una promo</b> (hoy: +15% para fuerzas en las promos de peluquería).</div>
-    ${(promos.fijos||[]).map(f=>`<div class="card" style="margin-bottom:8px;${f.activo===false?'opacity:.55':''}"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(f.nombre)} · ${f.pct}%${f.grupoNombre?' <span style="color:var(--muted2);font-weight:600">('+escH(f.grupoNombre)+')</span>':''}</div>
+    ${(promos.fijos||[]).map(f=>`<div class="card" style="margin-bottom:8px;${f.activo===false?'opacity:.55':''}"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(f.nombre)} · ${f.pct}%${f.grupoNombre?' <span style="color:var(--muted2);font-weight:600">('+escH(f.grupoNombre)+')</span>':''}${f.soloCuenta?' <span style="color:#a89fff">🔒 solo cuenta</span>':''}</div>
       <div style="font-size:11px;color:var(--muted2);line-height:1.6">${escH(rubrosNombres(f.rubro))}${f.servicioIds&&f.servicioIds.length?' ('+f.servicioIds.map(id=>escH(nombreSvcId(id))).join(', ')+')':''} · ${diasTxt(f.dias)}${f.horaDesde||f.horaHasta?' · de '+(f.horaDesde||'apertura')+' a '+(f.horaHasta||'cierre'):''}${f.sucursales&&f.sucursales.length?' · '+f.sucursales.map(s=>escH((sucursalDe(s)||{}).nombre||s)).join(', '):' · todas las sucursales'}${f.profesion?' · clientes: '+escH(f.profesion):''}${f.extra&&f.extra.profesion?' · <b style="color:#34d399">+'+numV(f.extra.pct)+'% adicional si es '+escH(f.extra.profesion)+' (se suma)</b>':''}${(f.fechaDesde||f.fechaHasta)?' · <b style="color:#a89fff">'+(f.fechaDesde?fechaCortaStr(f.fechaDesde):'ahora')+' a '+(f.fechaHasta?fechaCortaStr(f.fechaHasta):'siempre')+'</b>':''}${f.cupo!=null?' · <b style="color:'+(numV(f.usos)>=numV(f.cupo)?'#f87171':'#fbbf24')+'">'+numV(f.usos)+'/'+f.cupo+' usados</b>':''}</div></div>
       <button class="lnk" onclick="toggleReglaFija('${f.id}')">${f.activo===false?'Activar':'Pausar'}</button><button class="lnk" onclick="editarReglaFija('${f.id}')">Editar</button><button class="lnk" style="color:#f472b6" onclick="borrarReglaFija('${f.id}')">×</button></div></div>`).join('')}
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">💰 Comisión con descuentos altos</span><button class="lnk" onclick="editarComisionCfg()">Editar</button></div>
@@ -3690,7 +3693,7 @@ async function editarReglaFija(id){
 const OFC_DURACIONES=[['1sem','1 semana',7],['2sem','2 semanas',14],['1mes','1 mes',30],['siempre','Siempre activa',null]];
 let ofertaCreador=null;
 function abrirCreadorOferta(){
-  ofertaCreador={nombre:'',rubros:[],serviciosPct:{},pctDefault:15,dias:[],duracion:'siempre',cupo:'',sucursales:[]};
+  ofertaCreador={nombre:'',rubros:[],serviciosPct:{},pctDefault:15,dias:[],duracion:'siempre',cupo:'',sucursales:[],soloCuenta:false};
   renderCreadorOferta(); openModal('modal-registro');
 }
 function ofcToggleRubro(id){ const i=ofertaCreador.rubros.indexOf(id); if(i>=0) ofertaCreador.rubros.splice(i,1); else ofertaCreador.rubros.push(id); renderCreadorOferta(); }
@@ -3724,6 +3727,8 @@ function renderCreadorOferta(){
     <div style="font-size:12px;font-weight:800;margin:16px 0 8px">5. ¿En qué sucursales?</div>
     <div style="display:flex;flex-wrap:wrap;gap:6px">${sucursales.map(x=>`<button onclick="ofcToggleSucursal('${x.id}')" style="${pillStyle(s.sucursales.includes(x.id),color)}">${escH(x.nombre)}</button>`).join('')}</div>
     <div style="font-size:10.5px;color:var(--muted);margin-top:4px">Sin marcar ninguna = todas.</div>
+    <div style="font-size:12px;font-weight:800;margin:16px 0 8px">6. ¿Solo para clientes con cuenta (login con Google en /#cuenta)?</div>
+    <label class="rub-opt"><input type="checkbox" ${s.soloCuenta?'checked':''} onchange="ofertaCreador.soloCuenta=this.checked"/> 🔒 Exclusiva para clientes logueados — no la ve nadie más</label>
     ${htmlCalculadoraOferta()}
     <button class="btn btn-primary" style="width:100%;margin-top:16px" onclick="ofcGuardar()">Guardar oferta</button>`;
 }
@@ -3757,7 +3762,7 @@ function ofcGuardar(){
   const grupoOfertaId='og'+Date.now().toString(36);
   const nuevas=ids.map((id,i)=>{
     const svc=servicios.find(x=>x.id===id);
-    return {id:'f'+Date.now().toString(36)+i, grupoOfertaId, grupoNombre:s.nombre.trim(), nombre:s.nombre.trim()+' — '+(svc?svc.nombre:id), pct:numV(s.serviciosPct[id]), rubro:svc?svc.rubro:'', servicioIds:[id], dias:[...s.dias], sucursales:[...s.sucursales], fechaDesde, fechaHasta:fechaHasta||undefined, cupo, usos:0, activo:true};
+    return {id:'f'+Date.now().toString(36)+i, grupoOfertaId, grupoNombre:s.nombre.trim(), nombre:s.nombre.trim()+' — '+(svc?svc.nombre:id), pct:numV(s.serviciosPct[id]), rubro:svc?svc.rubro:'', servicioIds:[id], dias:[...s.dias], sucursales:[...s.sucursales], fechaDesde, fechaHasta:fechaHasta||undefined, cupo, usos:0, activo:true, soloCuenta:!!s.soloCuenta};
   });
   promos.fijos=[...(promos.fijos||[]),...nuevas];
   savePromos(); ofertaCreador=null; showToast('Oferta guardada ✓ ('+nuevas.length+' servicio'+(nuevas.length===1?'':'s')+')'); renderAdmin();
@@ -11248,10 +11253,21 @@ function cuentaLinksResena(c){
   if(c&&c.sucursal&&L[c.sucursal]){ const s=sucursales.find(x=>x.id===c.sucursal); return [{nombre:s?s.nombre:'',url:L[c.sucursal]}]; }
   return sucursales.filter(s=>L[s.id]).map(s=>({nombre:s.nombre,url:L[s.id]}));
 }
+// Ofertas creadas con el "Creador de ofertas" marcadas como "solo cuenta" (checkbox nuevo, 27/09/2026).
+// Es un listado para mostrarle al cliente logueado lo que tiene disponible hoy -- el que de verdad decide si
+// se cobra o no en cada cobro puntual sigue siendo reglaAplica() (mira dia/hora/sucursal reales del turno).
+function cuentaOfertasExclusivas(){
+  const hoy=hoyStr(), dia=new Date().getDay();
+  return (promos.fijos||[]).filter(f=>f.soloCuenta&&f.activo!==false
+    &&(!f.fechaDesde||hoy>=f.fechaDesde)&&(!f.fechaHasta||hoy<=f.fechaHasta)
+    &&(f.cupo==null||numV(f.usos)<numV(f.cupo))
+    &&(!f.dias||!f.dias.length||f.dias.includes(dia)));
+}
 function renderCuentaLogueado(){
   const c=cuentaClienteActual;
   if(!c){ renderCuentaLogin(); return; }
   const links=cuentaLinksResena(c);
+  const exclusivas=cuentaOfertasExclusivas();
   document.getElementById('cuenta-body').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-size:15px;font-weight:800">Hola, ${escH((c.nombre||'').split(' ')[0])} 👋</div>
@@ -11264,6 +11280,11 @@ function renderCuentaLogueado(){
       ${c.resenaGoogle?'':`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${links.map(l=>`<a class="btn btn-ghost" style="flex:1;min-width:140px;text-align:center" href="${escH(l.url)}" target="_blank" rel="noopener">Dejar reseña${links.length>1?' · '+escH(l.nombre):''}</a>`).join('')}<button class="btn btn-primary" style="flex:1;min-width:140px" onclick="cuentaMarcarResena()">Ya la dejé (+${RESENA_DESC_PCT}%)</button></div>`}
       <div style="font-size:10.5px;color:var(--muted2);margin-top:8px">Se suman entre sí y compiten contra el resto de las ofertas — se te aplica la que más te convenga.</div>
     </div>
+    ${exclusivas.length?`<div class="card" style="margin-bottom:12px;border-color:rgba(168,159,255,.4)">
+      <div style="font-size:11px;font-weight:800;color:#a89fff;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">🔒 Ofertas exclusivas para vos</div>
+      ${exclusivas.map(f=>`<div class="ln"><span>${escH(f.nombre)}</span><b style="color:#a89fff">${f.pct}%</b></div>`).join('')}
+      <div style="font-size:10.5px;color:var(--muted2);margin-top:8px">Por tener cuenta con nosotros — se aplican solas cuando vengas, compitiendo igual que el resto.</div>
+    </div>`:''}
     ${htmlTarjetaCliente(c)||'<div class="empty"><div class="e-icon">⭐</div><p>Todavía no tenés tarjeta activa. Se activa sola en tu próximo turno.</p></div>'}
     <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="location.hash='#reserva';location.reload()">📅 Reservar un turno</button>`;
 }
