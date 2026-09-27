@@ -954,6 +954,7 @@ function productosCambiar(fn){
 // ============ SERVICIOS Y OFERTAS (los carga el admin) ============
 const DESC_EFECTIVO_PCT = 10; // 10% off en servicios si pagan en efectivo
 const CUMPLE_DESC_PCT = 15, CUMPLE_DESC_DIAS = 2; // regalo de cumpleaños: 15% el dia y los 2 siguientes (default de Claude, confirmar con Ivo)
+const CUENTA_DESC_PCT = 10, RESENA_DESC_PCT = 5; // premio por tener cuenta con Google (10%) + reseña dejada (5%) -- decidido con Ivo, 27/09/2026: se SUMAN entre si (unico caso hoy), y esa suma compite contra el resto de las promos como una mas (gana la mas alta), igual que ya hace el descuento por efectivo.
 const SERVICIOS_DEFAULT = [{id:'s1',nombre:'Corte',precio:18000,rubro:'barberia'},{id:'s2',nombre:'Corte + Barba',precio:20000,rubro:'barberia'}];
 let servicios = [...SERVICIOS_DEFAULT]; // {id, nombre, precio}
 let ofertas = [];                       // {id, nombre, pct, servicioIds:[] (vacío = todos), activa}
@@ -2952,6 +2953,13 @@ function calcCobro(){
   if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
   const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
   if(descEfectivo>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:descEfectivo});
+  // Cuenta con Google (10%) + reseña dejada (5%): unico caso que se SUMA antes de competir (decidido con Ivo,
+  // 27/09/2026) -- sin grupo asignado, asi que compite libre contra todo el resto como una mas (igual que efectivo).
+  const pctCuenta=(cli&&cli.authUid)?CUENTA_DESC_PCT:0, pctResena=(cli&&cli.resenaGoogle)?RESENA_DESC_PCT:0, pctCuentaTotal=pctCuenta+pctResena;
+  if(pctCuentaTotal>0&&subNormal>0){
+    const partes=[pctCuenta?'cuenta':null,pctResena?'reseña':null].filter(Boolean).join(' + ');
+    cand.push({tipo:'cuenta',label:'⭐ '+partes.charAt(0).toUpperCase()+partes.slice(1),pct:pctCuentaTotal,monto:Math.round(subNormal*pctCuentaTotal/100)});
+  }
   // Descuento de cumpleaños: el dia y los 2 siguientes (mismo "valido por 3 dias" que se usa en el resto de la app)
   const diasCumple=cli?diasDesdeCumple(cli.cumple):null;
   if(diasCumple!=null&&diasCumple>=0&&diasCumple<=CUMPLE_DESC_DIAS&&subNormal>0) cand.push({tipo:'cumple',label:'🎂 Cumpleaños',pct:CUMPLE_DESC_PCT,monto:Math.round(subNormal*CUMPLE_DESC_PCT/100)});
@@ -10779,12 +10787,14 @@ function abrirConfigReservaPublica(){
     `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 12px;line-height:1.5">El cliente entra sin login a <b style="color:var(--text)">${escH(location.origin+location.pathname+'#reserva')}</b>, ve los horarios libres y arma el pedido — el turno se confirma por WhatsApp con recepción/el profesional, no se agenda solo.</div>
     <div class="field"><label>WhatsApp del negocio (a donde llega el pedido)</label><input id="crp-wa" type="tel" placeholder="11 2345 6789" value="${escH(promos.whatsappNegocio||'')}"/></div>
     <div class="field" style="margin-top:8px"><label>Seña obligatoria cuando hay oferta (% del servicio)</label><input id="crp-sena" type="number" inputmode="numeric" value="${numV(promos.senaPublicaPct)||30}"/></div>
+    <div class="field" style="margin-top:8px"><label>Link para dejar reseña en Google (opcional, para el botón de +${RESENA_DESC_PCT}% en /#cuenta)</label><input id="crp-resena" type="url" placeholder="https://g.page/r/..." value="${escH(promos.linkResenaGoogle||'')}"/></div>
     <button class="btn btn-primary" onclick="guardarConfigReservaPublica()" style="margin-top:14px">Guardar</button>`;
   openModal('modal-registro');
 }
 function guardarConfigReservaPublica(){
   promos.whatsappNegocio=(document.getElementById('crp-wa').value||'').trim();
   const pct=numV(document.getElementById('crp-sena').value); promos.senaPublicaPct=pct>0?pct:30;
+  promos.linkResenaGoogle=(document.getElementById('crp-resena').value||'').trim();
   savePromos(); closeModal('modal-registro'); showToast('Guardado ✓'); renderAdmin();
 }
 async function cambiarPinPantalla(){
@@ -11194,8 +11204,25 @@ function renderCuentaLogueado(){
       <div style="font-size:15px;font-weight:800">Hola, ${escH((c.nombre||'').split(' ')[0])} 👋</div>
       <button class="lnk" onclick="cuentaCerrarSesion()">Salir</button>
     </div>
+    <div class="card" style="margin-bottom:12px">
+      <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">⭐ Tus beneficios</div>
+      <div class="ln"><span>Por tener cuenta</span><b style="color:#34d399">${CUENTA_DESC_PCT}% siempre activo</b></div>
+      <div class="ln"><span>Por dejar reseña en Google</span>${c.resenaGoogle?`<b style="color:#34d399">${RESENA_DESC_PCT}% activo ✓</b>`:`<b style="color:var(--muted2)">sin usar</b>`}</div>
+      ${c.resenaGoogle?'':`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${promos.linkResenaGoogle?`<a class="btn btn-ghost" style="flex:1;min-width:140px;text-align:center" href="${escH(promos.linkResenaGoogle)}" target="_blank" rel="noopener">Dejar reseña</a>`:''}<button class="btn btn-primary" style="flex:1;min-width:140px" onclick="cuentaMarcarResena()">Ya la dejé (+${RESENA_DESC_PCT}%)</button></div>`}
+      <div style="font-size:10.5px;color:var(--muted2);margin-top:8px">Se suman entre sí y compiten contra el resto de las ofertas — se te aplica la que más te convenga.</div>
+    </div>
     ${htmlTarjetaCliente(c)||'<div class="empty"><div class="e-icon">⭐</div><p>Todavía no tenés tarjeta activa. Se activa sola en tu próximo turno.</p></div>'}
     <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="location.hash='#reserva';location.reload()">📅 Reservar un turno</button>`;
+}
+async function cuentaMarcarResena(){
+  if(!cuentaClienteActual) return;
+  const id=cuentaClienteActual.id;
+  await cambiarClientes(list=>{
+    const x=list.find(c=>c.id===id); if(x){ x.resenaGoogle=true; x.upd=new Date().toISOString(); }
+  });
+  cuentaClienteActual=clientesDir.find(c=>c.id===id)||cuentaClienteActual;
+  showToast('¡Gracias! Ya tenés el 5% activo ⭐');
+  renderCuentaLogueado();
 }
 async function cuentaCerrarSesion(){
   if(supaClient) await supaClient.auth.signOut();
