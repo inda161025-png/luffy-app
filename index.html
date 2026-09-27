@@ -517,6 +517,12 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
   <div class="scroll" id="rp-body" style="padding:16px"></div>
 </div>
 
+<!-- CUENTA DE CLIENTE (login con Google, para clientes — se entra con #cuenta en la URL) -->
+<div id="cuenta-cliente" class="screen">
+  <div class="inner-hdr"><h2>⭐ Mi cuenta</h2></div>
+  <div class="scroll" id="cuenta-body" style="padding:16px"></div>
+</div>
+
 <!-- AGENDA (propia de Luffy, separada de AgendaPro) -->
 <div id="agenda" class="screen">
   <div class="inner-hdr"><button class="back" onclick="volverDeAgenda()">←</button><h2>📅 Agenda</h2></div>
@@ -6329,6 +6335,10 @@ async function init(){
     else if(supaClient){ DB=makeSupabaseDB(supaClient); }
   } catch(e){}
   if(location.hash==='#reserva'){ await mostrarReservaPublica(); return; }
+  // "inda_cuenta_flow" cubre la vuelta del login con Google: Supabase reemplaza el hash #cuenta por
+  // el token de sesion (#access_token=...) al volver, asi que el hash solo no alcanza para saber que
+  // hay que mostrar esta pantalla.
+  if(location.hash==='#cuenta'||sessionStorage.getItem('inda_cuenta_flow')==='1'){ await mostrarCuenta(); return; }
   // Sin sesion la base no deja leer: no se carga nada de la nube hasta que la persona inicie sesion.
   const rolInicio=await cargarMiRol();
   // Keep the session across reloads/app switches — without this, iOS
@@ -11087,6 +11097,112 @@ function rpRenderGracias(body){
     <button class="btn btn-ghost" style="margin-top:20px" onclick="mostrarReservaPublica()">Hacer otra reserva</button>
   </div>`;
 }
+
+// ---------- Cuenta de cliente (login con Google — ver negocio/pendientes-app.md, PRIORIDAD #1 27/09/2026) ----------
+// Cuenta publica separada de las cuentas de staff (admin/profesional/recepcionista): se entra con Google,
+// se autoaprueba sola con el rol 'cliente' (ver supabase_seguridad_3_clientes.sql), y se liga a la ficha
+// de clientesDir por telefono (Google no da el telefono, se lo pedimos la primera vez). El "regalo" de
+// puntos (1 visita de cortesia en la tarjeta) solo se da al CREAR una ficha nueva -- si el telefono ya
+// existia (cliente que ya vino antes en persona), se liga esa ficha sin regalo, como pidio Ivo.
+let cuentaSesion=null, cuentaClienteActual=null;
+async function cuentaCargarDatosBasicos(){
+  if(!DB) return;
+  try{ const r=await DB.doc('luffy/promos_cfg').get(); if(r) promos=aplicarPromosRemotas(r); }catch(e){}
+}
+function cuentaTarjetaDefault(){
+  return (promos.tarjetas||[]).find(t=>t.activa!==false&&!(t.profs&&t.profs.length))||(promos.tarjetas||[])[0]||null;
+}
+async function cuentaAsegurarRol(session){
+  try{
+    const {data}=await supaClient.from('luffy_roles').select('role').eq('uid',session.user.id).maybeSingle();
+    if(data&&data.role) return data.role;
+  }catch(e){}
+  try{ await supaClient.from('luffy_roles').insert({uid:session.user.id, app_id:'cli_'+session.user.id.replace(/-/g,''), role:'cliente'}); }catch(e){}
+  return 'cliente';
+}
+async function cuentaPedirWhatsapp(){
+  const v=await uiDialog({title:'Un dato más',msg:'Pasanos tu WhatsApp para asociar tu cuenta a tu ficha en Inda Studio.',fields:[{label:'Tu WhatsApp (con característica)',type:'tel',placeholder:'Ej: 1122334455'}],ok:'Continuar'});
+  if(!v) return null;
+  const tel=(v[0]||'').trim();
+  if(tel.replace(/\D/g,'').length<8){ showToast('Poné un WhatsApp válido'); return cuentaPedirWhatsapp(); }
+  return tel;
+}
+async function cuentaResolverCliente(session){
+  await cuentaCargarDatosBasicos();
+  if(DB){ try{ mergeClientes(await DB.doc('luffy/clientes').get()); }catch(e){} }
+  const ya=clientesDir.find(x=>x.authUid===session.user.id);
+  if(ya) return ya;
+  const tel=await cuentaPedirWhatsapp();
+  if(!tel) return null;
+  const telLimpio=tel.replace(/\D/g,'');
+  const res=await cambiarClientes(list=>{
+    const existente=list.find(x=>telLimpio&&(x.tel||'').replace(/\D/g,'')===telLimpio);
+    if(existente){
+      if(!existente.authUid) existente.authUid=session.user.id;
+      if(!existente.email) existente.email=session.user.email||'';
+      existente.upd=new Date().toISOString();
+      return {cliente:existente,nuevo:false};
+    }
+    const numero=list.reduce((m,x)=>Math.max(m,numV(x.numero)),0)+1;
+    const ahora=new Date().toISOString();
+    const meta=session.user.user_metadata||{};
+    const nombreGoogle=(meta.full_name||meta.name||(session.user.email||'').split('@')[0]).trim();
+    const nuevo={id:'c'+numero+'x'+Date.now().toString(36), numero, nombre:nombreGoogle, nkey:nkey(nombreGoogle), profesion:'', tel, nacimiento:'', email:session.user.email||'', ref:'Cuenta con Google', nota:'', cumple:'', genero:'',
+      creadoPor:'cuenta-cliente', creadoPorNombre:'Cuenta de cliente', profs:[], sucursal:null, refPor:null, authUid:session.user.id, tarjetas:[], creado:ahora, upd:ahora};
+    const card=cuentaTarjetaDefault();
+    if(card){ const t=nuevaTarjetaCliente(card); t.visitas=1; t.regaloCuenta=true; nuevo.tarjetas.push(t); }
+    list.push(nuevo);
+    return {cliente:nuevo,nuevo:true};
+  });
+  if(res&&res.cliente){
+    if(res.nuevo) showToast('¡Bienvenido/a! Ya tenés 1 visita de regalo en tu tarjeta 🎁');
+    return res.cliente;
+  }
+  return null;
+}
+async function mostrarCuenta(){
+  show('cuenta-cliente');
+  const nav=document.getElementById('nav'); if(nav) nav.style.display='none';
+  const body=document.getElementById('cuenta-body');
+  body.innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Cargando…</div>';
+  if(!supaClient){ body.innerHTML='<div class="empty"><p>No se pudo conectar.</p></div>'; return; }
+  const {data:{session}}=await supaClient.auth.getSession();
+  cuentaSesion=session;
+  if(!session){ sessionStorage.removeItem('inda_cuenta_flow'); renderCuentaLogin(); return; }
+  await cuentaAsegurarRol(session);
+  cuentaClienteActual=await cuentaResolverCliente(session);
+  sessionStorage.removeItem('inda_cuenta_flow');
+  renderCuentaLogueado();
+}
+function renderCuentaLogin(){
+  document.getElementById('cuenta-body').innerHTML=`<div style="text-align:center;padding:50px 16px">
+    <div style="font-size:44px;margin-bottom:14px">⭐</div>
+    <div style="font-size:18px;font-weight:900;margin-bottom:8px">Tu cuenta en Inda Studio</div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:24px;line-height:1.6">Entrá para ver tu tarjeta de fidelidad, tus puntos y ofertas exclusivas.</div>
+    <button class="btn btn-primary" onclick="cuentaLoginGoogle()">Continuar con Google</button>
+  </div>`;
+}
+async function cuentaLoginGoogle(){
+  sessionStorage.setItem('inda_cuenta_flow','1');
+  await supaClient.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname+'#cuenta'}});
+}
+function renderCuentaLogueado(){
+  const c=cuentaClienteActual;
+  if(!c){ renderCuentaLogin(); return; }
+  document.getElementById('cuenta-body').innerHTML=`
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:15px;font-weight:800">Hola, ${escH((c.nombre||'').split(' ')[0])} 👋</div>
+      <button class="lnk" onclick="cuentaCerrarSesion()">Salir</button>
+    </div>
+    ${htmlTarjetaCliente(c)||'<div class="empty"><div class="e-icon">⭐</div><p>Todavía no tenés tarjeta activa. Se activa sola en tu próximo turno.</p></div>'}
+    <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="location.hash='#reserva';location.reload()">📅 Reservar un turno</button>`;
+}
+async function cuentaCerrarSesion(){
+  if(supaClient) await supaClient.auth.signOut();
+  sessionStorage.removeItem('inda_cuenta_flow');
+  location.hash='#cuenta'; location.reload();
+}
+
 async function editarMetasSalud(){
   const v=await uiDialog({title:'Metas del medidor de salud',msg:'Con esto se arma el % de "salud" de cada sucursal. Son puntos de partida, ajustalos cuando tengas más datos reales.',fields:[
     {label:'Meta de reagendamiento (% de turnos, últimos 30 días)',type:'number',value:numV(promos.metaReagendamiento)||40},
