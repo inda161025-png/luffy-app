@@ -10787,14 +10787,16 @@ function abrirConfigReservaPublica(){
     `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 12px;line-height:1.5">El cliente entra sin login a <b style="color:var(--text)">${escH(location.origin+location.pathname+'#reserva')}</b>, ve los horarios libres y arma el pedido — el turno se confirma por WhatsApp con recepción/el profesional, no se agenda solo.</div>
     <div class="field"><label>WhatsApp del negocio (a donde llega el pedido)</label><input id="crp-wa" type="tel" placeholder="11 2345 6789" value="${escH(promos.whatsappNegocio||'')}"/></div>
     <div class="field" style="margin-top:8px"><label>Seña obligatoria cuando hay oferta (% del servicio)</label><input id="crp-sena" type="number" inputmode="numeric" value="${numV(promos.senaPublicaPct)||30}"/></div>
-    <div class="field" style="margin-top:8px"><label>Link para dejar reseña en Google (opcional, para el botón de +${RESENA_DESC_PCT}% en /#cuenta)</label><input id="crp-resena" type="url" placeholder="https://g.page/r/..." value="${escH(promos.linkResenaGoogle||'')}"/></div>
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:14px 0 4px">Links para dejar reseña en Google (para el botón de +${RESENA_DESC_PCT}% en /#cuenta) — cada sucursal tiene su propia ficha</div>
+    ${sucursales.map(s=>`<div class="field" style="margin-top:6px"><label>${escH(s.nombre)}</label><input id="crp-resena-${escH(s.id)}" type="url" placeholder="https://g.page/r/..." value="${escH((promos.linksResena&&promos.linksResena[s.id])||'')}"/></div>`).join('')}
     <button class="btn btn-primary" onclick="guardarConfigReservaPublica()" style="margin-top:14px">Guardar</button>`;
   openModal('modal-registro');
 }
 function guardarConfigReservaPublica(){
   promos.whatsappNegocio=(document.getElementById('crp-wa').value||'').trim();
   const pct=numV(document.getElementById('crp-sena').value); promos.senaPublicaPct=pct>0?pct:30;
-  promos.linkResenaGoogle=(document.getElementById('crp-resena').value||'').trim();
+  promos.linksResena={};
+  sucursales.forEach(s=>{ const v=(document.getElementById('crp-resena-'+s.id)?.value||'').trim(); if(v) promos.linksResena[s.id]=v; });
   savePromos(); closeModal('modal-registro'); showToast('Guardado ✓'); renderAdmin();
 }
 async function cambiarPinPantalla(){
@@ -11196,9 +11198,18 @@ async function cuentaLoginGoogle(){
   sessionStorage.setItem('inda_cuenta_flow','1');
   await supaClient.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname+'#cuenta'}});
 }
+// Cada sucursal tiene su propia ficha de Google, asi que su propio link de reseña. Si sabemos en que
+// sucursal se atiende el cliente mostramos solo ese; si no (caso comun: se creo la cuenta sola desde
+// /#cuenta y todavia no sabemos su sucursal), mostramos los que esten cargados para que elija.
+function cuentaLinksResena(c){
+  const L=promos.linksResena||{};
+  if(c&&c.sucursal&&L[c.sucursal]){ const s=sucursales.find(x=>x.id===c.sucursal); return [{nombre:s?s.nombre:'',url:L[c.sucursal]}]; }
+  return sucursales.filter(s=>L[s.id]).map(s=>({nombre:s.nombre,url:L[s.id]}));
+}
 function renderCuentaLogueado(){
   const c=cuentaClienteActual;
   if(!c){ renderCuentaLogin(); return; }
+  const links=cuentaLinksResena(c);
   document.getElementById('cuenta-body').innerHTML=`
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
       <div style="font-size:15px;font-weight:800">Hola, ${escH((c.nombre||'').split(' ')[0])} 👋</div>
@@ -11208,7 +11219,7 @@ function renderCuentaLogueado(){
       <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">⭐ Tus beneficios</div>
       <div class="ln"><span>Por tener cuenta</span><b style="color:#34d399">${CUENTA_DESC_PCT}% siempre activo</b></div>
       <div class="ln"><span>Por dejar reseña en Google</span>${c.resenaGoogle?`<b style="color:#34d399">${RESENA_DESC_PCT}% activo ✓</b>`:`<b style="color:var(--muted2)">sin usar</b>`}</div>
-      ${c.resenaGoogle?'':`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${promos.linkResenaGoogle?`<a class="btn btn-ghost" style="flex:1;min-width:140px;text-align:center" href="${escH(promos.linkResenaGoogle)}" target="_blank" rel="noopener">Dejar reseña</a>`:''}<button class="btn btn-primary" style="flex:1;min-width:140px" onclick="cuentaMarcarResena()">Ya la dejé (+${RESENA_DESC_PCT}%)</button></div>`}
+      ${c.resenaGoogle?'':`<div style="margin-top:8px;display:flex;gap:8px;flex-wrap:wrap">${links.map(l=>`<a class="btn btn-ghost" style="flex:1;min-width:140px;text-align:center" href="${escH(l.url)}" target="_blank" rel="noopener">Dejar reseña${links.length>1?' · '+escH(l.nombre):''}</a>`).join('')}<button class="btn btn-primary" style="flex:1;min-width:140px" onclick="cuentaMarcarResena()">Ya la dejé (+${RESENA_DESC_PCT}%)</button></div>`}
       <div style="font-size:10.5px;color:var(--muted2);margin-top:8px">Se suman entre sí y compiten contra el resto de las ofertas — se te aplica la que más te convenga.</div>
     </div>
     ${htmlTarjetaCliente(c)||'<div class="empty"><div class="e-icon">⭐</div><p>Todavía no tenés tarjeta activa. Se activa sola en tu próximo turno.</p></div>'}
