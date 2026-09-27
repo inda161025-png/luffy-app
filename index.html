@@ -11170,11 +11170,27 @@ async function cuentaResolverCliente(session){
   if(DB){ try{ mergeClientes(await DB.doc('luffy/clientes').get()); }catch(e){} }
   const ya=clientesDir.find(x=>x.authUid===session.user.id);
   if(ya) return ya;
+  // Si el mail de la cuenta de Google ya estaba cargado en una ficha (recepcion lo pide en el mostrador),
+  // se liga directo a esa ficha real -- ni pide el WhatsApp de nuevo ni cuenta como cuenta nueva (mismo
+  // criterio anti-duplicado que el telefono: sin regalo de bienvenida). Decidido con Ivo, 27/09/2026.
+  const miEmail=(session.user.email||'').trim().toLowerCase();
+  if(miEmail){
+    const porEmail=clientesDir.find(x=>(x.email||'').trim().toLowerCase()===miEmail);
+    if(porEmail){
+      const res=await cambiarClientes(list=>{
+        const x=list.find(c=>c.id===porEmail.id); if(!x) return {cliente:null};
+        if(!x.authUid) x.authUid=session.user.id;
+        x.upd=new Date().toISOString();
+        return {cliente:x,nuevo:false};
+      });
+      if(res&&res.cliente) return res.cliente;
+    }
+  }
   const tel=await cuentaPedirWhatsapp();
   if(!tel) return null;
   const telLimpio=tel.replace(/\D/g,'');
   const res=await cambiarClientes(list=>{
-    const existente=list.find(x=>telLimpio&&(x.tel||'').replace(/\D/g,'')===telLimpio);
+    const existente=list.find(x=>(telLimpio&&(x.tel||'').replace(/\D/g,'')===telLimpio)||(miEmail&&(x.email||'').trim().toLowerCase()===miEmail));
     if(existente){
       if(!existente.authUid) existente.authUid=session.user.id;
       if(!existente.email) existente.email=session.user.email||'';
