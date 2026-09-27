@@ -2596,7 +2596,7 @@ function agGrid(){
     const blocks=mios.map(a=>{
       const startIdx=Math.round((agMin(a.hora)-AG_INICIO)/AG_PASO);
       if(startIdx<0||startIdx>=slots.length) return '';
-      const h=Math.max(1,Math.round((a.duracion||30)/AG_PASO))*rowH-2;
+      const h=Math.max(1,Math.ceil((a.duracion||30)/AG_PASO))*rowH-2;
       return `<div onclick="event.stopPropagation();agAbrirDetalle('${a.id}')" style="position:absolute;left:2px;right:2px;top:${startIdx*rowH}px;height:${h}px;background:${colorEst(a)};border-radius:6px;padding:3px 5px;overflow:hidden;cursor:pointer;color:#fff">
         <div style="font-size:10.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH(a.clienteNombre)}</div>
         <div style="font-size:9px;font-weight:600;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH((a.servicios[0]||{}).nombre||'')}${a.paqueteId?' 🎁':''}</div>
@@ -10785,10 +10785,10 @@ function rpCalc(fecha,hora){ return calcPaqueteItems(rpItems(),null,rpCtx(fecha,
 function rpTieneOferta(R){ return R.items.some(x=>x.descInd); }
 function rpHoldsVivos(){ const ahora=Date.now(); return holdsSt.list.filter(h=>numV(h.expira)>ahora); }
 function rpSlotsLibres(profId,fecha){
-  const dur=Math.max(AG_PASO,rpDuracion()), pasos=Math.max(1,Math.round(dur/AG_PASO));
+  const dur=Math.max(AG_PASO,rpDuracion()), pasos=Math.max(1,Math.ceil(dur/AG_PASO));
   const ocupadoMin=new Set();
   agendaSt.list.filter(a=>a.profId===profId&&a.fecha===fecha&&agEstado(a)!=='cancelado').forEach(a=>{
-    const ini=agMin(a.hora), d=Math.max(1,Math.round((a.duracion||30)/AG_PASO)); for(let i=0;i<d;i++) ocupadoMin.add(ini+i*AG_PASO);
+    const ini=agMin(a.hora), d=Math.max(1,Math.ceil((a.duracion||30)/AG_PASO)); for(let i=0;i<d;i++) ocupadoMin.add(ini+i*AG_PASO);
   });
   rpHoldsVivos().filter(h=>h.profId===profId&&h.fecha===fecha&&h.sesionId!==rpSesionId).forEach(h=>{ ocupadoMin.add(agMin(h.hora)); });
   const hoy=hoyStr(), ahoraMin=fecha===hoy?(new Date().getHours()*60+new Date().getMinutes()):-1;
