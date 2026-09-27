@@ -3,7 +3,7 @@
 // combos, ofertas, rubros), productos (solo el stock pasa a 0), reglas, canjes disponibles, cumpleaños ni el perfil de contenido.
 // Se puede volver a correr cuando se quiera (por ejemplo la noche antes del lanzamiento).
 const fs=require('fs');
-const html=fs.readFileSync(require('path').join(__dirname,'..','index.html'),'utf8');
+const html=fs.readFileSync(require('path').join(__dirname,'..','js','01-core-datos.js'),'utf8');
 const BASE=/https:\/\/[a-z0-9]+\.supabase\.co/.exec(html)[0];
 const KEY=/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/.exec(html)[0];
 let H={apikey:KEY,Authorization:'Bearer '+KEY,'Content-Type':'application/json'};
