@@ -63,6 +63,19 @@ body{position:fixed;inset:0;width:100%;height:100%;background:var(--bg);color:va
 /* CARD */
 .card{background:var(--s1);border:1px solid var(--border);border-radius:16px;padding:16px;margin-bottom:10px}
 
+/* Pantallas publicas para clientes (/#reserva, /#cuenta): mismo estilo de card/botones que sitio-web/ -- pedido
+   de Ivo el 27/09/2026 ("cuando pasas de la web a la app todo cambia"). Tipografia y color de marca ya eran
+   los mismos (Inter, el mismo violeta); lo que faltaba era el pulido de las cards (mas redondeadas, mas
+   espaciosas) y los botones (pildora, como en sitio-web/index.html). Alcance a proposito: solo estas 2
+   pantallas, nada del panel interno del equipo (decidido con Ivo para no arriesgar las pantallas que usa
+   el staff todos los dias sin haberlo pedido).
+*/
+#reserva-publica, #cuenta-cliente{ --s1:#0d0d0d; --border:rgba(255,255,255,.09); --border2:rgba(255,255,255,.09); }
+#reserva-publica .card, #cuenta-cliente .card{ border-radius:20px; padding:16px; }
+@media(min-width:640px){ #reserva-publica .card, #cuenta-cliente .card{ padding:22px; } }
+#reserva-publica .btn, #cuenta-cliente .btn{ border-radius:999px; }
+#reserva-publica .btn-primary, #cuenta-cliente .btn-primary{ background:var(--accent2); color:#000; }
+
 /* MODAL */
 .modal{position:fixed;inset:0;background:rgba(0,0,0,.7);z-index:100;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity .2s}
 .modal.open{opacity:1;pointer-events:all}
