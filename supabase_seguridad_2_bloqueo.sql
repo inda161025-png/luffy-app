@@ -84,3 +84,32 @@ drop policy if exists pend_borrar   on public.luffy_pending;
 create policy pend_insertar on public.luffy_pending for insert to authenticated with check (uid = auth.uid());
 create policy pend_ver      on public.luffy_pending for select to authenticated using (uid = auth.uid() or public.luffy_role() = 'admin');
 create policy pend_borrar   on public.luffy_pending for delete to authenticated using (uid = auth.uid() or public.luffy_role() = 'admin');
+
+-- 6) Acceso anonimo minimo (agregado 27/09/2026: cuando se escribio este script todavia no existian
+--    la Reserva publica ni la Pantalla de French en modo kiosco, las dos pensadas para funcionar SIN
+--    login. Sin esto, ambas se rompen apenas se corre este script.
+--    Que puede leer sin sesion: todo excepto financas/proveedores (secreto real del negocio) y los
+--    documentos personales de cada persona (yo_/perfil_/horario_/rec_ -- horarios y notas privadas de
+--    cada cuenta). Eso incluye dinero_<id> (lo lee la Pantalla de French para armar "Salud del local"
+--    con datos reales) -- mismo nivel de exposicion que hoy (base completamente abierta), no es peor;
+--    la mejora real de este script es que ya no se puede ESCRIBIR nada sin sesion (excepto el hold de
+--    turno de la reserva publica, mas abajo) ni leer lo personal de cada cuenta ni las financas.
+--    Pendiente para mas adelante (no bloquea el lanzamiento): darle a la Pantalla de French una cuenta
+--    propia de solo lectura en vez de leer como anonimo, para no depender de la clave publica del
+--    frontend -- ver negocio/pendientes-app.md.
+drop policy if exists luffy_leer_anon on public.luffy_data;
+create policy luffy_leer_anon on public.luffy_data
+  for select to anon using (
+    key not in ('luffy/finanzas','luffy/proveedores')
+    and not (key like 'luffy/yo_%' or key like 'luffy/perfil_%' or key like 'luffy/horario_%' or key like 'luffy/rec_%')
+  );
+
+-- Unica escritura anonima permitida: crear/actualizar el "hold" temporal de un horario que un cliente
+-- esta reservando en /#reserva (sin esto, la reserva publica no puede marcar el horario como ocupado
+-- mientras el cliente completa el formulario).
+drop policy if exists luffy_reservas_anon_insertar on public.luffy_data;
+drop policy if exists luffy_reservas_anon_actualizar on public.luffy_data;
+create policy luffy_reservas_anon_insertar on public.luffy_data
+  for insert to anon with check (key = 'luffy/reservas_holds');
+create policy luffy_reservas_anon_actualizar on public.luffy_data
+  for update to anon using (key = 'luffy/reservas_holds') with check (key = 'luffy/reservas_holds');
