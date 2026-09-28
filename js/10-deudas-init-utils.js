@@ -263,11 +263,19 @@ function htmlSenaCliente(c){
 // Ads. Por eso esta logica vive aparte, en una funcion que se puede volver a llamar sola con 'hashchange' y
 // con 'pageshow' (bfcache), no solo una vez al cargar.
 async function enrutarHashPublico(){
-  if(location.hash==='#reserva'){ await mostrarReservaPublica(); return true; }
-  // "inda_cuenta_flow" cubre la vuelta del login con Google: Supabase reemplaza el hash #cuenta por
-  // el token de sesion (#access_token=...) al volver, asi que el hash solo no alcanza para saber que
-  // hay que mostrar esta pantalla.
-  if(location.hash==='#cuenta'||sessionStorage.getItem('inda_cuenta_flow')==='1'){ await mostrarCuenta(); return true; }
+  // #reserva puede venir con datos del paquete armado en la calculadora de sitio-web (dominio distinto, sin
+  // storage compartido): #reserva?sucursal=Nombre&rubros=Rubro1,Rubro2&servicios=Nombre1,Nombre2 -- todo por
+  // NOMBRE, no por id (el catalogo de la calculadora es una copia manual, sus ids no coinciden con los reales,
+  // acordado con Web el 27/09/2026). rpAplicarParametrosURL hace el match por nombre, best-effort.
+  if(location.hash==='#reserva'||location.hash.indexOf('#reserva?')===0){ await mostrarReservaPublica(location.hash.slice('#reserva'.length)); return true; }
+  // La vuelta del login con Google puede llegar de varias formas segun el navegador: Supabase reemplaza
+  // el hash #cuenta por el token de sesion (#access_token=... o #code=...), y en algunos casos (Safari/iOS,
+  // por las protecciones de storage entre sitios en redirects de varios saltos: nuestro sitio -> Google ->
+  // Supabase -> nuestro sitio) el sessionStorage que dejamos antes de salir no sobrevive el viaje. Por eso
+  // se chequean 3 señales, la mas confiable primero: un parametro en la URL (?cuenta=1, que no depende de
+  // storage y sobrevive el redirect siempre porque va en la propia URL), despues el hash directo, y por
+  // ultimo el sessionStorage como respaldo para navegadores donde si sobrevive.
+  if(location.hash==='#cuenta'||location.search.includes('cuenta=1')||sessionStorage.getItem('inda_cuenta_flow')==='1'){ await mostrarCuenta(); return true; }
   return false;
 }
 window.addEventListener('hashchange',()=>{ enrutarHashPublico(); });
