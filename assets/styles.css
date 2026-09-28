@@ -213,6 +213,13 @@ body.adm-wide #app{max-width:1500px}
 .adm-mini{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-bottom:14px}
 .kpi,.mini,.pnl{background:var(--s1);border:1px solid var(--border);border-radius:16px}
 .kpi{padding:14px 16px}.kpi.big{border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06)}
+.kpi.big.futuro{border-color:rgba(179,105,240,.4);background:rgba(179,105,240,.06);margin-bottom:10px}
+.kpi-fut-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px}
+.kpi-fut-mes{display:flex;align-items:center;gap:6px}
+.kpi-fut-mes button{background:var(--s2);border:none;width:24px;height:24px;border-radius:8px;color:var(--text);font-family:var(--font);cursor:pointer;font-size:12px}
+.kpi-fut-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
+.kpi-fut-grid .kl{margin-bottom:3px}
+.kpi-fut-grid .kv{font-size:18px}
 .mini{padding:11px 14px}
 .kl{font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);margin-bottom:5px}
 .kv{font-size:clamp(19px,5.8vw,28px);font-weight:900;letter-spacing:-.5px;line-height:1.1}.mv{font-size:19px;font-weight:900;letter-spacing:-.3px}

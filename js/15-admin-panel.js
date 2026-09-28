@@ -210,7 +210,7 @@ function renderAdminStories(body){
 }
 
 // ============ ADMIN: PANEL INTERACTIVO ============
-let adminPanel={periodo:'quincena', prof:'todos', dia:null, series:{cortes:true, productos:true}};
+let adminPanel={periodo:'quincena', prof:'todos', dia:null, futMes:null, series:{cortes:true, productos:true}};
 let adminUltAct=null;
 let adminPollTimer=null;
 
@@ -246,6 +246,27 @@ function rangoPeriodo(key){
   // si el periodo esta en curso, se compara solo contra el mismo tramo del anterior
   if(hoy>=desde&&hoy<hasta){ const lim=addDias(prevDesde,diasEntre(desde,hoy)); if(lim<prevHasta) prevHasta=lim; }
   return {key,desde,hasta,prevDesde,prevHasta,label:label.charAt(0).toUpperCase()+label.slice(1)};
+}
+
+// Turnos futuros: por defecto "desde hoy hasta fin de este mes", pero se puede elegir cualquier otro mes
+// completo (ahi arranca del dia 1). Es lo que ya esta agendado y todavia no se cobro (agEstado==='agendado'),
+// no se mezcla con D.turnos (eso es historial ya cobrado, otra fuente de datos).
+function turnosFuturosRango(mesSel){
+  const hoy=hoyStr(), [y,m]=mesSel.split('-').map(Number);
+  const desdeMes=mesSel+'-01', hasta=mesSel+'-'+pad2(finMesUTC(y,m));
+  return {desde:desdeMes<hoy?hoy:desdeMes, hasta};
+}
+// Facturacion = suma del precio de lista de los servicios de cada turno agendado (no existe un monto
+// cargado en la agenda todavia, eso se termina de definir recien al cobrar -- ver reserva publica). Es un
+// estimado "si se cumplen todos", igual que ya se le avisa al cliente en /#reserva.
+// Ingreso/egreso: se reparte con la misma proporcion ingreso/comision que tiene el periodo ya facturado
+// (cur), en vez de recalcular el % de comision de cada profesional para una quincena que ni termino.
+function turnosFuturosResumen(desde,hasta,profF,cur){
+  const T=agendaSt.list.filter(a=>agEstado(a)==='agendado'&&a.fecha>=desde&&a.fecha<=hasta&&coincideProf(allUsers.find(u=>u.id===a.profId),profF));
+  const fact=T.reduce((s,a)=>s+(a.servicios||[]).reduce((s2,sv)=>s2+numV((servicios.find(x=>x.id===sv.svcId)||{}).precio),0),0);
+  const ratioEgreso=cur.fact?cur.comEq/cur.fact:0;
+  const egreso=Math.round(fact*ratioEgreso);
+  return {nT:T.length,fact,ingreso:fact-egreso,egreso};
 }
 
 function adminDatos(){
@@ -314,6 +335,16 @@ function panelResumen(D,pctMap,desde,hasta,profF){
 
 // ---------- acciones ----------
 function adminPanelPeriodo(k){ adminPanel.periodo=k; adminPanel.dia=null; renderAdmin(); }
+function adminPanelFutMes(delta){
+  const mesActual=hoyStr().slice(0,7);
+  const base=adminPanel.futMes||mesActual;
+  const [y,m]=base.split('-').map(Number);
+  const d=new Date(Date.UTC(y,m-1+delta,1));
+  const nuevo=d.getUTCFullYear()+'-'+pad2(d.getUTCMonth()+1);
+  if(nuevo<mesActual) return; // turnos futuros no retrocede antes de este mes
+  adminPanel.futMes=nuevo;
+  renderAdmin();
+}
 function adminPanelProfSet(id){ adminPanel.prof=id; adminPanel.dia=null; renderAdmin(); }
 function adminPanelProfToggle(id){ adminPanelProfSet(adminPanel.prof===id?'todos':id); }
 function adminPanelDia(f){ adminPanel.dia=(adminPanel.dia===f?null:f); renderAdmin(); }
@@ -424,6 +455,12 @@ function renderAdminPanel(c){
   window.__adminUlt={rango,cur};
   if(!adminUltAct) adminUltAct=new Date();
 
+  if(!P.futMes) P.futMes=hoy.slice(0,7);
+  const futRango=turnosFuturosRango(P.futMes);
+  const fut=turnosFuturosResumen(futRango.desde,futRango.hasta,P.prof,cur);
+  const [futY,futM]=P.futMes.split('-').map(Number);
+  const futEsMesActual=P.futMes===hoy.slice(0,7);
+
   const profSel=String(P.prof).startsWith('suc:')?{name:'sucursal '+((sucursalDe(P.prof.slice(4))||{}).nombre||'')}:allUsers.find(u=>u.id===P.prof);
   const equipo=allUsers.filter(u=>esProf(u));
   const vendedores=allUsers.filter(u=>esProf(u)||u.role==='recepcionista');
@@ -497,6 +534,18 @@ function renderAdminPanel(c){
   const kpi=(l,v,sub,col,d,tip,big)=>`<div class="kpi ${big?'big':''}" data-tip="${escH(tip||'')}"><div class="kl">${l}</div><div class="kv" style="color:${col||'var(--text)'}">${v}</div><div class="ks">${d||''}<span>${sub||''}</span></div></div>`;
   const mini=(l,v,sub,col)=>`<div class="mini"><div class="kl">${l}</div><div class="mv" style="color:${col||'var(--text)'}">${v}</div><div class="ks"><span>${sub||''}</span></div></div>`;
   const anterior=(v)=>'Período anterior: '+fp(v);
+  const kpiFuturo=()=>`<div class="kpi big futuro" data-tip="Estimado con el precio de lista de los servicios agendados -- el monto real se termina de definir al cobrar cada turno.">
+    <div class="kpi-fut-head">
+      <div class="kl" style="margin-bottom:0">🔮 Turnos futuros</div>
+      <div class="kpi-fut-mes"><button onclick="adminPanelFutMes(-1)">‹</button><span style="font-size:11.5px;font-weight:700;min-width:150px;text-align:center;display:inline-block">${futEsMesActual?'Desde hoy hasta fin de':'Todo'} ${MESES[futM-1]} ${futY}</span><button onclick="adminPanelFutMes(1)">›</button></div>
+    </div>
+    <div class="kpi-fut-grid">
+      <div><div class="kl">Facturación</div><div class="kv">${fp(fut.fact)}</div></div>
+      <div><div class="kl">N° de turnos</div><div class="kv">${fut.nT}</div></div>
+      <div><div class="kl">Ingreso</div><div class="kv" style="color:${COL.prod}">${fp(fut.ingreso)}</div></div>
+      <div><div class="kl">Egreso</div><div class="kv" style="color:${COL.rosa}">${fp(fut.egreso)}</div></div>
+    </div>
+  </div>`;
 
   const periodos=[['hoy','Hoy'],['7d','7 días'],['quincena','Quincena'],['mes','Este mes'],['mesant','Mes anterior']];
   const detalleDia=P.dia&&idx[P.dia]!=null?(()=>{
@@ -522,6 +571,7 @@ function renderAdminPanel(c){
   </div>
   <div style="font-size:12px;color:var(--muted2);margin:2px 2px 12px">${rango.label}${profSel?` · filtrando por <b style="color:var(--text)">${escH(profSel.name)}</b> <button class="lnk" onclick="adminPanelProfSet('todos')">quitar filtro ✕</button>`:''} · comparado con ${rango.prevDesde===rango.prevHasta?fechaCortaStr(rango.prevDesde):fechaCortaStr(rango.prevDesde)+' al '+fechaCortaStr(rango.prevHasta)}</div>
 
+  ${kpiFuturo()}
   <div class="adm-kpis">
     ${kpi('💈 Facturación cortes',fp(cur.fact),cur.nT+(cur.nT===1?' turno':' turnos'),'',deltaHtml(cur.fact,prev.fact),anterior(prev.fact))}
     ${kpi('Queda a la empresa',fp(cur.quedaCortes),(cur.fact?Math.round(cur.quedaCortes/cur.fact*100):0)+'% de los cortes',COL.prod,deltaHtml(cur.quedaCortes,prev.quedaCortes),anterior(prev.quedaCortes))}
