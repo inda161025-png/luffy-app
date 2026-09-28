@@ -475,6 +475,37 @@ function vpRenderSucursalPicker(){
     ${sucursales.map(s=>`<div class="card" style="cursor:pointer;margin-bottom:10px;border-left:5px solid ${s.color}" onclick="vpElegirSucursalPublico('${s.id}')"><div style="font-size:17px;font-weight:900">${escH(s.nombre)}</div></div>`).join('')}`;
 }
 function vpElegirSucursalPublico(id){ ventaSel.sucursal=id; renderVentaPaquete(); }
+// Iconos por rubro para la lista de "¿Qué te querés hacer?" de la puerta publica (pedido por Ivo, 28/09/2026,
+// a partir de 2 capturas de un diseño que nunca llego a mergearse a ninguna rama -- rehecho de cero acá).
+const VP_ICONOS_RUBRO={
+  'barberia':'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/></svg>',
+  'barberia-premium':'<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2c.6 3.4 2 5.6 5 6.2-3 .6-4.4 2.8-5 6.2-.6-3.4-2-5.6-5-6.2 3-.6 4.4-2.8 5-6.2z"/></svg>',
+  'peluqueria':'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 8c1.5-2 3.5-2 5 0s3.5 2 5 0 3.5-2 5 0 3.5 2 5 0"/><path d="M3 14c1.5-2 3.5-2 5 0s3.5 2 5 0 3.5-2 5 0 3.5 2 5 0"/><path d="M3 20c1.5-2 3.5-2 5 0s3.5 2 5 0 3.5-2 5 0 3.5 2 5 0"/></svg>',
+  'cosmetologia':'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-7.5 7-12A7 7 0 0 0 5 10c0 4.5 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>',
+  'cejas':'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7-11-7-11-7z"/><circle cx="12" cy="12" r="3"/></svg>',
+  'podologia':'<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><ellipse cx="12" cy="15" rx="4" ry="6"/><circle cx="9" cy="6" r="1.3"/><circle cx="12" cy="4.5" r="1.3"/><circle cx="15" cy="5.5" r="1.3"/><circle cx="17" cy="8" r="1.1"/></svg>',
+  'masajes':'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="5" r="2.2"/><path d="M12 8v6M8 12c1-1.5 2.5-2 4-2s3 .5 4 2M9 20l3-6 3 6"/></svg>',
+  'manos':'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 13V6a1.5 1.5 0 0 1 3 0v6M11 12V4a1.5 1.5 0 0 1 3 0v8M14 12.5V5.5a1.5 1.5 0 0 1 3 0V13M17 11.5a1.5 1.5 0 0 1 3 0V15c0 4-3 7-7 7h-1c-3 0-4.5-1-6-3l-3-4.5c-.6-1 .3-2.2 1.5-1.7L8 14"/></svg>',
+};
+function vpIconoRubro(rid){ return VP_ICONOS_RUBRO[rid]||'<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/></svg>'; }
+// Filas de ancho completo (no la grilla de pills que usa el staff): una por rubro, con icono, nombre, cantidad
+// de servicios, flecha de navegar, y si esta seleccionado (algun servicio suyo ya elegido) borde violeta +
+// badge "N elegidos". El badge verde de promo se muestra en cualquier fila que tenga una oferta fija activa.
+function vpRubroCardsHtml(rids,grupos,s){
+  return `<div style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px">${rids.map(rid=>{
+    const n=grupos[rid].filter(x=>s.sel.includes(x.id)).length, sel=n>0;
+    const pct=rpMejorFijoRubro(s.sucursal,rid);
+    return `<div onclick="ventaAbrirRubro('${rid}')" style="position:relative;display:flex;align-items:center;gap:12px;padding:12px 14px;border-radius:14px;border:1.5px solid ${sel?'#8b5cf6':'var(--border2)'};background:${sel?'rgba(139,92,246,.08)':'var(--s2)'};cursor:pointer">
+      <div style="color:${sel?'#8b5cf6':'var(--muted2)'};flex-shrink:0">${vpIconoRubro(rid)}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap"><span style="font-size:14.5px;font-weight:800">${escH(nombreRubro(rid)||rid)}</span>${sel?`<span style="font-size:10px;font-weight:800;color:#8b5cf6;background:rgba(139,92,246,.15);padding:2px 7px;border-radius:20px;white-space:nowrap">${n} elegido${n===1?'':'s'}</span>`:''}</div>
+        <div style="font-size:11.5px;color:var(--muted2);margin-top:1px">${grupos[rid].length} servicio${grupos[rid].length===1?'':'s'}</div>
+      </div>
+      ${!sel?'<span style="color:var(--muted);font-size:18px;flex-shrink:0">›</span>':''}
+      ${pct?`<span style="position:absolute;top:8px;right:10px;font-size:9.5px;font-weight:800;color:#34d399;background:rgba(52,211,153,.14);padding:2px 7px;border-radius:20px">Hasta ${pct}% off</span>`:''}
+    </div>`;
+  }).join('')}</div>`;
+}
 function renderVentaPaquete(){
   const s=ventaSel;
   // Puerta publica: si hay mas de una sucursal, primero hay que elegir cual antes de ver servicios (French
@@ -503,7 +534,13 @@ function renderVentaPaquete(){
   const rids=Object.keys(grupos);
   const pill=(x)=>`<button onclick="ventaToggleSvc('${x.id}')" style="${pillStyle(s.sel.includes(x.id),color)}">${escH(x.nombre)} · ${fp(x.precio)}</button>`;
   const escala=(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ');
-  const rubrosHtml=rids.length<=1
+  const rubrosHtml=(s.publico&&rids.length>1)
+    ?(s.rubroAbierto&&grupos[s.rubroAbierto]
+      ?`<button onclick="ventaAbrirRubro('${s.rubroAbierto}')" class="lnk" style="margin-bottom:10px">‹ Otros rubros</button>
+        <div style="font-size:14px;font-weight:800;margin-bottom:10px">${escH(nombreRubro(s.rubroAbierto)||'')}</div>
+        <div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[s.rubroAbierto].map(pill).join('')}</div>`
+      :vpRubroCardsHtml(rids,grupos,s))
+    :rids.length<=1
     ?`<div style="display:flex;flex-wrap:wrap;gap:6px">${(grupos[rids[0]]||[]).map(pill).join('')}</div>`
     :`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${rids.map(rid=>{ const n=grupos[rid].filter(x=>s.sel.includes(x.id)).length; return `<button type="button" onclick="ventaAbrirRubro('${rid}')" style="${pillStyle(s.rubroAbierto===rid,color)}">${escH(nombreRubro(rid)||'Otros')}${n?' ('+n+')':''}</button>`; }).join('')}</div>`
       +(s.rubroAbierto&&grupos[s.rubroAbierto]?`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[s.rubroAbierto].map(pill).join('')}</div>`:'<div style="font-size:11.5px;color:var(--muted2)">Tocá un rubro para ver sus servicios.</div>');
