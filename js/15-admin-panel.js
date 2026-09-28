@@ -262,7 +262,7 @@ function turnosFuturosRango(mesSel){
 // Ingreso/egreso: se reparte con la misma proporcion ingreso/comision que tiene el periodo ya facturado
 // (cur), en vez de recalcular el % de comision de cada profesional para una quincena que ni termino.
 function turnosFuturosResumen(desde,hasta,profF,cur){
-  const T=agendaSt.list.filter(a=>agEstado(a)==='agendado'&&a.fecha>=desde&&a.fecha<=hasta&&coincideProf(allUsers.find(u=>u.id===a.profId),profF));
+  const T=agendaSt.list.filter(a=>agEsActivo(a)&&a.fecha>=desde&&a.fecha<=hasta&&coincideProf(allUsers.find(u=>u.id===a.profId),profF));
   const fact=T.reduce((s,a)=>s+(a.servicios||[]).reduce((s2,sv)=>s2+numV((servicios.find(x=>x.id===sv.svcId)||{}).precio),0),0);
   const ratioEgreso=cur.fact?cur.comEq/cur.fact:0;
   const egreso=Math.round(fact*ratioEgreso);

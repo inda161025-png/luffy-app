@@ -499,7 +499,7 @@ function franjaCRM(dias){
 // Estado automatico del cliente: si esta marcado o tiene un turno futuro agendado, eso pesa mas que los dias sin venir
 function clienteTieneTurnoFuturo(cid){
   const hoy=hoyStr();
-  return agendaSt.list.some(a=>a.clienteId===cid&&a.fecha>=hoy&&agEstado(a)==='agendado');
+  return agendaSt.list.some(a=>a.clienteId===cid&&a.fecha>=hoy&&agEsActivo(a));
 }
 function franjaClienteCRM(c,dias){
   if(c.crmManual) return c.crmManual;

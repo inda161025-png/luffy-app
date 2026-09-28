@@ -169,7 +169,7 @@ async function mostrarReservaPublica(){
 async function rpCargarDatos(){
   if(!DB) return;
   try{
-    const [sucR,userR,promR,svcR,agR,holdR,rubR]=await Promise.all([
+    const [sucR,userR,promR,svcR,agR,holdR,rubR,bqR]=await Promise.all([
       Promise.resolve(DB.doc('luffy/sucursales').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/users').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/promos_cfg').get()).catch(()=>null),
@@ -177,6 +177,7 @@ async function rpCargarDatos(){
       Promise.resolve(DB.doc('luffy/agenda').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/reservas_holds').get()).catch(()=>null),
       Promise.resolve(DB.doc('luffy/rubros').get()).catch(()=>null),
+      Promise.resolve(DB.doc('luffy/bloqueos_agenda').get()).catch(()=>null),
     ]);
     if(sucR&&sucR.list&&sucR.list.length) sucursales=sucR.list;
     if(userR&&Array.isArray(userR.list)) allUsers=userR.list;
@@ -185,6 +186,7 @@ async function rpCargarDatos(){
     if(holdR&&Array.isArray(holdR.list)) holdsSt.list=holdR.list;
     if(agR&&Array.isArray(agR.list)) agendaSt.list=agR.list;
     if(rubR&&rubR.list&&rubR.list.length) rubros=rubR.list;
+    if(bqR&&Array.isArray(bqR.list)) bloqueosAgendaSt.list=bqR.list;
     // Los rubros de cada profesional (Admin -> Equipo -> Cuentas) viven en un documento aparte
     // (luffy/rubros_prof), no en luffy/users -- sin este paso, rubrosDeUsuario() siempre daba "sin
     // restriccion" acá y el filtro de profesional por rubro no filtraba nada (bug real, reportado por Ivo).
@@ -219,6 +221,7 @@ function rpSlotsLibres(profId,fecha,servicioIds){
     const ini=agMin(a.hora), d=Math.max(1,Math.ceil((a.duracion||30)/AG_PASO)); for(let i=0;i<d;i++) ocupadoMin.add(ini+i*AG_PASO);
   });
   rpHoldsVivos().filter(h=>h.profId===profId&&h.fecha===fecha&&h.sesionId!==rpSesionId).forEach(h=>{ ocupadoMin.add(agMin(h.hora)); });
+  agBloqueosDeHoy(profId,fecha).forEach(b=>{ for(let m=agMin(b.horaDesde);m<agMin(b.horaHasta);m+=AG_PASO) ocupadoMin.add(m); });
   const hoy=hoyStr(), ahoraMin=fecha===hoy?(new Date().getHours()*60+new Date().getMinutes()):-1;
   const libres=agSlots().filter(m=>{
     if(m+dur>AG_FIN) return false;

@@ -95,7 +95,10 @@ const turnosPendientesSt=almacenLista('luffy/turnos_pendientes','luffy_turnos_pe
 const agendaSt=almacenLista('luffy/agenda','luffy_agenda',nuevoMayor);
 // Clientes a contactar (hoy: solo por resena negativa) — cola separada de "incidentes" (esa es para restar puntos al profesional, no aplica aca)
 const contactosPendientesSt=almacenLista('luffy/contactos_pendientes','luffy_contactos_pendientes',nuevoMayor);
-function loadSocial(){ loadClientes(); membresiasSt.load(); paquetesSt.load(); senasSt.load(); sugerenciasPaqSt.load(); turnosPendientesSt.load(); agendaSt.load(); contactosPendientesSt.load(); }
+// Horarios que un profesional bloquea en su propia agenda (ausencia, algo personal) -- puntual (una fecha) o
+// recurrente (un dia de la semana, todas las semanas hasta que lo saquen). Pedido por Ivo, 28/09/2026.
+const bloqueosAgendaSt=almacenLista('luffy/bloqueos_agenda','luffy_bloqueos_agenda',nuevoMayor);
+function loadSocial(){ loadClientes(); membresiasSt.load(); paquetesSt.load(); senasSt.load(); sugerenciasPaqSt.load(); turnosPendientesSt.load(); agendaSt.load(); contactosPendientesSt.load(); bloqueosAgendaSt.load(); }
 // El "Sugerir combo" viejo (boton opcional) quedo reemplazado por la pregunta obligatoria
 // "¿Le ofreciste un paquete?" dentro del cobro (ver renderPrepagoCobro / guardarCobro).
 async function marcarSugerenciaAtendida(id){
@@ -147,6 +150,31 @@ function agEstado(a){
   if(a.paqueteId){ const p=paquetesSt.list.find(x=>x.id===a.paqueteId); const it=p&&p.items.find(x=>x.id===a.itemId); if(it&&it.usado) return 'hecho'; }
   return a.estado||'agendado';
 }
+// Estados del turno con color (pedido por Ivo, 28/09/2026, describiendo el flujo real con clientes):
+// reservado (azul, con globo si vino de /#reserva) -> esperando respuesta del recordatorio de 24hs (rojo suave)
+// -> confirmado (naranja) -> no asistio (rojo fuerte, a mano) o hecho (verde, automatico al cobrarlo). El punteo
+// de colores es editable a mano en cualquier momento (staff corrige si el automatismo se equivoca).
+const AG_ESTADO_COLOR={agendado:'#3b82f6',esperando:'#fca5a5',confirmado:'#fb923c',no_asistio:'#dc2626',hecho:'#34d399'};
+const AG_ESTADO_LABEL={agendado:'Reservado',esperando:'Esperando respuesta',confirmado:'Confirmado',no_asistio:'No asistió',hecho:'Hecho'};
+// "Activo" = todavia no se resolvio (ni hecho ni no_asistio ni cancelado) -- lo que antes era simplemente
+// agEstado(a)==='agendado' ahora tiene que cubrir tambien esperando/confirmado, que siguen siendo turnos futuros.
+const AG_ESTADOS_ACTIVOS=['agendado','esperando','confirmado'];
+function agEsActivo(a){ return AG_ESTADOS_ACTIVOS.includes(agEstado(a)); }
+async function agCambiarEstado(id,nuevoEstado){
+  await agendaSt.cambiar(l=>{ const x=l.find(y=>y.id===id); if(x){ x.estado=nuevoEstado; x.upd=new Date().toISOString(); } });
+  agAbrirDetalle(id);
+  renderAgenda();
+}
+// Al cobrarle a un cliente, si tenia un turno de hoy con ese profesional todavia sin resolver, se marca "hecho"
+// solo (pedido de Ivo: verde automatico al cobrar, sin boton de check-in aparte). Best-effort por cliente+prof+
+// fecha de hoy -- no hay (ni hace falta) un link explicito turno<->cobro para esto.
+async function agMarcarHechoAutoPorCobro(clienteId,profId,fecha){
+  if(!clienteId||!profId) return;
+  const candidatos=agendaSt.list.filter(a=>a.clienteId===clienteId&&a.profId===profId&&a.fecha===fecha&&agEsActivo(a)&&!a.paqueteId);
+  if(!candidatos.length) return;
+  const ahora=new Date().toISOString();
+  await agendaSt.cambiar(l=>{ candidatos.forEach(c=>{ const x=l.find(y=>y.id===c.id); if(x){ x.estado='hecho'; x.upd=ahora; } }); });
+}
 
 let agState={sucursal:null,fecha:null};
 let agSel=null; // formulario en curso
@@ -181,7 +209,7 @@ function agHoy(){ agState.fecha=hoyStr(); renderAgenda(); }
 // Recordatorio de turno 24hs antes: cola manual (sin API de WhatsApp Business) con boton para mandar a mano
 function turnosRecordatorioManana(){
   const manana=addDias(hoyStr(),1);
-  return agendaSt.list.filter(a=>a.fecha===manana&&agEstado(a)==='agendado'&&!a.recordado).sort((a,b)=>a.hora.localeCompare(b.hora));
+  return agendaSt.list.filter(a=>a.fecha===manana&&agEsActivo(a)&&!a.recordado).sort((a,b)=>a.hora.localeCompare(b.hora));
 }
 function abrirRecordatoriosManana(){
   const L=turnosRecordatorioManana(), manana=addDias(hoyStr(),1);
@@ -201,8 +229,59 @@ function abrirRecordatoriosManana(){
   openModal('modal-registro');
 }
 async function marcarRecordatorioHecho(id){
-  await agendaSt.cambiar(l=>{ const a=l.find(x=>x.id===id); if(a){ a.recordado=true; a.upd=new Date().toISOString(); } });
+  // Mandar el recordatorio de 24hs pasa el turno a "esperando respuesta" (rojo suave) -- asi la Agenda ya
+  // refleja que se le escribio y se esta esperando que confirme (pedido de Ivo, 28/09/2026).
+  await agendaSt.cambiar(l=>{ const a=l.find(x=>x.id===id); if(a){ a.recordado=true; if(a.estado==='agendado'||!a.estado) a.estado='esperando'; a.upd=new Date().toISOString(); } });
   abrirRecordatoriosManana();
+}
+// ---------- Bloquear horarios en la propia agenda (pedido de Ivo, 28/09/2026) ----------
+// Puntual (una fecha especifica) o recurrente (un dia de la semana, todas las semanas hasta que lo saquen a
+// mano -- "bien personalizable", sin fecha de fin: mas simple y es lo que confirmo Ivo que alcanza).
+function agBloqueosDeHoy(profId,fecha){
+  const dia=new Date(fecha+'T00:00:00').getDay();
+  return bloqueosAgendaSt.list.filter(b=>b.profId===profId&&(b.tipo==='puntual'?b.fecha===fecha:b.diaSemana===dia));
+}
+let bqSel=null;
+function agAbrirBloqueo(){
+  if(profile.role!=='profesional') return;
+  bqSel={tipo:'puntual',fecha:agState.fecha,diaSemana:new Date(agState.fecha+'T00:00:00').getDay(),horaDesde:'09:00',horaHasta:'10:00',nota:''};
+  renderBloqueoForm();
+  openModal('modal-registro');
+}
+function renderBloqueoForm(){
+  const s=bqSel; if(!s) return;
+  const color=(profile&&profile.color)||'#4A136B';
+  const mios=bloqueosAgendaSt.list.filter(b=>b.profId===profile.id).sort((a,b)=>(a.tipo==='recurrente'?a.diaSemana:9)-(b.tipo==='recurrente'?b.diaSemana:9));
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🚫 Bloquear horario')+`
+    <div class="field"><label>¿Cómo se repite?</label><div style="display:flex;gap:6px">
+      <button type="button" onclick="bqSel.tipo='puntual';renderBloqueoForm()" style="${pillStyle(s.tipo==='puntual',color)}">Puntual</button>
+      <button type="button" onclick="bqSel.tipo='recurrente';renderBloqueoForm()" style="${pillStyle(s.tipo==='recurrente',color)}">Recurrente</button>
+    </div></div>
+    ${s.tipo==='puntual'
+      ?`<div class="field"><label>Fecha</label><input type="date" value="${s.fecha}" onchange="bqSel.fecha=this.value"/></div>`
+      :`<div class="field"><label>Día de la semana</label><div style="display:flex;flex-wrap:wrap;gap:6px">${DIAS_NOM.map((d,i)=>`<button type="button" onclick="bqSel.diaSemana=${i};renderBloqueoForm()" style="${pillStyle(s.diaSemana===i,color)}">${d}</button>`).join('')}</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Se repite todas las semanas, hasta que lo saques de la lista de abajo.</div></div>`}
+    <div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Desde</label><input type="time" value="${s.horaDesde}" onchange="bqSel.horaDesde=this.value"/></div><div class="field" style="flex:1"><label>Hasta</label><input type="time" value="${s.horaHasta}" onchange="bqSel.horaHasta=this.value"/></div></div>
+    <div class="field"><label>Motivo (opcional)</label><input type="text" value="${escH(s.nota)}" oninput="bqSel.nota=this.value" placeholder="Ej: turno médico"/></div>
+    <button class="btn btn-primary" style="background:${color};margin-top:6px" onclick="bqGuardar()">Bloquear</button>
+    ${mios.length?`<div style="margin-top:18px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:8px">Tus bloqueos</div>
+      ${mios.map(b=>`<div class="card" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="font-size:12.5px">${b.tipo==='recurrente'?'🔁 Todos los '+DIAS_NOM[b.diaSemana]+'s':'📅 '+fechaCortaStr(b.fecha)} · ${b.horaDesde} a ${b.horaHasta}${b.nota?' · '+escH(b.nota):''}</div>
+        <button class="lnk" style="color:#f472b6;flex-shrink:0" onclick="bqEliminar('${b.id}')">Sacar</button>
+      </div>`).join('')}</div>`:''}`;
+}
+async function bqGuardar(){
+  const s=bqSel; if(!s) return;
+  if(!s.horaDesde||!s.horaHasta||s.horaDesde>=s.horaHasta){ showToast('Revisá el rango de horario'); return; }
+  const ahora=new Date().toISOString();
+  await bloqueosAgendaSt.cambiar(l=>{ l.push({id:'bq'+Date.now().toString(36),profId:profile.id,sucursal:agState.sucursal,tipo:s.tipo,fecha:s.tipo==='puntual'?s.fecha:null,diaSemana:s.tipo==='recurrente'?s.diaSemana:null,horaDesde:s.horaDesde,horaHasta:s.horaHasta,nota:s.nota||'',creadoEn:ahora,upd:ahora}); });
+  showToast('Bloqueado ✓');
+  renderBloqueoForm();
+  renderAgenda();
+}
+async function bqEliminar(id){
+  await bloqueosAgendaSt.cambiar(l=>{ const i=l.findIndex(x=>x.id===id); if(i>=0) l.splice(i,1); });
+  renderBloqueoForm();
+  renderAgenda();
 }
 function renderAgenda(){
   const ss = profile.role==='admin' ? sucursales : (sucursalesDe(profile).length?sucursales.filter(x=>sucursalesDe(profile).includes(x.id)):sucursales);
@@ -216,7 +295,7 @@ function renderAgenda(){
     ${(!agPendingReagendo&&nRec)?`<div class="card" style="margin:0;padding:10px 12px;cursor:pointer;border-color:rgba(96,165,250,.4)" onclick="abrirRecordatoriosManana()"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:800">📲 ${nRec} recordatorio${nRec===1?'':'s'} de mañana</span><span style="font-size:11px;color:var(--muted2)">enviar ›</span></div></div>`:''}
     <div style="display:flex;align-items:center;gap:8px">
       ${(ss.length>1&&!agProfFiltro)?`<select onchange="agState.sucursal=this.value;agGrid()" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:700">${ss.map(x=>`<option value="${x.id}" ${x.id===agState.sucursal?'selected':''}>${escH(x.nombre)}</option>`).join('')}</select>`:''}
-      ${agPendingReagendo?'':`<button class="btn btn-primary" style="width:auto;padding:8px 14px;font-size:12px;margin-left:auto" onclick="agAbrirSlot(null,${AG_INICIO+4*AG_PASO})">+ Turno</button>`}
+      ${agPendingReagendo?'':`<div style="display:flex;gap:8px;margin-left:auto">${profile.role==='profesional'?`<button class="btn btn-ghost" style="width:auto;padding:8px 14px;font-size:12px" onclick="agAbrirBloqueo()">🚫 Bloquear</button>`:''}<button class="btn btn-primary" style="width:auto;padding:8px 14px;font-size:12px" onclick="agAbrirSlot(null,${AG_INICIO+4*AG_PASO})">+ Turno</button></div>`}
     </div>
     <div style="display:flex;align-items:center;justify-content:center;gap:6px">
       <button onclick="agNavDia(-1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:30px;height:30px;color:var(--text);cursor:pointer">‹</button>
@@ -228,11 +307,15 @@ function renderAgenda(){
 }
 function agGrid(){
   const wrap=document.getElementById('ag-grid'); if(!wrap) return;
-  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal)&&(!agProfFiltro||u.id===agProfFiltro));
+  // El rol profesional ve SOLO su propia columna, siempre -- sin importar agProfFiltro (ese es para el sub-flujo
+  // temporal de reagendo desde un cobro, no lo pisamos). Recepcion/admin siguen viendo la grilla completa de
+  // siempre, con el filtro de reagendo si corresponde (pedido de Ivo, 28/09/2026).
+  const soyProfesional=profile.role==='profesional';
+  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal)&&(soyProfesional?u.id===profile.id:(!agProfFiltro||u.id===agProfFiltro)));
   if(!profs.length){ wrap.innerHTML='<div style="padding:24px 16px;text-align:center;color:var(--muted);font-size:13px">No hay profesionales asignados a esta sucursal.</div>'; return; }
   const slots=agSlots(), rowH=32;
   const turnos=agendaSt.list.filter(a=>a.fecha===agState.fecha&&a.sucursal===agState.sucursal&&agEstado(a)!=='cancelado');
-  const colorEst=(a)=>{ const e=agEstado(a); return e==='hecho'?'#34d399':a.paqueteId?'#4A136B':'#3b82f6'; };
+  const colorEst=(a)=>{ const e=agEstado(a); if(e==='hecho') return AG_ESTADO_COLOR.hecho; if(a.paqueteId) return '#4A136B'; return AG_ESTADO_COLOR[e]||AG_ESTADO_COLOR.agendado; };
   const labelCol=`<div style="width:40px;flex-shrink:0">${slots.map(m=>`<div style="height:${rowH}px;font-size:9.5px;color:var(--muted2);text-align:right;padding-right:4px;box-sizing:border-box;border-top:1px solid var(--border)">${m%60===0?agHM(m):''}</div>`).join('')}</div>`;
   const cols=profs.map(p=>{
     const mios=turnos.filter(a=>a.profId===p.id);
@@ -242,7 +325,8 @@ function agGrid(){
       if(startIdx<0||startIdx>=slots.length) return '';
       const h=Math.max(1,Math.ceil((a.duracion||30)/AG_PASO))*rowH-2;
       return `<div onclick="event.stopPropagation();agAbrirDetalle('${a.id}')" style="position:absolute;left:2px;right:2px;top:${startIdx*rowH}px;height:${h}px;background:${colorEst(a)};border-radius:6px;padding:3px 5px;overflow:hidden;cursor:pointer;color:#fff">
-        <div style="font-size:10.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH(a.clienteNombre)}</div>
+        ${a.origenWeb?'<div style="position:absolute;top:2px;right:3px;font-size:10px">🌐</div>':''}
+        <div style="font-size:10.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-right:${a.origenWeb?'12px':'0'}">${escH(a.clienteNombre)}</div>
         <div style="font-size:9px;font-weight:600;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH((a.servicios[0]||{}).nombre||'')}${a.paqueteId?' 🎁':''}</div>
       </div>`;
     }).join('');
@@ -259,7 +343,15 @@ function agGrid(){
         <div style="font-size:9.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</div>
       </div>`;
     }).join('');
-    return `<div style="flex:1;min-width:0;position:relative">${bg}${blocks}${holdBlocks}</div>`;
+    const bloqueoBlocks=agBloqueosDeHoy(p.id,agState.fecha).map(b=>{
+      const startIdx=Math.max(0,Math.round((agMin(b.horaDesde)-AG_INICIO)/AG_PASO));
+      const endIdx=Math.min(slots.length,Math.round((agMin(b.horaHasta)-AG_INICIO)/AG_PASO));
+      if(endIdx<=startIdx) return '';
+      return `<div onclick="event.stopPropagation();agAbrirBloqueo()" style="position:absolute;left:2px;right:2px;top:${startIdx*rowH}px;height:${(endIdx-startIdx)*rowH-2}px;background:repeating-linear-gradient(45deg,rgba(244,114,182,.14),rgba(244,114,182,.14) 6px,rgba(244,114,182,.05) 6px,rgba(244,114,182,.05) 12px);border:1.5px dashed #f472b6;border-radius:6px;padding:3px 5px;overflow:hidden;color:#f472b6;cursor:pointer">
+        <div style="font-size:9.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">🚫 ${escH(b.nota||'Bloqueado')}</div>
+      </div>`;
+    }).join('');
+    return `<div style="flex:1;min-width:0;position:relative">${bg}${blocks}${holdBlocks}${bloqueoBlocks}</div>`;
   }).join('');
   const header=`<div style="display:flex;position:sticky;top:0;background:var(--bg);z-index:2;border-bottom:1.5px solid var(--border2)">
     <div style="width:40px;flex-shrink:0"></div>
@@ -270,6 +362,9 @@ function agGrid(){
 
 function agAbrirSlot(profId,minutos){
   if(agPendingReagendo){ agCrearReagendo(profId||agPendingReagendo.profId,minutos); return; }
+  // Un profesional cargando un turno en su propia agenda no tiene sentido que elija "para quien es" -- siempre es
+  // el mismo (pedido de Ivo, 28/09/2026: cargar un turno el mismo cuando un cliente le avisa directo).
+  if(!profId&&profile.role==='profesional') profId=profile.id;
   const prof=allUsers.find(u=>u.id===profId);
   agSel={
     editId:null, profId:profId||null, profNombre:prof?prof.name:'',
@@ -305,18 +400,37 @@ function agReagendar(id){
     rubroAbierto:null, nota:a.nota||'', paqueteId:a.paqueteId||null, itemId:a.itemId||null};
   renderAgForm();
 }
+// Un profesional puede reagendar/cancelar turnos que armó él mismo desde su propia agenda, pero no los que le
+// cargó recepción -- eso lo sigue resolviendo recepción (pedido de Ivo, 28/09/2026). Admin/recepción sin cambios.
+function agPuedeGestionar(a){ return profile.role!=='profesional'||a.creadoPorId===profile.id; }
 function agAbrirDetalle(id){
   const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
   const est=agEstado(a);
+  const c=clienteDe(a.clienteId);
+  const precio=(a.servicios||[]).reduce((s,sv)=>{ const full=servicios.find(x=>x.id===sv.svcId); return s+(full?numV(full.precio):0); },0);
+  const wa=c&&c.tel?linkWhatsApp(c.tel,'Hola '+a.clienteNombre.split(' ')[0]+'!'):'';
+  const gestiona=agPuedeGestionar(a);
   const cont=document.getElementById('registro-content');
-  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">${escH(a.clienteNombre)}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-    <div style="font-size:13px;color:var(--muted2);margin-bottom:10px">${fechaCortaStr(a.fecha)} · ${a.hora}hs · ${escH(a.profNombre)}</div>
-    <div class="card" style="margin-bottom:12px">${(a.servicios||[]).map(s=>`<div style="font-size:13px;padding:2px 0">${escH(s.nombre)}</div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Sin servicios cargados</div>'}${a.nota?`<div style="font-size:11.5px;color:var(--muted2);margin-top:6px">📝 ${escH(a.nota)}</div>`:''}</div>
-    ${a.paqueteId?`<div style="font-size:11.5px;color:#4A136B;margin-bottom:10px">🎁 Viene de un paquete ya pagado — se marca hecho solo cuando se le cobra ese servicio.</div>`:''}
-    ${est==='hecho'?'<div style="font-size:12.5px;color:#34d399;font-weight:700;margin-bottom:10px">✅ Hecho</div>':est==='cancelado'?'<div style="font-size:12.5px;color:#f472b6;font-weight:700;margin-bottom:10px">🗑️ Cancelado</div>':''}
-    ${est==='agendado'?`<div style="display:flex;gap:8px;flex-wrap:wrap">
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div class="modal-title" style="margin:0">${escH(a.clienteNombre)}${a.clienteId?` <button class="lnk" style="font-size:12px" onclick="closeModal('modal-registro');abrirClienteDetalle('${a.clienteId}')">↗</button>`:''}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div class="card" style="margin-bottom:12px">
+      ${(a.servicios||[]).map(s=>`<div style="font-size:14px;font-weight:700;padding:2px 0">${escH(s.nombre)}</div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Sin servicios cargados</div>'}
+      ${precio>0?`<div style="font-size:13px;color:var(--muted2);margin-top:2px">${fp(precio)}</div>`:''}
+      <div style="font-size:12.5px;color:var(--muted2);margin-top:6px">${fechaCortaStr(a.fecha)} · ${a.hora}hs</div>
+      <div style="font-size:12.5px;color:var(--muted2);margin-top:2px">🔒 Se atenderá con: <b style="color:var(--text)">${escH(a.profNombre)}</b></div>
+      ${c&&c.tel?`<div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12.5px"><span>📱 ${escH(c.tel)}</span>${wa?`<a href="${wa}" target="_blank" rel="noopener" class="btn btn-ghost" style="padding:4px 10px;font-size:11.5px;text-decoration:none">💬 Hablar por WhatsApp</a>`:''}</div>`:''}
+      ${c&&c.email?`<div style="font-size:12.5px;color:var(--muted2);margin-top:4px">✉️ ${escH(c.email)}</div>`:''}
+      ${a.nota?`<div style="font-size:11.5px;color:var(--muted2);margin-top:6px">📝 ${escH(a.nota)}</div>`:''}
+    </div>
+    ${a.paqueteId?`<div style="font-size:11.5px;color:#4A136B;margin-bottom:10px">🎁 Viene de un paquete ya pagado — se marca hecho solo cuando se le cobra ese servicio.</div>`
+      :`<div style="margin-bottom:14px"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">${escH(AG_ESTADO_LABEL[est]||'')}</div>
+        <div style="display:flex;gap:8px">${Object.keys(AG_ESTADO_COLOR).map(k=>`<button onclick="agCambiarEstado('${a.id}','${k}')" title="${escH(AG_ESTADO_LABEL[k])}" style="width:30px;height:30px;border-radius:50%;border:${est===k?'2.5px solid var(--text)':'1.5px solid var(--border2)'};background:${AG_ESTADO_COLOR[k]};cursor:pointer;padding:0"></button>`).join('')}</div></div>`}
+    ${est==='cancelado'?'<div style="font-size:12.5px;color:#f472b6;font-weight:700;margin-bottom:10px">🗑️ Cancelado</div>':''}
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-primary" style="flex:1;min-width:120px" onclick="agAbrirCobroDesdeTurno('${a.id}')">$ Pagar</button>
+      ${a.clienteId?`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="closeModal('modal-registro');abrirClienteDetalle('${a.clienteId}')">📋 Ficha</button>`:''}
+    </div>
+    ${(gestiona&&est!=='cancelado')?`<div style="display:flex;gap:8px;flex-wrap:wrap;margin-top:8px">
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="agReagendar('${a.id}')">✏️ Reagendar</button>
-      ${a.paqueteId?'':`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="agMarcarHecho('${a.id}')">✓ Marcar hecho</button>`}
       <button class="btn btn-ghost" style="flex:1;min-width:120px;color:#f472b6" onclick="agCancelar('${a.id}')">🗑️ Cancelar turno</button>
     </div>`:''}`;
   openModal('modal-registro');
@@ -337,7 +451,7 @@ function renderAgForm(){
   cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">${s.editId?'Reagendar':'Agendar turno'} 📅</div><button onclick="agPendingPaquete=null;closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     ${s.paqueteId?`<div style="font-size:11.5px;color:#34d399;margin-bottom:10px">🎁 Coordinando un servicio de un paquete ya pagado</div>`:''}
     <div class="field"><label>¿Para qué cliente?</label><input id="ag-cli" type="text" autocomplete="off" placeholder="Buscá por nombre..." value="${escH(s.clienteNombre)}" oninput="agClienteInput(this.value)" ${s.paqueteId?'readonly':''}/><div id="ag-cli-sug"></div></div>
-    <div class="field"><label>Profesional</label><div style="display:flex;flex-wrap:wrap;gap:6px">${profs.map(p=>`<button type="button" onclick="agElegirProf('${p.id}')" style="${pillStyle(s.profId===p.id,color)}">${escH(p.name)}</button>`).join('')||'<div style="font-size:12px;color:var(--muted)">No hay profesionales en esta sucursal.</div>'}</div></div>
+    ${profile.role==='profesional'?'':`<div class="field"><label>Profesional</label><div style="display:flex;flex-wrap:wrap;gap:6px">${profs.map(p=>`<button type="button" onclick="agElegirProf('${p.id}')" style="${pillStyle(s.profId===p.id,color)}">${escH(p.name)}</button>`).join('')||'<div style="font-size:12px;color:var(--muted)">No hay profesionales en esta sucursal.</div>'}</div></div>`}
     <div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Fecha</label><input type="date" value="${s.fecha}" onchange="agSel.fecha=this.value"/></div><div class="field" style="flex:1"><label>Hora</label><input type="time" value="${s.hora}" onchange="agSel.hora=this.value"/></div></div>
     <div class="field"><label>¿Qué le va a hacer?</label>${serviciosHtml}</div>
     <div class="field"><label>Duración (minutos)</label><input type="number" inputmode="numeric" value="${s.duracion}" onchange="agSel.duracion=parseInt(this.value)||30"/></div>
@@ -406,6 +520,16 @@ async function agGuardar(){
   showToast('Turno agendado ✓');
   renderAgenda();
 }
+// Atajo "$ Pagar" desde el detalle de un turno: abre el cobro de siempre con el cliente y los servicios ya
+// precargados (el profesional/recepción igual revisa todo antes de cobrar, como siempre).
+async function agAbrirCobroDesdeTurno(id){
+  const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
+  closeModal('modal-registro');
+  const ok=await abrirRegistroTurno(); if(!ok) return;
+  cobro.clienteId=a.clienteId; cobro.cliente=a.clienteNombre;
+  cobro.servicios=(a.servicios||[]).map(s=>s.svcId).filter(id=>servicios.some(x=>x.id===id));
+  renderRegistro();
+}
 async function agCancelar(id){
   const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
   const ok=await uiConfirm('¿Cancelar este turno?', escH(a.clienteNombre)+' · '+fechaCortaStr(a.fecha)+' '+a.hora+'hs');
@@ -440,17 +564,11 @@ function abrirWaitlist(a){
     +'<button class="btn btn-ghost" style="width:100%;margin-top:10px" onclick="closeModal(\'modal-registro\')">Cerrar</button>';
   openModal('modal-registro');
 }
-async function agMarcarHecho(id){
-  await agendaSt.cambiar(l=>{ const x=l.find(y=>y.id===id); if(x){ x.estado='hecho'; x.upd=new Date().toISOString(); } });
-  closeModal('modal-registro');
-  showToast('Marcado como hecho ✓');
-  renderAgenda();
-}
 // Franja en el Inicio del profesional: lo que tiene agendado y cuanto va a sumar de comision cuando lo haga (estimado)
 function htmlProximosTurnosHub(){
   if(!profile||profile.role!=='profesional') return '';
   const hoy=hoyStr();
-  const L=agendaSt.list.filter(a=>a.profId===profile.id&&a.fecha>=hoy&&agEstado(a)==='agendado').sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)).slice(0,5);
+  const L=agendaSt.list.filter(a=>a.profId===profile.id&&a.fecha>=hoy&&agEsActivo(a)).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)).slice(0,5);
   if(!L.length) return '';
   return `<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px">📅 Tus próximos turnos</div>
     ${L.map(a=>{

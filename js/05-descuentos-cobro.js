@@ -165,6 +165,9 @@ async function postCobroCliente(cli,r,turnoId,targetProfId){
     if(p.kind==='paq') await paquetesSt.cambiar(l=>{ const pk=l.find(x=>x.id===p.refId); const it=pk&&pk.items.find(i=>i.id===p.itemId); if(it&&!it.usado){ it.usado={turnoId,fecha:hoyStr(),profId:profP.id,profNombre:profP.name}; pk.upd=new Date().toISOString(); } });
   }
   if(!cli) return;
+  // Si tenía un turno de hoy con este profesional todavía sin resolver, se marca "hecho" solo al cobrarle
+  // (pedido de Ivo, 28/09/2026: verde automático, sin un paso de check-in aparte).
+  await agMarcarHechoAutoPorCobro(cli.id,profP.id,hoyStr());
   const usoRegalo=r.descuentos.some(d=>d.tipo==='regalo');
   const usoCup=(r.tarjUso&&r.tarjUso.cupones)||[], fidSobra=(r.tarjUso&&r.tarjUso.fidSobra)||0;
   await cambiarClientes(list=>{

@@ -165,7 +165,7 @@ function htmlVentasResumenRec(){
   </div>`;
 }
 function htmlCardAgenda(){
-  const n=agendaSt.list.filter(a=>a.fecha===hoyStr()&&agEstado(a)==='agendado').length;
+  const n=agendaSt.list.filter(a=>a.fecha===hoyStr()&&agEsActivo(a)).length;
   const nRec=turnosRecordatorioManana().length;
   return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirAgenda()">
     <div style="font-size:22px">📅</div>
@@ -302,7 +302,7 @@ async function rpConfirmarSolicitud(h,montoSenaConfirmado){
   const svcObjs=(h.servicioIds||[]).map(id=>servicios.find(x=>x.id===id)).filter(Boolean).map(x=>({svcId:x.id,nombre:x.nombre}));
   const dur=duracionServicios(h.servicioIds||[]);
   const ahora=new Date().toISOString();
-  await agendaSt.cambiar(l=>{ l.push({id:'ag'+Date.now().toString(36),sucursal:h.sucursal,fecha:h.fecha,hora:h.hora,duracion:dur||30,profId:h.profId,profNombre:prof?prof.name:'',clienteId:cli.id,clienteNombre:cli.nombre,servicios:svcObjs,nota:montoSenaConfirmado?('Reservado por la web · seña recibida: '+fp(montoSenaConfirmado)):'Reservado por la web',paqueteId:null,itemId:null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora}); });
+  await agendaSt.cambiar(l=>{ l.push({id:'ag'+Date.now().toString(36),sucursal:h.sucursal,fecha:h.fecha,hora:h.hora,duracion:dur||30,profId:h.profId,profNombre:prof?prof.name:'',clienteId:cli.id,clienteNombre:cli.nombre,servicios:svcObjs,nota:montoSenaConfirmado?('Reservado por la web · seña recibida: '+fp(montoSenaConfirmado)):'Reservado por la web',paqueteId:null,itemId:null,estado:'agendado',origenWeb:true,creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora}); });
   await holdsSt.cambiar(l=>{ const i=l.findIndex(x=>x.id===h.id); if(i>=0) l.splice(i,1); });
   showToast('Turno agendado ✓'); refreshCurrentView();
 }
