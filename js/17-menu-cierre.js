@@ -401,7 +401,7 @@ function rpRenderGracias(body){
 
 // ---------- Cuenta de cliente (login con Google — ver negocio/pendientes-app.md, PRIORIDAD #1 27/09/2026) ----------
 // Cuenta publica separada de las cuentas de staff (admin/profesional/recepcionista): se entra con Google,
-// se autoaprueba sola con el rol 'cliente' (ver supabase_seguridad_3_clientes.sql), y se liga a la ficha
+// se autoaprueba sola con el rol 'cliente' (ver db/04_seguridad_clientes.sql), y se liga a la ficha
 // de clientesDir por telefono (Google no da el telefono, se lo pedimos la primera vez). El "regalo" de
 // puntos (1 visita de cortesia en la tarjeta) solo se da al CREAR una ficha nueva -- si el telefono ya
 // existia (cliente que ya vino antes en persona), se liga esa ficha sin regalo, como pidio Ivo.
