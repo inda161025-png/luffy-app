@@ -215,12 +215,19 @@ function rpSlotsLibres(profId,fecha){
   });
   rpHoldsVivos().filter(h=>h.profId===profId&&h.fecha===fecha&&h.sesionId!==rpSesionId).forEach(h=>{ ocupadoMin.add(agMin(h.hora)); });
   const hoy=hoyStr(), ahoraMin=fecha===hoy?(new Date().getHours()*60+new Date().getMinutes()):-1;
-  return agSlots().filter(m=>{
+  const libres=agSlots().filter(m=>{
     if(m+dur>AG_FIN) return false;
     for(let i=0;i<pasos;i++) if(ocupadoMin.has(m+i*AG_PASO)) return false;
     if(fecha===hoy&&m<=ahoraMin+30) return false;
     return true;
   });
+  // Ofrecer un horario cada 15min (AG_PASO, la grilla interna de la agenda) ensucia la reserva publica con
+  // opciones pegadas para servicios largos (30 min de barberia, 45 el comun, 60 el full, 1-2hs el resto de los
+  // rubros -- ver svcDuracion) cuando en realidad cada turno ya ocupa esos minutos completos. Se muestra el
+  // primer horario libre y despues el siguiente salteando la duracion real del servicio, no AG_PASO.
+  const out=[]; let prox=-Infinity;
+  for(const m of libres){ if(m>=prox){ out.push(m); prox=m+dur; } }
+  return out;
 }
 // Crea un hold nuevo (no actualiza el anterior: mas simple, y los vencidos se limpian solos de la lista en cada escritura)
 // Si ya hay un hold de esta misma sesion para el mismo profesional/fecha/hora, lo actualiza en vez de duplicarlo
