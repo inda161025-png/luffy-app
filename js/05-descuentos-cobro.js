@@ -370,6 +370,17 @@ function mejorDescuentoServicio(svc,cli,ctx,medioEfectivo){
     if(mejorCupon){ const m=Math.round(precio*numV(mejorCupon.pct)/100); if(m>0) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:m}); }
   }
   if(medioEfectivo){ const m=Math.round(precio*DESC_EFECTIVO_PCT/100); if(m>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:m}); }
+  // Cuenta con Google (10%) + reseña (5%): mismo candidato que ya existe en calcCobro() para el cobro final,
+  // pero acá falta para la reserva publica y "Armar paquete" (que usan este motor por-servicio, no calcCobro).
+  // Bug real reportado por Ivo/Central el 27/09/2026: se mostraba en /#cuenta pero nunca se aplicaba al reservar.
+  // ctx.cliente cubre la reserva publica (ahi "cli" siempre es null a proposito, no tiene ficha completa --
+  // ver rpCliente/rpCtx), "cli" cubre "Armar paquete" con una ficha real seleccionada por el staff.
+  const idCuenta=(cli&&cli.authUid)?cli:(ctx&&ctx.cliente&&ctx.cliente.authUid?ctx.cliente:null);
+  const pctCuenta=idCuenta?CUENTA_DESC_PCT:0, pctResena=idCuenta&&idCuenta.resenaGoogle?RESENA_DESC_PCT:0, pctCuentaTotal=pctCuenta+pctResena;
+  if(pctCuentaTotal>0){
+    const m=Math.round(precio*pctCuentaTotal/100);
+    if(m>0){ const partes=[pctCuenta?'cuenta':null,pctResena?'reseña':null].filter(Boolean).join(' + '); cand.push({tipo:'cuenta',label:'⭐ '+partes.charAt(0).toUpperCase()+partes.slice(1),pct:pctCuentaTotal,monto:m}); }
+  }
   let ganador=null; cand.forEach(c=>{ if(!ganador||c.monto>ganador.monto) ganador=c; });
   return ganador;
 }
