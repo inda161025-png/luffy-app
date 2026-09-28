@@ -159,7 +159,10 @@ async function mostrarReservaPublica(){
   try{ rpCliente=JSON.parse(sessionStorage.getItem('inda_reserva_cliente')||'null'); }catch(e){ rpCliente=null; }
   await rpCargarDatos();
   ventaSel={tipo:'paq',publico:true,cid:null,clienteQ:'',medio:null,sel:[],rubroAbierto:null,modo:'',sucursal:sucursales.length<=1?((sucursales[0]||{}).id||null):null,asignaciones:{},grupoIdx:0,subPaso:null,nombre:'',whatsapp:''};
-  document.getElementById('rp-body').innerHTML='<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:6px 0 0">Armá tu turno y te lo llevamos a WhatsApp para coordinar la seña.</div>';
+  // Lo que queda detras del modal necesita su propio boton para volver a abrirlo -- sin esto, cerrar el modal
+  // con la "×" (que reusa closeModal de siempre, pensado para el staff que tiene su pantalla de atras) dejaba
+  // al cliente publico varado sin nada para tocar (bug real, reportado por Ivo/Central, 28/09/2026).
+  document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:10px 0 0"><div style="color:var(--muted2);font-size:12.5px;margin-bottom:14px">Armá tu turno y te lo llevamos a WhatsApp para coordinar la seña.</div><button class="btn btn-primary" onclick="mostrarReservaPublica()">📅 Reservar un turno</button></div>';
   renderVentaPaquete();
   openModal('modal-registro');
 }
@@ -346,9 +349,13 @@ function vpRenderHorarioWizard(body){
       <span style="font-size:13.5px;font-weight:800;text-transform:capitalize;min-width:180px;text-align:center">${diaTxt}</span>
       <button onclick="vpNavDia(1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">›</button>
     </div>
-    ${libres.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{
-      const hora=agHM(m);
-      return `<button onclick="vpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);cursor:pointer;text-align:center"><div style="font-size:13px;font-weight:800">${hora}</div></button>`; }).join('')}</div>`
+    ${libres.length?`<div style="font-size:10.5px;color:var(--muted2);margin-bottom:8px;display:flex;gap:14px;flex-wrap:wrap"><span>🟢 con descuento por franja horaria</span>${libres.length<=2?`<span>🔴 quedan pocos lugares</span>`:''}</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{
+      const hora=agHM(m); const R=vpCalcGrupo(g,a.fecha,hora); const conOferta=rpTieneOferta(R); const pocosLugares=!conOferta&&libres.length<=2;
+      const color=conOferta?'#34d399':pocosLugares?'#f87171':'var(--border2)';
+      const bg=conOferta?'rgba(52,211,153,.1)':pocosLugares?'rgba(248,113,113,.08)':'var(--s2)';
+      const txtColor=conOferta?'#34d399':pocosLugares?'#f87171':'var(--muted2)';
+      return `<button onclick="vpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid ${color};background:${bg};color:var(--text);font-family:var(--font);cursor:pointer;text-align:center">
+      <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${txtColor};font-weight:700">${fp(R.total)}</div>${conOferta?'<div style="font-size:9px;color:#34d399">🎉 desc.</div>':pocosLugares?'<div style="font-size:9px;color:#f87171">🔥 últimos</div>':''}</button>`; }).join('')}</div>`
       :'<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0">No hay horarios libres este día. Probá otro día ›</div>'}`;
 }
 // Sin hold aca a proposito (ver comentario de arriba) -- solo revalida que siga libre antes de avanzar.
