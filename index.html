@@ -116,7 +116,7 @@
       <div class="hub-greeting" id="hub-greeting" style="font-size:11px;color:var(--muted2);font-weight:600;letter-spacing:.03em"></div>
       <div class="hub-name" id="hub-name" style="font-size:19px;font-weight:900;letter-spacing:-.3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
     </div>
-    <button id="hub-modo" onclick="cambiarModo('admin')" style="display:none;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:800;border-radius:12px;padding:9px 12px;margin-right:8px;cursor:pointer">👑 Admin</button>
+    <button id="hub-modo" onclick="cambiarModo('admin')" style="display:none;align-items:center;gap:6px;background:var(--s2);border:1px solid var(--border2);color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:800;border-radius:12px;padding:9px 12px;margin-right:8px;cursor:pointer"><svg width="13" height="13" viewBox="0 0 24 24" fill="#E4A85C"><path d="M3 8l4 3 5-6 5 6 4-3-2 11H5z"/></svg>Admin</button>
     <button class="hub-menu" onclick="abrirMenu()" aria-label="Menú"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   </div>
 
@@ -133,7 +133,7 @@
     <!-- Stories card -->
     <div id="hub-stories-card" onclick="goTo('stories')" style="border-radius:18px;padding:16px;margin-bottom:10px;cursor:pointer;border:1.5px solid rgba(52,211,153,.2);background:rgba(52,211,153,.06)">
       <div style="display:flex;align-items:center;gap:12px">
-        <div style="width:44px;height:44px;border-radius:14px;background:rgba(52,211,153,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">📱</div>
+        <div style="width:44px;height:44px;border-radius:14px;background:rgba(52,211,153,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="7" y="2" width="10" height="20" rx="2.5"/><path d="M11 18h2"/></svg></div>
         <div style="flex:1">
           <div style="font-size:14px;font-weight:800;margin-bottom:2px">Stories del día</div>
           <div style="font-size:11px;color:var(--muted2)" id="qa-stories-sub">0/4 publicadas hoy</div>
@@ -145,7 +145,7 @@
     <!-- Turnos de hoy -->
     <div id="hub-turnos-card" style="border-radius:18px;padding:16px;margin-bottom:10px;border:1.5px solid rgba(74,19,107,.2);background:rgba(74,19,107,.06)">
       <div style="display:flex;align-items:center;gap:12px;cursor:pointer" onclick="goTo('dinero')">
-        <div style="width:44px;height:44px;border-radius:14px;background:rgba(74,19,107,.15);display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0">💈</div>
+        <div style="width:44px;height:44px;border-radius:14px;background:rgba(74,19,107,.15);display:flex;align-items:center;justify-content:center;flex-shrink:0"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#B369F0" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="3"/><path d="M3 9.5h18"/><path d="M8 3v3M16 3v3"/></svg></div>
         <div style="flex:1">
           <div style="font-size:14px;font-weight:800;margin-bottom:2px">Turnos de hoy</div>
           <div style="font-size:11px;color:var(--muted2)" id="hub-turnos-sub">$0 · 0 turnos</div>
@@ -154,14 +154,14 @@
       </div>
       <div style="display:flex;gap:8px;margin-top:12px">
         <button onclick="abrirRegistroTurno()" style="flex:1;padding:11px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">+ Registrar turno</button>
-        <button onclick="abrirArmarPaquete()" style="flex:1;padding:11px;border-radius:12px;border:none;background:#4A136B;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">🎁 Armar paquete</button>
+        <button onclick="abrirArmarPaquete()" style="flex:1;padding:11px;border-radius:12px;border:none;background:#4A136B;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 12h18M12 8v13"/><path d="M12 8C9 8 8 6 8 5a2 2 0 014 0c0 1-1 3-4 3zM12 8c3 0 4-2 4-3a2 2 0 00-4 0c0 1 1 3 4 3z"/></svg>Armar paquete</button>
       </div>
-      <button onclick="abrirPaqueteProximaVisita()" style="width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1.5px solid rgba(74,19,107,.4);background:transparent;color:#a89fff;font-family:var(--font);font-size:12.5px;font-weight:700;cursor:pointer">🎁 Paquete para la próxima visita (mientras el cliente sigue con vos)</button>
+      <button onclick="abrirPaqueteProximaVisita()" style="width:100%;margin-top:8px;padding:10px;border-radius:12px;border:1.5px solid rgba(74,19,107,.4);background:transparent;color:#a89fff;font-family:var(--font);font-size:12.5px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="#a89fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0"><rect x="3" y="8" width="18" height="13" rx="2"/><path d="M3 12h18M12 8v13"/><path d="M12 8C9 8 8 6 8 5a2 2 0 014 0c0 1-1 3-4 3zM12 8c3 0 4-2 4-3a2 2 0 00-4 0c0 1 1 3 4 3z"/></svg>Paquete para la próxima visita (mientras el cliente sigue con vos)</button>
     </div>
 
     <!-- Puntos: franja chica -->
     <div id="hub-puntos-strip" onclick="goTo('puntos')" style="display:flex;align-items:center;gap:10px;border-radius:14px;padding:12px 14px;margin-bottom:16px;cursor:pointer;border:1px solid var(--border);background:var(--s1)">
-      <span style="font-size:18px">⭐</span>
+      <span style="flex-shrink:0"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fbbf24" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2.5l2.9 6 6.6.7-4.9 4.5 1.3 6.5L12 16.9l-5.9 3.3 1.3-6.5-4.9-4.5 6.6-.7z"/></svg></span>
       <div id="hub-puntos-txt" style="flex:1;font-size:12px;color:var(--muted2)">Cargando puntos...</div>
       <span style="font-size:16px;color:var(--muted)">›</span>
     </div>

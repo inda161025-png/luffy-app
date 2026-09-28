@@ -303,7 +303,7 @@ function renderHub(){
   const gr = h<12?'Buenos días,':h<20?'Buenas tardes,':'Buenas noches,';
   document.getElementById('hub-greeting').textContent = gr;
   document.getElementById('hub-name').textContent = profile.name + ' ' + profile.emoji;
-  { const b=document.getElementById('hub-modo'); if(b) b.style.display=profile.adminReal?'':'none'; }
+  { const b=document.getElementById('hub-modo'); if(b) b.style.display=profile.adminReal?'flex':'none'; }
 
   // Avatar
   const av = document.getElementById('hub-av');
