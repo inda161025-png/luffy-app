@@ -7,8 +7,22 @@
   <meta name="ak" content="PLACEHOLDER">
 <title>Inda</title>
 <meta name="theme-color" content="#0A0A0D">
-<link rel="manifest" href="manifest.json">
+<link rel="manifest" href="manifest.json" id="app-manifest">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<script>
+// PWA con 2 puertas: si instala desde una pantalla de cliente (#cuenta o #reserva), el manifest tiene que
+// apuntar ahi (start_url) y no a "/" (login de staff) -- si no, un cliente que instala la app termina abriendo
+// el login del equipo, confuso y medio inseguro de cara a el (bug real reportado por Ivo, 28/09/2026). El
+// navegador lee el manifest vigente del <link> al momento de instalar, asi que alcanza con mantenerlo
+// actualizado en cada cambio de hash -- no hace falta nada mas especial para que el instalador lo tome bien.
+function actualizarManifestPWA(){
+  const el=document.getElementById('app-manifest'); if(!el) return;
+  const esCliente=location.hash==='#cuenta'||location.hash==='#reserva';
+  el.setAttribute('href', esCliente?'manifest-cliente.json':'manifest.json');
+}
+actualizarManifestPWA();
+window.addEventListener('hashchange', actualizarManifestPWA);
+</script>
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="Inda">
