@@ -10537,22 +10537,42 @@ function htmlBannerReservasPendientes(){
     <div style="display:flex;align-items:center;gap:10px"><div style="font-size:22px">🌐</div><div style="flex:1"><div style="font-size:13px;font-weight:800">${L.length} ${L.length===1?'persona quiere':'personas quieren'} reservar por la web</div><div style="font-size:11px;color:var(--muted2)">Tocá para confirmar o rechazar antes de que se venza</div></div><span style="color:var(--muted)">›</span></div>
   </div>`;
 }
+// Un combo de 2+ rubros manda un hold "pendiente" por cada rubro (mismo grupoSolicitudId) -- se agrupan acá
+// visualmente bajo una sola tarjeta para que recepción vea de una que es un solo pedido de un cliente, aunque
+// cada parte se siga confirmando/rechazando por separado (cada una agenda su propio turno real al confirmarla).
+function rpGruposSolicitudes(L){
+  const vistos=new Set(), grupos=[];
+  L.forEach(h=>{
+    const key=h.grupoSolicitudId||h.id; if(vistos.has(key)) return; vistos.add(key);
+    grupos.push(h.grupoSolicitudId?L.filter(x=>x.grupoSolicitudId===key):[h]);
+  });
+  return grupos;
+}
 function htmlReservasPendientesRec(){
   const L=rpSolicitudesPendientes();
   if(!L.length) return '<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Nadie pidió turno por la web todavía 🎉</div>';
-  return L.map(h=>{
-    const prof=allUsers.find(u=>u.id===h.profId), suc=sucursalDe(h.sucursal);
-    const nombresSvc=(h.servicioIds||[]).map(id=>(servicios.find(s=>s.id===id)||{}).nombre).filter(Boolean).join(', ');
-    const restante=Math.max(0,Math.round((numV(h.expira)-Date.now())/60000));
-    const wa=linkWhatsApp(h.clienteWhatsapp,'');
+  return rpGruposSolicitudes(L).map(grupo=>{
+    const h0=grupo[0], wa=linkWhatsApp(h0.clienteWhatsapp,'');
+    const totalSena=grupo.reduce((a,h)=>a+(h.tieneOferta?numV(h.montoSena):0),0);
+    const partes=grupo.map(h=>{
+      const prof=allUsers.find(u=>u.id===h.profId), suc=sucursalDe(h.sucursal);
+      const nombresSvc=(h.servicioIds||[]).map(id=>(servicios.find(s=>s.id===id)||{}).nombre).filter(Boolean).join(', ');
+      const restante=Math.max(0,Math.round((numV(h.expira)-Date.now())/60000));
+      return `<div style="padding:8px 0;border-top:1px solid var(--border)">
+        <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">${escH(nombresSvc)} · con ${escH(prof?prof.name:'')} · ${fechaCortaStr(h.fecha)} ${h.hora}hs · ${escH(suc?suc.nombre:'')}<br>${fp(h.total)}${h.tieneOferta?' · seña esperada '+fp(h.montoSena):' · paga en el local'} · <span style="color:#fbbf24">se vence en ${restante} min</span></div>
+        <div style="display:flex;gap:8px;margin-top:6px;flex-wrap:wrap">
+          <button class="btn btn-ghost" style="flex:1;min-width:110px" onclick="rpAbrirConfirmar('${h.id}')">✅ Confirmar</button>
+          <button class="btn btn-ghost" style="flex:1;min-width:110px;color:#f472b6" onclick="rpRechazarSolicitud('${h.id}')">❌ Rechazar</button>
+        </div>
+      </div>`;
+    }).join('');
     return `<div class="card" style="margin-bottom:8px;border-left:4px solid #60a5fa">
-      <div style="font-size:13px;font-weight:800">${escH(h.clienteNombre)}</div>
-      <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">${escH(nombresSvc)} · con ${escH(prof?prof.name:'')} · ${fechaCortaStr(h.fecha)} ${h.hora}hs · ${escH(suc?suc.nombre:'')}<br>${fp(h.total)}${h.tieneOferta?' · seña esperada '+fp(h.montoSena):' · paga en el local'} · <span style="color:#fbbf24">se vence en ${restante} min</span></div>
-      <div style="display:flex;gap:8px;margin-top:8px;flex-wrap:wrap">
-        ${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}
-        <button class="btn btn-ghost" style="flex:1;min-width:110px" onclick="rpAbrirConfirmar('${h.id}')">✅ Confirmar</button>
-        <button class="btn btn-ghost" style="flex:1;min-width:110px;color:#f472b6" onclick="rpRechazarSolicitud('${h.id}')">❌ Rechazar</button>
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:8px">
+        <div style="font-size:13px;font-weight:800">${escH(h0.clienteNombre)}${grupo.length>1?' · combo de '+grupo.length+' partes':''}</div>
+        ${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:6px 10px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:11.5px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}
       </div>
+      ${grupo.length>1&&totalSena>0?`<div style="font-size:11.5px;color:#34d399;font-weight:700;margin-top:2px">Seña total esperada: ${fp(totalSena)}</div>`:''}
+      ${partes}
     </div>`;
   }).join('');
 }
