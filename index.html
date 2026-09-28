@@ -6371,7 +6371,11 @@ function htmlSenaCliente(c){
 // Ads. Por eso esta logica vive aparte, en una funcion que se puede volver a llamar sola con 'hashchange' y
 // con 'pageshow' (bfcache), no solo una vez al cargar.
 async function enrutarHashPublico(){
-  if(location.hash==='#reserva'){ await mostrarReservaPublica(); return true; }
+  // #reserva puede venir con datos del paquete armado en la calculadora de sitio-web (dominio distinto, sin
+  // storage compartido): #reserva?sucursal=Nombre&rubros=Rubro1,Rubro2&servicios=Nombre1,Nombre2 -- todo por
+  // NOMBRE, no por id (el catalogo de la calculadora es una copia manual, sus ids no coinciden con los reales,
+  // acordado con Web el 27/09/2026). rpAplicarParametrosURL hace el match por nombre, best-effort.
+  if(location.hash==='#reserva'||location.hash.indexOf('#reserva?')===0){ await mostrarReservaPublica(location.hash.slice('#reserva'.length)); return true; }
   // La vuelta del login con Google puede llegar de varias formas segun el navegador: Supabase reemplaza
   // el hash #cuenta por el token de sesion (#access_token=... o #code=...), y en algunos casos (Safari/iOS,
   // por las protecciones de storage entre sitios en redirects de varios saltos: nuestro sitio -> Google ->
@@ -10922,7 +10926,27 @@ let rpState={paso:'sucursal',sucursal:null,servicioIds:[],rubroAbierto:null,asig
 // nunca sabe quien esta del otro lado (es anonima por diseño) y ese descuento quedaba sin aplicarse nunca
 // (bug real reportado por Ivo/Central, 27/09/2026).
 let rpCliente=null;
-async function mostrarReservaPublica(){
+// Paquete armado en la calculadora de sitio-web (dominio distinto, sin storage compartido): llega por NOMBRE,
+// no por id (su catalogo es una copia manual, no lee de esta base -- acordado con Web el 27/09/2026), asi que
+// el match es best-effort por nombre normalizado. Si algo no matchea, se ignora sin romper nada (el cliente
+// arranca esa parte desde cero, como si nunca hubiera venido con datos).
+function rpAplicarParametrosURL(query){
+  if(!query) return;
+  const qs=new URLSearchParams(query.replace(/^\?/,''));
+  const nomSuc=qs.get('sucursal'), nomRubros=qs.get('rubros'), nomServicios=qs.get('servicios');
+  if(nomSuc){ const s=sucursales.find(x=>nkey(x.nombre)===nkey(nomSuc)); if(s) rpState.sucursal=s.id; }
+  const rubroIds=(nomRubros||'').split(',').map(n=>{ const r=rubros.find(x=>nkey(x.nombre)===nkey(n)); return r?r.id:null; }).filter(Boolean);
+  (nomServicios||'').split(',').map(n=>n.trim()).filter(Boolean).forEach(nombre=>{
+    const k=nkey(nombre);
+    const candidatos=servicios.filter(sv=>(!rubroIds.length||rubroIds.includes(sv.rubro))&&nkey(sv.nombre).includes(k));
+    if(candidatos.length===1&&!rpState.servicioIds.includes(candidatos[0].id)) rpState.servicioIds.push(candidatos[0].id);
+  });
+  if(rpState.sucursal){
+    rpState.paso='servicios';
+    if(rubroIds.length===1) rpState.rubroAbierto=rubroIds[0];
+  }
+}
+async function mostrarReservaPublica(query){
   show('reserva-publica');
   const nav=document.getElementById('nav'); if(nav) nav.style.display='none';
   document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Cargando…</div>';
@@ -10931,6 +10955,7 @@ async function mostrarReservaPublica(){
   await rpCargarDatos();
   rpState={paso:'sucursal',sucursal:null,servicioIds:[],rubroAbierto:null,asignaciones:{},grupoIdx:0,subPaso:null,nombre:'',whatsapp:''};
   if(sucursales.length<=1){ rpState.sucursal=(sucursales[0]||{}).id||null; rpState.paso='servicios'; }
+  if(query) rpAplicarParametrosURL(query);
   rpRender();
 }
 async function rpCargarDatos(){
