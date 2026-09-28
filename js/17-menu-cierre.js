@@ -399,9 +399,15 @@ function vpRenderConfirmar(body){
   const s=ventaSel, suc=sucursales.find(x=>x.id===s.sucursal), grupos=vpGruposRubro();
   const R=vpCalcFinal(), combo=vpEsCombo(), montoSena=Math.round(R.total*VP_PCT_SENA/100);
   const c=s.cid?clienteDe(s.cid):null;
-  const clienteHtml=s.publico
-    ?`<div class="field"><label>Tu nombre</label><input id="vp-nombre" placeholder="Nombre y apellido" value="${escH(s.nombre||'')}"/></div>
-      <div class="field" style="margin-top:8px"><label>Tu WhatsApp</label><input id="vp-wa" type="tel" placeholder="11 2345 6789" value="${escH(s.whatsapp||'')}"/></div>`
+  // Si el cliente vino logueado desde /#cuenta ya sabemos su nombre y telefono (rpCliente) -- no tiene sentido
+  // volver a pedirselos como si fuera anonimo (bug real, reportado por Ivo, 28/09/2026). "Cambiar" lo manda al
+  // formulario editable por si el dato cambio o quiere reservar para otra persona.
+  const datosConocidos=s.publico&&rpCliente&&rpCliente.nombre&&rpCliente.tel&&!s.forzarEditarDatos;
+  const clienteHtml=datosConocidos
+    ?`<div class="field"><label>Reservás como</label><div style="font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px">👤 ${escH(rpCliente.nombre)} · ${escH(rpCliente.tel)} <button class="lnk" onclick="vpForzarEditarDatos()">cambiar</button></div></div>`
+    :s.publico
+    ?`<div class="field"><label>Tu nombre</label><input id="vp-nombre" placeholder="Nombre y apellido" value="${escH(s.nombre||(rpCliente&&rpCliente.nombre)||'')}"/></div>
+      <div class="field" style="margin-top:8px"><label>Tu WhatsApp</label><input id="vp-wa" type="tel" placeholder="11 2345 6789" value="${escH(s.whatsapp||(rpCliente&&rpCliente.tel)||'')}"/></div>`
     :c
       ?`<div class="field"><label>Cliente</label><div style="font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px">👤 ${escH(c.nombre)} <button class="lnk" onclick="ventaQuitarCliente();renderVentaPaquete()">cambiar</button></div></div>`
       :`<div class="field"><label>¿Para qué cliente es?</label><input id="vp-cli" type="text" autocomplete="off" placeholder="Buscá por nombre, teléfono o número..." value="${escH(s.clienteQ||'')}" oninput="ventaClienteInput(this.value)"/><div id="vp-cli-sug"></div></div>`;
@@ -421,6 +427,7 @@ function vpRenderConfirmar(body){
     ${s.publico?'<div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Esto no confirma el turno solo: se abre WhatsApp con el pedido armado, y el local te confirma ahí mismo.</div>':''}`;
   if(!s.publico) ventaRenderClienteSug();
 }
+function vpForzarEditarDatos(){ ventaSel.forzarEditarDatos=true; renderVentaPaquete(); }
 function vpMensajeWhatsApp(R,combo,grupos,nombre,whatsapp){
   const s=ventaSel, suc=sucursales.find(x=>x.id===s.sucursal);
   const detalle=grupos.map(g=>{
@@ -443,14 +450,19 @@ async function vpConfirmar(){
   const s=ventaSel; if(!s||s.ocupado) return;
   let nombre,whatsapp,cid=null;
   if(s.publico){
-    nombre=(document.getElementById('vp-nombre')?.value||'').trim();
-    whatsapp=(document.getElementById('vp-wa')?.value||'').trim();
-    if(!nombre){ showToast('Poné tu nombre'); return; }
-    if(whatsapp.replace(/\D/g,'').length<8){ showToast('Poné tu WhatsApp con característica'); return; }
+    const datosConocidos=rpCliente&&rpCliente.nombre&&rpCliente.tel&&!s.forzarEditarDatos;
+    if(datosConocidos){
+      nombre=rpCliente.nombre; whatsapp=rpCliente.tel;
+    } else {
+      nombre=(document.getElementById('vp-nombre')?.value||'').trim();
+      whatsapp=(document.getElementById('vp-wa')?.value||'').trim();
+      if(!nombre){ showToast('Poné tu nombre'); return; }
+      if(whatsapp.replace(/\D/g,'').length<8){ showToast('Poné tu WhatsApp con característica'); return; }
+    }
     s.nombre=nombre; s.whatsapp=whatsapp;
   } else {
     if(!s.cid){ showToast('Elegí para qué cliente es'); return; }
-    cid=s.cid; const c=clienteDe(cid); nombre=c?c.nombre:''; whatsapp=c?(c.telefono||''):'';
+    cid=s.cid; const c=clienteDe(cid); nombre=c?c.nombre:''; whatsapp=c?(c.tel||''):'';
   }
   const grupos=vpGruposRubro();
   for(const g of grupos){
@@ -638,7 +650,10 @@ function renderCuentaLogueado(){
 }
 function cuentaIrAReservar(){
   const c=cuentaClienteActual;
-  try{ sessionStorage.setItem('inda_reserva_cliente', JSON.stringify({authUid:c&&c.authUid, resenaGoogle:!!(c&&c.resenaGoogle)})); }catch(e){}
+  // Nombre y telefono viajan aca tambien (no solo authUid/resenaGoogle) para que el paso final de la reserva
+  // (vpRenderConfirmar) pueda usar los datos ya conocidos del cliente logueado en vez de volver a pedirselos
+  // como si fuera anonimo -- bug real reportado por Ivo, 28/09/2026.
+  try{ sessionStorage.setItem('inda_reserva_cliente', JSON.stringify({authUid:c&&c.authUid, resenaGoogle:!!(c&&c.resenaGoogle), nombre:(c&&c.nombre)||'', tel:(c&&c.tel)||''})); }catch(e){}
   location.hash='#reserva'; location.reload();
 }
 async function cuentaMarcarResena(){
