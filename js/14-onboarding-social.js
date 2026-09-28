@@ -522,11 +522,12 @@ function renderPuntos(){
 
   body.innerHTML = `
     <!-- HERO -->
-    <div style="background:${color}12;border:1.5px solid ${color}33;border-radius:24px;padding:28px 20px;text-align:center;margin-bottom:16px">
-
-      <div style="font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:${color};opacity:.8;margin-bottom:8px">Mis puntos</div>
-      <div style="font-size:64px;font-weight:900;letter-spacing:-3px;line-height:1;color:${color}">${total.toLocaleString('es-AR')}</div>
-      <div style="font-size:13px;color:var(--muted2);margin-top:6px">Puesto ${myRank}° del equipo ${medals[myRank-1]||''}</div>
+    <div style="position:relative;overflow:hidden;background:${color}12;border:1.5px solid ${color}33;border-radius:24px;padding:28px 20px;text-align:center;margin-bottom:16px">
+      <div style="position:absolute;top:-70px;left:50%;transform:translateX(-50%);width:240px;height:200px;background:radial-gradient(closest-side, ${color}55, transparent);pointer-events:none"></div>
+      <div style="position:relative;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:${color};opacity:.8;margin-bottom:8px">Mis puntos</div>
+      <div style="position:relative;font-size:64px;font-weight:900;letter-spacing:-3px;line-height:1;background:linear-gradient(155deg,#fff,${color} 65%);-webkit-background-clip:text;background-clip:text;color:transparent">${total.toLocaleString('es-AR')}</div>
+      <div style="position:relative;font-size:13px;color:var(--muted2);margin-top:6px">Puesto ${myRank}° del equipo ${medals[myRank-1]||''}</div>
+      ${myRank>1?(()=>{ const arriba=ranking[myRank-2]; const falta=arriba.pts-total; return `<div style="position:relative;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--muted2);margin-top:8px"><svg width="13" height="13" viewBox="0 0 24 24" fill="${color}"><path d="M12 2c1 3-3 4-3 8a3 3 0 006 0c0-1-.5-2-1-2.5 2 .5 4 3 4 6.5a6 6 0 11-12 0c0-4 2-6 3-8 .5-1.5 2-3.5 3-4z"/></svg>Te falta${falta===1?'':'n'} <b style="color:${color}">${falta} pto${falta===1?'':'s'}</b> para superar a ${escH(arriba.name)}</div>`; })():`<div style="position:relative;font-size:12px;color:#34d399;margin-top:8px;font-weight:700">👑 ¡Estás primero del equipo!</div>`}
       <div style="display:flex;justify-content:center;gap:20px;margin-top:16px;padding-top:16px;border-top:1px solid ${color}22">
         <div style="text-align:center"><div style="font-size:18px;font-weight:900;color:#34d399">+${ganados}</div><div style="font-size:10px;color:var(--muted2);margin-top:2px">Ganados</div></div>
         <div style="width:1px;background:${color}22"></div>
@@ -551,7 +552,7 @@ function renderPuntos(){
 
     <!-- MERCADO -->
     <div class="sec-hdr" style="margin-bottom:12px">
-      <span class="sec-title" style="font-size:15px">🛍️ Mercado de canjes</span>
+      <span class="sec-title" style="font-size:15px;display:inline-flex;align-items:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 8h12l1 12H5z"/><path d="M9 8a3 3 0 016 0"/></svg>Mercado de canjes</span>
       ${pending?`<span style="font-size:11px;font-weight:700;padding:3px 10px;border-radius:20px;background:rgba(251,191,36,.2);color:#fbbf24">${pending} pendiente${pending>1?'s':''}</span>`:''}
     </div>
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:20px">
@@ -568,13 +569,13 @@ function renderPuntos(){
     </div>
 
     <!-- RANKING -->
-    <div class="sec-hdr" style="margin-bottom:12px"><span class="sec-title">🏆 Ranking del equipo</span></div>
-    ${ranking.map((p,i)=>`<div class="ranking-item" style="${p.id===profile.id?'border-color:'+color+';background:'+color+'08':''}">
-      <div class="ranking-pos" style="background:${i<3?'rgba(251,191,36,.2)':'var(--s2)'};color:${i<3?'#fbbf24':'var(--muted2)'};font-size:${i<3?'18':'13'}px">${medals[i]||i+1}</div>
+    <div class="sec-hdr" style="margin-bottom:12px"><span class="sec-title" style="display:inline-flex;align-items:center;gap:7px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="10" width="5" height="10" rx="1"/><rect x="9.5" y="5" width="5" height="15" rx="1"/><rect x="16" y="13" width="5" height="7" rx="1"/></svg>Ranking del equipo</span></div>
+    ${(()=>{ const medalBg=['linear-gradient(155deg,#FFE59A,#D9A62E)','linear-gradient(155deg,#E7E9EE,#AEB3BE)','linear-gradient(155deg,#E7B487,#B4703A)']; return ranking.map((p,i)=>`<div class="ranking-item" style="${p.id===profile.id?'border-color:'+color+';background:'+color+'08':''}">
+      <div class="ranking-pos" style="background:${i<3?medalBg[i]:'var(--s2)'};color:${i<3?'#2a1a05':'var(--muted2)'};font-size:${i<3?'18':'13'}px">${medals[i]||i+1}</div>
       <div class="ranking-av" style="background:${p.color}33;border-color:${p.color}">${p.emoji}</div>
       <div class="ranking-info"><strong>${p.name}${p.id===profile.id?' (vos)':''}</strong><span>${(getPuntos(p.id).movimientos||[]).filter(m=>m.pts>0).length} acciones</span></div>
       <div class="ranking-pts" style="color:${p.color}">⭐ ${p.pts.toLocaleString('es-AR')}</div>
-    </div>`).join('')}
+    </div>`).join(''); })()}
 
     <!-- HISTORIAL -->
     <div class="sec-hdr" style="margin:16px 0 12px"><span class="sec-title">📋 Historial</span></div>
