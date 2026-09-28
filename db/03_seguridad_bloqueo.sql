@@ -2,7 +2,7 @@
 -- SEGURIDAD - PASO 2 de 2: BLOQUEO  (ejecutar SOLO cuando la app nueva ya esta publicada
 -- y comprobamos juntos que todos pueden entrar)
 -- Supabase > SQL Editor > New query > pegar todo > Run
--- Si algo sale mal: ejecutar supabase_seguridad_rollback.sql y queda como estaba.
+-- Si algo sale mal: ejecutar db/rollback_seguridad_bloqueo.sql y queda como estaba.
 -- ============================================================================
 
 -- 1) Se elimina el acceso abierto: desde ahora hace falta iniciar sesion.

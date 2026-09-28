@@ -1,0 +1,483 @@
+// ============ PROMOS, FIDELIDAD, MEMBRESIAS Y PAQUETES ============
+// Todo lo que define el admin (descuentos fijos por horario/profesion, tarjeta de fidelidad, membresia,
+// escalera de paquetes y regla de comision con descuentos altos) vive en un solo documento: luffy/promos_cfg.
+const PROMOS_DEFAULT={
+  fijos:[
+    {id:'f1',nombre:'De 9:00 a 12:30 (lunes a jueves)',pct:20,rubro:'barberia,barberia-premium',dias:[1,2,3,4],horaDesde:'09:00',horaHasta:'12:30',sucursales:[],profesion:'',activo:true},
+    {id:'f2',nombre:'Fuerzas policiales · Diego Laure',pct:15,rubro:'barberia,barberia-premium',dias:[1,2],horaHasta:'',sucursales:['s1'],profesion:'Fuerzas policiales',activo:true},
+    {id:'f3',nombre:'Fuerzas policiales · French',pct:15,rubro:'barberia,barberia-premium',dias:[2,3],horaHasta:'',sucursales:['s2'],profesion:'Fuerzas policiales',activo:true},
+    // Peluqueria (Dai): lunes a miercoles. El 15% adicional para fuerzas SE SUMA a la promo (es el unico descuento acumulativo)
+    {id:'f4',nombre:'Tratamientos capilares · lun a mié',pct:15,rubro:'peluqueria',servicioIds:['ap2673649','ap2796310','ap2673655','ap2673652'],dias:[1,2,3],horaHasta:'',sucursales:[],profesion:'',extra:{profesion:'Fuerzas policiales',pct:15},activo:true},
+    {id:'f5',nombre:'Coloración y baño de luz · lun a mié',pct:10,rubro:'peluqueria',servicioIds:['ap2706066','ap2673675','ap2673670'],dias:[1,2,3],horaHasta:'',sucursales:[],profesion:'',extra:{profesion:'Fuerzas policiales',pct:15},activo:true},
+  ],
+  // Si el descuento total supera "t1" el profesional cobra "p1"% de lo que pagó el cliente; si llega a "t2", cobra "p2"%
+  bloquesRec:[{id:'b1',nombre:'Mañana',desde:'09:00',hasta:'14:30',dias:[1,2,3,4,5,6]},{id:'b2',nombre:'Tarde',desde:'14:30',hasta:'20:30',dias:[1,2,3,4,5,6]}],
+  avisoAperturaMin:5, // el admin ve si recepcion ya abrio la caja desde 5 minutos antes de cada bloque
+  recPaq:{pct:10,comProf:45}, // recepcion cobra el 10% de la ganancia del salon por cada paquete que vende
+  comisiones:{tramos:[{min:0,pct:45},{min:1000000,pct:50},{min:1200000,pct:55}],oro:{min:1200000,pct:60,reels:3},nuevos:{meses:2,base:50,contenido:5,reels:3,extra:5,extraDesde:800000},asegurado:{pct:50}},
+  comision:{t1:30,p1:60,t2:50,p2:95},
+  noche:{desde:'21:00',pct:70}, // turnos que terminan desde esta hora: sin descuentos y el profesional cobra pct%
+  paquetes:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15}],
+  membresia:{creditos:4,descPct:20,servicioId:'',rubro:'barberia,barberia-premium'},
+  tarjetas:[{id:'tj-barberia',rubro:'barberia,barberia-premium',nombre:'Tarjeta de fidelidad',activa:true,
+    visitas:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15},{n:10,pct:50}],referidos:[10,15,20,25],premio:{visitas:5,refs:4}},
+    // Tarjeta de Dai: 1.° y 2.° servicio normales, 3.° con 10% en cualquier servicio, 6.° tratamiento de hidratacion gratis
+    {id:'tj-dai',rubro:'peluqueria,cejas',nombre:'Tarjeta de fidelidad · Dai',activa:true,profs:['1789996303677'],
+    visitas:[{n:3,pct:10},{n:6,pct:100,servicioIds:['ap2673649'],label:'Hidratación gratis'}],referidos:[],premio:null}],
+};
+const clonar=(o)=>JSON.parse(JSON.stringify(o));
+const nocheCfg=()=>({desde:'21:00',pct:70,...(promos.noche||{})});
+let promos=clonar(PROMOS_DEFAULT);
+const DIAS_NOM=['dom','lun','mar','mié','jue','vie','sáb'];
+const nombreSvcId=(id)=>((typeof servicios!=='undefined'?servicios:[]).find(x=>x.id===id)||{}).nombre||id;
+// nombres (o pedazos de nombre) separados por coma -> ids de servicios
+function idsServiciosPorNombre(txt,sep){ const out=[]; String(txt||'').split(sep||',').map(x=>nkey(x)).filter(Boolean).forEach(fr=>servicios.filter(sv=>nkey(sv.nombre).includes(fr)).forEach(sv=>{ if(!out.includes(sv.id)) out.push(sv.id); })); return out; }
+function aplicarPromosRemotas(r){ return r?{...clonar(PROMOS_DEFAULT),...r}:null; }
+function loadPromos(){
+  try{ const r=JSON.parse(localStorage.getItem('luffy_promos_cfg')||'null'); if(r) promos=aplicarPromosRemotas(r); }catch(e){}
+  if(DB){
+    DB.doc('luffy/promos_cfg').get().then(r=>{
+      if(r&&JSON.stringify(r)!==JSON.stringify(promos)){ promos=aplicarPromosRemotas(r); try{localStorage.setItem('luffy_promos_cfg',JSON.stringify(promos));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function savePromos(){
+  try{localStorage.setItem('luffy_promos_cfg',JSON.stringify(promos));}catch(e){}
+  if(DB){ try{DB.doc('luffy/promos_cfg').set(promos);}catch(e){} }
+}
+// Suma un uso al cupo de una oferta armada con el Creador de ofertas (y a las demas lineas que compartan el mismo
+// grupo, para que "10 lugares" sea un pozo comun aunque la oferta tenga varios servicios con % distinto cada uno).
+// Relee el doc remoto antes de sumar (mismo cuidado que cambiarClientes) para no perder cupos si dos cobros
+// pasan casi al mismo tiempo en dispositivos distintos -- no es 100% a prueba de carreras, pero reduce el riesgo.
+async function consumirCupoOferta(reglaId){
+  if(DB){ try{ const fresh=await DB.doc('luffy/promos_cfg').get(); if(fresh) promos=aplicarPromosRemotas(fresh); }catch(e){} }
+  const f=(promos.fijos||[]).find(x=>x.id===reglaId); if(!f||f.cupo==null) return;
+  const grupo=f.grupoOfertaId;
+  promos.fijos.forEach(x=>{ if(x.id===reglaId||(grupo&&x.grupoOfertaId===grupo)) x.usos=numV(x.usos)+1; });
+  savePromos();
+}
+
+// ---------- listas compartidas (membresias, paquetes): se guardan uniendo por id ----------
+function almacenLista(doc,localKey,unir){
+  const st={list:[]};
+  st.merge=(remote)=>{
+    if(!remote||!Array.isArray(remote.list)) return false;
+    const antes=JSON.stringify(st.list); const m=new Map(st.list.map(x=>[x.id,x]));
+    remote.list.forEach(r=>{ const l=m.get(r.id); m.set(r.id,l?unir(l,r):r); });
+    st.list=[...m.values()]; return antes!==JSON.stringify(st.list);
+  };
+  st.persist=()=>{ try{localStorage.setItem(localKey,JSON.stringify(st.list));}catch(e){} };
+  st.load=()=>{
+    try{ st.list=JSON.parse(localStorage.getItem(localKey)||'[]'); }catch(e){ st.list=[]; }
+    if(DB) DB.doc(doc).get().then(r=>{ if(st.merge(r)){ st.persist(); refreshCurrentView(); } }).catch(()=>{});
+  };
+  st.cambiar=async(fn)=>{
+    if(DB){ try{ st.merge(await DB.doc(doc).get()); }catch(e){} }
+    const res=fn(st.list); st.persist();
+    if(DB){ try{ await DB.doc(doc).set({list:st.list}); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
+    return res;
+  };
+  return st;
+}
+const nuevoMayor=(a,b)=>String(b.upd||'')>String(a.upd||'')?b:a;
+const membresiasSt=almacenLista('luffy/membresias','luffy_membresias',(a,b)=>{
+  const base=nuevoMayor(a,b); const usos=new Map(); [...(a.usos||[]),...(b.usos||[])].forEach(u=>usos.set(u.turnoId,u));
+  return {...base,usos:[...usos.values()]};
+});
+const paquetesSt=almacenLista('luffy/paquetes','luffy_paquetes',(a,b)=>{
+  const base=nuevoMayor(a,b); const bi=new Map((b.items||[]).map(i=>[i.id,i]));
+  return {...base,items:(a.items||[]).map(i=>({...i,usado:i.usado||(bi.get(i.id)||{}).usado||null}))};
+});
+const sugerenciasPaqSt=almacenLista('luffy/sugerencias_paq','luffy_sugerencias_paq',nuevoMayor);
+// Diego Laure: turnos que un profesional dejo "registrados" y todavia no cobro recepcion (ver "Registrar turno" / "Cobrar")
+const turnosPendientesSt=almacenLista('luffy/turnos_pendientes','luffy_turnos_pendientes',nuevoMayor);
+// Agenda propia de Luffy (separada de AgendaPro): turnos agendados a futuro, cargados desde acá. Ver "Agenda".
+const agendaSt=almacenLista('luffy/agenda','luffy_agenda',nuevoMayor);
+// Clientes a contactar (hoy: solo por resena negativa) — cola separada de "incidentes" (esa es para restar puntos al profesional, no aplica aca)
+const contactosPendientesSt=almacenLista('luffy/contactos_pendientes','luffy_contactos_pendientes',nuevoMayor);
+function loadSocial(){ loadClientes(); membresiasSt.load(); paquetesSt.load(); senasSt.load(); sugerenciasPaqSt.load(); turnosPendientesSt.load(); agendaSt.load(); contactosPendientesSt.load(); }
+// El "Sugerir combo" viejo (boton opcional) quedo reemplazado por la pregunta obligatoria
+// "¿Le ofreciste un paquete?" dentro del cobro (ver renderPrepagoCobro / guardarCobro).
+async function marcarSugerenciaAtendida(id){
+  await sugerenciasPaqSt.cambiar(l=>{ const x=l.find(z=>z.id===id); if(x){ x.atendido=true; x.upd=new Date().toISOString(); } });
+  refreshCurrentView();
+}
+function htmlSugerenciasPaqRec(){
+  const L=sugerenciasPaqSt.list.filter(x=>!x.atendido).sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+  if(!L.length) return '';
+  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🎁 Combos sugeridos (${L.length})</span></div>
+    ${L.map(x=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #4A136B"><div style="font-size:14px;font-weight:800;text-transform:capitalize">${escH(x.clienteNombre)}${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
+      <div style="font-size:12px;color:var(--muted2);margin:3px 0"><span style="text-transform:capitalize">${x.tipo==='recordatorio'?'🔔 Nadie le ofreció un combo todavía':escH(nombreRubro(x.rubro)||x.rubro)}</span> · lo dejó <span style="text-transform:capitalize">${escH(x.profNombre)}</span> · ${minutosDesde(x.ts)}</div>
+      <div style="display:flex;gap:8px;margin-top:6px"><button class="btn btn-ghost" style="flex:1" onclick="abrirVentaPaquete('${x.clienteId}')">🎁 Armar paquete</button><button class="btn btn-ghost" style="flex:0 0 auto" onclick="marcarSugerenciaAtendida('${x.id}')">✓ Atendido</button></div></div>`).join('')}`;
+}
+// Paquetes recién vendidos por cualquier profesional: recepción los ve acá para coordinar, en la Agenda, con qué profesional y a qué hora se hace cada servicio
+function coordinarItemPaquete(pid,itemId){
+  const p=paquetesSt.list.find(x=>x.id===pid); const it=p&&p.items.find(x=>x.id===itemId); if(!it) return;
+  agPendingPaquete={paqueteId:pid,itemId,clienteId:p.clienteId,clienteNombre:p.clienteNombre,svcId:it.svcId,nombre:it.nombre};
+  abrirAgenda(p.sucursal||null);
+  showToast('Elegí un profesional y un horario para '+it.nombre);
+}
+async function marcarPaqueteAvisado(pid){
+  await paquetesSt.cambiar(l=>{ const p=l.find(x=>x.id===pid); if(p){ p.avisado=true; p.upd=new Date().toISOString(); } });
+  refreshCurrentView();
+}
+function htmlPaquetesNuevosRec(){
+  const L=paquetesSt.list.filter(p=>!p.avisado).sort((a,b)=>String(b.creadoEn||'').localeCompare(String(a.creadoEn||'')));
+  if(!L.length) return '';
+  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🎁 Paquetes nuevos (${L.length})</span></div>
+    ${L.map(p=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #34d399">
+      <div style="display:flex;justify-content:space-between;align-items:baseline"><div style="font-size:14px;font-weight:800;text-transform:capitalize">${escH(p.clienteNombre)}${p.clienteNumero&&verNumeroCliente()?' #'+p.clienteNumero:''}</div><b>${fp(p.total)}</b></div>
+      <div style="font-size:12px;color:var(--muted2);margin:3px 0">vendió <span style="text-transform:capitalize">${escH(p.vendedorNombre||'')}</span> · ${minutosDesde(p.creadoEn||new Date().toISOString())}</div>
+      ${p.items.map(it=>`<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:12px;padding:3px 0">
+        <span>${it.usado?'✅':'⬜'} ${escH(it.nombre)}${it.coord&&it.coord.fecha?` <span style="color:#34d399;font-weight:700">· ${fechaCortaStr(it.coord.fecha)}${it.coord.hora?' '+it.coord.hora+'hs':''}</span>`:''}</span>
+        ${!it.usado?`<button class="lnk" style="flex-shrink:0" onclick="coordinarItemPaquete('${p.id}','${it.id}')">${it.coord&&it.coord.fecha?'Editar':'📅 Coordinar'}</button>`:''}
+      </div>`).join('')}
+      <button class="btn btn-ghost" style="margin-top:8px;width:100%" onclick="marcarPaqueteAvisado('${p.id}')">✓ Ya coordinado, sacar de la cola</button>
+    </div>`).join('')}`;
+}
+
+// ============ AGENDA (propia de Luffy, separada de AgendaPro — ver negocio/pendientes-app.md) ============
+// MVP: un dia a la vez, columnas por profesional, cada 15 min. No lee ni escribe nada de AgendaPro.
+const AG_INICIO=8*60, AG_FIN=21*60+30, AG_PASO=15; // minutos desde las 00:00
+function agSlots(){ const out=[]; for(let m=AG_INICIO;m<AG_FIN;m+=AG_PASO) out.push(m); return out; }
+function agHM(m){ return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+function agMin(hm){ const p=(hm||'00:00').split(':').map(Number); return (p[0]||0)*60+(p[1]||0); }
+function agEstado(a){
+  if(a.estado==='cancelado') return 'cancelado';
+  if(a.paqueteId){ const p=paquetesSt.list.find(x=>x.id===a.paqueteId); const it=p&&p.items.find(x=>x.id===a.itemId); if(it&&it.usado) return 'hecho'; }
+  return a.estado||'agendado';
+}
+
+let agState={sucursal:null,fecha:null};
+let agSel=null; // formulario en curso
+let agPendingPaquete=null; // {paqueteId,itemId,clienteId,clienteNombre,svcId,nombre} al venir de "Coordinar" un paquete
+let agPendingReagendo=null; // {clienteId,clienteNombre,servicios,profId,profNombre} al venir de "¿Cuándo vuelve?" en un cobro
+let agProfFiltro=null; // si esta seteado, la grilla solo muestra ese profesional (ej. reagendo: no tiene sentido ver la agenda de todos)
+let agVolver=null;
+
+function abrirAgenda(sucId){
+  agVolver = currentScreenId==='admin' ? ()=>{ show('admin'); enterAdmin(); }
+    : currentScreenId==='recepcion' ? ()=>{ show('recepcion'); renderRecepcion(); }
+    : ()=>goTo('hub');
+  if(sucId) agState.sucursal=sucId;
+  if(!agState.sucursal){ const ss=sucursalesDe(profile); agState.sucursal = ss[0] || (sucursales[0]&&sucursales[0].id) || null; }
+  if(!agState.fecha) agState.fecha=hoyStr();
+  goTo('agenda');
+}
+function volverDeAgenda(){
+  agPendingPaquete=null;
+  if(agPendingReagendo){ agPendingReagendo=null; agProfFiltro=null; volverDeAgendaACobro(); return; }
+  (agVolver||(()=>goTo('hub')))();
+}
+// Vuelve al cobro que quedo pendiente mientras se elegia dia/hora del reagendo en la agenda
+function volverDeAgendaACobro(){
+  (agVolver||(()=>goTo('hub')))();
+  renderRegistro();
+  openModal('modal-registro');
+}
+function agNavDia(delta){ const d=new Date(agState.fecha+'T00:00:00'); d.setDate(d.getDate()+delta); agState.fecha=ymdLocal(d); renderAgenda(); }
+function agHoy(){ agState.fecha=hoyStr(); renderAgenda(); }
+
+// Recordatorio de turno 24hs antes: cola manual (sin API de WhatsApp Business) con boton para mandar a mano
+function turnosRecordatorioManana(){
+  const manana=addDias(hoyStr(),1);
+  return agendaSt.list.filter(a=>a.fecha===manana&&agEstado(a)==='agendado'&&!a.recordado).sort((a,b)=>a.hora.localeCompare(b.hora));
+}
+function abrirRecordatoriosManana(){
+  const L=turnosRecordatorioManana(), manana=addDias(hoyStr(),1);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📲 Recordatorios de mañana')+
+    `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 10px">Turnos agendados para ${fechaCortaStr(manana)}. Mandale un WhatsApp para confirmar y bajar los que no vienen.</div>`+
+    (L.length?L.map(a=>{
+      const c=clienteDe(a.clienteId);
+      const nombre=c?c.nombre:a.clienteNombre;
+      const txt='Hola '+nombre.split(' ')[0]+'! Te recordamos tu turno mañana '+fechaCortaStr(manana)+' a las '+a.hora+'hs en Inda Studio 💈 ¿Todo bien para venir?';
+      const wa=linkWhatsApp(c?c.tel:'',txt);
+      return `<div class="card" style="margin-bottom:8px">
+        <div style="font-size:13.5px;font-weight:800">${escH(nombre)}</div>
+        <div style="font-size:11.5px;color:var(--muted2);margin:2px 0">${a.hora}hs · ${escH((a.servicios[0]||{}).nombre||'')} · ${escH(a.profNombre||'')}</div>
+        <div style="display:flex;gap:8px;margin-top:6px">${wa?`<a href="${wa}" target="_blank" rel="noopener" class="btn btn-primary" style="flex:1;text-align:center;text-decoration:none;padding:9px">📲 WhatsApp</a>`:'<span style="font-size:11px;color:var(--muted);flex:1">Sin teléfono cargado</span>'}<button class="btn btn-ghost" onclick="marcarRecordatorioHecho('${a.id}')">✓ Ya avisé</button></div>
+      </div>`;
+    }).join(''):'<div class="empty"><div class="e-icon">📲</div><p>No hay recordatorios pendientes.</p></div>');
+  openModal('modal-registro');
+}
+async function marcarRecordatorioHecho(id){
+  await agendaSt.cambiar(l=>{ const a=l.find(x=>x.id===id); if(a){ a.recordado=true; a.upd=new Date().toISOString(); } });
+  abrirRecordatoriosManana();
+}
+function renderAgenda(){
+  const ss = profile.role==='admin' ? sucursales : (sucursalesDe(profile).length?sucursales.filter(x=>sucursalesDe(profile).includes(x.id)):sucursales);
+  if(!ss.some(x=>x.id===agState.sucursal)) agState.sucursal = (ss[0]&&ss[0].id)||agState.sucursal;
+  const tb=document.getElementById('ag-toolbar');
+  const d=new Date(agState.fecha+'T00:00:00');
+  const diaTxt=d.toLocaleDateString('es-AR',{weekday:'short',day:'numeric',month:'short'});
+  const nRec=turnosRecordatorioManana().length;
+  tb.innerHTML=`
+    ${agPendingReagendo?`<div style="background:rgba(74,19,107,.14);border:1.5px solid rgba(74,19,107,.5);border-radius:12px;padding:10px 12px;font-size:12.5px;font-weight:700;color:var(--accent2)">📅 Elegí cuándo vuelve ${escH(agPendingReagendo.clienteNombre)} — tocá un horario de ${escH(agPendingReagendo.profNombre)}</div>`:''}
+    ${(!agPendingReagendo&&nRec)?`<div class="card" style="margin:0;padding:10px 12px;cursor:pointer;border-color:rgba(96,165,250,.4)" onclick="abrirRecordatoriosManana()"><div style="display:flex;justify-content:space-between;align-items:center"><span style="font-size:12.5px;font-weight:800">📲 ${nRec} recordatorio${nRec===1?'':'s'} de mañana</span><span style="font-size:11px;color:var(--muted2)">enviar ›</span></div></div>`:''}
+    <div style="display:flex;align-items:center;gap:8px">
+      ${(ss.length>1&&!agProfFiltro)?`<select onchange="agState.sucursal=this.value;agGrid()" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;padding:8px 10px;color:var(--text);font-family:var(--font);font-size:12.5px;font-weight:700">${ss.map(x=>`<option value="${x.id}" ${x.id===agState.sucursal?'selected':''}>${escH(x.nombre)}</option>`).join('')}</select>`:''}
+      ${agPendingReagendo?'':`<button class="btn btn-primary" style="width:auto;padding:8px 14px;font-size:12px;margin-left:auto" onclick="agAbrirSlot(null,${AG_INICIO+4*AG_PASO})">+ Turno</button>`}
+    </div>
+    <div style="display:flex;align-items:center;justify-content:center;gap:6px">
+      <button onclick="agNavDia(-1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:30px;height:30px;color:var(--text);cursor:pointer">‹</button>
+      <span style="font-size:12.5px;font-weight:800;text-transform:capitalize;min-width:90px;text-align:center">${diaTxt}</span>
+      <button onclick="agNavDia(1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:30px;height:30px;color:var(--text);cursor:pointer">›</button>
+      <button class="lnk" onclick="agHoy()">Hoy</button>
+    </div>`;
+  agGrid();
+}
+function agGrid(){
+  const wrap=document.getElementById('ag-grid'); if(!wrap) return;
+  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal)&&(!agProfFiltro||u.id===agProfFiltro));
+  if(!profs.length){ wrap.innerHTML='<div style="padding:24px 16px;text-align:center;color:var(--muted);font-size:13px">No hay profesionales asignados a esta sucursal.</div>'; return; }
+  const slots=agSlots(), rowH=32;
+  const turnos=agendaSt.list.filter(a=>a.fecha===agState.fecha&&a.sucursal===agState.sucursal&&agEstado(a)!=='cancelado');
+  const colorEst=(a)=>{ const e=agEstado(a); return e==='hecho'?'#34d399':a.paqueteId?'#4A136B':'#3b82f6'; };
+  const labelCol=`<div style="width:40px;flex-shrink:0">${slots.map(m=>`<div style="height:${rowH}px;font-size:9.5px;color:var(--muted2);text-align:right;padding-right:4px;box-sizing:border-box;border-top:1px solid var(--border)">${m%60===0?agHM(m):''}</div>`).join('')}</div>`;
+  const cols=profs.map(p=>{
+    const mios=turnos.filter(a=>a.profId===p.id);
+    const bg=slots.map(m=>`<div onclick="agAbrirSlot('${p.id}',${m})" style="height:${rowH}px;border-top:1px solid var(--border);border-left:1px solid var(--border);cursor:pointer;box-sizing:border-box"></div>`).join('');
+    const blocks=mios.map(a=>{
+      const startIdx=Math.round((agMin(a.hora)-AG_INICIO)/AG_PASO);
+      if(startIdx<0||startIdx>=slots.length) return '';
+      const h=Math.max(1,Math.ceil((a.duracion||30)/AG_PASO))*rowH-2;
+      return `<div onclick="event.stopPropagation();agAbrirDetalle('${a.id}')" style="position:absolute;left:2px;right:2px;top:${startIdx*rowH}px;height:${h}px;background:${colorEst(a)};border-radius:6px;padding:3px 5px;overflow:hidden;cursor:pointer;color:#fff">
+        <div style="font-size:10.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH(a.clienteNombre)}</div>
+        <div style="font-size:9px;font-weight:600;opacity:.9;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH((a.servicios[0]||{}).nombre||'')}${a.paqueteId?' 🎁':''}</div>
+      </div>`;
+    }).join('');
+    // Alguien reservando por la Reserva pública ahora mismo: se marca gris rayado para que nadie le pise el horario
+    // mientras el cliente termina de confirmar (pedido de Ivo, 27/09/2026).
+    const holds=holdsSt.list.filter(h=>h.profId===p.id&&h.fecha===agState.fecha&&numV(h.expira)>Date.now());
+    const holdBlocks=holds.map(h=>{
+      const startIdx=Math.round((agMin(h.hora)-AG_INICIO)/AG_PASO);
+      if(startIdx<0||startIdx>=slots.length) return '';
+      const dur=(h.servicioIds&&h.servicioIds.length)?duracionServicios(h.servicioIds):AG_PASO;
+      const hgt=Math.max(1,Math.ceil(dur/AG_PASO))*rowH-2;
+      const label=h.estado==='pendiente'?'🌐 '+escH(h.clienteNombre):'🌐 Reservando…';
+      return `<div style="position:absolute;left:2px;right:2px;top:${startIdx*rowH}px;height:${hgt}px;background:repeating-linear-gradient(45deg,var(--s3),var(--s3) 6px,var(--s2) 6px,var(--s2) 12px);border:1.5px dashed var(--muted2);border-radius:6px;padding:3px 5px;overflow:hidden;color:var(--muted2);pointer-events:none">
+        <div style="font-size:9.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${label}</div>
+      </div>`;
+    }).join('');
+    return `<div style="flex:1;min-width:0;position:relative">${bg}${blocks}${holdBlocks}</div>`;
+  }).join('');
+  const header=`<div style="display:flex;position:sticky;top:0;background:var(--bg);z-index:2;border-bottom:1.5px solid var(--border2)">
+    <div style="width:40px;flex-shrink:0"></div>
+    ${profs.map(p=>`<div style="flex:1;min-width:0;padding:8px 4px;text-align:center;font-size:11px;font-weight:800;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escH(p.name)}</div>`).join('')}
+  </div>`;
+  wrap.innerHTML=header+`<div style="display:flex">${labelCol}${cols}</div>`;
+}
+
+function agAbrirSlot(profId,minutos){
+  if(agPendingReagendo){ agCrearReagendo(profId||agPendingReagendo.profId,minutos); return; }
+  const prof=allUsers.find(u=>u.id===profId);
+  agSel={
+    editId:null, profId:profId||null, profNombre:prof?prof.name:'',
+    fecha:agState.fecha, hora:agHM(minutos), duracion:30,
+    clienteId:agPendingPaquete?agPendingPaquete.clienteId:null,
+    clienteNombre:agPendingPaquete?agPendingPaquete.clienteNombre:'',
+    servicios:agPendingPaquete?[agPendingPaquete.svcId]:[],
+    rubroAbierto:null, nota:'',
+    paqueteId:agPendingPaquete?agPendingPaquete.paqueteId:null,
+    itemId:agPendingPaquete?agPendingPaquete.itemId:null,
+    repiteSemanas:0, repiteVeces:4,
+  };
+  renderAgForm();
+  openModal('modal-registro');
+}
+// Al tocar un horario viniendo de "¿Cuándo vuelve?" en un cobro: ya se sabe cliente y servicios, se agenda directo sin pasar por el formulario
+async function agCrearReagendo(profId,minutos){
+  const ctx=agPendingReagendo; if(!ctx) return;
+  const prof=allUsers.find(u=>u.id===profId)||{id:profId,name:ctx.profNombre};
+  const ahora=new Date().toISOString(), hora=agHM(minutos);
+  await agendaSt.cambiar(l=>{ l.push({id:'ag'+Date.now().toString(36),sucursal:agState.sucursal,fecha:agState.fecha,hora,duracion:30,
+    profId:prof.id,profNombre:prof.name,clienteId:ctx.clienteId,clienteNombre:ctx.clienteNombre,servicios:ctx.servicios,
+    nota:'Reagendado',paqueteId:null,itemId:null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora}); });
+  cobro.reagFecha=agState.fecha; cobro.reagHora=hora;
+  showToast('Turno reagendado para '+fechaCortaStr(agState.fecha)+' · '+hora+'hs ✓');
+  agPendingReagendo=null; agProfFiltro=null;
+  volverDeAgendaACobro();
+}
+function agReagendar(id){
+  const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
+  agSel={editId:a.id, profId:a.profId, profNombre:a.profNombre, fecha:a.fecha, hora:a.hora, duracion:a.duracion||30,
+    clienteId:a.clienteId, clienteNombre:a.clienteNombre, servicios:(a.servicios||[]).map(s=>s.svcId),
+    rubroAbierto:null, nota:a.nota||'', paqueteId:a.paqueteId||null, itemId:a.itemId||null};
+  renderAgForm();
+}
+function agAbrirDetalle(id){
+  const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
+  const est=agEstado(a);
+  const cont=document.getElementById('registro-content');
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">${escH(a.clienteNombre)}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:10px">${fechaCortaStr(a.fecha)} · ${a.hora}hs · ${escH(a.profNombre)}</div>
+    <div class="card" style="margin-bottom:12px">${(a.servicios||[]).map(s=>`<div style="font-size:13px;padding:2px 0">${escH(s.nombre)}</div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Sin servicios cargados</div>'}${a.nota?`<div style="font-size:11.5px;color:var(--muted2);margin-top:6px">📝 ${escH(a.nota)}</div>`:''}</div>
+    ${a.paqueteId?`<div style="font-size:11.5px;color:#4A136B;margin-bottom:10px">🎁 Viene de un paquete ya pagado — se marca hecho solo cuando se le cobra ese servicio.</div>`:''}
+    ${est==='hecho'?'<div style="font-size:12.5px;color:#34d399;font-weight:700;margin-bottom:10px">✅ Hecho</div>':est==='cancelado'?'<div style="font-size:12.5px;color:#f472b6;font-weight:700;margin-bottom:10px">🗑️ Cancelado</div>':''}
+    ${est==='agendado'?`<div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="agReagendar('${a.id}')">✏️ Reagendar</button>
+      ${a.paqueteId?'':`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="agMarcarHecho('${a.id}')">✓ Marcar hecho</button>`}
+      <button class="btn btn-ghost" style="flex:1;min-width:120px;color:#f472b6" onclick="agCancelar('${a.id}')">🗑️ Cancelar turno</button>
+    </div>`:''}`;
+  openModal('modal-registro');
+}
+function renderAgForm(){
+  const s=agSel; if(!s) return;
+  const color=(profile&&profile.color)||'#4A136B';
+  const grupos={}; servicios.forEach(x=>{ (grupos[x.rubro||'']=grupos[x.rubro||'']||[]).push(x); });
+  const rids=Object.keys(grupos);
+  const pill=(x)=>`<button onclick="agToggleServicio('${x.id}')" style="${pillStyle(s.servicios.includes(x.id),color)}">${escH(x.nombre)}</button>`;
+  const serviciosHtml=rids.length<=1
+    ?`<div style="display:flex;flex-wrap:wrap;gap:6px">${(grupos[rids[0]]||[]).map(pill).join('')}</div>`
+    :`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${rids.map(rid=>{ const n=grupos[rid].filter(x=>s.servicios.includes(x.id)).length; return `<button type="button" onclick="agAbrirRubro('${rid}')" style="${pillStyle(s.rubroAbierto===rid,color)}">${escH(nombreRubro(rid)||'Otros')}${n?' ('+n+')':''}</button>`; }).join('')}</div>`
+      +(s.rubroAbierto&&grupos[s.rubroAbierto]?`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[s.rubroAbierto].map(pill).join('')}</div>`:'<div style="font-size:11.5px;color:var(--muted2)">Tocá un rubro para ver sus servicios.</div>');
+  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal));
+  const cont=document.getElementById('registro-content');
+  const box=document.querySelector('#modal-registro .modal-box'); const st=box?box.scrollTop:0;
+  cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">${s.editId?'Reagendar':'Agendar turno'} 📅</div><button onclick="agPendingPaquete=null;closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    ${s.paqueteId?`<div style="font-size:11.5px;color:#34d399;margin-bottom:10px">🎁 Coordinando un servicio de un paquete ya pagado</div>`:''}
+    <div class="field"><label>¿Para qué cliente?</label><input id="ag-cli" type="text" autocomplete="off" placeholder="Buscá por nombre..." value="${escH(s.clienteNombre)}" oninput="agClienteInput(this.value)" ${s.paqueteId?'readonly':''}/><div id="ag-cli-sug"></div></div>
+    <div class="field"><label>Profesional</label><div style="display:flex;flex-wrap:wrap;gap:6px">${profs.map(p=>`<button type="button" onclick="agElegirProf('${p.id}')" style="${pillStyle(s.profId===p.id,color)}">${escH(p.name)}</button>`).join('')||'<div style="font-size:12px;color:var(--muted)">No hay profesionales en esta sucursal.</div>'}</div></div>
+    <div style="display:flex;gap:8px"><div class="field" style="flex:1"><label>Fecha</label><input type="date" value="${s.fecha}" onchange="agSel.fecha=this.value"/></div><div class="field" style="flex:1"><label>Hora</label><input type="time" value="${s.hora}" onchange="agSel.hora=this.value"/></div></div>
+    <div class="field"><label>¿Qué le va a hacer?</label>${serviciosHtml}</div>
+    <div class="field"><label>Duración (minutos)</label><input type="number" inputmode="numeric" value="${s.duracion}" onchange="agSel.duracion=parseInt(this.value)||30"/></div>
+    <div class="field"><label>Nota (opcional)</label><input type="text" value="${escH(s.nota)}" oninput="agSel.nota=this.value" placeholder="Ej: viene con su hijo"/></div>
+    ${(!s.editId&&!s.paqueteId)?`<label class="rub-opt" style="margin-top:4px"><input type="checkbox" ${s.repiteSemanas>0?'checked':''} onchange="agSel.repiteSemanas=this.checked?1:0;renderAgForm()"/> 🔁 Turno recurrente (cliente fiel)</label>
+    ${s.repiteSemanas>0?`<div style="display:flex;gap:8px;align-items:center;margin:6px 0 4px"><span style="font-size:12.5px;color:var(--muted2)">Cada</span><input type="number" min="1" max="8" value="${s.repiteSemanas}" oninput="agSel.repiteSemanas=parseInt(this.value)||1" style="width:60px;text-align:center"/><span style="font-size:12.5px;color:var(--muted2)">semana(s), durante</span><input type="number" min="2" max="26" value="${s.repiteVeces}" oninput="agSel.repiteVeces=parseInt(this.value)||1" style="width:60px;text-align:center"/><span style="font-size:12.5px;color:var(--muted2)">veces</span></div><div style="font-size:11px;color:var(--muted2);margin-bottom:6px">Se cargan todos los turnos de una — si algún horario ya está ocupado, ese día se salta.</div>`:''}`:''}
+    <button class="btn btn-primary" style="background:${color};margin-top:6px" onclick="agGuardar()">${s.editId?'Guardar cambios':(s.repiteSemanas>0?'Agendar todos':'Agendar')}</button>`;
+  if(box) box.scrollTop=st;
+  agRenderSugerencias();
+}
+function agClienteInput(v){ agSel.clienteNombre=v; const c=clienteDe(agSel.clienteId); if(c&&c.nombre!==v) agSel.clienteId=null; agRenderSugerencias(); }
+function agElegirCliente(id){ const c=clienteDe(id); if(!c) return; agSel.clienteId=c.id; agSel.clienteNombre=c.nombre; const i=document.getElementById('ag-cli'); if(i) i.value=c.nombre; agRenderSugerencias(); avisoSiProblema(c); }
+function agQuitarCliente(){ agSel.clienteId=null; agSel.clienteNombre=''; const i=document.getElementById('ag-cli'); if(i){ i.value=''; i.focus(); } agRenderSugerencias(); }
+function agRenderSugerencias(){
+  const el=document.getElementById('ag-cli-sug'); if(!el) return;
+  const sel=clienteDe(agSel.clienteId);
+  if(sel){ el.innerHTML=`<div style="font-size:12px;color:#34d399;font-weight:700;margin-top:6px;display:flex;gap:6px;align-items:center">✓ ${escH(idCorto(sel))||'Cliente elegido'} <button class="lnk" onclick="agQuitarCliente()">cambiar</button></div>`; return; }
+  const q=(agSel.clienteNombre||'').trim();
+  if(q.length<2){ el.innerHTML=''; return; }
+  const m=buscarClientes(q).slice(0,5);
+  el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="agElegirCliente('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}
+    ${m.length?'':'<div style="font-size:11.5px;color:var(--muted2);padding:6px 2px">No encontramos a nadie. Cargalo primero desde Clientes.</div>'}</div>`;
+}
+function agElegirProf(id){ const p=allUsers.find(u=>u.id===id); agSel.profId=id; agSel.profNombre=p?p.name:''; renderAgForm(); }
+function agToggleServicio(id){
+  const i=agSel.servicios.indexOf(id);
+  if(i>=0) agSel.servicios.splice(i,1); else agSel.servicios.push(id);
+  const dur=duracionServicios(agSel.servicios);
+  if(dur>0) agSel.duracion=dur;
+  renderAgForm();
+}
+function agAbrirRubro(rid){ agSel.rubroAbierto=agSel.rubroAbierto===rid?null:rid; renderAgForm(); }
+async function agGuardar(){
+  const s=agSel; if(!s) return;
+  if(!s.clienteId){ showToast('Elegí un cliente'); return; }
+  if(!s.profId){ showToast('Elegí quién lo va a atender'); return; }
+  if(!s.servicios.length){ showToast('Elegí al menos un servicio'); return; }
+  if(!s.fecha||!s.hora){ showToast('Falta la fecha o la hora'); return; }
+  const svcObjs=s.servicios.map(id=>servicios.find(x=>x.id===id)).filter(Boolean).map(x=>({svcId:x.id,nombre:x.nombre}));
+  const ahora=new Date().toISOString();
+  if(s.editId){
+    await agendaSt.cambiar(l=>{ const a=l.find(x=>x.id===s.editId); if(a){ Object.assign(a,{profId:s.profId,profNombre:s.profNombre,fecha:s.fecha,hora:s.hora,duracion:s.duracion||30,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||''}); a.upd=ahora; } });
+  } else if(s.repiteSemanas>0&&s.repiteVeces>1){
+    // Turno recurrente: crea todas las ocurrencias de una, salteando las que ya tienen algo agendado a esa hora
+    let creados=0, saltados=0;
+    await agendaSt.cambiar(l=>{
+      for(let i=0;i<s.repiteVeces;i++){
+        const fecha=addDias(s.fecha,i*s.repiteSemanas*7);
+        if(l.some(a=>a.profId===s.profId&&a.fecha===fecha&&a.hora===s.hora&&a.estado!=='cancelado')){ saltados++; continue; }
+        l.push({id:'ag'+Date.now().toString(36)+i,sucursal:agState.sucursal,fecha,hora:s.hora,duracion:s.duracion||30,profId:s.profId,profNombre:s.profNombre,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||'',paqueteId:null,itemId:null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora});
+        creados++;
+      }
+    });
+    agSel=null; closeModal('modal-registro');
+    showToast(creados+' turno'+(creados===1?'':'s')+' agendado'+(creados===1?'':'s')+(saltados?' ('+saltados+' saltead'+(saltados===1?'o':'os')+' por estar ocupado)':'')+' ✓');
+    renderAgenda();
+    return;
+  } else {
+    await agendaSt.cambiar(l=>{ l.push({id:'ag'+Date.now().toString(36),sucursal:agState.sucursal,fecha:s.fecha,hora:s.hora,duracion:s.duracion||30,profId:s.profId,profNombre:s.profNombre,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||'',paqueteId:s.paqueteId||null,itemId:s.itemId||null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora}); });
+  }
+  if(s.paqueteId){
+    await paquetesSt.cambiar(l=>{ const p=l.find(x=>x.id===s.paqueteId); const it=p&&p.items.find(x=>x.id===s.itemId); if(it){ it.coord={fecha:s.fecha,hora:s.hora,profId:s.profId,profNombre:s.profNombre}; p.upd=ahora; } });
+  }
+  agPendingPaquete=null; agSel=null;
+  closeModal('modal-registro');
+  showToast('Turno agendado ✓');
+  renderAgenda();
+}
+async function agCancelar(id){
+  const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
+  const ok=await uiConfirm('¿Cancelar este turno?', escH(a.clienteNombre)+' · '+fechaCortaStr(a.fecha)+' '+a.hora+'hs');
+  if(!ok) return;
+  const ahora=new Date().toISOString();
+  await agendaSt.cambiar(l=>{ const x=l.find(y=>y.id===id); if(x){ x.estado='cancelado'; x.upd=ahora; } });
+  if(a.paqueteId){ await paquetesSt.cambiar(l=>{ const p=l.find(x=>x.id===a.paqueteId); const it=p&&p.items.find(x=>x.id===a.itemId); if(it){ it.coord=null; p.upd=ahora; } }); }
+  showToast('Turno cancelado');
+  renderAgenda();
+  if(a.fecha>=hoyStr()) abrirWaitlist(a); else closeModal('modal-registro');
+}
+// Waitlist: al liberarse un horario (cancelacion), ofrecerlo a clientes en riesgo/perdidos del CRM con la oferta de la hora si corresponde
+function agCandidatosWaitlist(a){
+  const uv=ultimasVisitas();
+  return clientesDir.filter(c=>c.tel&&!c.problematico).map(c=>({c,dias:uv[c.id]?diasDesdeStr(uv[c.id].fecha):null})).filter(x=>x.dias!=null&&x.dias>=16).sort((a,b)=>b.dias-a.dias).slice(0,5);
+}
+function agMensajeWaitlist(a,c){
+  const rubroIds=(a.servicios||[]).map(s=>(servicios.find(x=>x.id===s.svcId)||{}).rubro).filter(Boolean);
+  const ctx={dia:new Date(a.fecha+'T00:00:00').getDay(),hora:a.hora,sucursal:a.sucursal,cliente:null};
+  let oferta=null;
+  (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{ if(!rubroIds.some(rb=>rubroEn(f.rubro,rb))) return; if(!oferta||numV(f.pct)>numV(oferta.pct)) oferta=f; });
+  const nombresSvc=(a.servicios||[]).map(s=>s.nombre).join(', ');
+  let txt='Hola '+c.nombre.split(' ')[0]+'! Se liberó un horario con '+a.profNombre+' el '+fechaCortaStr(a.fecha)+' a las '+a.hora+'hs'+(nombresSvc?' para '+nombresSvc:'')+'. ¿Te sirve?';
+  if(oferta) txt+=' Encima tiene '+oferta.pct+'% de descuento por caer en el horario de oferta 🎉';
+  return txt;
+}
+function abrirWaitlist(a){
+  const cands=agCandidatosWaitlist(a);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📤 Avisar que se liberó un horario')+
+    `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 12px">${fechaCortaStr(a.fecha)} ${a.hora}hs con ${escH(a.profNombre)} — mandale un WhatsApp a alguien que hace tiempo no viene.</div>`+
+    (cands.length?cands.map(({c,dias})=>{ const wa=linkWhatsApp(c.tel,agMensajeWaitlist(a,c)); return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="flex:1;min-width:0">${escH(c.nombre)}<div style="font-size:11px;color:var(--muted2);font-weight:400">hace ${dias} días</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}</div>`; }).join(''):'<div style="font-size:13px;color:var(--muted)">No hay clientes inactivos con teléfono para ofrecerles.</div>')
+    +'<button class="btn btn-ghost" style="width:100%;margin-top:10px" onclick="closeModal(\'modal-registro\')">Cerrar</button>';
+  openModal('modal-registro');
+}
+async function agMarcarHecho(id){
+  await agendaSt.cambiar(l=>{ const x=l.find(y=>y.id===id); if(x){ x.estado='hecho'; x.upd=new Date().toISOString(); } });
+  closeModal('modal-registro');
+  showToast('Marcado como hecho ✓');
+  renderAgenda();
+}
+// Franja en el Inicio del profesional: lo que tiene agendado y cuanto va a sumar de comision cuando lo haga (estimado)
+function htmlProximosTurnosHub(){
+  if(!profile||profile.role!=='profesional') return '';
+  const hoy=hoyStr();
+  const L=agendaSt.list.filter(a=>a.profId===profile.id&&a.fecha>=hoy&&agEstado(a)==='agendado').sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)).slice(0,5);
+  if(!L.length) return '';
+  return `<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px">📅 Tus próximos turnos</div>
+    ${L.map(a=>{
+      let com=0;
+      if(a.paqueteId){ const p=paquetesSt.list.find(x=>x.id===a.paqueteId); const it=p&&p.items.find(x=>x.id===a.itemId); if(it) com=Math.round(numV(it.final)*comisionRubroEstim(it.rubro)/100); }
+      else { com=(a.servicios||[]).reduce((s,sv)=>{ const full=servicios.find(x=>x.id===sv.svcId); return s+(full?Math.round(numV(full.precio)*comisionRubroEstim(full.rubro)/100):0); },0); }
+      return `<div class="card" style="margin-bottom:8px;cursor:pointer" onclick="abrirAgenda('${a.sucursal}');agState.fecha='${a.fecha}';renderAgenda()">
+        <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:13px">${escH(a.clienteNombre)}</b><span style="font-size:11.5px;color:var(--muted2)">${fechaCortaStr(a.fecha)} · ${a.hora}hs</span></div>
+        <div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${escH((a.servicios[0]||{}).nombre||'')}${a.servicios.length>1?' +'+(a.servicios.length-1):''}${a.paqueteId?' · 🎁 ya pagado':''}</div>
+        ${com>0?`<div style="font-size:11.5px;color:#34d399;font-weight:700;margin-top:3px">≈ ${fp(com)} de comisión cuando lo hagas</div>`:''}
+      </div>`;
+    }).join('')}`;
+}
+
+// ---------- membresia y paquetes de un cliente ----------
+function membresiaActivaDe(cid){ return membresiasSt.list.filter(m=>m.clienteId===cid&&m.usos.length<m.creditos).sort((a,b)=>String(a.creadoEn).localeCompare(String(b.creadoEn)))[0]||null; }
+function paquetesAbiertosDe(cid){ return paquetesSt.list.filter(p=>p.clienteId===cid&&p.items.some(i=>!i.usado)); }
+function servicioMembresia(){
+  const cfg=promos.membresia||{};
+  let s=servicios.find(x=>x.id===cfg.servicioId);
+  if(!s) s=servicios.filter(x=>rubroEn(cfg.rubro,x.rubro||'')&&/^corte$/i.test(x.nombre.trim()))[0]||servicios.filter(x=>rubroEn(cfg.rubro,x.rubro||'')&&/^corte/i.test(x.nombre.trim())).sort((a,b)=>a.precio-b.precio)[0];
+  return s||null;
+}
+// El corte de la membresia para cada profesional: el configurado si lo ve, o el corte mas barato de su rubro (Barberia / Barberia Premium)
+function servicioMembresiaPara(u){
+  const rb=rubrosDeUsuario(u); const base=servicioMembresia();
+  if(base&&visiblePorRubro(base,rb)) return base;
+  return servicios.filter(x=>visiblePorRubro(x,rb)&&rubroEn(promos.membresia.rubro,x.rubro||'')&&/^corte/i.test(x.nombre.trim())).sort((a,b)=>a.precio-b.precio)[0]||null;
+}
+
