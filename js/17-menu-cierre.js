@@ -207,9 +207,14 @@ function rpOrden(){ return sucursales.length>1?['sucursal','servicios','asignar'
 // servicios en vez de tratar de deshacer un paso puntual del wizard -- simplificacion a proposito: el wizard
 // tiene demasiados sub-estados (que grupo, que sub-paso) como para des-andarlos uno por uno sin arriesgar un
 // estado raro. Es mas seguro reempezar la asignacion que dejar un grupo a medio asignar.
+// "confirmar" (completar nombre/whatsapp) tiene el mismo problema y necesita el mismo reset: en ese punto
+// grupoIdx ya quedo apuntando despues del ultimo grupo (todos asignados), asi que si "atras" solo hiciera
+// paso='asignar' sin resetear grupoIdx, rpRenderAsignar iba a ver que no queda ningun grupo por asignar y
+// mandaba de nuevo para adelante a "confirmar" -- quedaba como si el boton no hiciera nada (bug real,
+// reportado por Ivo: no se podia volver atras desde "completa tus datos").
 function rpVolver(){
   const o=rpOrden(), i=o.indexOf(rpState.paso);
-  if(rpState.paso==='asignar'){ rpState.paso='servicios'; rpState.asignaciones={}; rpState.grupoIdx=0; rpRender(); return; }
+  if(rpState.paso==='asignar'||rpState.paso==='confirmar'){ rpState.paso='servicios'; rpState.asignaciones={}; rpState.grupoIdx=0; rpRender(); return; }
   if(i>0){ rpState.paso=o[i-1]; rpRender(); }
 }
 function rpBackBtn(){ return rpOrden().indexOf(rpState.paso)>0?`<button onclick="rpVolver()" class="lnk" style="margin-bottom:10px">‹ Atrás</button>`:''; }

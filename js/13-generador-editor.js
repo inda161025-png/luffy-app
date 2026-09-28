@@ -485,8 +485,8 @@ function renderDinero(){
   const r2end=new Date(now.getFullYear(),now.getMonth()+1,0).getDate();
   body.innerHTML=`
     <div class="dinero-tabs">
-      <button class="dt-tab ${dineroTab==='trabajo'?'active':''}" onclick="switchDineroTab('trabajo')">💼 Trabajo</button>
-      <button class="dt-tab ${dineroTab==='yo'?'active':''}" onclick="switchDineroTab('yo')">👤 Yo</button>
+      <button class="dt-tab ${dineroTab==='trabajo'?'active':''}" onclick="switchDineroTab('trabajo')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><path d="M9 7V5a2 2 0 012-2h2a2 2 0 012 2v2M4 7h16l-1 13H5z"/></svg>Trabajo</button>
+      <button class="dt-tab ${dineroTab==='yo'?'active':''}" onclick="switchDineroTab('yo')"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:5px"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c1.5-4 4-6 7-6s5.5 2 7 6"/></svg>Yo</button>
     </div>
     <div id="dinero-content"></div>`;
   renderDineroContent();
