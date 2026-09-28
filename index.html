@@ -329,25 +329,25 @@
 
 <!-- NAV -->
 <nav id="nav" style="display:none">
-  <button class="nav-btn active" id="n-hub" onclick="goTo('hub')">
+  <button class="nav-btn active" id="n-hub" onclick="goTo('hub')"><span class="nav-btn-in">
     <svg viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><polyline points="9,22 9,12 15,12 15,22"/></svg>
     Inicio
-  </button>
-  <button class="nav-btn" id="n-kanban" onclick="goTo('kanban')">
-    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+  </span></button>
+  <button class="nav-btn" id="n-kanban" onclick="goTo('kanban')"><span class="nav-btn-in">
+    <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>
     Tablero
-  </button>
+  </span></button>
   <button class="nav-center" onclick="openRegistro()">
     <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
   </button>
-  <button class="nav-btn" id="n-dinero" onclick="goTo('dinero')">
-    <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="M12 6v2m0 8v2M9 9h4.5a1.5 1.5 0 010 3H10a1.5 1.5 0 000 3H15"/></svg>
+  <button class="nav-btn" id="n-dinero" onclick="goTo('dinero')"><span class="nav-btn-in">
+    <svg viewBox="0 0 24 24"><rect x="2.5" y="5.5" width="19" height="14" rx="3"/><path d="M2.5 10h19"/><circle cx="16.5" cy="15" r="1" fill="currentColor" stroke="none"/></svg>
     Dinero
-  </button>
-  <button class="nav-btn" id="n-puntos" onclick="goTo('puntos')">
+  </span></button>
+  <button class="nav-btn" id="n-puntos" onclick="goTo('puntos')"><span class="nav-btn-in">
     <svg viewBox="0 0 24 24"><polygon points="12,2 15.09,8.26 22,9.27 17,14.14 18.18,21.02 12,17.77 5.82,21.02 7,14.14 2,9.27 8.91,8.26"/></svg>
     Puntos
-  </button>
+  </span></button>
 </nav>
 
 <!-- MODALS -->
