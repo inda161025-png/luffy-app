@@ -888,5 +888,13 @@ chequearVersion();
 setInterval(chequearVersion, 5*60*1000);
 document.addEventListener('visibilitychange',()=>{ if(!document.hidden) chequearVersion(); });
 
+// ============ PWA: instalar en pantalla de inicio ============
+// sw.js no cachea nada (ver ese archivo) -- esta ahi solo para que el navegador
+// ofrezca instalar la app. La deteccion de version nueva de arriba sigue siendo
+// la unica forma en que se entera un celular con la app ya instalada.
+if('serviceWorker' in navigator){
+  window.addEventListener('load',()=>{ navigator.serviceWorker.register('sw.js').catch(()=>{}); });
+}
+
 // ============ START ============
 init();
