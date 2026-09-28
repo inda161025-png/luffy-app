@@ -3246,6 +3246,17 @@ function mejorDescuentoServicio(svc,cli,ctx,medioEfectivo){
     if(mejorCupon){ const m=Math.round(precio*numV(mejorCupon.pct)/100); if(m>0) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:m}); }
   }
   if(medioEfectivo){ const m=Math.round(precio*DESC_EFECTIVO_PCT/100); if(m>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:m}); }
+  // Cuenta con Google (10%) + reseña (5%): mismo candidato que ya existe en calcCobro() para el cobro final,
+  // pero acá falta para la reserva publica y "Armar paquete" (que usan este motor por-servicio, no calcCobro).
+  // Bug real reportado por Ivo/Central el 27/09/2026: se mostraba en /#cuenta pero nunca se aplicaba al reservar.
+  // ctx.cliente cubre la reserva publica (ahi "cli" siempre es null a proposito, no tiene ficha completa --
+  // ver rpCliente/rpCtx), "cli" cubre "Armar paquete" con una ficha real seleccionada por el staff.
+  const idCuenta=(cli&&cli.authUid)?cli:(ctx&&ctx.cliente&&ctx.cliente.authUid?ctx.cliente:null);
+  const pctCuenta=idCuenta?CUENTA_DESC_PCT:0, pctResena=idCuenta&&idCuenta.resenaGoogle?RESENA_DESC_PCT:0, pctCuentaTotal=pctCuenta+pctResena;
+  if(pctCuentaTotal>0){
+    const m=Math.round(precio*pctCuentaTotal/100);
+    if(m>0){ const partes=[pctCuenta?'cuenta':null,pctResena?'reseña':null].filter(Boolean).join(' + '); cand.push({tipo:'cuenta',label:'⭐ '+partes.charAt(0).toUpperCase()+partes.slice(1),pct:pctCuentaTotal,monto:m}); }
+  }
   let ganador=null; cand.forEach(c=>{ if(!ganador||c.monto>ganador.monto) ganador=c; });
   return ganador;
 }
@@ -10886,11 +10897,17 @@ function volverDePantallaKiosco(){
 const holdsSt=almacenLista('luffy/reservas_holds','luffy_reservas_holds',nuevoMayor);
 let rpSesionId='';
 let rpState={paso:'sucursal',sucursal:null,servicioIds:[],rubroAbierto:null,profId:null,fecha:'',hora:'',nombre:'',whatsapp:''};
+// Si el cliente vino logueado desde /#cuenta (boton "Reservar un turno"), rpCliente guarda lo minimo para que
+// el 10%/5% de cuenta+reseña compita como una promo mas al armar el precio -- sin esto, la reserva publica
+// nunca sabe quien esta del otro lado (es anonima por diseño) y ese descuento quedaba sin aplicarse nunca
+// (bug real reportado por Ivo/Central, 27/09/2026).
+let rpCliente=null;
 async function mostrarReservaPublica(){
   show('reserva-publica');
   const nav=document.getElementById('nav'); if(nav) nav.style.display='none';
   document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Cargando…</div>';
   rpSesionId='rp'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
+  try{ rpCliente=JSON.parse(sessionStorage.getItem('inda_reserva_cliente')||'null'); }catch(e){ rpCliente=null; }
   await rpCargarDatos();
   rpState={paso:'sucursal',sucursal:null,servicioIds:[],rubroAbierto:null,profId:null,fecha:hoyStr(),hora:'',nombre:'',whatsapp:''};
   if(sucursales.length<=1){ rpState.sucursal=(sucursales[0]||{}).id||null; rpState.paso='servicios'; }
@@ -10945,7 +10962,7 @@ function rpMejorFijoRubro(sucId,rubroId){
   return mejor;
 }
 function rpItems(){ return rpState.servicioIds.map(id=>servicios.find(x=>x.id===id)).filter(Boolean); }
-function rpCtx(fecha,hora){ return {dia:new Date(fecha+'T00:00:00').getDay(),hora,sucursal:rpState.sucursal,cliente:null,fecha}; }
+function rpCtx(fecha,hora){ return {dia:new Date(fecha+'T00:00:00').getDay(),hora,sucursal:rpState.sucursal,cliente:rpCliente,fecha}; }
 // Mismo motor de descuentos que "Armar paquete": primero el mejor descuento individual de cada servicio (acá,
 // sin cliente ni pago en efectivo, el unico que puede ganar es una promo fija de franja horaria), y recien
 // despues el % de paquete (5/10/15%) sobre lo que quede — asi la reserva publica queda integrada de verdad,
@@ -11294,7 +11311,12 @@ function renderCuentaLogueado(){
       <div style="font-size:10.5px;color:var(--muted2);margin-top:8px">Por tener cuenta con nosotros — se aplican solas cuando vengas, compitiendo igual que el resto.</div>
     </div>`:''}
     ${htmlTarjetaCliente(c)||'<div class="empty"><div class="e-icon">⭐</div><p>Todavía no tenés tarjeta activa. Se activa sola en tu próximo turno.</p></div>'}
-    <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="location.hash='#reserva';location.reload()">📅 Reservar un turno</button>`;
+    <button class="btn btn-ghost" style="margin-top:16px;width:100%" onclick="cuentaIrAReservar()">📅 Reservar un turno</button>`;
+}
+function cuentaIrAReservar(){
+  const c=cuentaClienteActual;
+  try{ sessionStorage.setItem('inda_reserva_cliente', JSON.stringify({authUid:c&&c.authUid, resenaGoogle:!!(c&&c.resenaGoogle)})); }catch(e){}
+  location.hash='#reserva'; location.reload();
 }
 async function cuentaMarcarResena(){
   if(!cuentaClienteActual) return;
