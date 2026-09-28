@@ -6361,10 +6361,14 @@ function htmlSenaCliente(c){
 // con 'pageshow' (bfcache), no solo una vez al cargar.
 async function enrutarHashPublico(){
   if(location.hash==='#reserva'){ await mostrarReservaPublica(); return true; }
-  // "inda_cuenta_flow" cubre la vuelta del login con Google: Supabase reemplaza el hash #cuenta por
-  // el token de sesion (#access_token=...) al volver, asi que el hash solo no alcanza para saber que
-  // hay que mostrar esta pantalla.
-  if(location.hash==='#cuenta'||sessionStorage.getItem('inda_cuenta_flow')==='1'){ await mostrarCuenta(); return true; }
+  // La vuelta del login con Google puede llegar de varias formas segun el navegador: Supabase reemplaza
+  // el hash #cuenta por el token de sesion (#access_token=... o #code=...), y en algunos casos (Safari/iOS,
+  // por las protecciones de storage entre sitios en redirects de varios saltos: nuestro sitio -> Google ->
+  // Supabase -> nuestro sitio) el sessionStorage que dejamos antes de salir no sobrevive el viaje. Por eso
+  // se chequean 3 señales, la mas confiable primero: un parametro en la URL (?cuenta=1, que no depende de
+  // storage y sobrevive el redirect siempre porque va en la propia URL), despues el hash directo, y por
+  // ultimo el sessionStorage como respaldo para navegadores donde si sobrevive.
+  if(location.hash==='#cuenta'||location.search.includes('cuenta=1')||sessionStorage.getItem('inda_cuenta_flow')==='1'){ await mostrarCuenta(); return true; }
   return false;
 }
 window.addEventListener('hashchange',()=>{ enrutarHashPublico(); });
@@ -11231,6 +11235,7 @@ async function mostrarCuenta(){
   await cuentaAsegurarRol(session);
   cuentaClienteActual=await cuentaResolverCliente(session);
   sessionStorage.removeItem('inda_cuenta_flow');
+  if(location.search.includes('cuenta=1')||location.hash){ try{ history.replaceState(null,'',location.pathname+'#cuenta'); }catch(e){} }
   renderCuentaLogueado();
 }
 function renderCuentaLogin(){
@@ -11243,7 +11248,10 @@ function renderCuentaLogin(){
 }
 async function cuentaLoginGoogle(){
   sessionStorage.setItem('inda_cuenta_flow','1');
-  await supaClient.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname+'#cuenta'}});
+  // ?cuenta=1 en vez de (o ademas de) #cuenta: un parametro de la URL sobrevive el viaje Google -> Supabase
+  // -> nuestro sitio siempre, porque va en la propia URL de vuelta -- no depende de que el navegador deje
+  // sobrevivir el sessionStorage entre sitios (encontrado roto en Safari/iOS, 27/09/2026).
+  await supaClient.auth.signInWithOAuth({provider:'google',options:{redirectTo:location.origin+location.pathname+'?cuenta=1'}});
 }
 // Cada sucursal tiene su propia ficha de Google, asi que su propio link de reseña. Si sabemos en que
 // sucursal se atiende el cliente mostramos solo ese; si no (caso comun: se creo la cuenta sola desde
