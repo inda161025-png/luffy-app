@@ -469,13 +469,37 @@ function ventaRenderClienteSug(){
   el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="ventaElegirCliente('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)}${(c.tarjetas&&c.tarjetas.length)?' 💳':''}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}
     ${m.length?'':'<div style="font-size:11.5px;color:var(--muted2);padding:6px 2px">No encontramos a nadie. Podés terminar de armar el paquete y elegirlo después.</div>'}</div>`;
 }
+function vpRenderSucursalPicker(){
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Reservar turno 📅')+`
+    <div style="font-size:13px;color:var(--muted2);margin-bottom:14px">Elegí la sucursal</div>
+    ${sucursales.map(s=>`<div class="card" style="cursor:pointer;margin-bottom:10px;border-left:5px solid ${s.color}" onclick="vpElegirSucursalPublico('${s.id}')"><div style="font-size:17px;font-weight:900">${escH(s.nombre)}</div></div>`).join('')}`;
+}
+function vpElegirSucursalPublico(id){ ventaSel.sucursal=id; renderVentaPaquete(); }
 function renderVentaPaquete(){
-  const s=ventaSel; const c=s.cid?clienteDe(s.cid):null; const color=(profile&&profile.color)||'#4A136B';
+  const s=ventaSel;
+  // Puerta publica: si hay mas de una sucursal, primero hay que elegir cual antes de ver servicios (French
+  // solo tiene barberia, ver rpRubrosSucursal) -- el staff nunca pasa por aca, ya opera en la suya.
+  if(s.publico&&!s.sucursal&&sucursales.length>1){ vpRenderSucursalPicker(); return; }
+  if(s.publico&&!s.sucursal) s.sucursal=(sucursales[0]||{}).id||null;
+  // Los 3 pasos del wizard nuevo de horarios reales toman la pantalla completa (staff y publico por igual);
+  // el resto de esta funcion (elegir servicios) sigue exactamente igual que siempre.
+  if(s.modo==='horario'||s.modo==='horarioConfirmar'||s.modo==='horarioGracias'){
+    const titulo=s.modo==='horarioGracias'?'📅 Reserva':(s.modo==='horarioConfirmar'?'📅 Confirmar reserva':'📅 Reservar horarios');
+    document.getElementById('registro-content').innerHTML=cabeceraModal(titulo)+'<div id="vp-wizard"></div>';
+    const body=document.getElementById('vp-wizard');
+    if(s.modo==='horario') vpRenderHorarioWizard(body);
+    else if(s.modo==='horarioConfirmar') vpRenderConfirmar(body);
+    else vpRenderGracias(body);
+    return;
+  }
+  const c=s.cid?clienteDe(s.cid):null; const color=(profile&&profile.color)||'#4A136B';
   const box=document.querySelector('#modal-registro .modal-box'); const st=box?box.scrollTop:0;
   const items=s.sel.map(id=>servicios.find(x=>x.id===id)).filter(Boolean);
-  const ctx=ctxCobro(c);
+  const ctx=vpCtxCobro(c);
   const R=calcPaqueteItems(items,c,ctx,s.medio==='efectivo');
-  const grupos={}; servicios.forEach(x=>{ (grupos[x.rubro||'']=grupos[x.rubro||'']||[]).push(x); });
+  // Puerta publica: solo se ven los rubros que ofrece la sucursal elegida (French = solo barbería).
+  const rubrosPermitidos=s.publico?rpRubrosSucursal(s.sucursal):null;
+  const grupos={}; servicios.forEach(x=>{ if(rubrosPermitidos&&!rubrosPermitidos.includes(x.rubro||'')) return; (grupos[x.rubro||'']=grupos[x.rubro||'']||[]).push(x); });
   const rids=Object.keys(grupos);
   const pill=(x)=>`<button onclick="ventaToggleSvc('${x.id}')" style="${pillStyle(s.sel.includes(x.id),color)}">${escH(x.nombre)} · ${fp(x.precio)}</button>`;
   const escala=(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ');
@@ -486,17 +510,18 @@ function renderVentaPaquete(){
   const clienteHtml=c
     ?`<div class="field"><label>Cliente</label><div style="font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px">👤 ${escH(c.nombre)} <button class="lnk" onclick="ventaQuitarCliente()">cambiar</button></div></div>`
     :`<div class="field"><label>¿Para qué cliente es?</label><input id="vp-cli" type="text" autocomplete="off" placeholder="Buscá por nombre, teléfono o número..." value="${escH(s.clienteQ||'')}" oninput="ventaClienteInput(this.value)"/><div id="vp-cli-sug"></div></div>`;
-  const listo=items.length>=2;
-  const accionesHtml=!listo?'<div style="font-size:12px;color:var(--muted);text-align:center;padding:6px 0">Elegí al menos 2 servicios</div>'
+  const listo=items.length>=2, hayAlgo=items.length>=1;
+  const accionesHtml=!hayAlgo?'<div style="font-size:12px;color:var(--muted);text-align:center;padding:6px 0">Elegí al menos un servicio</div>'
     : s.modo==='asignar' ? `${clienteHtml}
       <div class="field"><label>¿Cómo paga?</label>${htmlMedios('ventaMedio',s.medio,color)}</div>
       <button class="btn btn-ghost" style="margin-bottom:8px" onclick="ventaSel.modo='';renderVentaPaquete()">← Volver</button>
       <button class="btn btn-primary" onclick="confirmarVentaPaquete()" style="background:${color}">${!c?'Elegí un cliente para cobrar':'Cobrar '+fp(R.total)+' y vender'}</button>`
     : `<div style="display:flex;gap:8px;flex-wrap:wrap">
-        <button class="btn btn-ghost" style="flex:1;min-width:160px" onclick="compartirPaqueteWhatsApp()">📤 Compartir por WhatsApp</button>
-        <button class="btn btn-primary" style="flex:1;min-width:160px;background:${color}" onclick="ventaSel.modo='asignar';renderVentaPaquete()">👤 Asignar a un cliente</button>
+        ${(!s.publico&&listo)?`<button class="btn btn-ghost" style="flex:1;min-width:160px" onclick="compartirPaqueteWhatsApp()">📤 Compartir por WhatsApp</button>`:''}
+        ${(!s.publico&&listo)?`<button class="btn btn-primary" style="flex:1;min-width:160px;background:${color}" onclick="ventaSel.modo='asignar';renderVentaPaquete()">👤 Asignar a un cliente</button>`:''}
+        <button class="btn btn-primary" style="flex:1;min-width:160px;background:${color}" onclick="vpIniciarHorarios()">📅 Reservar horarios reales</button>
       </div>`;
-  document.getElementById('registro-content').innerHTML=cabeceraModal(s.proximaVisita?'🎁 Paquete para la próxima visita':'Armar paquete 🎁')+`
+  document.getElementById('registro-content').innerHTML=cabeceraModal(s.publico?'Reservar turno 📅':(s.proximaVisita?'🎁 Paquete para la próxima visita':'Armar paquete 🎁'))+`
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">Primero el descuento de cada servicio (como si fuera solo) y recién después el % del paquete: 1 = normal · ${escala}</div>
     ${rubrosHtml}
     <div class="card" style="margin:14px 0 10px">

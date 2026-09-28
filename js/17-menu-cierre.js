@@ -139,43 +139,29 @@ function volverDePantallaKiosco(){
 // de la base (paso 2, todavia pendiente) y haya que revisar los permisos de escritura sin login.
 const holdsSt=almacenLista('luffy/reservas_holds','luffy_reservas_holds',nuevoMayor);
 let rpSesionId='';
-let rpState={paso:'sucursal',sucursal:null,servicioIds:[],rubroAbierto:null,asignaciones:{},grupoIdx:0,subPaso:null,nombre:'',whatsapp:''};
 // Si el cliente vino logueado desde /#cuenta (boton "Reservar un turno"), rpCliente guarda lo minimo para que
 // el 10%/5% de cuenta+reseña compita como una promo mas al armar el precio -- sin esto, la reserva publica
 // nunca sabe quien esta del otro lado (es anonima por diseño) y ese descuento quedaba sin aplicarse nunca
 // (bug real reportado por Ivo/Central, 27/09/2026).
 let rpCliente=null;
-// Paquete armado en la calculadora de sitio-web (dominio distinto, sin storage compartido): llega por NOMBRE,
-// no por id (su catalogo es una copia manual, no lee de esta base -- acordado con Web el 27/09/2026), asi que
-// el match es best-effort por nombre normalizado. Si algo no matchea, se ignora sin romper nada (el cliente
-// arranca esa parte desde cero, como si nunca hubiera venido con datos).
-function rpAplicarParametrosURL(query){
-  if(!query) return;
-  const qs=new URLSearchParams(query.replace(/^\?/,''));
-  const nomSuc=qs.get('sucursal'), nomRubros=qs.get('rubros'), nomServicios=qs.get('servicios');
-  if(nomSuc){ const s=sucursales.find(x=>nkey(x.nombre)===nkey(nomSuc)); if(s) rpState.sucursal=s.id; }
-  const rubroIds=(nomRubros||'').split(',').map(n=>{ const r=rubros.find(x=>nkey(x.nombre)===nkey(n)); return r?r.id:null; }).filter(Boolean);
-  (nomServicios||'').split(',').map(n=>n.trim()).filter(Boolean).forEach(nombre=>{
-    const k=nkey(nombre);
-    const candidatos=servicios.filter(sv=>(!rubroIds.length||rubroIds.includes(sv.rubro))&&nkey(sv.nombre).includes(k));
-    if(candidatos.length===1&&!rpState.servicioIds.includes(candidatos[0].id)) rpState.servicioIds.push(candidatos[0].id);
-  });
-  if(rpState.sucursal){
-    rpState.paso='servicios';
-    if(rubroIds.length===1) rpState.rubroAbierto=rubroIds[0];
-  }
-}
-async function mostrarReservaPublica(query){
+// Consolidacion grande decidida con Ivo el 27/09/2026: /#reserva ya NO es una pantalla propia con su wizard
+// separado -- es la "puerta publica" de la MISMA herramienta "Armar Paquete" que ya usa el staff (ventaSel /
+// renderVentaPaquete, en 05-descuentos-cobro.js). Reemplaza el intento anterior de pasar el paquete de la
+// calculadora de sitio-web por parametros en la URL (revertido, era fragil -- ver el bug real de combos que
+// reporto Web). La puerta publica arma su propio ventaSel con publico:true, que renderVentaPaquete usa para:
+// ocultar la busqueda de cliente y el cobro inmediato (eso sigue siendo solo para el staff), y mostrar en
+// cambio el wizard nuevo de "Reservar horarios reales" (mas abajo: vpXxx) que SI comparten las dos puertas.
+async function mostrarReservaPublica(){
   show('reserva-publica');
   const nav=document.getElementById('nav'); if(nav) nav.style.display='none';
   document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Cargando…</div>';
   rpSesionId='rp'+Date.now().toString(36)+Math.random().toString(36).slice(2,8);
   try{ rpCliente=JSON.parse(sessionStorage.getItem('inda_reserva_cliente')||'null'); }catch(e){ rpCliente=null; }
   await rpCargarDatos();
-  rpState={paso:'sucursal',sucursal:null,servicioIds:[],rubroAbierto:null,asignaciones:{},grupoIdx:0,subPaso:null,nombre:'',whatsapp:''};
-  if(sucursales.length<=1){ rpState.sucursal=(sucursales[0]||{}).id||null; rpState.paso='servicios'; }
-  if(query) rpAplicarParametrosURL(query);
-  rpRender();
+  ventaSel={tipo:'paq',publico:true,cid:null,clienteQ:'',medio:null,sel:[],rubroAbierto:null,modo:'',sucursal:sucursales.length<=1?((sucursales[0]||{}).id||null):null,asignaciones:{},grupoIdx:0,subPaso:null,nombre:'',whatsapp:''};
+  document.getElementById('rp-body').innerHTML='<div style="text-align:center;color:var(--muted2);font-size:12.5px;padding:6px 0 0">Armá tu turno y te lo llevamos a WhatsApp para coordinar la seña.</div>';
+  renderVentaPaquete();
+  openModal('modal-registro');
 }
 async function rpCargarDatos(){
   if(!DB) return;
@@ -202,22 +188,6 @@ async function rpCargarDatos(){
     await cargarRubrosProf();
   }catch(e){}
 }
-function rpOrden(){ return sucursales.length>1?['sucursal','servicios','asignar','confirmar']:['servicios','asignar','confirmar']; }
-// Dentro de "asignar" (el wizard de profesional+horario por rubro), volver siempre manda de nuevo a elegir
-// servicios en vez de tratar de deshacer un paso puntual del wizard -- simplificacion a proposito: el wizard
-// tiene demasiados sub-estados (que grupo, que sub-paso) como para des-andarlos uno por uno sin arriesgar un
-// estado raro. Es mas seguro reempezar la asignacion que dejar un grupo a medio asignar.
-// "confirmar" (completar nombre/whatsapp) tiene el mismo problema y necesita el mismo reset: en ese punto
-// grupoIdx ya quedo apuntando despues del ultimo grupo (todos asignados), asi que si "atras" solo hiciera
-// paso='asignar' sin resetear grupoIdx, rpRenderAsignar iba a ver que no queda ningun grupo por asignar y
-// mandaba de nuevo para adelante a "confirmar" -- quedaba como si el boton no hiciera nada (bug real,
-// reportado por Ivo: no se podia volver atras desde "completa tus datos").
-function rpVolver(){
-  const o=rpOrden(), i=o.indexOf(rpState.paso);
-  if(rpState.paso==='asignar'||rpState.paso==='confirmar'){ rpState.paso='servicios'; rpState.asignaciones={}; rpState.grupoIdx=0; rpRender(); return; }
-  if(i>0){ rpState.paso=o[i-1]; rpRender(); }
-}
-function rpBackBtn(){ return rpOrden().indexOf(rpState.paso)>0?`<button onclick="rpVolver()" class="lnk" style="margin-bottom:10px">‹ Atrás</button>`:''; }
 // French no tiene los demas rubros. OJO: no usar sucursalConRecepcion() aca — esa funcion mira si HAY UNA
 // RECEPCIONISTA ASIGNADA a la sucursal ahora mismo (para el bloqueo de caja/avisos), y una misma recepcionista
 // puede estar asignada a las dos sucursales a la vez (para que le llegue todo de las dos) — eso hacia que
@@ -237,11 +207,10 @@ function rpMejorFijoRubro(sucId,rubroId){
   });
   return mejor;
 }
-function rpItems(){ return rpState.servicioIds.map(id=>servicios.find(x=>x.id===id)).filter(Boolean); }
 function rpTieneOferta(R){ return R.items.some(x=>x.descInd); }
 function rpHoldsVivos(){ const ahora=Date.now(); return holdsSt.list.filter(h=>numV(h.expira)>ahora); }
 function rpSlotsLibres(profId,fecha,servicioIds){
-  const dur=Math.max(AG_PASO,duracionServicios(servicioIds||rpState.servicioIds)), pasos=Math.max(1,Math.ceil(dur/AG_PASO));
+  const dur=Math.max(AG_PASO,duracionServicios(servicioIds)), pasos=Math.max(1,Math.ceil(dur/AG_PASO));
   const ocupadoMin=new Set();
   agendaSt.list.filter(a=>a.profId===profId&&a.fecha===fecha&&agEstado(a)!=='cancelado').forEach(a=>{
     const ini=agMin(a.hora), d=Math.max(1,Math.ceil((a.duracion||30)/AG_PASO)); for(let i=0;i<d;i++) ocupadoMin.add(ini+i*AG_PASO);
@@ -277,187 +246,129 @@ async function rpCrearHold(profId,fecha,hora,minutos,extra){
     else l.push({id:'h'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),profId,fecha,hora,sesionId:rpSesionId,expira:ahora+minutos*60000,upd:new Date().toISOString(),...(extra||{})});
   });
 }
-function rpRender(){
-  const body=document.getElementById('rp-body');
-  ({sucursal:rpRenderSucursal,servicios:rpRenderServicios,asignar:rpRenderAsignar,confirmar:rpRenderConfirmar,gracias:rpRenderGracias}[rpState.paso]||rpRenderSucursal)(body);
-}
-function rpRenderSucursal(body){
-  body.innerHTML=`<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">Elegí la sucursal</div>
-    ${sucursales.map(s=>{
-      const rbs=rpRubrosSucursal(s.id);
-      const alcance=rbs.length<=1?('Solo '+(nombreRubro(rbs[0])||'')):'Barbería y estética';
-      const filas=rbs.map(rid=>{ const pct=rpMejorFijoRubro(s.id,rid); return `<div style="display:flex;justify-content:space-between;padding:4px 0;font-size:12.5px"><span style="color:var(--muted2)">${escH(nombreRubro(rid)||rid)}</span><span style="font-weight:700;color:${pct?'#34d399':'var(--muted)'}">${pct?'hasta '+pct+'%':'sin promo'}</span></div>`; }).join('');
-      return `<div class="card" style="cursor:pointer;margin-bottom:10px;border-left:5px solid ${s.color}" onclick="rpElegirSucursal('${s.id}')">
-        <div style="font-size:17px;font-weight:900">${escH(s.nombre)}</div>
-        ${rbs.length?`<div style="font-size:11.5px;color:var(--muted2);font-weight:700;margin-bottom:8px">${escH(alcance)}</div>`:''}
-        ${filas||'<div style="font-size:11.5px;color:var(--muted2)">Sin rubros cargados</div>'}
-      </div>`;
-    }).join('')}
-    <div style="font-size:10.5px;color:var(--muted);margin-top:4px">Eligiendo 2 o más servicios juntos (donde haya) sumás además hasta 15% extra por paquete.</div>`;
-}
-function rpElegirSucursal(id){ rpState.sucursal=id; rpState.servicioIds=[]; rpState.rubroAbierto=null; rpState.paso='servicios'; rpRender(); }
-function rpResumenSeleccion(){
-  const items=rpItems(); if(!items.length) return '';
-  const lista=items.reduce((s,x)=>s+numV(x.precio),0), pct=pctPaquete(items.length), total=Math.round(lista*(1-pct/100));
-  return `<div class="card" style="margin-top:14px;background:rgba(74,19,107,.08);border-color:rgba(74,19,107,.3)">
-    <div style="font-size:12px;font-weight:800;margin-bottom:4px">${items.length} servicio${items.length===1?'':'s'} elegido${items.length===1?'':'s'}${pct?' · 🎁 '+pct+'% de descuento por paquete':''}</div>
-    <div style="font-size:11.5px;color:var(--muted2)">${items.map(x=>escH(x.nombre)).join(', ')}</div>
-    <div style="font-size:16px;font-weight:900;margin-top:4px">${fp(total)}${pct?` <span style="font-size:11px;color:var(--muted2);font-weight:600">antes ${fp(lista)}</span>`:''}</div>
-    <div style="font-size:10px;color:var(--muted);margin-top:2px">Estimado — el precio final se termina de calcular con el horario que elijas (puede sumar más descuento).</div>
-  </div>`;
-}
-function rpRenderServicios(body){
-  const rbs=rpRubrosSucursal(rpState.sucursal);
-  if(rbs.length<=1){ rpRenderServiciosDeRubro(body,rbs[0]||null,true); return; }
-  if(!rpState.rubroAbierto){
-    body.innerHTML=`${rpBackBtn()}<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">¿Qué te querés hacer?</div>
-      ${rbs.map(rid=>{
-        const L=servicios.filter(s=>(s.rubro||'')===rid), sel=rpState.servicioIds.filter(id=>{ const sv=servicios.find(x=>x.id===id); return sv&&sv.rubro===rid; }).length;
-        return `<div class="card" style="cursor:pointer;margin-bottom:8px;display:flex;justify-content:space-between;align-items:center" onclick="rpAbrirRubro('${rid}')"><div><div style="font-size:14px;font-weight:800">${escH(nombreRubro(rid)||rid)}</div><div style="font-size:11px;color:var(--muted2)">${L.length} servicio${L.length===1?'':'s'}${sel?' · '+sel+' elegido'+(sel===1?'':'s'):''}</div></div><span style="color:var(--muted)">›</span></div>`;
-      }).join('')}
-      ${rpResumenSeleccion()}
-      ${rpBotonesSeleccion(false)}`;
-    return;
+// ---------- Wizard de horarios reales, DENTRO de "Armar Paquete" (ventaSel) — puerta staff y puerta publica ----------
+// Consolidacion del 27/09/2026 (ver comentario mas arriba, junto a mostrarReservaPublica): reemplaza al viejo
+// wizard de rpState (uno por rubro, con hold "de paso" mientras el cliente navegaba). Este es mas simple a
+// proposito: NO se crea ningun hold mientras se elige profesional/horario -- recien al confirmar (vpConfirmar)
+// se crea un hold de 5 min por cada rubro, para darle tiempo a recepcion a confirmarlo o liberarlo a mano
+// (rpRechazarSolicitud, ya existente) si no llega la seña. Sin hold de paso, dos personas pueden ver el mismo
+// horario libre mientras lo estan mirando -- se revalida recien al confirmar, y si ya lo tomaron se avisa.
+function vpCtxCobro(c){
+  const ctx=ctxCobro(c);
+  if(ventaSel&&ventaSel.publico){
+    if(ventaSel.sucursal) ctx.sucursal=ventaSel.sucursal;
+    if(!ctx.cliente&&rpCliente) ctx.cliente=rpCliente;
   }
-  rpRenderServiciosDeRubro(body,rpState.rubroAbierto,false);
+  return ctx;
 }
-function rpAbrirRubro(rid){ rpState.rubroAbierto=rid; rpRender(); }
-function rpCerrarRubro(){ rpState.rubroAbierto=null; rpRender(); }
-// Que elegir uno solo y listo se sienta tan valido como seguir agregando (pedido de Ivo, ronda 3): una vez que hay
-// algo elegido, "Reservar ahora" queda siempre como opcion principal, y "Agregar otro servicio" (volver a los
-// rubros) solo aparece cuando de verdad hay a donde volver — en la lista de un solo rubro ya se ve todo, alcanza
-// con seguir tildando ahi mismo.
-function rpBotonesSeleccion(conAgregarOtroRubro){
-  if(!rpState.servicioIds.length) return '';
-  return `<div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
-    <button class="btn btn-primary" style="width:100%;margin:0" onclick="rpContinuarServicios()">📅 Reservar ahora</button>
-    ${conAgregarOtroRubro?`<button class="btn btn-ghost" style="width:100%;margin:0" onclick="rpCerrarRubro()">+ Agregar otro servicio</button>`:''}
-  </div>`;
+// El cliente "de contexto" para el calculo de descuento: una ficha real (asignada por el staff, o el rpCliente
+// logueado que vino de /#cuenta) -- la reserva publica de un desconocido sin cuenta no tiene ficha ninguna.
+function vpClienteCtx(){
+  const s=ventaSel, c=s.cid?clienteDe(s.cid):null;
+  return {cli:c, cliente:c||(s.publico?rpCliente:null)};
 }
-function rpRenderServiciosDeRubro(body,rid,unico){
-  const L=servicios.filter(s=>(s.rubro||'')===rid);
-  body.innerHTML=`${unico?rpBackBtn():`<button onclick="rpCerrarRubro()" class="lnk" style="margin-bottom:10px">‹ Otros rubros</button>`}
-    <div style="font-size:13px;color:var(--muted2);margin-bottom:14px">${unico?'¿Qué te querés hacer? (elegí uno o más)':escH(nombreRubro(rid)||rid)+' — elegí uno o más'}</div>
-    ${L.map(s=>`<label class="rub-opt" style="display:flex;justify-content:space-between;align-items:center"><span><input type="checkbox" onchange="rpToggleServicio('${s.id}')" ${rpState.servicioIds.includes(s.id)?'checked':''}/> ${escH(s.nombre)}</span><b>${fp(s.precio)}</b></label>`).join('')||'<div style="font-size:13px;color:var(--muted)">No hay servicios cargados en este rubro.</div>'}
-    ${rpResumenSeleccion()}
-    ${rpBotonesSeleccion(!unico)}`;
-}
-function rpToggleServicio(id){ const i=rpState.servicioIds.indexOf(id); if(i>=0) rpState.servicioIds.splice(i,1); else rpState.servicioIds.push(id); rpRender(); }
-// ---------- Wizard de asignacion (profesional + horario), UNO POR CADA RUBRO del paquete ----------
-// Rediseño pedido por Ivo el 27/09/2026 despues de ver en vivo la version anterior (un solo profesional para
-// todo, filtrado a quien cubriera todos los rubros elegidos): ahora cada rubro del paquete se asigna por
-// separado -- si el rubro tiene mas de un profesional que lo cubra (hoy tipicamente Barberia), se pregunta con
-// quien (o "al azar"); si tiene uno solo (el resto de los rubros hoy), se salta directo a su agenda. Esto
-// habilita de paso el combo real de 2+ horarios/profesionales a la vez (ver "Combo multiple" en pendientes-app.md).
-function rpGruposRubro(){
-  const porRubro={};
-  rpState.servicioIds.forEach(id=>{ const sv=servicios.find(x=>x.id===id); if(!sv) return; const r=sv.rubro||''; (porRubro[r]=porRubro[r]||[]).push(id); });
+function vpGruposRubro(){
+  const s=ventaSel, porRubro={};
+  (s.sel||[]).forEach(id=>{ const sv=servicios.find(x=>x.id===id); if(!sv) return; const r=sv.rubro||''; (porRubro[r]=porRubro[r]||[]).push(id); });
   return Object.keys(porRubro).map(rubro=>({rubro,servicioIds:porRubro[rubro]}));
 }
-function rpGrupoActual(){ return rpGruposRubro()[rpState.grupoIdx]||null; }
-function rpProfesionalesDeGrupo(rubro){
+function vpGrupoActual(){ return vpGruposRubro()[ventaSel.grupoIdx]||null; }
+function vpProfesionalesDeGrupo(rubro){
+  const s=ventaSel;
   return allUsers.filter(u=>{
-    if(!esProf(u)||!sucursalesDe(u).includes(rpState.sucursal)) return false;
+    if(!esProf(u)||!sucursalesDe(u).includes(s.sucursal)) return false;
     const ru=rubrosDeUsuario(u); return !ru||ru.includes(rubro);
   });
 }
-// Asegura que el grupo actual tenga un lugar donde guardar fecha/profId/hora, con la fecha ya arrancada en hoy.
-function rpAsignActual(){
-  const g=rpGrupoActual(); if(!g) return null;
-  if(!rpState.asignaciones[g.rubro]) rpState.asignaciones[g.rubro]={};
-  if(!rpState.asignaciones[g.rubro].fecha) rpState.asignaciones[g.rubro].fecha=hoyStr();
-  return rpState.asignaciones[g.rubro];
+function vpAsignActual(){
+  const s=ventaSel, g=vpGrupoActual(); if(!g) return null;
+  if(!s.asignaciones[g.rubro]) s.asignaciones[g.rubro]={};
+  if(!s.asignaciones[g.rubro].fecha) s.asignaciones[g.rubro].fecha=hoyStr();
+  return s.asignaciones[g.rubro];
 }
-// Si el rubro tiene un solo profesional posible, se salta el paso de elegir con quien.
-function rpIniciarGrupoActual(){
-  const g=rpGrupoActual(); if(!g) return;
-  const profs=rpProfesionalesDeGrupo(g.rubro);
-  if(profs.length===1){ rpAsignActual().profId=profs[0].id; rpState.subPaso='horario'; }
-  else { rpState.subPaso='profesional'; }
+function vpIniciarGrupoActual(){
+  const s=ventaSel, g=vpGrupoActual(); if(!g) return;
+  const profs=vpProfesionalesDeGrupo(g.rubro);
+  if(profs.length===1){ vpAsignActual().profId=profs[0].id; s.subPaso='horario'; }
+  else s.subPaso='profesional';
 }
-function rpContinuarServicios(){
-  if(!rpState.servicioIds.length){ showToast('Elegí al menos un servicio'); return; }
-  rpState.asignaciones={}; rpState.grupoIdx=0; rpState.paso='asignar';
-  rpIniciarGrupoActual();
-  rpRender();
+// Entra al wizard desde el boton "Reservar horarios reales" -- ya con sucursal y servicios elegidos (el
+// picker de sucursal, si hace falta, ya paso antes de llegar a este boton, ver renderVentaPaquete).
+function vpIniciarHorarios(){
+  const s=ventaSel; if(!s) return;
+  if(!s.sel.length){ showToast('Elegí al menos un servicio'); return; }
+  if(!s.sucursal) s.sucursal=sucursalActual()||((sucursales[0]||{}).id||null);
+  if(!s.sucursal){ showToast('No hay sucursal para reservar'); return; }
+  s.modo='horario'; s.asignaciones={}; s.grupoIdx=0; s.subPaso=null;
+  vpIniciarGrupoActual();
+  renderVentaPaquete();
 }
-function rpElegirProfesionalGrupo(id){
-  const a=rpAsignActual(); if(!a) return;
-  a.profId=id; rpState.subPaso='horario'; rpRender();
+function vpElegirProfesional(id){
+  const a=vpAsignActual(); if(!a) return;
+  a.profId=id; ventaSel.subPaso='horario'; renderVentaPaquete();
 }
-function rpAzarProfesionalGrupo(){
-  const g=rpGrupoActual(); if(!g) return;
-  const profs=rpProfesionalesDeGrupo(g.rubro); if(!profs.length) return;
-  rpElegirProfesionalGrupo(profs[Math.floor(Math.random()*profs.length)].id);
+function vpAzarProfesional(){
+  const g=vpGrupoActual(); if(!g) return;
+  const profs=vpProfesionalesDeGrupo(g.rubro); if(!profs.length) return;
+  vpElegirProfesional(profs[Math.floor(Math.random()*profs.length)].id);
 }
-function rpRenderAsignar(body){
-  const g=rpGrupoActual();
-  if(!g){ rpState.paso='confirmar'; rpRender(); return; }
-  const profs=rpProfesionalesDeGrupo(g.rubro);
-  const totalGrupos=rpGruposRubro().length;
+function vpNavDia(n){ const a=vpAsignActual(); if(!a) return; a.fecha=addDias(a.fecha,n); if(a.fecha<hoyStr()) a.fecha=hoyStr(); renderVentaPaquete(); }
+function vpCalcGrupo(g,fecha,hora){
+  const s=ventaSel, items=g.servicioIds.map(id=>servicios.find(x=>x.id===id)).filter(Boolean);
+  const {cli,cliente}=vpClienteCtx();
+  const ctx={dia:new Date(fecha+'T00:00:00').getDay(),hora,sucursal:s.sucursal,cliente,fecha};
+  return calcPaqueteItems(items,cli,ctx,s.medio==='efectivo');
+}
+function vpRenderHorarioWizard(body){
+  const s=ventaSel, g=vpGrupoActual();
+  if(!g){ s.modo='horarioConfirmar'; renderVentaPaquete(); return; }
+  const profs=vpProfesionalesDeGrupo(g.rubro), totalGrupos=vpGruposRubro().length;
+  const volver=`<button onclick="ventaSel.modo='';renderVentaPaquete()" class="lnk" style="margin-bottom:10px">‹ Volver a los servicios</button>`;
+  const cabecera=totalGrupos>1?`<div style="font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Servicio ${s.grupoIdx+1} de ${totalGrupos}</div>`:'';
   if(!profs.length){
-    body.innerHTML=`${rpBackBtn()}<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0">No hay ningún profesional para ${escH(nombreRubro(g.rubro)||g.rubro)} en esta sucursal ahora. Volvé atrás y probá con otra combinación.</div>`;
+    body.innerHTML=`${volver}<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0">No hay ningún profesional para ${escH(nombreRubro(g.rubro)||g.rubro)} en esta sucursal ahora.</div>`;
     return;
   }
-  if(rpState.subPaso==='profesional'){
-    body.innerHTML=`${rpBackBtn()}${totalGrupos>1?`<div style="font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Servicio ${rpState.grupoIdx+1} de ${totalGrupos}</div>`:''}
+  if(s.subPaso==='profesional'){
+    body.innerHTML=`${volver}${cabecera}
       <div style="font-size:15px;font-weight:800;margin-bottom:14px">${escH(nombreRubro(g.rubro)||g.rubro)} — ¿con quién?</div>
-      <button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="rpAzarProfesionalGrupo()">🎲 Profesional al azar</button>
-      ${profs.map(u=>`<div class="card" style="cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="rpElegirProfesionalGrupo('${u.id}')"><div style="font-size:24px">${escH(u.emoji||'✂️')}</div><div style="font-size:14px;font-weight:800">${escH(u.name)}</div></div>`).join('')}`;
+      <button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="vpAzarProfesional()">🎲 Al azar</button>
+      ${profs.map(u=>`<div class="card" style="cursor:pointer;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="vpElegirProfesional('${u.id}')"><div style="font-size:24px">${escH(u.emoji||'✂️')}</div><div style="font-size:14px;font-weight:800">${escH(u.name)}</div></div>`).join('')}`;
     return;
   }
-  rpRenderHorarioGrupo(body,g,totalGrupos);
-}
-function rpNavDiaGrupo(n){ const a=rpAsignActual(); if(!a) return; a.fecha=addDias(a.fecha,n); if(a.fecha<hoyStr()) a.fecha=hoyStr(); rpRender(); }
-function rpCalcGrupo(g,fecha,hora){
-  const items=g.servicioIds.map(id=>servicios.find(x=>x.id===id)).filter(Boolean);
-  const ctx={dia:new Date(fecha+'T00:00:00').getDay(),hora,sucursal:rpState.sucursal,cliente:rpCliente,fecha};
-  return calcPaqueteItems(items,null,ctx,false);
-}
-function rpRenderHorarioGrupo(body,g,totalGrupos){
-  const a=rpAsignActual();
-  const prof=allUsers.find(u=>u.id===a.profId);
+  const a=vpAsignActual(), prof=allUsers.find(u=>u.id===a.profId);
   const libres=rpSlotsLibres(a.profId,a.fecha,g.servicioIds);
-  const d=new Date(a.fecha+'T00:00:00');
-  const diaTxt=d.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
-  body.innerHTML=`${rpBackBtn()}${totalGrupos>1?`<div style="font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Servicio ${rpState.grupoIdx+1} de ${totalGrupos}</div>`:''}
+  const d=new Date(a.fecha+'T00:00:00'), diaTxt=d.toLocaleDateString('es-AR',{weekday:'long',day:'numeric',month:'long'});
+  body.innerHTML=`${volver}${cabecera}
     <div style="font-size:13px;color:var(--muted2);margin-bottom:6px">${escH(nombreRubro(g.rubro)||g.rubro)} con ${escH(prof?prof.name:'')}</div>
     <div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:14px">
-      <button onclick="rpNavDiaGrupo(-1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">‹</button>
+      <button onclick="vpNavDia(-1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">‹</button>
       <span style="font-size:13.5px;font-weight:800;text-transform:capitalize;min-width:180px;text-align:center">${diaTxt}</span>
-      <button onclick="rpNavDiaGrupo(1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">›</button>
+      <button onclick="vpNavDia(1)" style="background:var(--s2);border:1.5px solid var(--border2);border-radius:10px;width:34px;height:34px;color:var(--text);cursor:pointer">›</button>
     </div>
-    ${libres.length?`<div style="font-size:10.5px;color:var(--muted2);margin-bottom:8px;display:flex;gap:14px;flex-wrap:wrap"><span>🟢 con descuento por franja horaria</span>${libres.length<=2?`<span>🔴 quedan pocos lugares</span>`:''}</div><div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{
-      const hora=agHM(m); const R=rpCalcGrupo(g,a.fecha,hora); const conOferta=rpTieneOferta(R); const pocosLugares=!conOferta&&libres.length<=2;
-      const color=conOferta?'#34d399':pocosLugares?'#f87171':'var(--border2)';
-      const bg=conOferta?'rgba(52,211,153,.1)':pocosLugares?'rgba(248,113,113,.08)':'var(--s2)';
-      const txtColor=conOferta?'#34d399':pocosLugares?'#f87171':'var(--muted2)';
-      return `<button onclick="rpElegirHorarioGrupo('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid ${color};background:${bg};color:var(--text);font-family:var(--font);cursor:pointer;text-align:center">
-      <div style="font-size:13px;font-weight:800">${hora}</div><div style="font-size:10.5px;color:${txtColor};font-weight:700">${fp(R.total)}</div>${conOferta?'<div style="font-size:9px;color:#34d399">🎉 desc.</div>':pocosLugares?'<div style="font-size:9px;color:#f87171">🔥 últimos</div>':''}</button>`; }).join('')}</div>`
+    ${libres.length?`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(84px,1fr));gap:8px">${libres.map(m=>{
+      const hora=agHM(m);
+      return `<button onclick="vpElegirHorario('${hora}')" style="padding:10px 6px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);cursor:pointer;text-align:center"><div style="font-size:13px;font-weight:800">${hora}</div></button>`; }).join('')}</div>`
       :'<div style="text-align:center;color:var(--muted);font-size:13px;padding:30px 0">No hay horarios libres este día. Probá otro día ›</div>'}`;
 }
-async function rpElegirHorarioGrupo(hora){
-  const g=rpGrupoActual(), a=rpAsignActual(); if(!g||!a) return;
-  a.hora=hora;
-  document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Reservando el horario…</div>';
-  await rpCrearHold(a.profId,a.fecha,a.hora,3);
-  if(rpSlotsLibres(a.profId,a.fecha,g.servicioIds).includes(agMin(hora))){
-    rpState.grupoIdx++;
-    if(rpGrupoActual()) rpIniciarGrupoActual(); else rpState.paso='confirmar';
-  } else { showToast('Justo lo tomó otra persona — elegí otro horario'); }
-  rpRender();
+// Sin hold aca a proposito (ver comentario de arriba) -- solo revalida que siga libre antes de avanzar.
+function vpElegirHorario(hora){
+  const s=ventaSel, g=vpGrupoActual(), a=vpAsignActual(); if(!g||!a) return;
+  if(!rpSlotsLibres(a.profId,a.fecha,g.servicioIds).includes(agMin(hora))){ showToast('Ese horario ya no está libre'); renderVentaPaquete(); return; }
+  a.hora=hora; s.grupoIdx++;
+  if(vpGrupoActual()) vpIniciarGrupoActual(); else s.modo='horarioConfirmar';
+  renderVentaPaquete();
 }
-// Total "de verdad" del paquete entero: cada rubro calcula su descuento individual con SU PROPIO horario/fecha
-// (pueden ser distintos entre si), y recien despues se aplica UN solo % de paquete (5/10/15% por cantidad total
-// de servicios) sobre la suma ya descontada -- mismo criterio de siempre, ahora repartido en varios horarios.
-function rpCalcFinal(){
-  const base=[];
-  rpGruposRubro().forEach(g=>{
-    const a=rpState.asignaciones[g.rubro]; if(!a||!a.hora) return;
-    const ctx={dia:new Date(a.fecha+'T00:00:00').getDay(),hora:a.hora,sucursal:rpState.sucursal,cliente:rpCliente,fecha:a.fecha};
+// Mismo criterio que siempre: descuento individual por horario/fecha propio de cada rubro, y recien despues
+// UN solo % de paquete (por cantidad total de servicios) sobre la suma ya descontada.
+function vpCalcFinal(){
+  const s=ventaSel, base=[], {cli,cliente}=vpClienteCtx();
+  vpGruposRubro().forEach(g=>{
+    const a=s.asignaciones[g.rubro]; if(!a||!a.hora) return;
+    const ctx={dia:new Date(a.fecha+'T00:00:00').getDay(),hora:a.hora,sucursal:s.sucursal,cliente,fecha:a.fecha};
     g.servicioIds.forEach(id=>{
       const svc=servicios.find(x=>x.id===id); if(!svc) return;
-      const lista=numV(svc.precio), descInd=mejorDescuentoServicio(svc,null,ctx,false);
+      const lista=numV(svc.precio), descInd=mejorDescuentoServicio(svc,cli,ctx,s.medio==='efectivo');
       base.push({svc,lista,descInd,lineaFinal:lista-(descInd?descInd.monto:0)});
     });
   });
@@ -472,77 +383,96 @@ function rpCalcFinal(){
   });
   return {items:out,sub,pct,descPaq,total,lista:base.reduce((a,x)=>a+x.lista,0)};
 }
-// 2+ horarios/profesionales a la vez -> seña sube a 50% de todo y pasa a ser obligatoria (decidido con Ivo,
-// 27/09/2026): mas horarios bloqueados a la vez es mas riesgo si el cliente no aparece.
-function rpEsCombo(){ return rpGruposRubro().length>=2; }
-function rpRenderConfirmar(body){
-  const suc=sucursales.find(x=>x.id===rpState.sucursal), grupos=rpGruposRubro();
-  const R=rpCalcFinal(), combo=rpEsCombo(), tieneOferta=rpTieneOferta(R);
-  const pct=combo?50:(numV(promos.senaPublicaPct)||30), montoSena=Math.round(R.total*pct/100);
-  const senaObligatoria=combo||tieneOferta;
-  body.innerHTML=`${rpBackBtn()}<div class="card" style="margin-bottom:14px">
+// 2+ horarios a la vez (sea el cliente o el staff quien armo el combo) -> seña de 30% obligatoria (decidido con
+// Ivo, 27/09/2026). 30% es transferencia manual a la cuenta central "inda.dl"; el 20% de Mercado Pago Checkout
+// online queda para cuando se conecte esa integracion (ver pendientes-app.md).
+function vpEsCombo(){ return vpGruposRubro().length>=2; }
+const VP_PCT_SENA=30;
+function vpRenderConfirmar(body){
+  const s=ventaSel, suc=sucursales.find(x=>x.id===s.sucursal), grupos=vpGruposRubro();
+  const R=vpCalcFinal(), combo=vpEsCombo(), montoSena=Math.round(R.total*VP_PCT_SENA/100);
+  const c=s.cid?clienteDe(s.cid):null;
+  const clienteHtml=s.publico
+    ?`<div class="field"><label>Tu nombre</label><input id="vp-nombre" placeholder="Nombre y apellido" value="${escH(s.nombre||'')}"/></div>
+      <div class="field" style="margin-top:8px"><label>Tu WhatsApp</label><input id="vp-wa" type="tel" placeholder="11 2345 6789" value="${escH(s.whatsapp||'')}"/></div>`
+    :c
+      ?`<div class="field"><label>Cliente</label><div style="font-size:12.5px;font-weight:700;display:flex;align-items:center;gap:8px">👤 ${escH(c.nombre)} <button class="lnk" onclick="ventaQuitarCliente();renderVentaPaquete()">cambiar</button></div></div>`
+      :`<div class="field"><label>¿Para qué cliente es?</label><input id="vp-cli" type="text" autocomplete="off" placeholder="Buscá por nombre, teléfono o número..." value="${escH(s.clienteQ||'')}" oninput="ventaClienteInput(this.value)"/><div id="vp-cli-sug"></div></div>`;
+  body.innerHTML=`<button onclick="ventaSel.modo='';renderVentaPaquete()" class="lnk" style="margin-bottom:10px">‹ Volver a los servicios</button>
+    <div class="card" style="margin-bottom:14px">
       <div style="font-size:12.5px;color:var(--muted2)">${escH(suc?suc.nombre:'')}</div>
-      ${grupos.map(g=>{ const a=rpState.asignaciones[g.rubro]||{}, prof=allUsers.find(u=>u.id===a.profId);
+      ${grupos.map(g=>{ const a=s.asignaciones[g.rubro]||{}, prof=allUsers.find(u=>u.id===a.profId);
         return `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)"><div style="font-size:12.5px;font-weight:700">${escH(nombreRubro(g.rubro)||g.rubro)} · con ${escH(prof?prof.name:'')}</div><div style="font-size:11.5px;color:var(--muted2)">${fechaCortaStr(a.fecha)} a las ${a.hora}hs</div></div>`; }).join('')}
       <div style="margin-top:8px">${R.items.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${escH(x.svc.nombre)}</span><span>${fp(x.lista)}</span></div>${x.descInd?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#34d399"><span>↳ ${escH(x.descInd.label)}</span><span>−${fp(x.descInd.monto)}</span></div>`:''}${x.dq>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#a89fff"><span>↳ Descuento por paquete</span><span>−${fp(x.dq)}</span></div>`:''}</div>`).join('')}</div>
       <div style="font-size:20px;font-weight:900;margin-top:8px">${fp(R.total)}${R.total<R.lista?` <span style="font-size:11px;color:#34d399;font-weight:700">(ahorrás ${fp(R.lista-R.total)})</span>`:''}</div>
     </div>
-    <div style="font-size:11px;color:var(--muted2);margin:-8px 0 12px">⏳ Te ${grupos.length>1?'los reservamos':'lo reservamos'} por unos minutos mientras completás esto.</div>
-    <div class="field"><label>Tu nombre</label><input id="rp-nombre" placeholder="Nombre y apellido" value="${escH(rpState.nombre)}"/></div>
-    <div class="field" style="margin-top:8px"><label>Tu WhatsApp</label><input id="rp-wa" type="tel" placeholder="11 2345 6789" value="${escH(rpState.whatsapp)}"/></div>
-    ${senaObligatoria?`<div class="card" style="margin-top:12px;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06)"><div style="font-size:12.5px;font-weight:800;color:#34d399">💵 ${combo?'Reservás varios horarios a la vez':'Este horario tiene descuento'} — hace falta dejar una seña</div><div style="font-size:12px;color:var(--muted2);margin-top:3px">Seña obligatoria: <b style="color:var(--text)">${fp(montoSena)}</b> (${pct}% del total). El local te va a pasar el alias de Mercado Pago para transferirla cuando confirme tu turno por WhatsApp.</div></div>`
-      :`<div style="font-size:11px;color:var(--muted2);margin-top:10px">Pagás todo en el local cuando vengas. Si no podés venir, avisá con 3 horas de anticipación o se te cobra el turno completo.</div>`}
-    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="rpEnviarWhatsApp()">📲 Reservar por WhatsApp</button>
-    <div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Esto no confirma el turno solo: se abre WhatsApp con el pedido armado, y el local te confirma ahí mismo.</div>`;
+    <div style="font-size:11px;color:var(--muted2);margin:-8px 0 12px">${grupos.length>1?'Estos horarios se reservan':'Este horario se reserva'} recién al confirmar — no quedan bloqueados mientras elegís.</div>
+    ${clienteHtml}
+    ${combo?`<div class="card" style="margin-top:12px;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06)"><div style="font-size:12.5px;font-weight:800;color:#34d399">💵 Reservás varios horarios a la vez — hace falta dejar una seña</div><div style="font-size:12px;color:var(--muted2);margin-top:3px">Seña: <b style="color:var(--text)">${fp(montoSena)}</b> (${VP_PCT_SENA}% del total, por transferencia a la cuenta del local).</div></div>`
+      :`<div style="font-size:11px;color:var(--muted2);margin-top:10px">Se paga en el local cuando venga.</div>`}
+    <button class="btn btn-primary" style="width:100%;margin-top:14px" onclick="vpConfirmar()">${s.publico?'📲 Reservar por WhatsApp':'📅 Confirmar reserva'}</button>
+    ${s.publico?'<div style="font-size:11px;color:var(--muted);margin-top:10px;line-height:1.5">Esto no confirma el turno solo: se abre WhatsApp con el pedido armado, y el local te confirma ahí mismo.</div>':''}`;
+  if(!s.publico) ventaRenderClienteSug();
 }
-function rpMensajeWhatsApp(){
-  const s=rpState, suc=sucursales.find(x=>x.id===s.sucursal), grupos=rpGruposRubro();
-  const R=rpCalcFinal(), combo=rpEsCombo(), tieneOferta=rpTieneOferta(R);
-  const pct=combo?50:(numV(promos.senaPublicaPct)||30), montoSena=Math.round(R.total*pct/100);
-  const senaObligatoria=combo||tieneOferta;
+function vpMensajeWhatsApp(R,combo,grupos,nombre,whatsapp){
+  const s=ventaSel, suc=sucursales.find(x=>x.id===s.sucursal);
   const detalle=grupos.map(g=>{
     const a=s.asignaciones[g.rubro]||{}, prof=allUsers.find(u=>u.id===a.profId);
     const nombresSvc=g.servicioIds.map(id=>{ const sv=servicios.find(x=>x.id===id); return sv?sv.nombre:''; }).filter(Boolean).join(', ');
     return '✂️ '+nombresSvc+' — con '+(prof?prof.name:'')+' el '+fechaCortaStr(a.fecha)+' a las '+a.hora+'hs';
   }).join('\n');
-  const pagoTxt=senaObligatoria?('Dejo una seña de '+fp(montoSena)+' ('+pct+'%) — me pasan el alias de Mercado Pago para transferirla.'):'Pago todo en el local cuando vaya.';
-  let txt='¡Hola! Quiero reservar un turno 💈\n\n'+
-    (suc?'📍 '+suc.nombre+'\n\n':'\n')+
-    detalle+'\n\n'+
-    '💰 Total: '+fp(R.total)+(R.total<R.lista?' (ya con el descuento aplicado)':'')+'\n\n'+
-    pagoTxt+'\n\n'+
-    'Soy '+s.nombre+' — mi WhatsApp: '+s.whatsapp;
-  if(!senaObligatoria) txt+='\n\n(Entiendo que si no aviso con 3hs de anticipación que no puedo ir, se me cobra el turno completo.)';
-  return txt;
+  const pagoTxt=combo?('Dejo una seña de '+fp(Math.round(R.total*VP_PCT_SENA/100))+' ('+VP_PCT_SENA+'%) — me pasan el alias de Mercado Pago para transferirla.'):'Pago todo en el local cuando vaya.';
+  return '¡Hola! Quiero reservar un turno 💈\n\n'+(suc?'📍 '+suc.nombre+'\n\n':'\n')+detalle+'\n\n'+
+    '💰 Total: '+fp(R.total)+(R.total<R.lista?' (ya con el descuento aplicado)':'')+'\n\n'+pagoTxt+'\n\n'+
+    'Soy '+nombre+' — mi WhatsApp: '+whatsapp;
 }
-async function rpEnviarWhatsApp(){
-  const nombre=(document.getElementById('rp-nombre')?.value||'').trim();
-  const whatsapp=(document.getElementById('rp-wa')?.value||'').trim();
-  if(!nombre){ showToast('Poné tu nombre'); return; }
-  if(whatsapp.replace(/\D/g,'').length<8){ showToast('Poné tu WhatsApp con característica'); return; }
-  rpState.nombre=nombre; rpState.whatsapp=whatsapp;
-  // Pasa de "hold sin datos" a solicitud real: recepcion la ve en el Inicio (no solo por WhatsApp), 15 min para
-  // confirmarla o rechazarla antes de que el horario se libere solo (decidido con Ivo, 27/09/2026). Con un combo
-  // de 2+ rubros hay un hold por cada uno (mismo grupoSolicitudId para que recepcion los vea relacionados);
-  // cada hold lleva el total/seña de SU PROPIO rubro (sin el % de paquete cruzado, que solo se ve en el
-  // mensaje de WhatsApp) para no duplicar el monto completo en cada entrada de la cola de recepcion.
-  const grupos=rpGruposRubro();
-  const combo=rpEsCombo(), pctSena=combo?50:(numV(promos.senaPublicaPct)||30);
-  const grupoSolicitudId=grupos.length>1?('gs'+Date.now().toString(36)):undefined;
-  for(const g of grupos){
-    const a=rpState.asignaciones[g.rubro]; if(!a||!a.hora) continue;
-    const Rg=rpCalcGrupo(g,a.fecha,a.hora), tieneOfertaG=combo||rpTieneOferta(Rg);
-    await rpCrearHold(a.profId,a.fecha,a.hora,15,{estado:'pendiente',clienteNombre:nombre,clienteWhatsapp:whatsapp,servicioIds:[...g.servicioIds],sucursal:rpState.sucursal,total:Rg.total,tieneOferta:tieneOfertaG,montoSena:tieneOfertaG?Math.round(Rg.total*pctSena/100):0,grupoSolicitudId,creadoEn:new Date().toISOString()});
+// Recien aca se crea el hold (5 min) por cada rubro -- si pasan los 5 min sin que recepcion confirme la seña,
+// ya puede liberarlo a mano con el rechazar de siempre (rpRechazarSolicitud). Puerta publica: abre WhatsApp al
+// local, igual que "compartir por WhatsApp" ya hacia. Puerta staff: confirma directo (esta hablando con el
+// cliente en persona) y queda anotado con creadoPorStaffId para que sume a su comision como ya se hace con
+// "Armar un paquete en el momento" (reglas.md) -- la venta/cobro en si sigue siendo la de siempre, esto solo
+// asegura el horario real en la Agenda.
+async function vpConfirmar(){
+  const s=ventaSel; if(!s||s.ocupado) return;
+  let nombre,whatsapp,cid=null;
+  if(s.publico){
+    nombre=(document.getElementById('vp-nombre')?.value||'').trim();
+    whatsapp=(document.getElementById('vp-wa')?.value||'').trim();
+    if(!nombre){ showToast('Poné tu nombre'); return; }
+    if(whatsapp.replace(/\D/g,'').length<8){ showToast('Poné tu WhatsApp con característica'); return; }
+    s.nombre=nombre; s.whatsapp=whatsapp;
+  } else {
+    if(!s.cid){ showToast('Elegí para qué cliente es'); return; }
+    cid=s.cid; const c=clienteDe(cid); nombre=c?c.nombre:''; whatsapp=c?(c.telefono||''):'';
   }
-  const txt=rpMensajeWhatsApp();
-  const wa=promos.whatsappNegocio?linkWhatsApp(promos.whatsappNegocio,txt):('https://api.whatsapp.com/send?text='+encodeURIComponent(txt));
-  window.open(wa,'_blank');
-  rpState.paso='gracias'; rpRender();
+  const grupos=vpGruposRubro();
+  for(const g of grupos){
+    const a=s.asignaciones[g.rubro]; if(!a||!a.hora) continue;
+    if(!rpSlotsLibres(a.profId,a.fecha,g.servicioIds).includes(agMin(a.hora))){ showToast('Uno de los horarios ya no está libre — elegilo de nuevo'); s.modo='horario'; s.grupoIdx=grupos.indexOf(g); vpIniciarGrupoActual(); renderVentaPaquete(); return; }
+  }
+  s.ocupado=true;
+  const combo=vpEsCombo(), grupoSolicitudId=grupos.length>1?('gs'+Date.now().toString(36)):undefined;
+  const Rtot=vpCalcFinal();
+  for(const g of grupos){
+    const a=s.asignaciones[g.rubro]; if(!a||!a.hora) continue;
+    const Rg=vpCalcGrupo(g,a.fecha,a.hora);
+    await rpCrearHold(a.profId,a.fecha,a.hora,5,{estado:'pendiente',clienteId:cid,clienteNombre:nombre,clienteWhatsapp:whatsapp,servicioIds:[...g.servicioIds],sucursal:s.sucursal,total:Rg.total,tieneOferta:combo,montoSena:combo?Math.round(Rg.total*VP_PCT_SENA/100):0,grupoSolicitudId,creadoPorStaffId:s.publico?null:((profile&&profile.id)||null),creadoPorStaffNombre:s.publico?null:((profile&&profile.name)||null),creadoEn:new Date().toISOString()});
+  }
+  if(s.publico){
+    const txt=vpMensajeWhatsApp(Rtot,combo,grupos,nombre,whatsapp);
+    const wa=promos.whatsappNegocio?linkWhatsApp(promos.whatsappNegocio,txt):('https://api.whatsapp.com/send?text='+encodeURIComponent(txt));
+    window.open(wa,'_blank');
+    s.modo='horarioGracias'; s.ocupado=false; renderVentaPaquete();
+  } else {
+    closeModal('modal-registro'); showToast('Reserva creada ✓ Recepción la ve en el Inicio para confirmarla'); refreshCurrentView();
+    ventaSel=null;
+  }
 }
-function rpRenderGracias(body){
+function vpRenderGracias(body){
+  const s=ventaSel;
   body.innerHTML=`<div style="text-align:center;padding:40px 16px">
     <div style="font-size:44px;margin-bottom:12px">✅</div>
-    <div style="font-size:16px;font-weight:800;margin-bottom:8px">¡Listo, ${escH((rpState.nombre||'').split(' ')[0]||'')}!</div>
+    <div style="font-size:16px;font-weight:800;margin-bottom:8px">¡Listo, ${escH((s.nombre||'').split(' ')[0]||'')}!</div>
     <div style="font-size:13px;color:var(--muted2);line-height:1.6">Se abrió WhatsApp con tu pedido. Mandalo y esperá la confirmación del local.</div>
     <button class="btn btn-ghost" style="margin-top:20px" onclick="mostrarReservaPublica()">Hacer otra reserva</button>
   </div>`;
