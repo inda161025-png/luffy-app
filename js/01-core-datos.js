@@ -94,6 +94,7 @@ const ICN={
   recepcion:'<path d="M21.5 16.7v2.9a1.9 1.9 0 01-2.1 1.9 18.8 18.8 0 01-8.2-2.9 18.5 18.5 0 01-5.7-5.7 18.8 18.8 0 01-2.9-8.3A1.9 1.9 0 014.4 2.6h2.9a1.9 1.9 0 011.9 1.6c.13.9.35 1.8.66 2.7a1.9 1.9 0 01-.43 2L8.1 10.2a15 15 0 005.7 5.7l1.3-1.3a1.9 1.9 0 012-.4c.85.32 1.76.54 2.7.66a1.9 1.9 0 011.7 1.9z"/>',
   moneda:'<circle cx="12" cy="12" r="9"/><path d="M12 6.5v11M9.3 8.9c0-1.3 1.2-2.4 2.7-2.4s2.7 1.1 2.7 2.3c0 1.5-1.3 2-2.7 2.5-1.5.5-2.7 1-2.7 2.5 0 1.2 1.2 2.3 2.7 2.3s2.7-1.1 2.7-2.4"/>',
   idea:'<path d="M9 18.5h6M10 21h4M8.5 14.5A5.5 5.5 0 1115.5 14.5c-.7.6-1.2 1.4-1.2 2.3H9.7c0-.9-.5-1.7-1.2-2.3z"/><path d="M12 2.5v1.3M4.5 6l1 1M19.5 6l-1 1M2.8 12h1.3M19.9 12h1.3"/>',
+  config:'<line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2" fill="currentColor" stroke="none"/>',
 };
 function mi(name,size){ return '<svg viewBox="0 0 24 24" width="'+(size||19)+'" height="'+(size||19)+'" style="stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;vertical-align:-5px">'+(ICN[name]||'')+'</svg>'; }
 

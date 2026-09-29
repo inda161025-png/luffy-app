@@ -71,6 +71,12 @@ function abrirMiCuenta(){
   openModal('modal-registro');
 }
 
+// ---------- admin: Configuración → Reserva pública (resumen + acceso al modal de siempre) ----------
+function renderAdminReservaPublica(c){
+  c.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">🌐 Reserva pública</b><button class="lnk" onclick="abrirConfigReservaPublica()">Configurar</button></div>
+    <div style="font-size:12.5px;color:var(--muted2);line-height:1.7">El cliente entra sin login a <b style="color:var(--text)">${escH(location.origin+location.pathname+'#reserva')}</b>, ve los horarios libres y arma el pedido — se confirma por WhatsApp, no se agenda solo.</div>
+    <div style="font-size:12px;margin-top:8px;line-height:1.8">WhatsApp del negocio: <b>${escH(promos.whatsappNegocio||'sin cargar')}</b><br>Seña obligatoria con oferta: <b>${numV(promos.senaPublicaPct)||30}%</b></div></div>`;
+}
 function abrirConfigReservaPublica(){
   document.getElementById('registro-content').innerHTML=cabeceraModal('🌐 Reserva pública')+
     `<div style="font-size:12px;color:var(--muted2);margin:-6px 0 12px;line-height:1.5">El cliente entra sin login a <b style="color:var(--text)">${escH(location.origin+location.pathname+'#reserva')}</b>, ve los horarios libres y arma el pedido — el turno se confirma por WhatsApp con recepción/el profesional, no se agenda solo.</div>
