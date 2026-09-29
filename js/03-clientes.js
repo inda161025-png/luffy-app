@@ -360,6 +360,8 @@ function abrirClienteDetalle(id){
   cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:6px"><div class="modal-title" style="margin:0">${escH(c.nombre)}${verNumeroCliente()?` <span style="color:var(--muted2)">#${c.numero}</span>`:''}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     ${c.problematico?`<div class="card" style="margin-bottom:10px;border-color:rgba(244,114,182,.5);background:rgba(244,114,182,.08)"><div style="font-size:12.5px;font-weight:800;color:#f472b6">🗑️ Marcado como cliente problemático</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Va a avisar cuando alguien lo elija para cobrarle o agendarle un turno.</div></div>`:''}
     ${c.crmManual?`<div class="card" style="margin-bottom:10px;border-color:rgba(96,165,250,.4);background:rgba(96,165,250,.08);display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:12.5px;font-weight:800;color:#60a5fa">📌 Fijado a mano en "${escH((FRANJAS_CRM.find(f=>f[0]===c.crmManual)||[,c.crmManual])[1].replace(/^\S+\s/,''))}" en el tablero del CRM</div></div><button class="lnk" onclick="crmQuitarPin('${c.id}')">Volver a automático</button></div>`:''}
+    ${c.antiguedadDeclarada&&!c.veterano?`<div class="card" style="margin-bottom:10px;border-color:rgba(251,191,36,.4);background:rgba(251,191,36,.06)"><div style="font-size:12.5px;font-weight:800;color:#fbbf24">📋 Declaró en su cuenta: "${escH(ANTIGUEDAD_LABEL[c.antiguedadDeclarada]||c.antiguedadDeclarada)}"${c.antiguedadRevision==='mentira'?' · marcado como no verificado':''}</div>${c.antiguedadRevision!=='mentira'?`<div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-primary" style="flex:1" onclick="revisarAntiguedad('${c.id}','verdad')">✓ Es verdad · dar veterano</button><button class="btn btn-ghost" style="flex:1" onclick="revisarAntiguedad('${c.id}','mentira')">✗ No es cierto</button></div>`:`<button class="lnk" style="margin-top:4px" onclick="revisarAntiguedad('${c.id}','verdad')">Revisar de nuevo</button>`}</div>`:''}
+    ${c.veterano?`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06);display:flex;align-items:center;gap:10px"><div style="flex:1"><div style="font-size:12.5px;font-weight:800;color:#34d399">🎖️ Cliente veterano</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Declaró: ${escH(ANTIGUEDAD_LABEL[c.antiguedadDeclarada]||'')}</div></div><button class="lnk" onclick="revisarAntiguedad('${c.id}','mentira')">Quitar</button></div>`:''}
     <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.7">🏷️ ${escH(c.profesion||'Sin profesión')}${c.tel?'<br>📞 '+escH(c.tel):''}${c.ref?'<br>🔎 '+escH(c.ref):''}${c.nota?'<br>📝 '+escH(c.nota):''}${todos&&s.barberos.length?'<br>✂️ Se atiende con: '+escH(s.barberos.join(', ')):''}</div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
       <div class="field" style="flex:1"><label>🎂 Cumpleaños${diasHastaCumple(c.cumple)===0?' <b style="color:#fbbf24">¡es hoy!</b>':''}</label>${htmlCumpleRapido(c)}</div>
@@ -442,6 +444,14 @@ async function confirmarCanjeRegaloProducto(clienteId,cardId,productoId){
   ajustarStock([{id:p.id,delta:-1}]);
   await cambiarClientes(list=>{ const x=list.find(z=>z.id===clienteId); const ct=x&&(x.tarjetas||[]).find(tt=>tt.cardId===cardId); if(ct) ct.regalo='usado'; });
   closeModal('modal-registro'); showToast('Canjeado por '+p.nombre+' ✓'); abrirClienteDetalle(clienteId);
+}
+// ---------- antigüedad autodeclarada por el cliente en /#cuenta -> credencial de veterano ----------
+const ANTIGUEDAD_OPCS=[['menos1','Menos de 1 mes'],['algunos','Algunos meses'],['medioanio','Como medio año'],['unanio','Como un año'],['mas','Más de un año']];
+const ANTIGUEDAD_LABEL=Object.fromEntries(ANTIGUEDAD_OPCS);
+async function revisarAntiguedad(id,veredicto){
+  await cambiarClientes(list=>{ const c=list.find(x=>x.id===id); if(c){ c.antiguedadRevision=veredicto; c.veterano=(veredicto==='verdad'); c.upd=new Date().toISOString(); } });
+  showToast(veredicto==='verdad'?'Marcado como veterano 🎖️':'Marca de veterano quitada');
+  abrirClienteDetalle(id);
 }
 async function toggleClienteProblema(id){
   const c=clienteDe(id); if(!c) return;

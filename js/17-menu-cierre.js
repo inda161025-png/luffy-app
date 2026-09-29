@@ -71,6 +71,29 @@ function abrirMiCuenta(){
   openModal('modal-registro');
 }
 
+// ---------- admin: Configuración → Preguntas frecuentes (se ven en /#cuenta) ----------
+function renderAdminFaq(c){
+  const L=promos.faq||[];
+  c.innerHTML=`<div class="sec-hdr" style="margin:0 0 10px"><span class="sec-title">❓ Preguntas frecuentes</span><button class="lnk" onclick="abrirFormFaq('')">+ Nueva</button></div>
+    <div style="font-size:12px;color:var(--muted2);margin:-4px 0 12px;line-height:1.5">Esto es lo que ve el cliente al tocar el "?" en su cuenta (/#cuenta).</div>
+    ${L.length?L.map((f,i)=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;gap:8px;align-items:flex-start"><div style="flex:1"><div style="font-size:13px;font-weight:700">${escH(f.q)}</div><div style="font-size:12px;color:var(--muted2);margin-top:4px">${escH(f.a)}</div></div><div style="display:flex;gap:2px;flex-shrink:0"><button class="lnk" onclick="abrirFormFaq('${i}')">✏️</button><button class="lnk" style="color:#f472b6" onclick="borrarFaq(${i})">×</button></div></div></div>`).join(''):'<div class="empty"><div class="e-icon">❓</div><p>Todavía no cargaste ninguna.</p></div>'}`;
+}
+function abrirFormFaq(idx){
+  const f=idx!==''?(promos.faq||[])[idx]:null;
+  document.getElementById('registro-content').innerHTML=cabeceraModal(f?'Editar pregunta':'Nueva pregunta')+
+    `<div class="field"><label>Pregunta</label><input id="faq-q" value="${escH(f?f.q:'')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Respuesta</label><textarea id="faq-a" rows="4">${escH(f?f.a:'')}</textarea></div>
+    <button class="btn btn-primary" onclick="guardarFaq('${idx}')" style="margin-top:14px">Guardar</button>`;
+  openModal('modal-registro');
+}
+function guardarFaq(idx){
+  const q=(document.getElementById('faq-q').value||'').trim(), a=(document.getElementById('faq-a').value||'').trim();
+  if(!q||!a){ showToast('Completá la pregunta y la respuesta'); return; }
+  promos.faq=promos.faq||[];
+  if(idx!==''){ promos.faq[idx]={q,a}; } else { promos.faq.push({q,a}); }
+  savePromos(); closeModal('modal-registro'); showToast('Guardado ✓'); renderAdmin();
+}
+function borrarFaq(idx){ promos.faq=(promos.faq||[]).filter((_,i)=>i!==idx); savePromos(); renderAdmin(); }
 // ---------- admin: Configuración → Reserva pública (resumen + acceso al modal de siempre) ----------
 function renderAdminReservaPublica(c){
   c.innerHTML=`<div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">🌐 Reserva pública</b><button class="lnk" onclick="abrirConfigReservaPublica()">Configurar</button></div>
@@ -651,16 +674,81 @@ function cuentaOfertasExclusivas(){
     &&(f.cupo==null||numV(f.usos)<numV(f.cupo))
     &&(!f.dias||!f.dias.length||f.dias.includes(dia)));
 }
+// ---------- avatar del cliente (foto propia o "monstruito") ----------
+const AVATARES_MONSTRUO=['👹','👺','🤖','👽','👻','🐙','🦖','🐲','🦑','🐸','🦄','🐨'];
+function htmlAvatarCliente(c,size){
+  size=size||84;
+  const av=c&&c.avatar, esFoto=av&&av.indexOf('data:')===0;
+  const inner=esFoto?`<img src="${av}" style="width:100%;height:100%;object-fit:cover;border-radius:50%"/>`
+    :av?`<span style="font-size:${Math.round(size*.55)}px">${av}</span>`
+    :`<span style="font-size:${Math.round(size*.36)}px;font-weight:800;color:#fff">${escH(inicialesCliente(c?c.nombre:''))}</span>`;
+  return `<div onclick="abrirElegirAvatar()" style="width:${size}px;height:${size}px;border-radius:50%;background:${esFoto?'transparent':'var(--accent)'};display:flex;align-items:center;justify-content:center;margin:0 auto;cursor:pointer;position:relative;overflow:hidden;border:3px solid var(--s2)">${inner}<div style="position:absolute;bottom:-2px;right:-2px;width:24px;height:24px;border-radius:50%;background:var(--s1);border:2px solid var(--bg);display:flex;align-items:center;justify-content:center;font-size:11px">✏️</div></div>`;
+}
+function abrirElegirAvatar(){
+  const c=cuentaClienteActual; if(!c) return;
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Elegí tu avatar')+
+    `<div style="text-align:center;margin-bottom:16px">${htmlAvatarCliente(c,90)}</div>
+    <label class="btn btn-ghost" style="width:100%;margin-bottom:16px;text-align:center;cursor:pointer;display:block">📷 Subir una foto<input type="file" accept="image/*" style="display:none" onchange="elegirFotoAvatar(this)"/></label>
+    <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">O elegí un monstruito</div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px">${AVATARES_MONSTRUO.map(e=>`<button onclick="guardarAvatarCliente('${e}')" style="aspect-ratio:1;border-radius:16px;border:1.5px solid var(--border2);background:var(--s2);font-size:28px;cursor:pointer">${e}</button>`).join('')}</div>`;
+  openModal('modal-registro');
+}
+async function elegirFotoAvatar(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  try{ const url=await comprimirImagen(f,400,.82); await guardarAvatarCliente(url); }catch(e){ showToast('No se pudo procesar la foto'); }
+}
+async function guardarAvatarCliente(av){
+  const c=cuentaClienteActual; if(!c) return;
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===c.id); if(x){ x.avatar=av; x.upd=new Date().toISOString(); } });
+  cuentaClienteActual=clientesDir.find(z=>z.id===c.id)||cuentaClienteActual;
+  closeModal('modal-registro'); showToast('Avatar guardado ✓'); renderCuentaLogueado();
+}
+// ---------- profesión autocargada por el cliente ----------
+async function guardarProfesionCuenta(val){
+  const c=cuentaClienteActual; if(!c) return;
+  const v=(val||'').trim(); if(v===(c.profesion||'')) return;
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===c.id); if(x){ x.profesion=v; x.upd=new Date().toISOString(); } });
+  cuentaClienteActual=clientesDir.find(z=>z.id===c.id)||cuentaClienteActual;
+  showToast('Guardado ✓');
+}
+// ---------- antigüedad autodeclarada -> credencial de veterano (la revisa el staff en el CRM) ----------
+function htmlAntiguedadCuenta(c){
+  if(c.veterano) return `<div class="card" style="margin-bottom:12px;border-color:rgba(52,211,153,.4);background:rgba(52,211,153,.06);text-align:center"><div style="font-size:13px;font-weight:800;color:#34d399">🎖️ Sos cliente veterano</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Gracias por elegirnos siempre</div></div>`;
+  if(c.antiguedadDeclarada) return `<div class="card" style="margin-bottom:12px;text-align:center;font-size:12px;color:var(--muted2)">Nos contaste que hace <b style="color:var(--text)">${(ANTIGUEDAD_LABEL[c.antiguedadDeclarada]||'').toLowerCase()}</b> que venís — ¡gracias!</div>`;
+  return `<div class="card" style="margin-bottom:12px">
+    <div style="font-size:12.5px;font-weight:700;margin-bottom:8px">¿Hace cuánto te cortás con nosotros?</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${ANTIGUEDAD_OPCS.map(([v,l])=>`<button onclick="declararAntiguedad('${v}')" style="padding:7px 12px;border-radius:20px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:12px;font-weight:600;cursor:pointer">${l}</button>`).join('')}</div>
+  </div>`;
+}
+async function declararAntiguedad(v){
+  const c=cuentaClienteActual; if(!c) return;
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===c.id); if(x){ x.antiguedadDeclarada=v; x.antiguedadDeclaradaEn=new Date().toISOString(); x.upd=x.antiguedadDeclaradaEn; } });
+  cuentaClienteActual=clientesDir.find(z=>z.id===c.id)||cuentaClienteActual;
+  showToast('¡Gracias por contarnos!'); renderCuentaLogueado();
+}
+// ---------- FAQ + WhatsApp directo (ícono "?" y globo arriba de la cuenta) ----------
+function abrirFaqCliente(){
+  const faqs=promos.faq||[], wa=linkWhatsApp(promos.whatsappNegocio,'Hola! Tengo una consulta');
+  document.getElementById('registro-content').innerHTML=cabeceraModal('❓ Preguntas frecuentes')+
+    (faqs.length?faqs.map(f=>`<details class="card" style="margin-bottom:8px"><summary style="cursor:pointer;font-size:13px;font-weight:700">${escH(f.q)}</summary><div style="font-size:12.5px;color:var(--muted2);margin-top:8px;line-height:1.6">${escH(f.a)}</div></details>`).join(''):'<div class="empty"><div class="e-icon">❓</div><p>Todavía no hay preguntas cargadas.</p></div>')+
+    (wa?`<div style="margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"><div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">¿No encontraste tu respuesta?</div><a class="btn btn-primary" style="width:100%;text-align:center;display:block;text-decoration:none" href="${wa}" target="_blank" rel="noopener">Escribinos por WhatsApp</a></div>`:'');
+  openModal('modal-registro');
+}
 function renderCuentaLogueado(){
   const c=cuentaClienteActual;
   if(!c){ renderCuentaLogin(); return; }
   const links=cuentaLinksResena(c);
   const exclusivas=cuentaOfertasExclusivas();
+  const wa=linkWhatsApp(promos.whatsappNegocio,'Hola! Te escribo desde mi cuenta de Inda Studio');
   document.getElementById('cuenta-body').innerHTML=`
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
-      <div style="font-size:15px;font-weight:800">Hola, ${escH((c.nombre||'').split(' ')[0])} 👋</div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px">
+      <div style="display:flex;gap:8px">${wa?`<a href="${wa}" target="_blank" rel="noopener" style="width:36px;height:36px;border-radius:50%;background:rgba(52,211,153,.15);color:#34d399;display:flex;align-items:center;justify-content:center;text-decoration:none;font-size:16px">💬</a>`:''}<button onclick="abrirFaqCliente()" style="width:36px;height:36px;border-radius:50%;background:var(--s2);border:none;color:var(--text);font-size:15px;font-weight:800;cursor:pointer">?</button></div>
       <button class="lnk" onclick="cuentaCerrarSesion()">Salir</button>
     </div>
+    <div style="margin-bottom:8px">${htmlAvatarCliente(c,84)}</div>
+    <div style="text-align:center;font-size:17px;font-weight:800;margin-bottom:4px">${escH(c.nombre)}</div>
+    <div style="text-align:center;margin-bottom:16px"><input id="cta-profesion" value="${escH(c.profesion||'')}" placeholder="Tu profesión (opcional)" onblur="guardarProfesionCuenta(this.value)" style="text-align:center;background:transparent;border:none;color:var(--muted2);font-family:var(--font);font-size:12.5px;outline:none;border-bottom:1px dashed var(--border2);padding:2px 4px;max-width:220px"/></div>
+    ${htmlAntiguedadCuenta(c)}
     <div class="card" style="margin-bottom:12px">
       <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px">⭐ Tus beneficios</div>
       <div class="ln"><span>Por tener cuenta</span><b style="color:#34d399">${CUENTA_DESC_PCT}% siempre activo</b></div>

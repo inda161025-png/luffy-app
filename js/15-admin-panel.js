@@ -57,7 +57,7 @@ const ADMIN_SECCIONES=[
   {id:'clientes',ico:mi('clientes',16),label:'Clientes',subs:[['directorio','Clientes'],['crm','CRM'],['deudas','Deudas'],['senas','Señas'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas']]},
   {id:'finanzas',ico:mi('finanzas',16),label:'Finanzas',subs:[['balance','Balance'],['gastos','Gastos'],['fijos','Gastos fijos'],['deudasequipo','Deudas con el equipo'],['costos','Costo por servicio'],['equilibrio','Punto de equilibrio'],['flujo','Flujo anual'],['caja','Caja']]},
   {id:'recepcion',ico:mi('recepcion',16),label:'Recepción'},
-  {id:'config',ico:mi('config',16),label:'Configuración',subs:[['sucursales','Sucursales'],['descuentos','Descuentos'],['reservapublica','Reserva pública']]},
+  {id:'config',ico:mi('config',16),label:'Configuración',subs:[['sucursales','Sucursales'],['descuentos','Descuentos'],['reservapublica','Reserva pública'],['faq','Preguntas frecuentes']]},
 ];
 window.adminSub={};
 
@@ -81,7 +81,7 @@ function renderAdmin(){
   else if(tab==='clientes') renderAdminClientes(c,sub);
   else if(tab==='finanzas') renderAdminFinanzas(c,sub);
   else if(tab==='recepcion') renderAdminRecepcion(c);
-  else if(tab==='config'){ if(sub==='descuentos') adminDescuentos(c); else if(sub==='reservapublica') renderAdminReservaPublica(c); else renderAdminSucursales(c); }
+  else if(tab==='config'){ if(sub==='descuentos') adminDescuentos(c); else if(sub==='reservapublica') renderAdminReservaPublica(c); else if(sub==='faq') renderAdminFaq(c); else renderAdminSucursales(c); }
   body.scrollTop=st;
 }
 
