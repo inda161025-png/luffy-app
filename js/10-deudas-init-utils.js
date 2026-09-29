@@ -264,9 +264,13 @@ function htmlSenaCliente(c){
 // con 'pageshow' (bfcache), no solo una vez al cargar.
 async function enrutarHashPublico(){
   // Consolidacion del 27/09/2026 (ver comentario junto a mostrarReservaPublica, en 17-menu-cierre.js): /#reserva
-  // ya NO es una pantalla con wizard propio, es la puerta publica de "Armar Paquete" -- no necesita parametros
-  // de URL (el intento de pasar el paquete de la calculadora de sitio-web asi se revirtio, era fragil).
-  if(location.hash==='#reserva'){ await mostrarReservaPublica(); return true; }
+  // ya NO es una pantalla con wizard propio, es la puerta publica de "Armar Paquete". Reintentado el 28/09/2026
+  // (pedido explicito de Ivo, coordinado con Web): #reserva puede volver a venir con el paquete armado en la
+  // calculadora de sitio-web -- #reserva?sucursal=Nombre&rubros=Rubro1,Rubro2&servicios=Nombre1,Nombre2, todo por
+  // NOMBRE (el catalogo de la calculadora es una copia manual, sus ids no coinciden con los reales). Se habia
+  // sacado por un bug de combos que no matcheaban; Web saco los combos prearmados de la calculadora asi que se
+  // reintenta. vpAplicarParametrosURL (17-menu-cierre.js) hace el match por nombre, best-effort.
+  if(location.hash==='#reserva'||location.hash.indexOf('#reserva?')===0){ await mostrarReservaPublica(location.hash.slice('#reserva'.length)); return true; }
   // La vuelta del login con Google puede llegar de varias formas segun el navegador: Supabase reemplaza
   // el hash #cuenta por el token de sesion (#access_token=... o #code=...), y en algunos casos (Safari/iOS,
   // por las protecciones de storage entre sitios en redirects de varios saltos: nuestro sitio -> Google ->

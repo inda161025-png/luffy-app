@@ -146,12 +146,30 @@ let rpSesionId='';
 let rpCliente=null;
 // Consolidacion grande decidida con Ivo el 27/09/2026: /#reserva ya NO es una pantalla propia con su wizard
 // separado -- es la "puerta publica" de la MISMA herramienta "Armar Paquete" que ya usa el staff (ventaSel /
-// renderVentaPaquete, en 05-descuentos-cobro.js). Reemplaza el intento anterior de pasar el paquete de la
-// calculadora de sitio-web por parametros en la URL (revertido, era fragil -- ver el bug real de combos que
-// reporto Web). La puerta publica arma su propio ventaSel con publico:true, que renderVentaPaquete usa para:
-// ocultar la busqueda de cliente y el cobro inmediato (eso sigue siendo solo para el staff), y mostrar en
-// cambio el wizard nuevo de "Reservar horarios reales" (mas abajo: vpXxx) que SI comparten las dos puertas.
-async function mostrarReservaPublica(){
+// renderVentaPaquete, en 05-descuentos-cobro.js). La puerta publica arma su propio ventaSel con publico:true,
+// que renderVentaPaquete usa para: ocultar la busqueda de cliente y el cobro inmediato (eso sigue siendo solo
+// para el staff), y mostrar en cambio el wizard nuevo de "Reservar horarios reales" (mas abajo: vpXxx) que SI
+// comparten las dos puertas.
+// Paquete armado en la calculadora de sitio-web (dominio distinto, sin storage compartido): llega por NOMBRE,
+// no por id (su catalogo es una copia manual, no lee de esta base -- acordado con Web). Reintentado el
+// 28/09/2026 (pedido de Ivo) despues de haberse revertido una vez por combos que no matcheaban -- Web saco los
+// combos prearmados de Barberia de la calculadora, asi que deberia matchear mucho mejor ahora. Si algo no
+// matchea, se ignora sin romper nada (el cliente arranca esa parte desde cero, como si nunca hubiera venido
+// con datos).
+function vpAplicarParametrosURL(query){
+  if(!query||!ventaSel) return;
+  const qs=new URLSearchParams(query.replace(/^\?/,''));
+  const nomSuc=qs.get('sucursal'), nomRubros=qs.get('rubros'), nomServicios=qs.get('servicios');
+  if(nomSuc){ const s=sucursales.find(x=>nkey(x.nombre)===nkey(nomSuc)); if(s) ventaSel.sucursal=s.id; }
+  const rubroIds=(nomRubros||'').split(',').map(n=>{ const r=rubros.find(x=>nkey(x.nombre)===nkey(n)); return r?r.id:null; }).filter(Boolean);
+  (nomServicios||'').split(',').map(n=>n.trim()).filter(Boolean).forEach(nombre=>{
+    const k=nkey(nombre);
+    const candidatos=servicios.filter(sv=>(!rubroIds.length||rubroIds.includes(sv.rubro))&&nkey(sv.nombre).includes(k));
+    if(candidatos.length===1&&!ventaSel.sel.includes(candidatos[0].id)) ventaSel.sel.push(candidatos[0].id);
+  });
+  if(rubroIds.length===1) ventaSel.rubroAbierto=rubroIds[0];
+}
+async function mostrarReservaPublica(query){
   show('reserva-publica');
   const nav=document.getElementById('nav'); if(nav) nav.style.display='none';
   document.getElementById('rp-body').innerHTML='<div style="text-align:center;padding:40px 0;color:var(--muted2)">Cargando…</div>';
@@ -159,6 +177,7 @@ async function mostrarReservaPublica(){
   try{ rpCliente=JSON.parse(sessionStorage.getItem('inda_reserva_cliente')||'null'); }catch(e){ rpCliente=null; }
   await rpCargarDatos();
   ventaSel={tipo:'paq',publico:true,cid:null,clienteQ:'',medio:null,sel:[],rubroAbierto:null,modo:'',sucursal:sucursales.length<=1?((sucursales[0]||{}).id||null):null,asignaciones:{},grupoIdx:0,subPaso:null,nombre:'',whatsapp:''};
+  if(query) vpAplicarParametrosURL(query);
   // Lo que queda detras del modal necesita su propio boton para volver a abrirlo -- sin esto, cerrar el modal
   // con la "×" (que reusa closeModal de siempre, pensado para el staff que tiene su pantalla de atras) dejaba
   // al cliente publico varado sin nada para tocar (bug real, reportado por Ivo/Central, 28/09/2026).
