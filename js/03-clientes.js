@@ -541,11 +541,20 @@ async function guardarFormCliente(){
   if(id){
     const r=await cambiarClientes(list=>{
       const c=list.find(x=>x.id===id); if(!c) return {error:'no'};
-      const dup=list.find(x=>x.id!==id&&x.nkey===nkey(nombre)); if(dup) return {error:'dup',existente:dup};
+      // El chequeo de duplicado solo tiene sentido si el NOMBRE cambia a uno que ya usa otro cliente (evita un
+      // alta por error) -- si el nombre queda igual (ej. solo se está completando la fecha de nacimiento de un
+      // cliente que por casualidad comparte nombre con otro, algo comun con +1200 clientes importados), no hay
+      // que bloquear la edicion: era un falso positivo real, reportado por Ivo, que dejaba el guardado en loop
+      // silencioso (mostraba "actualizado" pero nunca guardaba nada, asi que el cobro volvia a pedir el dato
+      // sin fin). 28/09/2026.
+      if(nkey(nombre)!==c.nkey){
+        const dup=list.find(x=>x.id!==id&&x.nkey===nkey(nombre)); if(dup) return {error:'dup',existente:dup};
+      }
       Object.assign(c,{nombre,nkey:nkey(nombre),profesion:prof,tel,nacimiento:nac,email,ref:val('cl-ref'),nota:val('cl-nota'),cumple:leerCumpleForm(),genero:val('cl-genero'),upd:new Date().toISOString()});
       return {cliente:c};
     });
     if(r.error==='dup'){ dupMsg(r.existente); return; }
+    if(r.error==='no'){ showToast('No se encontró el cliente — probá de nuevo'); return; }
     showToast('Cliente actualizado ✓');
     if(ctx&&ctx.deCobro){ formClienteCtx=null; renderRegistro(); return; }
     if(ctx&&ctx.deCierre){ formClienteCtx=null; renderCierre(); refreshCurrentView(); return; }
