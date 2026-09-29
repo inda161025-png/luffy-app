@@ -542,8 +542,12 @@ async function guardarFormCliente(){
   const nombre=val('cl-nombre').replace(/\s+/g,' ');
   if(!nombre){ showToast('Poné el nombre'); return; }
   let prof=val('cl-prof'); if(prof==='__otra') prof=val('cl-prof-otra');
-  if(!prof){ showToast('Elegí la profesión del cliente'); return; }
   const id=val('cl-id'), ctx=formClienteCtx;
+  // La profesión solo es obligatoria al crear un cliente nuevo. Si ya existía sin profesión cargada (clientes
+  // importados, o creados solos desde /#cuenta) y este formulario se abrió para completar OTRO dato puntual
+  // (ej. la fecha de nacimiento pedida en medio de un cobro), no hay que frenarlo por algo que ni pintaba en
+  // pantalla como obligatorio en ese momento -- eso dejaba el cobro en loop sin fin (reportado por Ivo, 29/09/2026).
+  if(!id&&!prof){ showToast('Elegí la profesión del cliente'); return; }
   const tel=val('cl-tel'); if(tel.replace(/\D/g,'').length<8){ showToast('Poné el teléfono del cliente (con característica)'); return; }
   const nac=leerNacimientoForm(); if(!nac){ showToast('Poné la fecha de nacimiento completa: día, mes y año'); return; }
   const email=val('cl-email').toLowerCase(); if(email&&!/^\S+@\S+\.\S+$/.test(email)){ showToast('El mail no parece válido'); return; }
