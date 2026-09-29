@@ -9,6 +9,17 @@ releer todo el código. Se actualiza a medida que se cierra cada cosa.
 > los cambios grandes se preparan en una rama aparte y se avisan antes de
 > mergear a `main`, en vez de pushear directo.
 
+> **Excepción a esa regla (2026-09-29, tarde):** el commit "Finanzas + menú +
+> visual + acumulación de fidelidad + Fase A/C (tarjetas/billetera + perfil
+> `/#cuenta`)" se mergeó a `main` **sin esperar la confirmación de Central**,
+> por pedido explícito de Ivo (apurado, sin tiempo de coordinar en el momento).
+> Antes de mergear se verificó que `main` no tenía commits nuevos desde el
+> último sync (sin conflicto), y todo el trabajo ya estaba probado con
+> Playwright (ver detalle de cada fase más abajo). Si Central estaba tocando
+> algo relacionado a Finanzas, el menú de Admin, las tarjetas de fidelidad o
+> `/#cuenta` en simultáneo, **revisar acá primero** antes de asumir que un
+> conflicto es un bug — puede ser este merge apurado pisando ese trabajo.
+
 ---
 
 ## Hecho — rama `claude/app-repository-access-pbpvxu` (sin mergear a `main` todavía, a propósito: se avisa antes)
