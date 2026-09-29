@@ -13,6 +13,55 @@ releer todo el código. Se actualiza a medida que se cierra cada cosa.
 
 ## Hecho — rama `claude/app-repository-access-pbpvxu` (sin mergear a `main` todavía, a propósito: se avisa antes)
 
+### Acumulación de descuento de fidelidad (29/09/2026) ✅
+Si el escalón de fidelidad del día pierde contra un descuento más grande, ya no se pierde:
+se banca como cupón aparte (mismo mecanismo que los cupones de referidos), acumulando hasta
+un tope de **30% por tarjeta**. Había un campo (`fidSobra`) que alguien dejó preparado para
+esto pero nunca se conectó — quedó terminado. Código: `js/05-descuentos-cobro.js`, función
+`calcCobro()`.
+
+### Fase A — Tarjetas de fidelidad rediseñadas + billetera (29/09/2026) ✅
+- Cada tarjeta tiene su propio color sólido por rubro (hash determinístico, sin necesidad
+  de config nueva) + ícono de fondo, barra de progreso, sin glow.
+- Si el cliente tiene más de una tarjeta (una por rubro), se comporta como billetera: la
+  primera abierta, el resto en pestañas — tocar una pestaña abre esa y cierra la anterior.
+  Funciona en la ficha del staff (CRM) y en `/#cuenta`.
+- Código: `js/05-descuentos-cobro.js` (`htmlTarjetaCliente`, `htmlUnaTarjetaCliente`,
+  `walletMostrar`, `colorDeTarjeta`, `iconoDeTarjeta`).
+
+### Fase C — Perfil del cliente en `/#cuenta` (29/09/2026) ✅
+- **Avatar**: centrado, tocable para cambiar — subir foto propia (comprimida en el
+  navegador, misma técnica que los comprobantes de Finanzas) o elegir uno de 12
+  "monstruitos" (emoji, v1 simple — armar avatares dibujados/generados por IA queda para
+  más adelante, como pidió el usuario). Placeholder con iniciales si no eligió nada.
+- **WhatsApp directo** arriba a la izquierda (usa `promos.whatsappNegocio`, ya existía).
+- **FAQ**: ícono "?" abre preguntas frecuentes + botón de WhatsApp si no encuentra la
+  respuesta. Nueva sección "Preguntas frecuentes" en Admin → Configuración para cargarlas
+  (`promos.faq`). **No es IA respondiendo** — es una lista fija que carga el negocio; una
+  versión con IA (reusando `api/chat.js`, que hoy solo la usa el staff para reels) queda
+  como fase futura si se quiere.
+- **Profesión editable por el cliente**: antes solo la cargaba el mostrador.
+- **Antigüedad autodeclarada → credencial de veterano**: se le pregunta al cliente hace
+  cuánto viene (5 opciones), el staff lo ve en la ficha del CRM con botones "Es verdad ·
+  dar veterano" / "No es cierto". Si se confirma, `c.veterano=true` y se le muestra la
+  credencial en su cuenta. **El descuento asociado a ser veterano todavía no está
+  definido** — el usuario dijo explícitamente "después vemos eso", así que solo se
+  construyó la credencial, no el descuento.
+- Código: `js/17-menu-cierre.js` (`renderCuentaLogueado`, `htmlAvatarCliente`,
+  `abrirElegirAvatar`, `htmlAntiguedadCuenta`, `abrirFaqCliente`, `renderAdminFaq`),
+  `js/03-clientes.js` (`revisarAntiguedad`, `ANTIGUEDAD_OPCS`).
+
+Todo lo de arriba probado con Playwright antes de subir (billetera con cambio de
+pestaña, foto de avatar comprimida, monstruito, antigüedad → veterano, FAQ del admin
+apareciendo en la cuenta).
+
+### Fase D — BLOQUEADA hasta que Central confirme que está libre
+Ver horarios con descuento al armar un paquete (aunque el descuento sea menor, para que
+el cliente vea qué le conviene). Toca el motor compartido de "Armar Paquete" / `/#reserva`
+(~600 líneas en `js/05-descuentos-cobro.js` y `js/17-menu-cierre.js`, estado global
+`ventaSel`, usado también por la reserva pública sin login y por el botón "Reservar
+turno" de `/#cuenta`). **No tocar sin avisar primero.**
+
 ### Prioridad 1 — Ordenar Finanzas ✅
 - [x] "Cambio de efectivo" (traspaso a cuenta) ya estaba excluido del cálculo de facturación — no hacía falta arreglar la suma, solo la visibilidad: no aparecía en ningún lado. Ahora sí figura en Finanzas → Balance → "Movimientos internos", con fecha y sucursal (`js/08-caja-calendario.js`, concepto `deposito`).
 - [x] "Diferencia de caja" (arqueo) ya vivía separada del balance, solo en Caja — confirmado, sin cambios.
