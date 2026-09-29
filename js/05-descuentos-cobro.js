@@ -69,7 +69,12 @@ function calcCobro(){
   const oferta=ofertasVisibles().find(o=>o.id===cobro.ofertaId)||null;
   let fijo=null, ofertaSinEfecto=false;
   const tarjUso={cupones:[],fidSobra:0};
-  const tarj=infoTarjeta(cli,normales.map(rubroDeLinea));
+  const tarjCard=mejorTarjetaCliente(cli,normales.map(rubroDeLinea));
+  const tarj=infoDeTarjeta(tarjCard);
+  // Tope de fidelidad acumulada sin usar (decidido con Ivo, 29/09/2026): si el escalon de fidelidad de hoy
+  // pierde contra un descuento mas grande, no se pierde -- se guarda como cupon aparte, hasta un 30% total
+  // acumulado por tarjeta (ver mas abajo, donde se calcula tarjUso.fidSobra).
+  const TOPE_FID_ACUMULADA=30;
   // Promo fija: puede valer solo para ciertos servicios y sumar un adicional segun la profesion del cliente (ej: fuerzas +15%). Gana la que mas descuenta.
   const baseF=(f)=>normales.filter(l=>rubroEn(f.rubro,rubroDeLinea(l))&&(!(f.servicioIds&&f.servicioIds.length)||l.ids.some(id=>f.servicioIds.includes(id)))).reduce((a,l)=>a+l.precio,0);
   const extraFijo=(f)=>!!(f.extra&&f.extra.profesion&&cli&&nkey(cli.profesion)===nkey(f.extra.profesion));
@@ -90,7 +95,7 @@ function calcCobro(){
     if(bF>0) cand.push({tipo:'fidelidad',label:tarj.pasoLabel?tarj.pasoLabel+' · visita n°'+tarj.k:'Fidelidad · visita n°'+tarj.k,pct:tarj.pctFid,monto:Math.round(bF*tarj.pctFid/100)});
   }
   let mejorCupon=null;
-  if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
+  if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:mejorCupon.de==='fidelidad'?'Fidelidad acumulada':'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
   const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
   if(descEfectivo>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:descEfectivo});
   // Cuenta con Google (10%) + reseña dejada (5%): unico caso que se SUMA antes de competir (decidido con Ivo,
@@ -113,6 +118,15 @@ function calcCobro(){
   const candElegibles=(necesitaElegirDesc&&cobro.descGrupo)?cand.filter(c=>!c.grupo||c.grupo===cobro.descGrupo):cand;
   let ganador=null; if(!esNoche) candElegibles.forEach(c=>{ if(c.monto>0&&(!ganador||c.monto>ganador.monto)) ganador=c; });
   if(ganador){ D.push(ganador); if(ganador.tipo==='referidos'&&mejorCupon) tarjUso.cupones.push({id:mejorCupon.id,pct:numV(mejorCupon.pct)}); }
+  // El escalon de fidelidad de hoy perdio contra un descuento mas grande: en vez de perderse, se banca como
+  // cupon aparte (mismo mecanismo que los cupones de referidos), topeado para que no se acumule sin limite.
+  if(tarj&&tarj.pctFid>0&&(!ganador||ganador.tipo!=='fidelidad')){
+    const fidCand=cand.find(c=>c.tipo==='fidelidad');
+    if(fidCand&&fidCand.monto>0){
+      const yaBancado=((tarjCard&&tarjCard.cupones)||[]).filter(c=>!c.usado&&c.de==='fidelidad').reduce((a,c)=>a+numV(c.pct),0);
+      tarjUso.fidSobra=Math.max(0,Math.min(tarj.pctFid,TOPE_FID_ACUMULADA-yaBancado));
+    }
+  }
   const topeAlcanzado=false, tope=null;
   const descuento=Math.min(subNormal,D.reduce((a,d)=>a+d.monto,0));
   const descPct=subNormal>0?descuento/subNormal*100:0;
@@ -227,8 +241,28 @@ async function activarTarjetaCliente(id,cardId){
   if(res&&res.error==='ya-tiene'){ showToast('Ya tiene esta tarjeta'); return; }
   showToast('Tarjeta activada ⭐'); abrirClienteDetalle(id);
 }
+// Paleta fija por rubro (hash del id) -- sin gradientes ni glow, un color solido por tarjeta para poder
+// distinguirlas de un vistazo en la billetera. No depende de config nueva en el admin.
+const TARJETA_COLORES=['#4A136B','#0F766E','#9A3412','#1D4ED8','#A21CAF','#065F46','#B91C1C','#3730A3'];
+const RUBRO_ICONO={barberia:'✂️','barberia-premium':'✂️',peluqueria:'💇',cosmetologia:'🧴',cejas:'👁️',podologia:'🦶',masajes:'💆',manos:'💅'};
+function rubroPrincipal(t){ return String((t&&t.snap&&t.snap.rubro)||'').split(',')[0].trim(); }
+function colorDeTarjeta(t){ const key=rubroPrincipal(t)||'x'; let h=0; for(let i=0;i<key.length;i++) h=(h*31+key.charCodeAt(i))>>>0; return TARJETA_COLORES[h%TARJETA_COLORES.length]; }
+function iconoDeTarjeta(t){ return RUBRO_ICONO[rubroPrincipal(t)]||'⭐'; }
+// Si el cliente tiene mas de una tarjeta, se muestran como una billetera: la primera abierta, el resto
+// colapsado en pestañas por rubro -- tocar una pestaña abre esa tarjeta y cierra la anterior.
 function htmlTarjetaCliente(c){
-  return ((c&&c.tarjetas)||[]).map(t=>htmlUnaTarjetaCliente(c,t)).join('');
+  const L=(c&&c.tarjetas)||[]; if(!L.length) return '';
+  if(L.length===1) return htmlUnaTarjetaCliente(c,L[0]);
+  const wid='wallet'+Math.random().toString(36).slice(2,9);
+  const tabs=`<div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px">${L.map((t,i)=>{ const col=colorDeTarjeta(t); return `<button onclick="walletMostrar('${wid}',${i})" data-wtab="${wid}-${i}" data-col="${col}" style="flex-shrink:0;display:flex;align-items:center;gap:5px;padding:7px 13px;border-radius:20px;border:1.5px solid ${i===0?col:'var(--border2)'};background:${i===0?col+'22':'transparent'};color:${i===0?col:'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${iconoDeTarjeta(t)} ${escH(rubrosNombres(t.snap.rubro))}</button>`; }).join('')}</div>`;
+  return `<div id="${wid}">${tabs}${L.map((t,i)=>`<div data-wcard="${wid}-${i}" style="${i===0?'':'display:none'}">${htmlUnaTarjetaCliente(c,t)}</div>`).join('')}</div>`;
+}
+function walletMostrar(wid,idx){
+  document.querySelectorAll(`[data-wcard^="${wid}-"]`).forEach(el=>{ el.style.display=el.dataset.wcard===(wid+'-'+idx)?'':'none'; });
+  document.querySelectorAll(`[data-wtab^="${wid}-"]`).forEach(el=>{
+    const on=el.dataset.wtab===(wid+'-'+idx), col=el.dataset.col;
+    el.style.borderColor=on?col:'var(--border2)'; el.style.background=on?col+'22':'transparent'; el.style.color=on?col:'var(--muted2)';
+  });
 }
 function htmlUnaTarjetaCliente(c,t){
   if(!t||!t.snap) return '';
@@ -237,21 +271,26 @@ function htmlUnaTarjetaCliente(c,t){
   const pctDe=(n)=>((sn.visitas||[]).find(s=>s.n===n)||{}).pct;
   const regaloDe=(n)=>{ const x=(sn.visitas||[]).find(v=>v.n===n); return !!(x&&x.servicioIds&&x.servicioIds.length); };
   const nombreRubro_=rubrosNombres(sn.rubro);
+  const color=colorDeTarjeta(t), icono=iconoDeTarjeta(t);
   const cir=(n)=>{ const done=n<=hechas, prox=n===hechas+1, pc=pctDe(n);
-    return `<div style="text-align:center"><div style="width:100%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${pc?11:13}px;font-weight:900;${done?'background:#fbbf24;color:#3b2a00;box-shadow:0 0 12px rgba(251,191,36,.55)':prox?'border:2px dashed #fbbf24;color:#fbbf24':'background:rgba(255,255,255,.12);color:rgba(255,255,255,.7)'}">${done?'★':pc?(regaloDe(n)?'🎁':pc+'%'):n}</div><div style="font-size:9px;opacity:.75;margin-top:2px">${n}°</div></div>`; };
+    return `<div style="text-align:center"><div style="width:100%;aspect-ratio:1;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:${pc?11:13}px;font-weight:800;${done?'background:#fff;color:'+color:prox?'border:2px dashed rgba(255,255,255,.75);color:#fff':'background:rgba(255,255,255,.14);color:rgba(255,255,255,.65)'}">${done?'✓':pc?(regaloDe(n)?'🎁':pc+'%'):n}</div><div style="font-size:9px;opacity:.7;margin-top:2px;color:#fff">${n}°</div></div>`; };
   const niveles=sn.referidos||[];
   const refs=(t.refs||[]).length;
   const regaloHtml=!sn.premio?'':(t.regalo==='usado'?'🎁 Regalo usado':(inf.regalo?'🎁 ¡Tiene un corte de regalo!':`🎁 Corte gratis: ${sn.premio.refs} referidos + ${sn.premio.visitas} cortes`));
-  return `<div style="margin-bottom:12px;border-radius:20px;padding:16px;color:#fff;background:var(--accent)">
-    <div style="display:flex;justify-content:space-between;align-items:flex-start">
-      <div><div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.75">${escH(sn.nombre||'Tarjeta de fidelidad')}${nombreRubro_?' · '+escH(nombreRubro_):''}</div><div style="font-size:18px;font-weight:900;margin-top:2px">${escH(c.nombre)}</div></div>
-      <div style="font-size:24px">⭐</div></div>
-    <div style="display:grid;grid-template-columns:repeat(${ciclo<=6?ciclo:5},1fr);gap:7px;margin:14px 0 12px;position:relative">${Array.from({length:ciclo},(_,i)=>cir(i+1)).join('')}</div>
+  const progreso=Math.round(hechas/ciclo*100);
+  return `<div style="margin-bottom:12px;border-radius:22px;padding:18px;color:#fff;background:${color};position:relative;overflow:hidden;box-shadow:0 8px 20px rgba(0,0,0,.28)">
+    <div style="position:absolute;top:-20px;right:-16px;font-size:92px;opacity:.13;transform:rotate(12deg);pointer-events:none">${icono}</div>
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;position:relative">
+      <div><div style="font-size:10px;letter-spacing:.14em;text-transform:uppercase;opacity:.8">${escH(sn.nombre||'Tarjeta de fidelidad')}</div><div style="font-size:19px;font-weight:800;margin-top:2px">${escH(c.nombre)}</div>${nombreRubro_?`<div style="font-size:11px;opacity:.75;margin-top:1px">${escH(nombreRubro_)}</div>`:''}</div>
+      <div style="font-size:26px;position:relative">${icono}</div></div>
+    <div style="height:4px;background:rgba(255,255,255,.22);border-radius:4px;margin:14px 0 12px;position:relative;overflow:hidden"><div style="height:100%;width:${progreso}%;background:#fff;border-radius:4px"></div></div>
+    <div style="display:grid;grid-template-columns:repeat(${ciclo<=6?ciclo:5},1fr);gap:7px;margin-bottom:12px;position:relative">${Array.from({length:ciclo},(_,i)=>cir(i+1)).join('')}</div>
     ${niveles.length?`<div style="font-size:10px;letter-spacing:.1em;text-transform:uppercase;opacity:.75;margin-bottom:6px;position:relative">Referidos ${refs}/${niveles.length}</div>
-    <div style="display:flex;gap:8px;position:relative;margin-bottom:10px">${niveles.map((p,i)=>{ const got=i<refs, cu=(t.cupones||[]).filter(x=>x.de!=='fidelidad')[i], usado=cu&&cu.usado; const resta=cu&&!cu.usado&&numV(cu.pct)<p?Math.round(numV(cu.pct)*10)/10:p; return `<div style="flex:1;text-align:center;padding:7px 2px;border-radius:12px;font-size:12px;font-weight:900;${got?(usado?'background:rgba(255,255,255,.12);text-decoration:line-through;opacity:.6':'background:#34d399;color:#04241a'):'border:1.5px dashed rgba(255,255,255,.4);opacity:.8'}">${resta}%</div>`; }).join('')}</div>`:''}
-    ${(t.cupones||[]).some(x=>x.de==='fidelidad'&&!x.usado)?`<div style="font-size:11.5px;font-weight:700;position:relative;margin-bottom:6px;color:#a7f3d0">💰 Saldo de descuento guardado: ${Math.round((t.cupones||[]).filter(x=>x.de==='fidelidad'&&!x.usado).reduce((a,x)=>a+numV(x.pct),0)*10)/10}%</div>`:''}
-    <div style="font-size:12px;font-weight:700;position:relative;${inf.regalo?'color:#fbbf24':'opacity:.85'}">${regaloHtml}</div>
-    <div style="font-size:11px;opacity:.85;margin-top:6px;position:relative">${inf.regalo?'Próximo corte: 100% bonificado':`Próximo ${un} (n°${inf.k}): ${inf.pasoLabel?'🎁 '+escH(inf.pasoLabel):(inf.pctFid?inf.pctFid+'% de fidelidad':'precio normal')}${inf.pctRef?' + '+inf.pctRef+'% por referido':''}`}</div></div>`;
+    <div style="display:flex;gap:8px;position:relative;margin-bottom:10px">${niveles.map((p,i)=>{ const got=i<refs, cu=(t.cupones||[]).filter(x=>x.de!=='fidelidad')[i], usado=cu&&cu.usado; const resta=cu&&!cu.usado&&numV(cu.pct)<p?Math.round(numV(cu.pct)*10)/10:p; return `<div style="flex:1;text-align:center;padding:7px 2px;border-radius:12px;font-size:12px;font-weight:800;${got?(usado?'background:rgba(255,255,255,.12);text-decoration:line-through;opacity:.6':'background:#fff;color:'+color):'border:1.5px dashed rgba(255,255,255,.4);opacity:.8'}">${resta}%</div>`; }).join('')}</div>`:''}
+    ${(t.cupones||[]).some(x=>x.de==='fidelidad'&&!x.usado)?`<div style="font-size:11.5px;font-weight:700;position:relative;margin-bottom:8px;background:rgba(255,255,255,.16);border-radius:10px;padding:6px 10px;display:inline-block">💰 Saldo guardado: ${Math.round((t.cupones||[]).filter(x=>x.de==='fidelidad'&&!x.usado).reduce((a,x)=>a+numV(x.pct),0)*10)/10}%</div>`:''}
+    <div style="font-size:12px;font-weight:700;position:relative;${inf.regalo?'color:#fff':'opacity:.9'}">${regaloHtml}</div>
+    <div style="font-size:11px;opacity:.85;margin-top:6px;position:relative">${inf.regalo?'Próximo corte: 100% bonificado':`Próximo ${un} (n°${inf.k}): ${inf.pasoLabel?'🎁 '+escH(inf.pasoLabel):(inf.pctFid?inf.pctFid+'% de fidelidad':'precio normal')}${inf.pctRef?' + '+inf.pctRef+'% acumulado':''}`}</div>
+  </div>`;
 }
 
 // ---------- datos del cliente para pasar a AgendaPro ----------
@@ -643,7 +682,7 @@ function renderPrepagoCobro(r){
     h+=`<div style="font-size:12.5px;margin:-2px 0 10px;color:var(--accent2);font-weight:700">${paqTxt}</div>`;
   }
   if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#4A136B')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
-  if(r.tarj){ const inf=r.tarj; h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(inf)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones de referidos':''}`}</div>`; }
+  if(r.tarj){ const inf=r.tarj; h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(inf)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones acumulados':''}`}</div>`; }
   const debeC=cli?saldoDeCliente(cli.id,cli.nombre):0;
   if(debeC>0) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#f472b6;font-weight:800">⚠️ Este cliente debe ${fp(debeC)} de turnos anteriores.</div>`;
   h+=htmlSenasCobro(r);

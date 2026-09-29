@@ -30,7 +30,7 @@ function htmlPerdidaDescuentos(desde,hasta,profF){
 
 let adminCliQ='';
 function renderAdminClientes(c,sub){
-  ({directorio:adminDirectorio,crm:adminCRM,membresias:adminMembresias,paquetes:adminPaquetes,tarjetas:adminTarjetas,descuentos:adminDescuentos,deudas:adminDeudas,senas:adminSenas}[sub]||adminDirectorio)(c);
+  ({directorio:adminDirectorio,crm:adminCRM,membresias:adminMembresias,paquetes:adminPaquetes,tarjetas:adminTarjetas,deudas:adminDeudas,senas:adminSenas}[sub]||adminDirectorio)(c);
 }
 function adminDirectorio(c){
   const q=nkey(adminCliQ);

@@ -523,9 +523,8 @@ function renderPuntos(){
   body.innerHTML = `
     <!-- HERO -->
     <div style="position:relative;overflow:hidden;background:${color}12;border:1.5px solid ${color}33;border-radius:24px;padding:28px 20px;text-align:center;margin-bottom:16px">
-      <div style="position:absolute;top:-70px;left:50%;transform:translateX(-50%);width:240px;height:200px;background:radial-gradient(closest-side, ${color}55, transparent);pointer-events:none"></div>
       <div style="position:relative;font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.12em;color:${color};opacity:.8;margin-bottom:8px">Mis puntos</div>
-      <div style="position:relative;font-size:64px;font-weight:900;letter-spacing:-3px;line-height:1;background:linear-gradient(155deg,#fff,${color} 65%);-webkit-background-clip:text;background-clip:text;color:transparent">${total.toLocaleString('es-AR')}</div>
+      <div style="position:relative;font-size:64px;font-weight:800;letter-spacing:-2px;line-height:1;font-variant-numeric:tabular-nums;color:var(--text)">${total.toLocaleString('es-AR')}</div>
       <div style="position:relative;font-size:13px;color:var(--muted2);margin-top:6px">Puesto ${myRank}° del equipo ${medals[myRank-1]||''}</div>
       ${myRank>1?(()=>{ const arriba=ranking[myRank-2]; const falta=arriba.pts-total; return `<div style="position:relative;display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;color:var(--muted2);margin-top:8px"><svg width="13" height="13" viewBox="0 0 24 24" fill="${color}"><path d="M12 2c1 3-3 4-3 8a3 3 0 006 0c0-1-.5-2-1-2.5 2 .5 4 3 4 6.5a6 6 0 11-12 0c0-4 2-6 3-8 .5-1.5 2-3.5 3-4z"/></svg>Te falta${falta===1?'':'n'} <b style="color:${color}">${falta} pto${falta===1?'':'s'}</b> para superar a ${escH(arriba.name)}</div>`; })():`<div style="position:relative;font-size:12px;color:#34d399;margin-top:8px;font-weight:700">👑 ¡Estás primero del equipo!</div>`}
       <div style="display:flex;justify-content:center;gap:20px;margin-top:16px;padding-top:16px;border-top:1px solid ${color}22">

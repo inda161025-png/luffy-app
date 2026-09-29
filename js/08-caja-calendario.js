@@ -18,7 +18,7 @@ const CONCEPTOS_CAJA=[
   {id:'retiro',n:'Retiro de un socio',tipo:'salida',gasto:false,interno:'retiro_socio',pedirDetalle:true,detalleLabel:'¿Qué socio?'},
   {id:'devolucion',n:'Devolución de seña o a un cliente',tipo:'salida',gasto:false,interno:'devolucion',pedirDetalle:true,detalleLabel:'¿A quién?'},
   {id:'pago_deuda',n:'Pago de una deuda',tipo:'salida',gasto:false,interno:'pago_deuda',pedirDetalle:true,detalleLabel:'¿A quién se le pagó?'},
-  {id:'deposito',n:'Depósito: del efectivo a la cuenta',tipo:'traspaso',gasto:false},
+  {id:'deposito',n:'Depósito: del efectivo a la cuenta',tipo:'traspaso',gasto:false,interno:'traspaso'},
   {id:'ingreso_extra',n:'Ingreso extra',tipo:'entrada',gasto:false},
 ];
 const ymHoy=()=>hoyStr().slice(0,7);

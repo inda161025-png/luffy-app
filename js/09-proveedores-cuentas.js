@@ -359,9 +359,19 @@ const tramoOro=()=>({...TRAMO_ORO,pct:comCfg().oro.pct,min:comCfg().oro.min,reel
 function sumaMeses(f,n){ const [y,m,d]=f.split('-').map(Number); const t=new Date(Date.UTC(y,m-1+n,1)); return t.getUTCFullYear()+'-'+pad2(t.getUTCMonth()+1)+'-'+pad2(Math.min(d,finMesUTC(t.getUTCFullYear(),t.getUTCMonth()+1))); }
 function esNuevoEn(u,f){ return !!u&&u.esquema==='nuevo'&&!!u.inicio&&(f||hoyStr())<sumaMeses(u.inicio,comCfg().nuevos.meses); }
 function comisionFijaDe(u){ if(!u) return null; if(u.esquema==='fija'||u.esEncargado) return numV(u.comisionFija)>0?numV(u.comisionFija):60; return null; }
+// Podología/cosmetología/cejas/masajes cobran un % propio (70% por defecto, confirmado 21/09/2026) en vez del tramo
+// general de siempre — solo para quien SOLO hace esos rubros (si mezcla con barbería/peluquería, sigue por tramo
+// hasta que exista comisión por servicio en vez de por facturación total de la quincena).
+function comisionPorRubroDe(u){
+  if(!u||!u.rubros||!u.rubros.length) return null;
+  if(!u.rubros.every(r=>RUBROS_ALTA_COM.includes(r))) return null;
+  return comisionRubroEstim(u.rubros[0]);
+}
 function calcComision(fact,reelsQ,u,fechaRef){
   const cfg=comCfg(); const cf=comisionFijaDe(u);
   if(cf) return {comision:fact*cf/100, pct:cf, esOro:false, fija:true, tramo:{min:0,max:Infinity,pct:cf,label:'Fija',color:'#34d399',emoji:'📦'}};
+  const cr=comisionPorRubroDe(u);
+  if(cr) return {comision:fact*cr/100, pct:cr, esOro:false, porRubro:true, tramo:{min:0,max:Infinity,pct:cr,label:'Por rubro',color:'#e879f9',emoji:'🧴'}};
   if(esNuevoEn(u,fechaRef)){
     const n=cfg.nuevos, cont=reelsQ>=n.reels, extra=fact>=n.extraDesde; const pct=n.base+(cont?n.contenido:0)+(extra?n.extra:0);
     return {comision:fact*pct/100, pct, esOro:false, nuevo:true, detNuevo:{base:n.base,cont,extra,n}, tramo:{min:0,max:Infinity,pct,label:'Nuevo',color:'#60a5fa',emoji:'🌟'}};
@@ -452,6 +462,19 @@ function renderAdminComisiones(c){
     <div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">Tramos (por quincena)</b><button class="lnk" onclick="editarTramosCom()">Editar</button></div>${T.map(t=>linea(`${t.emoji} ${t.label}`,`desde ${fp(t.min)} → <b>${t.pct}%</b>`)).join('')}${linea(`${TRAMO_ORO.emoji} Oro`,`desde ${fp(cfg.oro.min)} + ${cfg.oro.reels} reels → <b>${cfg.oro.pct}%</b>`)}</div>
     <div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">🌟 Barberos nuevos</b><button class="lnk" onclick="editarNuevosCom()">Editar</button></div><div style="font-size:12.5px;line-height:1.7">Primeros <b>${n.meses} meses</b>: <b>${n.base}%</b> sin mirar la facturación<br>+ <b>${n.contenido}%</b> por contenido (${n.reels} reels en la quincena)<br>+ <b>${n.extra}%</b> si superan ${fp(n.extraDesde)} en la quincena</div></div>
     <div class="card"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">🛡 Monto asegurado</b><button class="lnk" onclick="editarAseguradoCom()">Editar</button></div><div style="font-size:12.5px;line-height:1.7">Al llegar a su <b>piso</b> de facturación, se le asegura el <b>${cfg.asegurado.pct}%</b> del piso como mínimo. Si después factura menos, decidís vos si se lo das. El piso se pone a cada persona en "Cambiar".</div></div>`;
+}
+// ---------- admin: Equipo → Piso asegurado (recorte de renderAdminComisiones, reusando lo mismo) ----------
+function renderAdminAsegurado(c){
+  const cfg=comCfg(), D=adminDatos(), qk=quincenaKey(hoyStr());
+  const pros=allUsers.filter(u=>esProf(u)&&numV(u.piso)>0);
+  const pend=pendientesAsegurado();
+  const estTxt={auto:'se completó solo',dado:'se le dio igual',no:'no se le dio',pendiente:'por decidir',en_curso:'en curso'};
+  const filas=pros.map(u=>{ const ts=D.turnos.filter(t=>t.prof.id===u.id); const r=comisionQuincenaDe(u,qk,ts); const a=estadoAsegurado(u,qk,factPorQuincena(ts),r.comision);
+    return `<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(u.name)}</div><div style="font-size:11.5px;color:var(--muted2)">Piso ${fpk(u.piso)} · asegura ${fp(Math.round(u.piso*cfg.asegurado.pct/100))}${a?' · '+(estTxt[a.estado]||'superado ✓'):' · superado ✓'}</div></div><button class="lnk" onclick="abrirComisionUsuario('${u.id}')">Cambiar piso</button></div></div>`; }).join('');
+  c.innerHTML=`${pend.length?`<div class="sec-title" style="margin:6px 0 8px;color:#fbbf24">Por decidir (${pend.length})</div>${pend.map(x=>`<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.5)"><div style="font-size:13px;font-weight:800">${escH(x.prof.name)} · quincena ${fechaCortaStr(qStart(x.qk))} al ${fechaCortaStr(x.fin)}</div><div style="font-size:12px;color:var(--muted2);margin:3px 0 8px;line-height:1.5">Facturó ${fp(x.fact)} (su piso es ${fpk(x.piso)}). Le corresponde el mínimo asegurado de ${fp(x.garantizado)}: le faltan <b style="color:var(--text)">${fp(x.extra)}</b> para completarlo.</div><div style="display:flex;gap:8px"><button class="btn btn-primary" style="flex:1" onclick="decidirAsegurado('${x.prof.id}','${x.qk}','dar')">Dárselo igual</button><button class="btn btn-ghost" style="flex:1" onclick="decidirAsegurado('${x.prof.id}','${x.qk}','no')">No dárselo</button></div></div>`).join('')}`:''}
+    <div class="card" style="margin-bottom:10px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:6px"><b style="font-size:13px">🛡 Monto asegurado</b><button class="lnk" onclick="editarAseguradoCom()">Editar %</button></div><div style="font-size:12.5px;line-height:1.7">Al llegar a su <b>piso</b> de facturación, se le asegura el <b>${cfg.asegurado.pct}%</b> del piso como mínimo. Si después factura menos, decidís vos si se lo das.</div></div>
+    <div class="sec-title" style="margin:14px 0 8px">Quién tiene piso asignado</div>
+    ${filas||'<div class="empty"><p>Nadie tiene un piso de facturación cargado todavía. Se pone desde Equipo → Cuentas → "Cambiar".</p></div>'}`;
 }
 async function editarTramosCom(){
   const cfg=comCfg();
