@@ -69,7 +69,12 @@ function calcCobro(){
   const oferta=ofertasVisibles().find(o=>o.id===cobro.ofertaId)||null;
   let fijo=null, ofertaSinEfecto=false;
   const tarjUso={cupones:[],fidSobra:0};
-  const tarj=infoTarjeta(cli,normales.map(rubroDeLinea));
+  const tarjCard=mejorTarjetaCliente(cli,normales.map(rubroDeLinea));
+  const tarj=infoDeTarjeta(tarjCard);
+  // Tope de fidelidad acumulada sin usar (decidido con Ivo, 29/09/2026): si el escalon de fidelidad de hoy
+  // pierde contra un descuento mas grande, no se pierde -- se guarda como cupon aparte, hasta un 30% total
+  // acumulado por tarjeta (ver mas abajo, donde se calcula tarjUso.fidSobra).
+  const TOPE_FID_ACUMULADA=30;
   // Promo fija: puede valer solo para ciertos servicios y sumar un adicional segun la profesion del cliente (ej: fuerzas +15%). Gana la que mas descuenta.
   const baseF=(f)=>normales.filter(l=>rubroEn(f.rubro,rubroDeLinea(l))&&(!(f.servicioIds&&f.servicioIds.length)||l.ids.some(id=>f.servicioIds.includes(id)))).reduce((a,l)=>a+l.precio,0);
   const extraFijo=(f)=>!!(f.extra&&f.extra.profesion&&cli&&nkey(cli.profesion)===nkey(f.extra.profesion));
@@ -90,7 +95,7 @@ function calcCobro(){
     if(bF>0) cand.push({tipo:'fidelidad',label:tarj.pasoLabel?tarj.pasoLabel+' · visita n°'+tarj.k:'Fidelidad · visita n°'+tarj.k,pct:tarj.pctFid,monto:Math.round(bF*tarj.pctFid/100)});
   }
   let mejorCupon=null;
-  if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
+  if(tarj&&bT>0){ mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0]||null; if(mejorCupon) cand.push({tipo:'referidos',label:mejorCupon.de==='fidelidad'?'Fidelidad acumulada':'Referidos',pct:numV(mejorCupon.pct),monto:Math.round(bT*numV(mejorCupon.pct)/100)}); }
   const descEfectivo=cobro.medio==='efectivo'?Math.round(subNormal*DESC_EFECTIVO_PCT/100):0;
   if(descEfectivo>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:descEfectivo});
   // Cuenta con Google (10%) + reseña dejada (5%): unico caso que se SUMA antes de competir (decidido con Ivo,
@@ -113,6 +118,15 @@ function calcCobro(){
   const candElegibles=(necesitaElegirDesc&&cobro.descGrupo)?cand.filter(c=>!c.grupo||c.grupo===cobro.descGrupo):cand;
   let ganador=null; if(!esNoche) candElegibles.forEach(c=>{ if(c.monto>0&&(!ganador||c.monto>ganador.monto)) ganador=c; });
   if(ganador){ D.push(ganador); if(ganador.tipo==='referidos'&&mejorCupon) tarjUso.cupones.push({id:mejorCupon.id,pct:numV(mejorCupon.pct)}); }
+  // El escalon de fidelidad de hoy perdio contra un descuento mas grande: en vez de perderse, se banca como
+  // cupon aparte (mismo mecanismo que los cupones de referidos), topeado para que no se acumule sin limite.
+  if(tarj&&tarj.pctFid>0&&(!ganador||ganador.tipo!=='fidelidad')){
+    const fidCand=cand.find(c=>c.tipo==='fidelidad');
+    if(fidCand&&fidCand.monto>0){
+      const yaBancado=((tarjCard&&tarjCard.cupones)||[]).filter(c=>!c.usado&&c.de==='fidelidad').reduce((a,c)=>a+numV(c.pct),0);
+      tarjUso.fidSobra=Math.max(0,Math.min(tarj.pctFid,TOPE_FID_ACUMULADA-yaBancado));
+    }
+  }
   const topeAlcanzado=false, tope=null;
   const descuento=Math.min(subNormal,D.reduce((a,d)=>a+d.monto,0));
   const descPct=subNormal>0?descuento/subNormal*100:0;
@@ -251,7 +265,7 @@ function htmlUnaTarjetaCliente(c,t){
     <div style="display:flex;gap:8px;position:relative;margin-bottom:10px">${niveles.map((p,i)=>{ const got=i<refs, cu=(t.cupones||[]).filter(x=>x.de!=='fidelidad')[i], usado=cu&&cu.usado; const resta=cu&&!cu.usado&&numV(cu.pct)<p?Math.round(numV(cu.pct)*10)/10:p; return `<div style="flex:1;text-align:center;padding:7px 2px;border-radius:12px;font-size:12px;font-weight:900;${got?(usado?'background:rgba(255,255,255,.12);text-decoration:line-through;opacity:.6':'background:#34d399;color:#04241a'):'border:1.5px dashed rgba(255,255,255,.4);opacity:.8'}">${resta}%</div>`; }).join('')}</div>`:''}
     ${(t.cupones||[]).some(x=>x.de==='fidelidad'&&!x.usado)?`<div style="font-size:11.5px;font-weight:700;position:relative;margin-bottom:6px;color:#a7f3d0">💰 Saldo de descuento guardado: ${Math.round((t.cupones||[]).filter(x=>x.de==='fidelidad'&&!x.usado).reduce((a,x)=>a+numV(x.pct),0)*10)/10}%</div>`:''}
     <div style="font-size:12px;font-weight:700;position:relative;${inf.regalo?'color:#fbbf24':'opacity:.85'}">${regaloHtml}</div>
-    <div style="font-size:11px;opacity:.85;margin-top:6px;position:relative">${inf.regalo?'Próximo corte: 100% bonificado':`Próximo ${un} (n°${inf.k}): ${inf.pasoLabel?'🎁 '+escH(inf.pasoLabel):(inf.pctFid?inf.pctFid+'% de fidelidad':'precio normal')}${inf.pctRef?' + '+inf.pctRef+'% por referido':''}`}</div></div>`;
+    <div style="font-size:11px;opacity:.85;margin-top:6px;position:relative">${inf.regalo?'Próximo corte: 100% bonificado':`Próximo ${un} (n°${inf.k}): ${inf.pasoLabel?'🎁 '+escH(inf.pasoLabel):(inf.pctFid?inf.pctFid+'% de fidelidad':'precio normal')}${inf.pctRef?' + '+inf.pctRef+'% acumulado (referidos y/o fidelidad no usada antes)':''}`}</div></div>`;
 }
 
 // ---------- datos del cliente para pasar a AgendaPro ----------
@@ -643,7 +657,7 @@ function renderPrepagoCobro(r){
     h+=`<div style="font-size:12.5px;margin:-2px 0 10px;color:var(--accent2);font-weight:700">${paqTxt}</div>`;
   }
   if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#4A136B')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
-  if(r.tarj){ const inf=r.tarj; h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(inf)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones de referidos':''}`}</div>`; }
+  if(r.tarj){ const inf=r.tarj; h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(inf)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones acumulados':''}`}</div>`; }
   const debeC=cli?saldoDeCliente(cli.id,cli.nombre):0;
   if(debeC>0) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#f472b6;font-weight:800">⚠️ Este cliente debe ${fp(debeC)} de turnos anteriores.</div>`;
   h+=htmlSenasCobro(r);
