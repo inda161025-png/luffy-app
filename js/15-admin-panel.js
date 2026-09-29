@@ -55,7 +55,7 @@ const ADMIN_SECCIONES=[
   {id:'catalogo',ico:mi('catalogo',16),label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Stock (para vender)'],['proveedores','Proveedores'],['insumos','Insumos']]},
   {id:'contenido',ico:mi('contenido',16),label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
   {id:'clientes',ico:mi('clientes',16),label:'Clientes',subs:[['directorio','Clientes'],['crm','CRM'],['deudas','Deudas'],['senas','Señas'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas'],['descuentos','Descuentos']]},
-  {id:'finanzas',ico:mi('finanzas',16),label:'Finanzas',subs:[['balance','Balance'],['gastos','Gastos'],['fijos','Gastos fijos'],['costos','Costo por servicio'],['equilibrio','Punto de equilibrio'],['flujo','Flujo anual'],['caja','Caja']]},
+  {id:'finanzas',ico:mi('finanzas',16),label:'Finanzas',subs:[['balance','Balance'],['gastos','Gastos'],['fijos','Gastos fijos'],['deudasequipo','Deudas con el equipo'],['costos','Costo por servicio'],['equilibrio','Punto de equilibrio'],['flujo','Flujo anual'],['caja','Caja']]},
   {id:'recepcion',ico:mi('recepcion',16),label:'Recepción'},
 ];
 window.adminSub={};

@@ -359,9 +359,19 @@ const tramoOro=()=>({...TRAMO_ORO,pct:comCfg().oro.pct,min:comCfg().oro.min,reel
 function sumaMeses(f,n){ const [y,m,d]=f.split('-').map(Number); const t=new Date(Date.UTC(y,m-1+n,1)); return t.getUTCFullYear()+'-'+pad2(t.getUTCMonth()+1)+'-'+pad2(Math.min(d,finMesUTC(t.getUTCFullYear(),t.getUTCMonth()+1))); }
 function esNuevoEn(u,f){ return !!u&&u.esquema==='nuevo'&&!!u.inicio&&(f||hoyStr())<sumaMeses(u.inicio,comCfg().nuevos.meses); }
 function comisionFijaDe(u){ if(!u) return null; if(u.esquema==='fija'||u.esEncargado) return numV(u.comisionFija)>0?numV(u.comisionFija):60; return null; }
+// Podología/cosmetología/cejas/masajes cobran un % propio (70% por defecto, confirmado 21/09/2026) en vez del tramo
+// general de siempre — solo para quien SOLO hace esos rubros (si mezcla con barbería/peluquería, sigue por tramo
+// hasta que exista comisión por servicio en vez de por facturación total de la quincena).
+function comisionPorRubroDe(u){
+  if(!u||!u.rubros||!u.rubros.length) return null;
+  if(!u.rubros.every(r=>RUBROS_ALTA_COM.includes(r))) return null;
+  return comisionRubroEstim(u.rubros[0]);
+}
 function calcComision(fact,reelsQ,u,fechaRef){
   const cfg=comCfg(); const cf=comisionFijaDe(u);
   if(cf) return {comision:fact*cf/100, pct:cf, esOro:false, fija:true, tramo:{min:0,max:Infinity,pct:cf,label:'Fija',color:'#34d399',emoji:'📦'}};
+  const cr=comisionPorRubroDe(u);
+  if(cr) return {comision:fact*cr/100, pct:cr, esOro:false, porRubro:true, tramo:{min:0,max:Infinity,pct:cr,label:'Por rubro',color:'#e879f9',emoji:'🧴'}};
   if(esNuevoEn(u,fechaRef)){
     const n=cfg.nuevos, cont=reelsQ>=n.reels, extra=fact>=n.extraDesde; const pct=n.base+(cont?n.contenido:0)+(extra?n.extra:0);
     return {comision:fact*pct/100, pct, esOro:false, nuevo:true, detNuevo:{base:n.base,cont,extra,n}, tramo:{min:0,max:Infinity,pct,label:'Nuevo',color:'#60a5fa',emoji:'🌟'}};

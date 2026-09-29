@@ -146,7 +146,25 @@ function finSet(k,v){ finState[k]=v; renderAdmin(); }
 const linea=(a,b,st='')=>`<div class="ln" style="${st}"><span>${a}</span><span>${b}</span></div>`;
 
 // ---------- balance ----------
-function renderAdminFinanzas(c,sub){ ({balance:finBalance,gastos:finGastos,fijos:finFijos,equilibrio:finEquilibrio,costos:finCostos,flujo:finFlujo,caja:adminCaja}[sub]||finBalance)(c); }
+function renderAdminFinanzas(c,sub){ ({balance:finBalance,gastos:finGastos,fijos:finFijos,equilibrio:finEquilibrio,costos:finCostos,flujo:finFlujo,caja:adminCaja,deudasequipo:finDeudasEquipo}[sub]||finBalance)(c); }
+// ---------- deudas con el equipo (adelantos, liquidaciones y pagos de deuda anotados desde la Caja) ----------
+// Distinto de Clientes > Deudas (esas son plata que debe un cliente). Esto es lo que el salón le
+// adelantó/pagó a un profesional o socio. Hoy se agrupa por el texto libre "a quién", porque la Caja
+// no liga estos movimientos al perfil real del profesional (posible mejora a futuro).
+const DEUDA_EQUIPO_TIPOS=['adelanto','liquidacion','pago_deuda'];
+function finDeudasEquipo(c){
+  const r=rangoFin(), S=finCalc(r.desde,r.hasta);
+  const ids=finState.suc==='todas'?sucursales.map(s=>s.id):[finState.suc];
+  const T=juntarS(S,ids);
+  const L=T.interno.filter(m=>DEUDA_EQUIPO_TIPOS.includes(m.interno)).sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
+  const total=L.reduce((a,m)=>a+numV(m.monto),0);
+  const porPersona={};
+  L.forEach(m=>{ const k=(m.detalle||'Sin especificar').trim(); const o=porPersona[k]=porPersona[k]||{monto:0,items:[]}; o.monto+=numV(m.monto); o.items.push(m); });
+  const filas=Object.entries(porPersona).sort((a,b)=>b[1].monto-a[1].monto);
+  c.innerHTML=chipsFin()+`<div class="sec-title" style="margin-bottom:4px">🤝 Deudas con el equipo · ${fp(total)}</div>
+    <div style="font-size:11.5px;color:var(--muted2);margin:-2px 2px 10px">${r.label}. Adelantos, liquidaciones/comisiones pagadas y pagos de deuda anotados desde la Caja, agrupados por a quién se le anotó.</div>
+    ${filas.length?filas.map(([persona,d])=>`<div class="card" style="margin-bottom:8px"><div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><b style="font-size:13.5px">${escH(persona)}</b><b style="font-size:14px">${fp(d.monto)}</b></div>${d.items.map(m=>{ const ci=catInterno(m.interno); return linea(`<span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${ci.c};margin-right:6px"></span>${escH(ci.n)}`,`<span style="color:var(--muted2);font-size:11px">${fechaCortaStr(ymdLocal(new Date(m.ts)))}</span> <b>${fp(m.monto)}</b>`); }).join('')}</div>`).join(''):'<div class="empty"><div class="e-icon">🤝</div><p>No hay adelantos, liquidaciones ni pagos de deuda anotados en este período.</p></div>'}`;
+}
 function finBalance(c){
   const r=rangoFin(), S=finCalc(r.desde,r.hasta);
   const ids=finState.suc==='todas'?sucursales.map(s=>s.id):[finState.suc];
@@ -359,33 +377,86 @@ function finGastos(c){
   const total=L.reduce((s,g)=>s+numV(g.monto),0);
   const dias={}; L.forEach(g=>{ (dias[g.fecha]=dias[g.fecha]||[]).push(g); });
   c.innerHTML=chipsFin()+`<div class="sec-hdr" style="margin:0 0 8px"><span class="sec-title">🧾 Gastos cargados · ${fp(total)}</span><button class="lnk" onclick="abrirFormGasto('')">+ Cargar gasto</button></div>
-    <div style="font-size:11.5px;color:var(--muted2);margin:-2px 2px 10px">${r.label}. Acá van los gastos del día a día (insumos, arreglos, publicidad…). Los que se repiten (alquiler, sueldos, suscripciones) van en "Gastos fijos".</div>
-    ${Object.entries(dias).map(([f,l])=>`<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:10px 0 4px">${DIAS_LARGO[new Date(f+'T00:00:00Z').getUTCDay()]} ${fechaCortaStr(f)}</div>${l.map(g=>{ const ct=catFin(g.categoria); return `<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><span style="width:10px;height:34px;border-radius:4px;background:${ct.c};flex-shrink:0"></span><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${escH(g.desc||ct.n)}</div><div style="font-size:11px;color:var(--muted2)">${escH(ct.n)} · ${(g.sucursal&&g.sucursal!=='todas')?escH((sucursalDe(g.sucursal)||{}).nombre||''):'Compartido'}</div></div><b style="font-size:14px">${fp(g.monto)}</b><button class="lnk" onclick="abrirFormGasto('${g.id}')">✏️</button><button class="lnk" style="color:#f472b6" onclick="borrarGasto('${g.id}')">×</button></div></div>`; }).join('')}`).join('')||'<div class="empty"><div class="e-icon">🧾</div><p>No hay gastos cargados en este período.</p></div>'}`;
+    <div style="font-size:11.5px;color:var(--muted2);margin:-2px 2px 4px">${r.label}. Acá van los gastos del día a día (insumos, arreglos, publicidad…). Los que se repiten (alquiler, sueldos, suscripciones) van en "Gastos fijos".</div>
+    <div style="font-size:11px;color:var(--muted2);margin:0 2px 10px">📷 Comprobante obligatorio desde ${fp(umbralComprobante())} · <button class="lnk" onclick="editarUmbralComprobante()">Cambiar monto</button></div>
+    ${Object.entries(dias).map(([f,l])=>`<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:10px 0 4px">${DIAS_LARGO[new Date(f+'T00:00:00Z').getUTCDay()]} ${fechaCortaStr(f)}</div>${l.map(g=>{ const ct=catFin(g.categoria); return `<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px">${g.comprobante?`<img src="${g.comprobante}" onclick="verComprobante('${g.id}')" style="width:34px;height:34px;object-fit:cover;border-radius:6px;cursor:pointer;flex-shrink:0"/>`:`<span style="width:10px;height:34px;border-radius:4px;background:${ct.c};flex-shrink:0"></span>`}<div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:700">${escH(g.desc||ct.n)}</div><div style="font-size:11px;color:var(--muted2)">${escH(ct.n)} · ${(g.sucursal&&g.sucursal!=='todas')?escH((sucursalDe(g.sucursal)||{}).nombre||''):'Compartido'}</div></div><b style="font-size:14px">${fp(g.monto)}</b><button class="lnk" onclick="abrirFormGasto('${g.id}')">✏️</button><button class="lnk" style="color:#f472b6" onclick="borrarGasto('${g.id}')">×</button></div></div>`; }).join('')}`).join('')||'<div class="empty"><div class="e-icon">🧾</div><p>No hay gastos cargados en este período.</p></div>'}`;
+}
+function verComprobante(id){
+  const g=finData.gastos.find(x=>x.id===id); if(!g||!g.comprobante) return;
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🧾 Comprobante')+`<img src="${g.comprobante}" style="width:100%;border-radius:12px"/>`;
+  openModal('modal-registro');
 }
 function selectCategorias(sel,fn){
   return GRUPOS_FIN.filter(([t])=>t!=='comision').map(([t,n])=>`<optgroup label="${n}">${CAT_GASTOS.filter(x=>x.t===t).map(x=>`<option value="${x.id}" ${sel===x.id?'selected':''}>${escH(x.n)}</option>`).join('')}</optgroup>`).join('');
 }
 const selFin='width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:12px;color:var(--text);font-family:var(--font);font-size:14px';
+// Umbral a partir del cual un gasto pide sí o sí foto del comprobante (configurable, default $50.000)
+function umbralComprobante(){ const v=numV(finData.cfg&&finData.cfg.comprobanteDesde); return v>0?v:50000; }
+async function editarUmbralComprobante(){
+  const v=await uiPrompt('Comprobante obligatorio',{msg:'A partir de qué monto un gasto necesita sí o sí una foto del comprobante.',label:'Monto',type:'number',value:umbralComprobante(),ok:'Guardar'});
+  if(v==null) return;
+  await cambiarFin(d=>{ d.cfg={...(d.cfg||{}),comprobanteDesde:Math.max(0,numV(v))}; });
+  showToast('Guardado ✓'); renderAdmin();
+}
+// Comprime la foto en el navegador antes de guardarla (si no, un comprobante por celular vuela el localStorage)
+function comprimirImagen(file,maxW=1000,calidad=.72){
+  return new Promise((resolve,reject)=>{
+    const rd=new FileReader();
+    rd.onload=()=>{
+      const img=new Image();
+      img.onload=()=>{
+        const esc=Math.min(1,maxW/img.width), w=Math.round(img.width*esc)||1, h=Math.round(img.height*esc)||1;
+        const cv=document.createElement('canvas'); cv.width=w; cv.height=h;
+        cv.getContext('2d').drawImage(img,0,0,w,h);
+        resolve(cv.toDataURL('image/jpeg',calidad));
+      };
+      img.onerror=()=>reject(new Error('imagen inválida'));
+      img.src=rd.result;
+    };
+    rd.onerror=()=>reject(new Error('no se pudo leer el archivo'));
+    rd.readAsDataURL(file);
+  });
+}
+let gastoComprobantePend=null;
+async function elegirComprobante(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  try{ gastoComprobantePend=await comprimirImagen(f); }catch(e){ showToast('No se pudo procesar la foto'); return; }
+  renderComprobantePreview();
+}
+function quitarComprobante(){ gastoComprobantePend=null; renderComprobantePreview(); }
+function renderComprobantePreview(){
+  const el=document.getElementById('fg-comprobante-prev'); if(!el) return;
+  el.innerHTML=gastoComprobantePend?`<div style="display:flex;align-items:center;gap:8px;margin-top:8px"><img src="${gastoComprobantePend}" style="width:52px;height:52px;object-fit:cover;border-radius:8px;border:1px solid var(--border2)"/><span style="font-size:12px;color:#34d399;flex:1">✓ Comprobante listo</span><button class="lnk" style="color:#f472b6" onclick="quitarComprobante()">Quitar</button></div>`:'';
+}
 function abrirFormGasto(id){
   const g=id?finData.gastos.find(x=>x.id===id):null;
+  gastoComprobantePend=g?g.comprobante||null:null;
   document.getElementById('registro-content').innerHTML=cabeceraModal(g?'Editar gasto':'Cargar gasto 🧾')+`
     <div class="field"><label>Monto</label><input id="fg-monto" type="number" inputmode="decimal" placeholder="0" value="${g?g.monto:''}"/></div>
     <div class="field" style="margin-top:8px"><label>Categoría</label><select id="fg-cat" style="${selFin}">${selectCategorias(g?g.categoria:'insumos')}</select></div>
-    <div class="field" style="margin-top:8px"><label>Sucursal</label><select id="fg-suc" style="${selFin}"><option value="todas">Compartido (se reparte entre sucursales)</option>${sucursales.map(s=>`<option value="${s.id}" ${g&&g.sucursal===s.id?'selected':(!g&&finState.suc===s.id?'selected':'')}>${escH(s.nombre)}</option>`).join('')}</select></div>
+    <div class="field" style="margin-top:8px"><label>Sucursal</label><select id="fg-suc" style="${selFin}"><option value="" ${g||finState.suc!=='todas'?'':'selected'} disabled>Elegí una sucursal…</option>${sucursales.map(s=>`<option value="${s.id}" ${g?(g.sucursal===s.id?'selected':''):(finState.suc===s.id?'selected':'')}>${escH(s.nombre)}</option>`).join('')}<option value="todas" ${g&&g.sucursal==='todas'?'selected':''}>Compartido (se reparte entre sucursales)</option></select></div>
     <div class="field" style="margin-top:8px"><label>Fecha</label><input id="fg-fecha" type="date" value="${g?g.fecha:hoyStr()}"/></div>
     <div class="field" style="margin-top:8px"><label>Detalle (opcional)</label><input id="fg-desc" placeholder="Ej: cera y navajas" value="${escH(g?g.desc||'':'')}"/></div>
+    <div class="field" style="margin-top:8px"><label>Foto del comprobante (obligatoria desde ${fp(umbralComprobante())})</label>
+      <label class="btn btn-ghost" style="margin:0;text-align:center;cursor:pointer">📷 ${g&&g.comprobante?'Cambiar foto':'Sacar / subir foto'}<input type="file" accept="image/*" capture="environment" style="display:none" onchange="elegirComprobante(this)"/></label>
+      <div id="fg-comprobante-prev"></div>
+    </div>
     <button class="btn btn-primary" onclick="guardarGasto('${g?g.id:''}')" style="margin-top:14px">${g?'Guardar cambios':'Guardar gasto'}</button>`;
+  renderComprobantePreview();
   openModal('modal-registro');
 }
 async function guardarGasto(id){
   const v=(i)=>document.getElementById(i).value;
   const monto=numV(v('fg-monto')); if(monto<=0){ showToast('Poné el monto'); return; }
+  if(!v('fg-suc')){ showToast('Elegí una sucursal (o "Compartido" si es de las dos)'); return; }
+  if(monto>=umbralComprobante()&&!gastoComprobantePend){ showToast('Este gasto necesita foto del comprobante (es mayor a '+fp(umbralComprobante())+')'); return; }
   const fecha=v('fg-fecha')||hoyStr(); const ahora=new Date().toISOString();
   await cambiarFin(d=>{
-    const dato={monto,categoria:v('fg-cat'),sucursal:v('fg-suc'),fecha,desc:v('fg-desc').trim(),upd:ahora};
+    const dato={monto,categoria:v('fg-cat'),sucursal:v('fg-suc'),fecha,desc:v('fg-desc').trim(),comprobante:gastoComprobantePend||null,upd:ahora};
     const g=id?d.gastos.find(x=>x.id===id):null;
     if(g) Object.assign(g,dato); else d.gastos.push({id:'g'+Date.now().toString(36),creadoEn:ahora,...dato});
   });
+  gastoComprobantePend=null;
   closeModal('modal-registro'); showToast('Gasto guardado ✓'); renderAdmin();
 }
 async function borrarGasto(id){
