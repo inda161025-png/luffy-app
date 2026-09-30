@@ -336,6 +336,7 @@ function renderHub(){
   renderTramoBanner();
   renderCierresPendientesProf();
   { const el=document.getElementById('hub-suc-wrap'); if(el) el.innerHTML=htmlSucursalHub(); }
+  { const el=document.getElementById('hub-tareasequipo'); if(el) el.innerHTML=htmlTareasEquipoWidget(); }
 
   // Stories dots
   loadStoriesData();

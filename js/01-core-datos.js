@@ -303,6 +303,32 @@ function loadTareasData(){
 }
 function saveTareasData(){ guardarUniendoTs('luffy/tareas_data','luffy_tareas_data',tareasData); }
 
+// ============ TAREAS DEL EQUIPO ============
+// Distinto de tareasRecepcion (esas son la agenda del día por horario, solo para quien está en el mostrador).
+// Esto es para tareas rotativas entre personas de cualquier rol (ej: "Limpiar el baño"), donde importa quién
+// la hizo y que no le toque siempre a la misma persona.
+let tareasEquipoCfg=[]; // {id, emoji, label, equipo:[userId,...]}
+let tareasEquipoLog={}; // {[tareaId]: {[fecha]: {userId, userName, nota, ts}}}
+function loadTareasEquipo(){
+  try{ const t=JSON.parse(localStorage.getItem('luffy_tareas_equipo')||'null'); if(t) tareasEquipoCfg=t; }catch(e){}
+  if(DB){
+    DB.doc('luffy/tareas_equipo').get().then(r=>{
+      if(r&&r.list&&JSON.stringify(r.list)!==JSON.stringify(tareasEquipoCfg)){ tareasEquipoCfg=r.list; try{localStorage.setItem('luffy_tareas_equipo',JSON.stringify(tareasEquipoCfg));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+  try{ tareasEquipoLog=JSON.parse(localStorage.getItem('luffy_tareas_equipo_log')||'{}'); }catch(e){ tareasEquipoLog={}; }
+  if(DB){
+    DB.doc('luffy/tareas_equipo_log').get().then(r=>{
+      if(r&&mergeTs(tareasEquipoLog,r)){ try{localStorage.setItem('luffy_tareas_equipo_log',JSON.stringify(tareasEquipoLog));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveTareasEquipoCfg(){
+  try{localStorage.setItem('luffy_tareas_equipo',JSON.stringify(tareasEquipoCfg));}catch(e){}
+  if(DB){try{DB.doc('luffy/tareas_equipo').set({list:tareasEquipoCfg});}catch(e){}}
+}
+function saveTareasEquipoLog(){ guardarUniendoTs('luffy/tareas_equipo_log','luffy_tareas_equipo_log',tareasEquipoLog); }
+
 const TRAMOS = [
   {min:0,       max:999999,   pct:45, label:'Base',  color:'#888896', emoji:'🌱'},
   {min:1000000, max:1199999,  pct:50, label:'Bronce', color:'#fb923c', emoji:'🥉'},

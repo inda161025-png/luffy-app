@@ -368,6 +368,7 @@ function renderRecepcion(){
       </div>
     </div>
 
+    ${htmlTareasEquipoWidget()}
     ${htmlClientesRec()}
   `;
   recRenderBusqueda();

@@ -51,7 +51,7 @@ function prefetchAdminTeamData(){
 
 const ADMIN_SECCIONES=[
   {id:'panel',ico:mi('panel',16),label:'Inicio'},
-  {id:'equipo',ico:mi('equipo',16),label:'Equipo',subs:[['estado','Estado'],['cuentas','Cuentas'],['comisiones','Comisiones'],['asegurado','Piso asegurado'],['stories','Stories'],['puntos','Puntos']]},
+  {id:'equipo',ico:mi('equipo',16),label:'Equipo',subs:[['estado','Estado'],['cuentas','Cuentas'],['comisiones','Comisiones'],['asegurado','Piso asegurado'],['tareasequipo','Tareas del equipo'],['stories','Stories'],['puntos','Puntos']]},
   {id:'catalogo',ico:mi('catalogo',16),label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Stock (para vender)'],['proveedores','Proveedores'],['insumos','Insumos']]},
   {id:'contenido',ico:mi('contenido',16),label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
   {id:'clientes',ico:mi('clientes',16),label:'Clientes',subs:[['directorio','Clientes'],['crm','CRM'],['deudas','Deudas'],['senas','Señas'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas']]},
@@ -74,8 +74,8 @@ function renderAdmin(){
   </div>${sec.subs?`<div class="adm-sub">${sec.subs.map(([id,l])=>`<button class="${id===sub?'on':''}" onclick="switchAdminTab('${id}')">${l}</button>`).join('')}</div>`:''}`;
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
-  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()); }
-  else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='asegurado') renderAdminAsegurado(c); else if(sub==='cuentas') renderAdminCuentas(c); else if(sub==='comisiones') renderAdminComisiones(c); else renderAdminEstadoEquipo(c); }
+  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlTareasEquipoWidget()); }
+  else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='asegurado') renderAdminAsegurado(c); else if(sub==='tareasequipo') renderAdminTareasEquipo(c); else if(sub==='cuentas') renderAdminCuentas(c); else if(sub==='comisiones') renderAdminComisiones(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else if(sub==='proveedores') renderAdminProveedores(c); else if(sub==='insumos') renderAdminInsumos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
   else if(tab==='clientes') renderAdminClientes(c,sub);

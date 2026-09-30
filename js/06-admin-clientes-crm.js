@@ -409,6 +409,101 @@ function htmlTareasRec(){
     ${atrasadas.length?`<details class="card" style="margin-bottom:8px;border-color:rgba(244,114,182,.35)"><summary style="cursor:pointer;font-size:13px;font-weight:800;color:#f472b6">⚠️ Atrasadas (${atrasadas.length})</summary>${atrasadas.map(t=>fila(t,true)).join('')}</details>`:''}
     ${prox.length?`<div style="font-size:11.5px;color:var(--muted2);margin:0 2px 10px">⏭ Próximo bloque a las ${prox[0].desde}: ${prox.length} ${prox.length===1?'tarea':'tareas'}</div>`:''}`;
 }
+
+// ============ TAREAS DEL EQUIPO (rotativas, cualquier rol) ============
+// "Limpiar el baño", etc: no es de un horario fijo como tareasRecepcion, es una tarea que va rotando entre
+// las personas que se elijan (de cualquier rol, admin incluido), con un conteo de cuántas veces la hizo cada
+// una -- para que no le toque siempre a la misma persona.
+function conteoTareaEquipo(tareaId){
+  const log=tareasEquipoLog[tareaId]||{}; const c={};
+  Object.values(log).forEach(x=>{ if(x&&x.userId) c[x.userId]=(c[x.userId]||0)+1; });
+  return c;
+}
+// A quién le tocaría (la que menos veces la hizo; empate = la que hace más tiempo no la hace)
+function sugeridoTareaEquipo(t){
+  const c=conteoTareaEquipo(t.id), log=tareasEquipoLog[t.id]||{};
+  const ultimaVez=(uid)=>Object.entries(log).filter(([,x])=>x.userId===uid).map(([f])=>f).sort().pop()||'';
+  const cand=(t.equipo||[]).map(uid=>({uid,n:c[uid]||0,ult:ultimaVez(uid)}));
+  cand.sort((a,b)=>a.n-b.n||a.ult.localeCompare(b.ult));
+  return cand[0]||null;
+}
+function tareaEquipoHechaHoy(tareaId){ return !!(tareasEquipoLog[tareaId]&&tareasEquipoLog[tareaId][hoyStr()]); }
+function htmlTareasEquipoWidget(){
+  if(!tareasEquipoCfg.length) return '';
+  const hoy=hoyStr();
+  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🔁 Tareas del equipo</span></div>
+    ${tareasEquipoCfg.map(t=>{
+      const hechaHoy=tareaEquipoHechaHoy(t.id), reg=hechaHoy?tareasEquipoLog[t.id][hoy]:null;
+      const sug=sugeridoTareaEquipo(t), nombreSug=sug?(( allUsers.find(u=>u.id===sug.uid)||{}).name||''):'';
+      return `<div class="card" style="margin-bottom:8px;padding:12px 14px">
+        <div style="display:flex;align-items:center;gap:10px">
+          <div style="font-size:20px">${t.emoji||'🔁'}</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-size:13px;font-weight:700">${escH(t.label)}</div>
+            <div style="font-size:11px;color:var(--muted2)">${hechaHoy?'✓ Hoy la hizo '+escH(reg.userName||'')+(reg.nota?' · '+escH(reg.nota):''):(nombreSug?'Le tocaría a '+escH(nombreSug)+' (la que menos veces la hizo)':'Sin gente asignada')}</div>
+          </div>
+          ${hechaHoy?'':`<button class="lnk" onclick="abrirMarcarTareaEquipo('${t.id}')">Marcar</button>`}
+        </div>
+      </div>`;
+    }).join('')}`;
+}
+function abrirMarcarTareaEquipo(tareaId){
+  const t=tareasEquipoCfg.find(x=>x.id===tareaId); if(!t) return;
+  const sug=sugeridoTareaEquipo(t);
+  const c=conteoTareaEquipo(t.id);
+  document.getElementById('registro-content').innerHTML=cabeceraModal(t.emoji+' '+t.label)+
+    `<div class="field"><label>¿Quién la hizo?</label><select id="te-user" style="width:100%;background:var(--s2);border:1.5px solid var(--border2);border-radius:12px;padding:12px;color:var(--text);font-family:var(--font);font-size:14px">${(t.equipo||[]).map(uid=>{ const u=allUsers.find(x=>x.id===uid); return `<option value="${uid}" ${sug&&sug.uid===uid?'selected':''}>${escH(u?u.name:uid)} (${c[uid]||0})</option>`; }).join('')}</select></div>
+    <div class="field" style="margin-top:8px"><label>¿Por qué (opcional)?</label><input id="te-nota" placeholder="Ej: le tocaba a otra persona pero no estaba"/></div>
+    <button class="btn btn-primary" onclick="guardarTareaEquipo('${tareaId}')" style="margin-top:14px">Marcar hecha</button>`;
+  openModal('modal-registro');
+}
+function guardarTareaEquipo(tareaId){
+  const uid=document.getElementById('te-user').value, nota=(document.getElementById('te-nota').value||'').trim();
+  const u=allUsers.find(x=>x.id===uid);
+  tareasEquipoLog[tareaId]=tareasEquipoLog[tareaId]||{};
+  tareasEquipoLog[tareaId][hoyStr()]={userId:uid,userName:u?u.name:'',nota,ts:new Date().toISOString()};
+  saveTareasEquipoLog();
+  closeModal('modal-registro'); showToast('Tarea marcada ✓'); refreshCurrentView();
+}
+// ---------- admin: Equipo → Tareas del equipo (crear/editar, ver conteo por persona) ----------
+function renderAdminTareasEquipo(c){
+  const equipoTodos=allUsers.filter(u=>u.role==='admin'||u.role==='recepcionista'||esProf(u));
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🔁 Tareas del equipo</span><button class="lnk" onclick="abrirFormTareaEquipo('')">+ Nueva</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Tareas rotativas entre las personas que elijas (de cualquier rol). Se le sugiere a quien menos veces la hizo, pero cualquiera puede marcarla y elegir quién la hizo de verdad.</div>
+    ${tareasEquipoCfg.map(t=>{
+      const c2=conteoTareaEquipo(t.id);
+      const filas=(t.equipo||[]).map(uid=>{ const u=allUsers.find(x=>x.id===uid); return `<div class="ln"><span>${escH(u?u.name:uid)}</span><b>${c2[uid]||0}</b></div>`; }).join('');
+      return `<div class="prof-card" style="margin-bottom:10px;padding:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;font-size:14px;font-weight:800">${t.emoji||'🔁'} ${escH(t.label)}</div><button class="lnk" onclick="abrirFormTareaEquipo('${t.id}')">Editar</button><button class="lnk" style="color:#f472b6" onclick="borrarTareaEquipo('${t.id}')">Borrar</button></div>
+      <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Veces que la hizo cada uno</div>${filas||'<div style="font-size:12px;color:var(--muted)">Sin gente asignada</div>'}</div>`;
+    }).join('')||'<div class="empty"><div class="e-icon">🔁</div><p>No hay tareas del equipo cargadas.</p></div>'}`;
+}
+let tareaEquipoEdit=null;
+function abrirFormTareaEquipo(id){
+  const t=id?tareasEquipoCfg.find(x=>x.id===id):null;
+  tareaEquipoEdit=t;
+  const equipoTodos=allUsers.filter(u=>u.role==='admin'||u.role==='recepcionista'||esProf(u));
+  document.getElementById('registro-content').innerHTML=cabeceraModal(t?'Editar tarea':'Nueva tarea del equipo')+
+    `<div class="field"><label>Emoji</label><input id="te-emoji" value="${escH(t?t.emoji||'🔁':'🔁')}" style="width:70px;text-align:center;font-size:20px"/></div>
+    <div class="field" style="margin-top:8px"><label>Nombre de la tarea</label><input id="te-label" placeholder="Ej: Limpiar el baño" value="${escH(t?t.label:'')}"/></div>
+    <div class="field" style="margin-top:10px"><label>¿Entre quiénes rota?</label><div style="display:flex;flex-wrap:wrap;gap:6px">${equipoTodos.map(u=>`<label class="rub-opt"><input type="checkbox" class="te-persona" value="${u.id}" ${t&&t.equipo&&t.equipo.includes(u.id)?'checked':''}/> ${escH(u.name)}</label>`).join('')||'<div style="font-size:12px;color:var(--muted)">No hay personas cargadas</div>'}</div></div>
+    <button class="btn btn-primary" onclick="guardarFormTareaEquipo('${t?t.id:''}')" style="margin-top:14px">Guardar</button>`;
+  openModal('modal-registro');
+}
+function guardarFormTareaEquipo(id){
+  const emoji=(document.getElementById('te-emoji').value||'🔁').trim();
+  const label=(document.getElementById('te-label').value||'').trim();
+  const equipo=[...document.querySelectorAll('.te-persona:checked')].map(x=>x.value);
+  if(!label){ showToast('Poné el nombre de la tarea'); return; }
+  if(!equipo.length){ showToast('Elegí al menos una persona'); return; }
+  const t={id:id||'te'+Date.now().toString(36),emoji,label,equipo};
+  tareasEquipoCfg=id?tareasEquipoCfg.map(x=>x.id===id?t:x):[...tareasEquipoCfg,t];
+  saveTareasEquipoCfg(); closeModal('modal-registro'); showToast('Guardado ✓'); renderAdmin();
+}
+async function borrarTareaEquipo(id){
+  if(!await uiConfirm('¿Borrar esta tarea?','Se pierde el historial de quién la hizo.',{ok:'Borrar'})) return;
+  tareasEquipoCfg=tareasEquipoCfg.filter(x=>x.id!==id);
+  saveTareasEquipoCfg(); renderAdmin();
+}
 // Turnos hechos en mi franja (solo sucursales con recepcion) y cuantos reagendaron
 function estadoRecHoy(u){
   const hoy=hoyStr(), w=ventanaRec(u); const turnos=[];
