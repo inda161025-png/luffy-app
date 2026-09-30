@@ -164,14 +164,15 @@ function htmlVentasResumenRec(){
     <div style="font-size:11px;color:var(--muted2)">${nVendidoHoy} ${nVendidoHoy===1?'venta':'ventas'} (productos, paquetes, membresías) · esta quincena en productos: ${fp(comQuincena)} de comisión</div>
   </div>`;
 }
+const COL_AGENDA='#3B82F6', COL_COBRAR='#10B981', COL_CRM='#8B5CF6', COL_CAJA='#F59E0B';
 function htmlCardAgenda(){
   const n=agendaSt.list.filter(a=>a.fecha===hoyStr()&&agEsActivo(a)).length;
   const nRec=turnosRecordatorioManana().length;
   return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirAgenda()">
-    <div style="font-size:22px">📅</div>
-    <div style="font-size:24px;font-weight:900;margin-top:2px">${n}</div>
-    <div style="font-size:12.5px;font-weight:800">turno${n===1?'':'s'} agendado${n===1?'':'s'} hoy</div>
-    <div style="font-size:11px;color:${nRec?'#60a5fa':'var(--muted2)'}">${nRec?'📲 '+nRec+' recordatorio'+(nRec===1?'':'s')+' de mañana':'Ver Agenda ›'}</div>
+    ${iconoCard('agenda',COL_AGENDA)}
+    <div style="font-size:24px;font-weight:800;margin-top:8px">${n}</div>
+    <div style="font-size:12.5px;font-weight:700">turno${n===1?'':'s'} agendado${n===1?'':'s'} hoy</div>
+    <div style="font-size:11px;color:${nRec?COL_AGENDA:'var(--muted2)'}">${nRec?nRec+' recordatorio'+(nRec===1?'':'s')+' de mañana':'Ver Agenda ›'}</div>
   </div>`;
 }
 function htmlCardCobrar(){
@@ -180,9 +181,9 @@ function htmlCardCobrar(){
   const total=nCobrar+nDeudas+nSenas;
   const cobradoHoy=cobradosDelDia(hoyStr()).reduce((a,x)=>a+x.monto,0);
   return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirCosasPorCobrar()">
-    <div style="font-size:22px">💳</div>
-    <div style="font-size:24px;font-weight:900;margin-top:2px">${total}</div>
-    <div style="font-size:12.5px;font-weight:800">${total===1?'cosa':'cosas'} por cobrar</div>
+    ${iconoCard('dinero',COL_COBRAR)}
+    <div style="font-size:24px;font-weight:800;margin-top:8px">${total}</div>
+    <div style="font-size:12.5px;font-weight:700">${total===1?'cosa':'cosas'} por cobrar</div>
     <div style="font-size:11px;color:var(--muted2)">${fp(cobradoHoy)} cobrado hoy</div>
   </div>`;
 }
@@ -191,24 +192,24 @@ function htmlCardCRM(){
   const nReactivar=clientesDir.filter(c=>{ if(c.problematico) return false; const u=uv[c.id]; return u&&diasDesdeStr(u.fecha)>=30&&!membresiaActivaDe(c.id)&&!clienteTieneTurnoFuturo(c.id); }).length;
   const nCumples=proximosCumplesManual().length+cumplesClientes(3).length;
   return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirCRM()">
-    <div style="font-size:22px">👥</div>
-    <div style="font-size:24px;font-weight:900;margin-top:2px">${nReactivar}</div>
-    <div style="font-size:12.5px;font-weight:800">para reactivar</div>
+    ${iconoCard('clientes',COL_CRM)}
+    <div style="font-size:24px;font-weight:800;margin-top:8px">${nReactivar}</div>
+    <div style="font-size:12.5px;font-weight:700">para reactivar</div>
     <div style="font-size:11px;color:var(--muted2)">${nCumples?nCumples+' cumpleaños esta semana':'CRM completo ›'}</div>
   </div>`;
 }
 function htmlCardCaja(){
   const s=sesionAbierta();
-  if(!s) return `<div class="card" style="cursor:pointer;margin:0;border-color:rgba(251,191,36,.4)" onclick="abrirCajaCompleto()">
-    <div style="font-size:22px">🔒</div>
-    <div style="font-size:14.5px;font-weight:800;margin-top:4px">Caja sin abrir</div>
+  if(!s) return `<div class="card" style="cursor:pointer;margin:0;border-color:rgba(245,158,11,.4)" onclick="abrirCajaCompleto()">
+    ${iconoCard('candado',COL_CAJA)}
+    <div style="font-size:14.5px;font-weight:700;margin-top:8px">Caja sin abrir</div>
     <div style="font-size:11px;color:var(--muted2)">Diego Laure · tocá para abrirla</div>
   </div>`;
   const sd=cajaSaldos(s);
   return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirCajaCompleto()">
-    <div style="font-size:22px">💰</div>
-    <div style="font-size:24px;font-weight:900;margin-top:2px">${fp(sd.ef)}</div>
-    <div style="font-size:12.5px;font-weight:800">en efectivo</div>
+    ${iconoCard('moneda',COL_CAJA)}
+    <div style="font-size:24px;font-weight:800;margin-top:8px">${fp(sd.ef)}</div>
+    <div style="font-size:12.5px;font-weight:700">en efectivo</div>
     <div style="font-size:11px;color:var(--muted2)">+${fp(sd.cta)} en cuenta · Diego Laure y French</div>
   </div>`;
 }
@@ -225,8 +226,8 @@ function rpSolicitudesPendientes(){
 }
 function htmlBannerReservasPendientes(){
   const L=rpSolicitudesPendientes(); if(!L.length) return '';
-  return `<div class="card" style="cursor:pointer;margin-bottom:10px;border-color:rgba(96,165,250,.4);background:rgba(96,165,250,.08)" onclick="abrirReservasPendientes()">
-    <div style="display:flex;align-items:center;gap:10px"><div style="font-size:22px">🌐</div><div style="flex:1"><div style="font-size:13px;font-weight:800">${L.length} ${L.length===1?'persona quiere':'personas quieren'} reservar por la web</div><div style="font-size:11px;color:var(--muted2)">Tocá para confirmar o rechazar antes de que se venza</div></div><span style="color:var(--muted)">›</span></div>
+  return `<div class="card" style="cursor:pointer;margin-bottom:10px;border-color:rgba(59,130,246,.4);background:rgba(59,130,246,.06)" onclick="abrirReservasPendientes()">
+    <div style="display:flex;align-items:center;gap:10px">${iconoCard('web','#3B82F6',34)}<div style="flex:1"><div style="font-size:13px;font-weight:800">${L.length} ${L.length===1?'persona quiere':'personas quieren'} reservar por la web</div><div style="font-size:11px;color:var(--muted2)">Tocá para confirmar o rechazar antes de que se venza</div></div><span style="color:var(--muted)">›</span></div>
   </div>`;
 }
 // Un combo de 2+ rubros manda un hold "pendiente" por cada rubro (mismo grupoSolicitudId) -- se agrupan acá
@@ -352,21 +353,22 @@ function renderRecepcion(){
   body.innerHTML=`
     ${htmlBannerReservasPendientes()}
     ${html4CardsRec()}
-    <button onclick="abrirVentaPaquete()" style="width:100%;margin-bottom:14px;padding:12px;border-radius:12px;border:none;background:#4A136B;color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">🎁 Armar paquete</button>
+    <button onclick="abrirVentaPaquete()" style="width:100%;margin-bottom:14px;padding:12px;border-radius:12px;border:none;background:var(--accent);color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px">${mi('stock',16)} Armar paquete</button>
 
     <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px">
-      <div class="card" style="cursor:pointer;margin:0" onclick="abrirTareasCompleto()">
-        <div style="font-size:22px">📋</div>
-        <div style="font-size:13px;font-weight:800;margin-top:6px">${tareasPend?tareasPend+' '+(tareasPend===1?'tarea':'tareas')+' por hacer':'Tareas al día 🎉'}</div>
-        <div style="font-size:11px;color:var(--muted2)">${tareasAtrasadas.length?tareasAtrasadas.length+' atrasada'+(tareasAtrasadas.length===1?'':'s'):'de tu horario'}</div>
+      <div class="card" style="cursor:pointer;margin:0;display:flex;align-items:center;gap:10px" onclick="abrirTareasCompleto()">
+        ${iconoCard('tareas',tareasPend?'#F59E0B':'#10B981',34)}
+        <div style="min-width:0"><div style="font-size:12.5px;font-weight:700">${tareasPend?tareasPend+' '+(tareasPend===1?'tarea':'tareas'):'Tareas al día'}</div>
+        <div style="font-size:11px;color:var(--muted2)">${tareasAtrasadas.length?tareasAtrasadas.length+' atrasada'+(tareasAtrasadas.length===1?'':'s'):'de tu horario'}</div></div>
       </div>
-      <div class="card" style="cursor:pointer;margin:0" onclick="goToRec('stories')">
-        <div style="font-size:22px">📱</div>
-        <div style="font-size:13px;font-weight:800;margin-top:6px">${stTotal-stHechas?(stTotal-stHechas)+' '+(stTotal-stHechas===1?'historia':'historias')+' por hacer':'Historias al día 🎉'}</div>
-        <div style="font-size:11px;color:var(--muted2)">${bloqueFaltante?bloqueFaltante.b.emoji+' '+bloqueFaltante.b.label:stHechas+'/'+stTotal+' publicadas'}</div>
+      <div class="card" style="cursor:pointer;margin:0;display:flex;align-items:center;gap:10px" onclick="goToRec('stories')">
+        ${iconoCard('historias',stTotal-stHechas?'#F59E0B':'#10B981',34)}
+        <div style="min-width:0"><div style="font-size:12.5px;font-weight:700">${stTotal-stHechas?(stTotal-stHechas)+' '+(stTotal-stHechas===1?'historia':'historias'):'Al día'}</div>
+        <div style="font-size:11px;color:var(--muted2)">${bloqueFaltante?bloqueFaltante.b.label:stHechas+'/'+stTotal+' publicadas'}</div></div>
       </div>
     </div>
 
+    ${htmlTareasEquipoWidget()}
     ${htmlClientesRec()}
   `;
   recRenderBusqueda();

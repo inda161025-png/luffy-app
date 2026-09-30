@@ -95,7 +95,13 @@ const ICN={
   moneda:'<circle cx="12" cy="12" r="9"/><path d="M12 6.5v11M9.3 8.9c0-1.3 1.2-2.4 2.7-2.4s2.7 1.1 2.7 2.3c0 1.5-1.3 2-2.7 2.5-1.5.5-2.7 1-2.7 2.5 0 1.2 1.2 2.3 2.7 2.3s2.7-1.1 2.7-2.4"/>',
   idea:'<path d="M9 18.5h6M10 21h4M8.5 14.5A5.5 5.5 0 1115.5 14.5c-.7.6-1.2 1.4-1.2 2.3H9.7c0-.9-.5-1.7-1.2-2.3z"/><path d="M12 2.5v1.3M4.5 6l1 1M19.5 6l-1 1M2.8 12h1.3M19.9 12h1.3"/>',
   config:'<line x1="4" y1="6" x2="20" y2="6"/><circle cx="9" cy="6" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="12" x2="20" y2="12"/><circle cx="16" cy="12" r="2" fill="currentColor" stroke="none"/><line x1="4" y1="18" x2="20" y2="18"/><circle cx="11" cy="18" r="2" fill="currentColor" stroke="none"/>',
+  agenda:'<rect x="3" y="5" width="18" height="16" rx="2.2"/><path d="M3 10h18"/><path d="M8 3v4M16 3v4"/>',
+  tareas:'<rect x="4" y="4" width="16" height="16" rx="2.2"/><path d="M8 11l2.3 2.3L16 8"/>',
+  candado:'<rect x="5" y="10.5" width="14" height="9.5" rx="2"/><path d="M8 10.5V7.5a4 4 0 018 0v3"/>',
+  web:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.4 2.4 3.6 5.6 3.6 9s-1.2 6.6-3.6 9c-2.4-2.4-3.6-5.6-3.6-9S9.6 5.4 12 3z"/>',
 };
+// Ícono en circulo de color solido (sin glow), reemplaza el emoji suelto en las cards de stats
+function iconoCard(name,color,size){ return `<div style="width:${size||38}px;height:${size||38}px;border-radius:12px;background:${color}1f;color:${color};display:flex;align-items:center;justify-content:center;flex-shrink:0">${mi(name,(size||38)*.5)}</div>`; }
 function mi(name,size){ return '<svg viewBox="0 0 24 24" width="'+(size||19)+'" height="'+(size||19)+'" style="stroke:currentColor;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round;vertical-align:-5px">'+(ICN[name]||'')+'</svg>'; }
 
 let profile = null;
@@ -296,6 +302,32 @@ function loadTareasData(){
   }
 }
 function saveTareasData(){ guardarUniendoTs('luffy/tareas_data','luffy_tareas_data',tareasData); }
+
+// ============ TAREAS DEL EQUIPO ============
+// Distinto de tareasRecepcion (esas son la agenda del día por horario, solo para quien está en el mostrador).
+// Esto es para tareas rotativas entre personas de cualquier rol (ej: "Limpiar el baño"), donde importa quién
+// la hizo y que no le toque siempre a la misma persona.
+let tareasEquipoCfg=[]; // {id, emoji, label, equipo:[userId,...]}
+let tareasEquipoLog={}; // {[tareaId]: {[fecha]: {userId, userName, nota, ts}}}
+function loadTareasEquipo(){
+  try{ const t=JSON.parse(localStorage.getItem('luffy_tareas_equipo')||'null'); if(t) tareasEquipoCfg=t; }catch(e){}
+  if(DB){
+    DB.doc('luffy/tareas_equipo').get().then(r=>{
+      if(r&&r.list&&JSON.stringify(r.list)!==JSON.stringify(tareasEquipoCfg)){ tareasEquipoCfg=r.list; try{localStorage.setItem('luffy_tareas_equipo',JSON.stringify(tareasEquipoCfg));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+  try{ tareasEquipoLog=JSON.parse(localStorage.getItem('luffy_tareas_equipo_log')||'{}'); }catch(e){ tareasEquipoLog={}; }
+  if(DB){
+    DB.doc('luffy/tareas_equipo_log').get().then(r=>{
+      if(r&&mergeTs(tareasEquipoLog,r)){ try{localStorage.setItem('luffy_tareas_equipo_log',JSON.stringify(tareasEquipoLog));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveTareasEquipoCfg(){
+  try{localStorage.setItem('luffy_tareas_equipo',JSON.stringify(tareasEquipoCfg));}catch(e){}
+  if(DB){try{DB.doc('luffy/tareas_equipo').set({list:tareasEquipoCfg});}catch(e){}}
+}
+function saveTareasEquipoLog(){ guardarUniendoTs('luffy/tareas_equipo_log','luffy_tareas_equipo_log',tareasEquipoLog); }
 
 const TRAMOS = [
   {min:0,       max:999999,   pct:45, label:'Base',  color:'#888896', emoji:'🌱'},
