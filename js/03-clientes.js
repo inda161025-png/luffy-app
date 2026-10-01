@@ -1,17 +1,20 @@
 // ============ REINICIO DE DATOS: descartar copias locales viejas ============
 // Cuando el admin reinicia las cuentas, se guarda una "epoca" nueva en la nube. Cada dispositivo la compara con la que
 // tiene guardada; si cambio, borra sus copias locales para que no vuelvan a subirse datos de prueba.
+// Pedido de Ivo (1/10/2026, día de lanzamiento real): reiniciar toda la actividad/plata a cero pero mantener
+// clientes+tarjetas y el catálogo (servicios/productos/rubros/ofertas/sucursales) — sin eso nadie puede vender
+// nada hoy. Por eso 'luffy_clientes' y 'luffy_productos' NO están en las listas de abajo (antes sí estaban).
 async function revisarEpoca(){
   if(!DB) return false;
   let n=null; try{ const r=await DB.doc('luffy/epoca').get(); n=r&&r.n; }catch(e){}
   if(!n) return false;
   let mio=null; try{ mio=localStorage.getItem('luffy_epoca'); }catch(e){}
   if(String(n)===mio) return false;
-  const prefijos=['luffy_dinero_','luffy_yo_','luffy_rec_','luffy_clientes','luffy_caja_'];
-  const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_cierres','luffy_reels','luffy_reels_del','luffy_productos','luffy_avisos_leidos','luffy_incidentes','luffy_membresias','luffy_paquetes','luffy_senas','luffy_agenda'];
+  const prefijos=['luffy_dinero_','luffy_yo_','luffy_rec_','luffy_caja_'];
+  const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_tareas_equipo_log','luffy_cierres','luffy_reels','luffy_reels_del','luffy_avisos_leidos','luffy_incidentes','luffy_membresias','luffy_paquetes','luffy_senas','luffy_agenda','luffy_turnos_pendientes','luffy_reservas_holds','luffy_decisiones_com','luffy_estado_caja'];
   try{ Object.keys(localStorage).forEach(k=>{ if(prefijos.some(p=>k.startsWith(p))||exactos.includes(k)) localStorage.removeItem(k); }); localStorage.setItem('luffy_epoca',String(n)); }catch(e){}
-  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; productos=[]; clientesDir=[]; membresiasSt.list=[]; paquetesSt.list=[]; senasSt.list=[]; agendaSt.list=[]; cajaDocs={};
-  dineroData={turnos:[],ventas:[],deudores:[]}; avisosLeidos=[]; cierresData={byKey:{}};
+  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; tareasEquipoLog={}; membresiasSt.list=[]; paquetesSt.list=[]; senasSt.list=[]; agendaSt.list=[]; turnosPendientesSt.list=[]; holdsSt.list=[]; cajaDocs={}; decisionesCom={};
+  dineroData={turnos:[],ventas:[],deudores:[]}; yoData={ingresos:[],gastos:[],deudas:[]}; avisosLeidos=[]; cierresData={byKey:{}}; estadoCaja={};
   return true;
 }
 async function chequearEpocaViva(){
