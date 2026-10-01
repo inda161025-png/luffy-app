@@ -104,25 +104,34 @@ function htmlDeudaCliente(c){
   return `<div class="card" style="margin-bottom:10px;border-color:rgba(244,114,182,.5);background:rgba(244,114,182,.05)"><div style="font-size:12.5px;font-weight:800;color:#f472b6">🚫 Debe ${fp(total)}</div>${L.map(d=>`<div style="font-size:12px;margin-top:6px;padding-top:6px;border-top:1px solid var(--border)"><div style="display:flex;justify-content:space-between;gap:8px"><span>${escH(d.servicio||d.motivo||'Servicio')} · del ${fechaCortaStr(d.fecha)} (${escH(d.prof.name)})</span><b>${fp(saldoDeuda(d))}</b></div>${htmlPagosDeuda(d)}${puedeCobrarDeuda(d.prof.id,d.id)?`<button class="lnk" onclick="abrirCobroDeuda('${d.prof.id}','${d.id}')" style="margin-top:4px">💰 Cobrar / pago parcial</button>`:''}</div>`).join('')}</div>`;
 }
 // ============ SEÑAS ============
-// Una seña es plata que un cliente deja por adelantado para su proximo turno con un profesional.
-// Queda a nombre del cliente y del profesional, y se descuenta sola en el proximo turno de ese cliente (no le cambia la comision al profesional).
-// Estados: pendiente -> aplicada (se uso) | devuelta (se le devolvio la plata) | retenida (se la queda el salon).
+// Una seña es plata que un cliente deja por adelantado para un turno puntual ya agendado, con un profesional.
+// Queda ligada a ese turno de la Agenda (turnoAgendaId) y se descuenta sola al cobrarlo (no le cambia la comision
+// al profesional). Estados: pendiente -> aplicada (se uso) | devuelta (se le devolvio la plata) | retenida (se la queda el salon).
 const senasSt=almacenLista('luffy/senas','luffy_senas',(a,b)=>{ const base=nuevoMayor(a,b); const m=new Map(); [...(a.usos||[]),...(b.usos||[])].forEach(u=>m.set(u.turnoId,u)); return {...base,usos:[...m.values()]}; });
 const saldoSena=(s)=>s.estado==='pendiente'?Math.max(0,numV(s.monto)-(s.usos||[]).reduce((a,u)=>a+numV(u.monto),0)):0;
+// Fecha del turno de Agenda al que está ligada (si el turno se reagenda, esto sigue solo porque se busca en vivo).
+// Señas viejas sin turnoAgendaId (de antes de este cambio) se tratan como "ya vencidas" -> aparecen en Cosas por cobrar.
+function senaFechaTurno(s){ if(!s.turnoAgendaId) return null; const a=agendaSt.list.find(x=>x.id===s.turnoAgendaId); return a?a.fecha:null; }
 const senasPend=()=>senasSt.list.filter(s=>saldoSena(s)>0).sort((a,b)=>String(a.ts).localeCompare(String(b.ts)));
+const senasPendHoy=()=>senasPend().filter(s=>{ const f=senaFechaTurno(s); return !f||f<=hoyStr(); });
+const senasPendFuturas=()=>senasPend().filter(s=>{ const f=senaFechaTurno(s); return f&&f>hoyStr(); });
 const senasDeCliente=(cid,nombre)=>senasPend().filter(s=>(cid&&s.clienteId===cid)||(!s.clienteId&&nombre&&nkey(s.clienteNombre)===nkey(nombre)));
 const medioTxt=(m)=>({efectivo:'efectivo',mp:'Mercado Pago',tarjeta:'tarjeta'}[m]||m||'');
 const profesionalesLista=()=>allUsers.filter(u=>esProf(u));
 
 // ---------- registrar una seña ----------
+// La seña se liga a un turno puntual YA agendado (pedido de Ivo, 1/10/2026: en la práctica siempre existe el
+// turno antes de que el cliente deje la seña) — de ahí sale el profesional y la fecha para saber cuándo pasa
+// de "cola de señas" a "Cosas por cobrar" (ver senasPendHoy/senasPendFuturas).
 let senaForm=null;
 function abrirFormSena(pre){
-  senaForm={cliente:'',clienteId:null,profId:(profile&&profile.role==='profesional')?profile.id:((profesionalesLista()[0]||{}).id||''),monto:'',medio:'efectivo',nota:'',...(pre||{})};
+  senaForm={cliente:'',clienteId:null,turnoAgendaId:null,monto:'',medio:'efectivo',nota:'',...(pre||{})};
   renderFormSena(); openModal('modal-registro');
 }
-function senaCampo(k,v){ senaForm[k]=v; if(k==='medio'||k==='profId') renderFormSena(); }
-function senaCliInput(v){ senaForm.cliente=v; const c=clienteDe(senaForm.clienteId); if(c&&c.nombre!==v) senaForm.clienteId=null; renderSugSena(); }
-function senaElegirCli(id){ const c=clienteDe(id); if(!c) return; senaForm.clienteId=c.id; senaForm.cliente=c.nombre; renderFormSena(); }
+function senaCampo(k,v){ senaForm[k]=v; if(k==='medio'||k==='turnoAgendaId') renderFormSena(); }
+function senaCliInput(v){ senaForm.cliente=v; const c=clienteDe(senaForm.clienteId); if(c&&c.nombre!==v){ senaForm.clienteId=null; senaForm.turnoAgendaId=null; } renderSugSena(); }
+function senaElegirCli(id){ const c=clienteDe(id); if(!c) return; senaForm.clienteId=c.id; senaForm.cliente=c.nombre; senaForm.turnoAgendaId=null; renderFormSena(); }
+function turnosActivosDeCliente(cid){ return agendaSt.list.filter(a=>a.clienteId===cid&&agEsActivo(a)&&a.fecha>=hoyStr()).sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)); }
 function senaAgregarCli(){ leerFormSena(); abrirFormCliente(null,{deSena:true,nombre:(senaForm.cliente||'').trim()}); }
 function leerFormSena(){ const g=(i)=>{ const e=document.getElementById(i); return e?e.value:undefined; }; const m=g('sn-monto'); if(m!==undefined) senaForm.monto=m; const n=g('sn-nota'); if(n!==undefined) senaForm.nota=n; }
 function renderSugSena(){
@@ -133,31 +142,39 @@ function renderSugSena(){
   el.innerHTML=`<div style="display:flex;flex-direction:column;gap:4px;margin-top:6px">${m.map(c=>`<button onclick="senaElegirCli('${c.id}')" style="text-align:left;padding:9px 12px;border-radius:10px;border:1.5px solid var(--border2);background:var(--s2);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${escH(c.nombre)}${verNumeroCliente()?' <span style="color:var(--muted2)">#'+c.numero+'</span>':''}<div style="font-size:11px;color:var(--muted2);font-weight:500">${escH(idCorto(c))}</div></button>`).join('')}${exacto?'':`<button onclick="senaAgregarCli()" style="text-align:left;padding:10px 12px;border-radius:10px;border:1.5px dashed ${color};background:transparent;color:${color};font-family:var(--font);font-size:13px;font-weight:800;cursor:pointer">➕ Agregar «${escH(q)}» como cliente nuevo</button>`}</div>`;
 }
 function renderFormSena(){
-  const s=senaForm; const color=(profile&&profile.color)||'#4A136B'; const pros=profesionalesLista();
+  const s=senaForm; const color=(profile&&profile.color)||'#4A136B';
+  const cli=clienteDe(s.clienteId);
+  const turnos=cli?turnosActivosDeCliente(cli.id):[];
+  const puedeGuardar=cli&&s.turnoAgendaId;
   document.getElementById('registro-content').innerHTML=cabeceraModal('Registrar seña 💵')+`
     <div class="field"><label>Cliente</label><input id="sn-cli" autocomplete="off" placeholder="Buscá o escribí el nombre…" value="${escH(s.cliente)}" oninput="senaCliInput(this.value)"/><div id="sn-cli-sug"></div></div>
-    <div class="field" style="margin-top:8px"><label>¿Con qué profesional es su próximo turno?</label><select style="${selFin}" onchange="senaCampo('profId',this.value)">${pros.map(p=>`<option value="${p.id}" ${s.profId===p.id?'selected':''}>${escH(p.name)}</option>`).join('')}</select></div>
+    ${cli?`<div class="field" style="margin-top:8px"><label>¿Para qué turno es la seña?</label>
+      ${turnos.length?`<div style="display:flex;flex-direction:column;gap:6px">${turnos.map(a=>`<button onclick="senaCampo('turnoAgendaId','${a.id}')" style="text-align:left;${pillStyle(s.turnoAgendaId===a.id,color)}">${fechaCortaStr(a.fecha)} · ${a.hora}hs con ${escH(a.profNombre)}${(a.servicios&&a.servicios.length)?' · '+escH(a.servicios.map(x=>x.nombre).join(', ')):''}</button>`).join('')}</div>`
+        :`<div style="font-size:12.5px;color:var(--muted);line-height:1.5">${escH(cli.nombre)} no tiene ningún turno agendado todavía. Cargalo primero en la Agenda y volvé acá para registrar la seña.</div>`}
+      </div>`:''}
     <div class="field" style="margin-top:8px"><label>Monto de la seña</label><input id="sn-monto" type="number" inputmode="decimal" placeholder="0" value="${escH(s.monto)}"/></div>
     <div class="field" style="margin-top:8px"><label>¿Cómo la dejó?</label>${htmlMedios('senaMedioSet',s.medio,color)}</div>
-    <div class="field" style="margin-top:8px"><label>Nota (opcional)</label><input id="sn-nota" placeholder="Ej: turno del viernes 17hs" value="${escH(s.nota)}"/></div>
-    <div style="font-size:11.5px;color:var(--muted2);margin:8px 0">Se le descuenta sola en su próximo turno.</div>
-    <button class="btn btn-primary" onclick="guardarSena()" style="background:${color}">Guardar seña</button>`;
+    <div class="field" style="margin-top:8px"><label>Nota (opcional)</label><input id="sn-nota" placeholder="Ej: lo dejó en efectivo" value="${escH(s.nota)}"/></div>
+    <div style="font-size:11.5px;color:var(--muted2);margin:8px 0">Se le descuenta sola cuando se cobre ese turno.</div>
+    <button class="btn btn-primary" onclick="guardarSena()" style="background:${color}" ${puedeGuardar?'':'disabled'}>Guardar seña</button>`;
   renderSugSena();
 }
 function senaMedioSet(m){ leerFormSena(); senaForm.medio=m; renderFormSena(); }
 async function guardarSena(){
   leerFormSena(); const s=senaForm; const cli=clienteDe(s.clienteId);
   if(!cli){ showToast('Elegí al cliente de la lista o tocá "➕ Agregar" para cargarlo'); return; }
+  const turno=agendaSt.list.find(a=>a.id===s.turnoAgendaId);
+  if(!turno){ showToast('Elegí para qué turno es la seña'); return; }
   const monto=numV(s.monto); if(monto<=0){ showToast('Poné el monto de la seña'); return; }
-  const prof=allUsers.find(u=>u.id===s.profId); if(!prof){ showToast('Elegí el profesional'); return; }
-  await crearSena({cli,prof,monto,medio:s.medio,nota:(s.nota||'').trim()});
+  const prof=allUsers.find(u=>u.id===turno.profId); if(!prof){ showToast('No encuentro al profesional de ese turno'); return; }
+  await crearSena({cli,prof,monto,medio:s.medio,nota:(s.nota||'').trim(),turnoAgendaId:turno.id});
   senaForm=null; closeModal('modal-registro'); showToast('Seña guardada ✓ '+fp(monto)+' de '+cli.nombre); refreshCurrentView();
 }
-async function crearSena({cli,prof,monto,medio,nota,idFijo,nombreCliente}){
+async function crearSena({cli,prof,monto,medio,nota,idFijo,nombreCliente,turnoAgendaId}){
   const ahora=new Date().toISOString();
   return senasSt.cambiar(l=>{
     if(idFijo&&l.some(x=>x.id===idFijo)) return null;
-    const x={id:idFijo||'sn'+Date.now().toString(36)+Math.floor(Math.random()*100),clienteId:cli?cli.id:null,clienteNombre:cli?cli.nombre:(nombreCliente||'Cliente'),clienteNumero:cli?cli.numero:null,profId:prof.id,profNombre:prof.name,
+    const x={id:idFijo||'sn'+Date.now().toString(36)+Math.floor(Math.random()*100),clienteId:cli?cli.id:null,clienteNombre:cli?cli.nombre:(nombreCliente||'Cliente'),clienteNumero:cli?cli.numero:null,profId:prof.id,profNombre:prof.name,turnoAgendaId:turnoAgendaId||null,
       monto,medio,fecha:hoyStr(),ts:ahora,estado:'pendiente',usos:[],nota:nota||'',recId:profile.id,recNombre:profile.name,recRol:profile.role,sucursal:sucursalActual()||profile.sucursal||prof.sucursal||null,creadoEn:ahora,upd:ahora};
     l.push(x); return x;
   });
@@ -197,13 +214,22 @@ async function resolverSena(id,estado){
 }
 function htmlFilaSena(s,acciones){
   const dias=diasDesdeStr(s.fecha); const suc=s.sucursal?chipSucursal(s.sucursal,true):'';
-  return `<div class="card" style="margin-bottom:8px;border-color:rgba(74,19,107,.4);border-left:5px solid ${(sucursalDe(s.sucursal)||{}).color||'#4A136B'}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(s.clienteNombre)}${verNumeroCliente()&&s.clienteNumero?' <span style="color:var(--muted2)">#'+s.clienteNumero+'</span>':''}</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Para su turno con <b style="color:var(--text)">${escH(s.profNombre)}</b> · la dejó el ${fechaCortaStr(s.fecha)} (hace ${dias} d) · ${medioTxt(s.medio)}${s.nota?' · '+escH(s.nota):''} ${suc}</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:18px;font-weight:900;color:#4A136B">${fp(saldoSena(s))}</div>${(s.usos||[]).length&&saldoSena(s)<numV(s.monto)?`<div style="font-size:10px;color:var(--muted)">de ${fp(s.monto)}</div>`:''}</div></div>${acciones?`<div style="display:flex;gap:12px;margin-top:6px">${acciones}</div>`:''}</div>`;
+  const fTurno=senaFechaTurno(s);
+  return `<div class="card" style="margin-bottom:8px;border-color:rgba(74,19,107,.4);border-left:5px solid ${(sucursalDe(s.sucursal)||{}).color||'#4A136B'}"><div style="display:flex;justify-content:space-between;align-items:flex-start;gap:10px"><div style="min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(s.clienteNombre)}${verNumeroCliente()&&s.clienteNumero?' <span style="color:var(--muted2)">#'+s.clienteNumero+'</span>':''}</div><div style="font-size:11.5px;color:var(--muted2);margin-top:2px">Para su turno con <b style="color:var(--text)">${escH(s.profNombre)}</b>${fTurno?' el '+fechaCortaStr(fTurno):''} · la dejó el ${fechaCortaStr(s.fecha)} (hace ${dias} d) · ${medioTxt(s.medio)}${s.nota?' · '+escH(s.nota):''} ${suc}</div></div><div style="text-align:right;white-space:nowrap"><div style="font-size:18px;font-weight:900;color:#4A136B">${fp(saldoSena(s))}</div>${(s.usos||[]).length&&saldoSena(s)<numV(s.monto)?`<div style="font-size:10px;color:var(--muted)">de ${fp(s.monto)}</div>`:''}</div></div>${acciones?`<div style="display:flex;gap:12px;margin-top:6px">${acciones}</div>`:''}</div>`;
 }
 const accionesSenaRec=(s)=>`<button class="lnk" onclick="resolverSena('${s.id}','devuelta')">Devolver</button><button class="lnk" style="color:var(--muted2)" onclick="resolverSena('${s.id}','retenida')">Se queda el salón</button>`;
 // ---------- recepcion ----------
+// Separado en dos: las que ya llegaron a (o pasaron) el día de su turno van en "Cosas por cobrar" (accionables
+// ahora); las de turnos más adelante quedan en su propia cola, aparte, para no mezclar lo urgente con lo que
+// todavía falta. Pedido de Ivo (1/10/2026).
 function htmlSenasFullBody(){
-  const L=senasPend();
-  return L.length?L.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay señas pendientes.</div>';
+  const L=senasPendHoy();
+  return L.length?L.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay señas pendientes para hoy.</div>';
+}
+function htmlSenasFuturasBody(){
+  const L=senasPendFuturas();
+  if(!L.length) return '';
+  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🗓️ Señas para más adelante (${L.length})</span></div>${L.map(s=>htmlFilaSena(s,accionesSenaRec(s))).join('')}`;
 }
 function abrirSenasCompleto(){
   const L=senasPend();

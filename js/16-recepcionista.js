@@ -177,7 +177,7 @@ function htmlCardAgenda(){
 }
 function htmlCardCobrar(){
   const nCobrar=turnosPendientesSt.list.filter(x=>x.estado==='pendiente').length;
-  const nDeudas=todasLasDeudas().length, nSenas=senasPend().length;
+  const nDeudas=todasLasDeudas().length, nSenas=senasPendHoy().length;
   const total=nCobrar+nDeudas+nSenas;
   const cobradoHoy=cobradosDelDia(hoyStr()).reduce((a,x)=>a+x.monto,0);
   return `<div class="card" style="cursor:pointer;margin:0" onclick="goTo('cobranzas')">
@@ -319,11 +319,12 @@ async function rpRechazarSolicitud(holdId){
 // problema de raíz: el refresco automático solo redibuja esta lista, nunca el modal de una acción puntual que
 // esté abierto encima (son contenedores de DOM distintos, igual que ya pasa en Agenda).
 function renderCobranzas(){
-  const deudas=todasLasDeudas(), sen=senasPend();
+  const deudas=todasLasDeudas(), sen=senasPendHoy();
   document.getElementById('cobranzas-body').innerHTML=
     htmlTurnosPendientesRec()+htmlPaquetesNuevosRec()+htmlSugerenciasPaqRec()+
     (deudas.length?`<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🚫 Clientes que deben (${deudas.length})</span></div>${htmlDeudasFullBody()}`:'')+
     `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">💵 Señas pendientes (${sen.length})</span><button class="sec-btn" onclick="abrirFormSena()" style="background:#4A136B">+ Seña</button></div>${htmlSenasFullBody()}`+
+    htmlSenasFuturasBody()+
     htmlCobradosRec();
 }
 function renderCajaScreen(){
