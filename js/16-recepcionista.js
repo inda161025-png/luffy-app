@@ -17,7 +17,7 @@ function enterRecepcionista(){
   // Recepción no tiene nav (es pantalla única), así que sin este poll el feed
   // de "para cobrar" quedaba congelado en lo que había al momento del login.
   if(recepcionPollTimer) clearInterval(recepcionPollTimer);
-  recepcionPollTimer=setInterval(()=>{ if(currentScreenId==='recepcion'||currentScreenId==='crmboard'||currentScreenId==='agenda') prefetchRecepcionTeamData(); }, 15000);
+  recepcionPollTimer=setInterval(()=>{ if(['recepcion','crmboard','agenda','cobranzas','caja'].includes(currentScreenId)) prefetchRecepcionTeamData(); }, 15000);
   show('recepcion');
   document.getElementById('nav').style.display='none';
   renderRecepcion();
@@ -180,7 +180,7 @@ function htmlCardCobrar(){
   const nDeudas=todasLasDeudas().length, nSenas=senasPend().length;
   const total=nCobrar+nDeudas+nSenas;
   const cobradoHoy=cobradosDelDia(hoyStr()).reduce((a,x)=>a+x.monto,0);
-  return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirCosasPorCobrar()">
+  return `<div class="card" style="cursor:pointer;margin:0" onclick="goTo('cobranzas')">
     ${iconoCard('dinero',COL_COBRAR)}
     <div style="font-size:24px;font-weight:800;margin-top:8px">${total}</div>
     <div style="font-size:12.5px;font-weight:700">${total===1?'cosa':'cosas'} por cobrar</div>
@@ -200,13 +200,13 @@ function htmlCardCRM(){
 }
 function htmlCardCaja(){
   const s=sesionAbierta();
-  if(!s) return `<div class="card" style="cursor:pointer;margin:0;border-color:rgba(245,158,11,.4)" onclick="abrirCajaCompleto()">
+  if(!s) return `<div class="card" style="cursor:pointer;margin:0;border-color:rgba(245,158,11,.4)" onclick="goTo('caja')">
     ${iconoCard('candado',COL_CAJA)}
     <div style="font-size:14.5px;font-weight:700;margin-top:8px">Caja sin abrir</div>
     <div style="font-size:11px;color:var(--muted2)">Diego Laure · tocá para abrirla</div>
   </div>`;
   const sd=cajaSaldos(s);
-  return `<div class="card" style="cursor:pointer;margin:0" onclick="abrirCajaCompleto()">
+  return `<div class="card" style="cursor:pointer;margin:0" onclick="goTo('caja')">
     ${iconoCard('moneda',COL_CAJA)}
     <div style="font-size:24px;font-weight:800;margin-top:8px">${fp(sd.ef)}</div>
     <div style="font-size:12.5px;font-weight:700">en efectivo</div>
@@ -312,21 +312,22 @@ async function rpRechazarSolicitud(holdId){
   await holdsSt.cambiar(l=>{ const i=l.findIndex(x=>x.id===holdId); if(i>=0) l.splice(i,1); });
   showToast('Solicitud rechazada'); refreshCurrentView();
 }
-let cosasPorCobrarAbierto=false, cajaCompletaAbierta=false;
-function abrirCosasPorCobrar(){
-  cosasPorCobrarAbierto=true;
+// Pantallas propias (antes eran un modal genérico marcado con una bandera "Abierto" que el poll de 15s de
+// recepción reabría encima de cualquier cosa que la persona estuviera completando adentro — esa bandera nunca
+// se apagaba al entrar a cobrar un turno puntual, pagar una deuda, etc., y cada 15s borraba todo sin aviso.
+// Bug crítico reportado por Ivo 1/10/2026. Pasarlas a pantalla propia (como ya eran Agenda y CRM) elimina el
+// problema de raíz: el refresco automático solo redibuja esta lista, nunca el modal de una acción puntual que
+// esté abierto encima (son contenedores de DOM distintos, igual que ya pasa en Agenda).
+function renderCobranzas(){
   const deudas=todasLasDeudas(), sen=senasPend();
-  document.getElementById('registro-content').innerHTML=cabeceraModal('💳 Cosas por cobrar')+
+  document.getElementById('cobranzas-body').innerHTML=
     htmlTurnosPendientesRec()+htmlPaquetesNuevosRec()+htmlSugerenciasPaqRec()+
     (deudas.length?`<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🚫 Clientes que deben (${deudas.length})</span></div>${htmlDeudasFullBody()}`:'')+
     `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">💵 Señas pendientes (${sen.length})</span><button class="sec-btn" onclick="abrirFormSena()" style="background:#4A136B">+ Seña</button></div>${htmlSenasFullBody()}`+
     htmlCobradosRec();
-  openModal('modal-registro');
 }
-function abrirCajaCompleto(){
-  cajaCompletaAbierta=true;
-  document.getElementById('registro-content').innerHTML=cabeceraModal('💰 Caja')+htmlCajaRecBase()+htmlResumenDia()+htmlTableroRec()+htmlVentasResumenRec();
-  openModal('modal-registro');
+function renderCajaScreen(){
+  document.getElementById('caja-body').innerHTML=htmlCajaRecBase()+htmlResumenDia()+htmlTableroRec()+htmlVentasResumenRec();
 }
 function minutosDesde(iso){
   const min=Math.round((Date.now()-new Date(iso).getTime())/60000);
@@ -372,12 +373,9 @@ function renderRecepcion(){
     ${htmlClientesRec()}
   `;
   recRenderBusqueda();
-  // Si recepcion dejo abierto el modal de "Cosas por cobrar" o "Caja" (algo que otro dispositivo puede
-  // estar tocando en cualquier momento), lo refrescamos tambien en cada poll — si no, quedaba mostrando
-  // datos viejos hasta que lo cerraba y volvia a abrir (turnos pendientes que no "aparecian" sin F5).
-  if(cosasPorCobrarAbierto) abrirCosasPorCobrar();
-  else if(cajaCompletaAbierta) abrirCajaCompleto();
-  else if(reservasPendientesAbierto) abrirReservasPendientes();
+  // "Cosas por cobrar" y "Caja" ahora son pantallas propias (ver renderCobranzas/renderCajaScreen) y se
+  // refrescan solas por su propia entrada en refreshCurrentView() — ya no hace falta reabrirlas acá.
+  if(reservasPendientesAbierto) abrirReservasPendientes();
 }
 
 function goToRec(dest){

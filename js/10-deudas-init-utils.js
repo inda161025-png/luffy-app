@@ -507,7 +507,7 @@ function uiConfirm(title,msg,o={}){
 // ============ UTILS ============
 function show(id){
   currentScreenId = id;
-  document.body.classList.toggle('adm-wide', id==='admin'||id==='agenda'||id==='crmboard');
+  document.body.classList.toggle('adm-wide', id==='admin'||id==='agenda'||id==='crmboard'||id==='cobranzas'||id==='caja');
   document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
   document.getElementById(id).classList.add('active');
 }
@@ -527,6 +527,8 @@ function goTo(id){
   if(id==='puntos'){loadPuntosData();renderPuntos();}
   if(id==='agenda') renderAgenda();
   if(id==='crmboard'){ crmTarget='crmboard-body'; loadClientes(); renderCRM(); }
+  if(id==='cobranzas') renderCobranzas();
+  if(id==='caja') renderCajaScreen();
 }
 function setNav(id){
   ['n-hub','n-kanban','n-dinero','n-puntos'].forEach(n=>{const el=document.getElementById(n);if(el)el.classList.toggle('active',el.id===id);});

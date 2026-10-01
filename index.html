@@ -313,6 +313,18 @@ window.addEventListener('hashchange', actualizarManifestPWA);
   <div class="scroll" id="crmboard-body"></div>
 </div>
 
+<!-- COBRANZAS: turnos/deudas/señas por cobrar + lo ya cobrado con totales (pantalla completa, no modal) -->
+<div id="cobranzas" class="screen">
+  <div class="inner-hdr"><button class="back" onclick="goTo('recepcion')">←</button><h2>💳 Cobranzas</h2></div>
+  <div class="scroll" id="cobranzas-body"></div>
+</div>
+
+<!-- CAJA: apertura/cierre, cambio de recepcionista, movimientos (pantalla completa, no modal) -->
+<div id="caja" class="screen">
+  <div class="inner-hdr"><button class="back" onclick="goTo('recepcion')">←</button><h2>💰 Caja</h2></div>
+  <div class="scroll" id="caja-body"></div>
+</div>
+
 <!-- PUNTOS -->
 <div id="puntos" class="screen">
   <div class="inner-hdr">

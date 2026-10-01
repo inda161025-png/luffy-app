@@ -66,7 +66,7 @@ let currentScreenId = null;
 function refreshCurrentView(){
   try{
     if(!profile) return;
-    ({hub:renderHub, admin:renderAdmin, stories:renderStories, puntos:renderPuntos, recepcion:renderRecepcion, perfil:renderPerfil, encargado:renderEncargado, dinero:renderDineroContent, banco:renderBancoProf, kanban:renderKanban, clientes:renderClientes, crmboard:renderCRM, agenda:renderAgenda}[currentScreenId]||(()=>{}))();
+    ({hub:renderHub, admin:renderAdmin, stories:renderStories, puntos:renderPuntos, recepcion:renderRecepcion, perfil:renderPerfil, encargado:renderEncargado, dinero:renderDineroContent, banco:renderBancoProf, kanban:renderKanban, clientes:renderClientes, crmboard:renderCRM, agenda:renderAgenda, cobranzas:renderCobranzas, caja:renderCajaScreen}[currentScreenId]||(()=>{}))();
   }catch(e){}
 }
 

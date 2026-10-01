@@ -335,15 +335,27 @@ function cobradosDelDia(fecha){
   });
   return L.sort((a,b)=>String(b.ts).localeCompare(String(a.ts)));
 }
+const MED_COBRANZA={efectivo:'💵 Efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 Tarjeta'};
+// Totales agrupados por medio de pago y por profesional, para el resumen de Cobranzas (pedido de Ivo, 30/09/2026).
+function htmlTotalesCobrados(L){
+  if(!L.length) return '';
+  const porMedio={}; L.forEach(x=>{ const k=x.medio||'otro'; porMedio[k]=(porMedio[k]||0)+x.monto; });
+  const porProf={}; L.forEach(x=>{ porProf[x.prof]=(porProf[x.prof]||0)+x.monto; });
+  const fila=(label,monto)=>`<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0"><span style="color:var(--muted2)">${label}</span><span style="font-weight:800">${fp(monto)}</span></div>`;
+  return `<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:10px">
+    <div class="card" style="margin:0;padding:10px 12px"><div style="font-size:10.5px;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Por medio de pago</div>${Object.keys(porMedio).sort((a,b)=>porMedio[b]-porMedio[a]).map(k=>fila(MED_COBRANZA[k]||escH(k),porMedio[k])).join('')}</div>
+    <div class="card" style="margin:0;padding:10px 12px"><div style="font-size:10.5px;color:var(--muted2);font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:4px">Por profesional</div>${Object.keys(porProf).sort((a,b)=>porProf[b]-porProf[a]).map(k=>fila(escH(k),porProf[k])).join('')}</div>
+  </div>`;
+}
 function htmlCobradosInner(){
   const hoy=hoyStr(), fecha=recCobDia==='ayer'?addDias(hoy,-1):hoy; const L=cobradosDelDia(fecha); const total=L.reduce((a,x)=>a+x.monto,0);
-  const MED={efectivo:'💵 efectivo',mp:'📱 Mercado Pago',tarjeta:'💳 tarjeta'};
   const tab=(k,l)=>`<button onclick="recCobDia='${k}';document.getElementById('rec-cob').innerHTML=htmlCobradosInner()" style="${pillStyle(recCobDia===k,'#34d399')}">${l}</button>`;
   return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">✅ Cobrado ${recCobDia==='ayer'?'ayer':'hoy'} (${L.length})</span><span style="font-size:14px;font-weight:900;color:#34d399">${fp(total)}</span></div>
     <div style="display:flex;gap:6px;margin-bottom:8px">${tab('hoy','Hoy')}${tab('ayer','Ayer')}</div>
+    ${htmlTotalesCobrados(L)}
     ${L.length?L.slice(0,40).map(x=>`<div class="card" style="margin-bottom:6px;padding:10px 12px;border-left:5px solid ${(sucursalDe(x.suc)||{}).color||'var(--border2)'}">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-size:13px;font-weight:800;min-width:0">${escH(x.cliente)}${x.num&&verNumeroCliente()?' <span style="color:var(--muted2);font-weight:700">#'+x.num+'</span>':''}</div><div style="font-size:16px;font-weight:900;white-space:nowrap">${fp(x.monto)}</div></div>
-      <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">${horaDeIso(x.ts)} · ${escH(x.detalle)}${x.extras.length?' + '+escH(x.extras.join(', ')):''}<br>${x.venta?'🛍️ Venta':'✂️'} ${escH(x.prof)} · ${MED[x.medio]||escH(x.medio||'')}${x.deuda?' · <b style="color:#fbbf24">pago de deuda</b>':''}${x.desc?' · <span style="color:#34d399">'+escH(x.desc)+'</span>':''}${x.cierre&&x.cierre.por?' · cerró '+escH(x.cierre.por):''}</div></div>`).join(''):'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay cobros registrados</div>'}`;
+      <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">${horaDeIso(x.ts)} · ${escH(x.detalle)}${x.extras.length?' + '+escH(x.extras.join(', ')):''}<br>${x.venta?'🛍️ Venta':'✂️'} ${escH(x.prof)} · ${MED_COBRANZA[x.medio]||escH(x.medio||'')}${x.deuda?' · <b style="color:#fbbf24">pago de deuda</b>':''}${x.desc?' · <span style="color:#34d399">'+escH(x.desc)+'</span>':''}${x.cierre&&x.cierre.por?' · cerró '+escH(x.cierre.por):''}</div></div>`).join(''):'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay cobros registrados</div>'}`;
 }
 function htmlCobradosRec(){ return `<div id="rec-cob">${htmlCobradosInner()}</div>`; }
 
