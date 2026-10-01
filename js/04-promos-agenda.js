@@ -528,6 +528,9 @@ async function agAbrirCobroDesdeTurno(id){
   const ok=await abrirRegistroTurno(); if(!ok) return;
   cobro.clienteId=a.clienteId; cobro.cliente=a.clienteNombre;
   cobro.servicios=(a.servicios||[]).map(s=>s.svcId).filter(id=>servicios.some(x=>x.id===id));
+  cobroAutoSenas(); // sin esto, una seña ya dejada para este cliente/profesional no se detectaba acá (solo al elegir
+  // cliente a mano en el cobro de siempre) y se cobraba el turno completo sin descontarla — el cliente quedaba
+  // pagando dos veces. Bug reportado por Ivo (1/10/2026).
   renderRegistro();
 }
 async function agCancelar(id){
