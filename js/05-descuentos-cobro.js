@@ -150,16 +150,18 @@ function calcCobro(){
     else if(p.descPct>cm.t1){ addFija(p.credito,cm.p1); paqueteComFija+=Math.round(numV(p.credito)*cm.p1/100); }
   });
   const servicioNeto=montoNormal+prepTotal;
-  const prodLineas=productos.filter(p=>(cobro.prods[p.id]||0)>0).map(p=>{
-    const cantidad=cobro.prods[p.id]; const total=p.precioVenta*cantidad;
-    return {producto:p, cantidad, total, comision:Math.round(total*(p.comisionPct||0)/100)};
-  });
-  const prodTotal=prodLineas.reduce((a,l)=>a+l.total,0);
-  const prodComision=prodLineas.reduce((a,l)=>a+l.comision,0);
+  const lineaProd=(p,cantidad)=>{ const total=p.precioVenta*cantidad; return {producto:p, cantidad, total, comision:Math.round(total*(p.comisionPct||0)/100)}; };
+  // prodLineas: lo que agrega AHORA quien está cobrando (va a su propia quincena). prodLineasProf: lo que el
+  // profesional ya había cargado al registrar el turno (va a la quincena de ÉL, no de quien cobra). El cliente
+  // paga la suma de ambos igual, solo cambia a quién se le atribuye cada producto. Ver cobro.prodsProf.
+  const prodLineas=productos.filter(p=>(cobro.prods[p.id]||0)>0).map(p=>lineaProd(p,cobro.prods[p.id]));
+  const prodLineasProf=productos.filter(p=>((cobro.prodsProf||{})[p.id]||0)>0).map(p=>lineaProd(p,cobro.prodsProf[p.id]));
+  const prodTotal=prodLineas.reduce((a,l)=>a+l.total,0)+prodLineasProf.reduce((a,l)=>a+l.total,0);
+  const prodComision=prodLineas.reduce((a,l)=>a+l.comision,0)+prodLineasProf.reduce((a,l)=>a+l.comision,0);
   return {svcs:lineas, lineas, subtotal, subNormal, ahorroCombo, oferta, ofertaSinEfecto, descuentos:D, descuento, descPct, descTipo, fijo, tarj, tarjUso, tope, topeAlcanzado, ctx, esNoche,
     necesitaElegirDesc, opcTarjeta, opcDia, descGrupoActivo:cobro.descGrupo||(ganador?ganador.grupo:null),
     servicioNeto, aCobrarServ:montoNormal-sn.total, senaTotal:sn.total, senasUso:sn.usos, prepagos, prepTotal, comFija, comFijaBase, paqueteCredito, paqueteComFija,
-    prodLineas, prodTotal, prodComision, total:montoNormal-sn.total+prodTotal};
+    prodLineas, prodLineasProf, prodTotal, prodComision, total:montoNormal-sn.total+prodTotal};
 }
 function lineaAReg(l){
   return {id:l.id, nombre:l.nombre, precio:l.precio, opcion:l.opcion||null, combo:l.tipo==='combo'?true:undefined, componentes:l.tipo==='combo'?l.componentes:undefined, lista:l.tipo==='combo'?l.lista:undefined};

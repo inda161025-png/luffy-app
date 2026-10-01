@@ -234,11 +234,11 @@ async function regSelTipo(tipo){ if((tipo==='turno'||tipo==='producto')&&!await 
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
-let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:'', profAtendioId:null};
+let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, prodsProf:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:'', profAtendioId:null};
 // Cuando recepcion cobra un turno que un profesional dejo "registrado" en Diego Laure (ver turnosPendientesSt),
 // el cobro tiene que quedar guardado en la quincena de ESE profesional, no en la de quien lo cobra.
 let cobroParaProf=null, cobroPendienteId=null;
-function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:'', rubroAbierto:null, profAtendioId:null}; cobroParaProf=null; cobroPendienteId=null; }
+function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, prodsProf:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:'', rubroAbierto:null, profAtendioId:null}; cobroParaProf=null; cobroPendienteId=null; }
 function elegirDescCobro(g){ cobro.descGrupo=(cobro.descGrupo===g?null:g); refreshCobro(); }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
@@ -306,7 +306,8 @@ function renderCobroForm(c,back,color){
     <div class="field"><label>${cobroParaProf?'Qué se hizo':'¿Qué le hiciste?'}</label>
       ${(!cobroParaProf&&vis.length>10)?`<input id="cb-q" type="search" placeholder="Buscar servicio..." value="${escH(cobro.q)}" oninput="cobro.q=this.value;refreshCobro()" style="margin-bottom:8px"/>`:''}
       <div id="cb-serv"></div><div id="cb-extra"></div></div>
-    <div class="field"><label>¿Le vendiste algún producto?</label><div id="cb-prods"></div></div>
+    <div id="cb-prods-prof"></div>
+    <div class="field"><label>${cobroParaProf?'¿Vos le vendiste algún producto aparte?':'¿Le vendiste algún producto?'}</label><div id="cb-prods"></div></div>
     <div class="field"><label>${cobroParaProf?'🔁 ¿Reagendó?':'🔁 ¿Le reagendaste el turno?'}</label><div id="cb-reag"></div></div>
     <div class="field"><label>Medio de pago</label><div id="cb-medio" style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px"></div></div>
     <div class="field" id="cb-motivo-wrap" style="display:none"><label>Motivo (opcional)</label><input id="cb-motivo" type="text" placeholder="Ej: se le olvidó la billetera, paga mañana..." value="${escH(cobro.motivo)}" oninput="cobro.motivo=this.value"/></div>
@@ -316,6 +317,34 @@ function renderCobroForm(c,back,color){
   refreshCobro(); renderSugerenciasCliente();
 }
 
+// Productos que el profesional ya cargó al "Registrar turno" (ver cobro.prodsProf) -- de solo lectura acá, van
+// a su quincena igual que el servicio. Separado de "cb-prods" (lo que agrega AHORA quien está cobrando, que es
+// otra cosa: si recepción vende un producto aparte al momento de cobrar, es una venta de ELLA, no del
+// profesional -- antes todo se mezclaba y quedaba mal atribuido). Pedido de Ivo, 1/10/2026.
+function renderProdsProfCobro(){
+  const el=document.getElementById('cb-prods-prof'); if(!el) return;
+  const items=Object.entries(cobro.prodsProf||{}).filter(([id,n])=>n>0);
+  if(!items.length){ el.innerHTML=''; return; }
+  el.innerHTML=`<div class="card" style="margin-bottom:10px;border-color:rgba(74,19,107,.4)"><div style="font-size:11px;font-weight:800;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">📦 Productos que cargó ${escH(cobroParaProf?cobroParaProf.name:'')}</div>${items.map(([id,n])=>{ const p=productos.find(x=>x.id===id); return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:2px 0"><span>${escH(p?p.nombre:'(producto borrado)')} x${n}</span><span>${fp((p?p.precioVenta:0)*n)}</span></div>`; }).join('')}</div>`;
+}
+function renderProdsCobro(targetId,color){
+  const prodsEl=document.getElementById(targetId); if(!prodsEl) return;
+  const hayProdsElegidos=Object.values(cobro.prods).some(n=>n>0);
+  if(cobro.venderProd!=='si'&&!hayProdsElegidos){
+    prodsEl.innerHTML=`<div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button type="button" onclick="cobroVenderProd('${v}')" style="flex:1;${pillStyle(cobro.venderProd===v,color)}">${l}</button>`).join('')}</div>`;
+  } else {
+    const disp=productos.filter(p=>p.stock>0||(cobro.prods[p.id]||0)>0);
+    prodsEl.innerHTML=`<button class="lnk" style="margin-bottom:8px" onclick="cobroVenderProd('no')">✕ No, sin productos</button>`+(disp.length?disp.map(p=>{
+      const qn=cobro.prods[p.id]||0;
+      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <div style="flex:1"><div style="font-size:13px;font-weight:600">${escH(p.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${fp(p.precioVenta)} · quedan ${p.stock}</div></div>
+        <button onclick="cobroQty('${p.id}',-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-size:18px;cursor:pointer">−</button>
+        <div style="min-width:20px;text-align:center;font-size:15px;font-weight:800;${qn?`color:${color}`:'color:var(--muted)'}">${qn}</div>
+        <button onclick="cobroQty('${p.id}',1)" style="width:32px;height:32px;border-radius:50%;border:none;background:${color};color:#fff;font-size:18px;cursor:pointer">+</button>
+      </div>`;
+    }).join(''):'<div style="font-size:12px;color:var(--muted)">No hay productos con stock cargados.</div>');
+  }
+}
 function refreshCobro(){
   const color=profile.color;
   const r=calcCobro();
@@ -362,22 +391,8 @@ function refreshCobro(){
   if(r.esNoche) ex.unshift(`<div style="background:rgba(74,19,107,.12);border:1px solid rgba(74,19,107,.35);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#a89fff;font-weight:700">🌙 Turno de noche (desde las ${escH(nocheCfg().desde)}): precio de lista, sin descuentos. Tu comisión es ${numV(nocheCfg().pct)}% fijo.</div>`);
   document.getElementById('cb-extra').innerHTML=ex.join('');
 
-  const prodsEl=document.getElementById('cb-prods');
-  const hayProdsElegidos=Object.values(cobro.prods).some(n=>n>0);
-  if(cobro.venderProd!=='si'&&!hayProdsElegidos){
-    prodsEl.innerHTML=`<div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button type="button" onclick="cobroVenderProd('${v}')" style="flex:1;${pillStyle(cobro.venderProd===v,color)}">${l}</button>`).join('')}</div>`;
-  } else {
-    const disp=productos.filter(p=>p.stock>0||(cobro.prods[p.id]||0)>0);
-    prodsEl.innerHTML=`<button class="lnk" style="margin-bottom:8px" onclick="cobroVenderProd('no')">✕ No, sin productos</button>`+(disp.length?disp.map(p=>{
-      const qn=cobro.prods[p.id]||0;
-      return `<div style="display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <div style="flex:1"><div style="font-size:13px;font-weight:600">${escH(p.nombre)}</div><div style="font-size:11px;color:var(--muted2)">${fp(p.precioVenta)} · quedan ${p.stock}</div></div>
-        <button onclick="cobroQty('${p.id}',-1)" style="width:32px;height:32px;border-radius:50%;border:1.5px solid var(--border2);background:transparent;color:var(--text);font-size:18px;cursor:pointer">−</button>
-        <div style="min-width:20px;text-align:center;font-size:15px;font-weight:800;${qn?`color:${color}`:'color:var(--muted)'}">${qn}</div>
-        <button onclick="cobroQty('${p.id}',1)" style="width:32px;height:32px;border-radius:50%;border:none;background:${color};color:#fff;font-size:18px;cursor:pointer">+</button>
-      </div>`;
-    }).join(''):'<div style="font-size:12px;color:var(--muted)">No hay productos con stock cargados.</div>');
-  }
+  renderProdsProfCobro();
+  renderProdsCobro('cb-prods',color);
 
   document.getElementById('cb-medio').innerHTML=[['💵','Efectivo','efectivo',r.esNoche?'':`−${DESC_EFECTIVO_PCT}% servicios`],['📱','Mercado Pago','mp',''],['💳','Tarjeta','tarjeta',''],['⏳','Paga después','debe','queda debiendo']].map(([e,l,v,sub])=>{
     const sel=cobro.medio===v;
@@ -462,7 +477,7 @@ async function guardarCobro(){
         id:idd, cliente:cli.nombre, ...base, monto:r.total, montoServicios:r.servicioNeto, aCobrarServ:r.aCobrarServ,
         servicio:nombresSvc, servicios:r.lineas.map(lineaAReg), oferta:ofertaReg,
         descuento:r.descuento, descuentoTipo:r.descTipo, subtotal:r.subtotal, ...extra,
-        productos:r.prodLineas.map(l=>({productoId:l.producto.id,productoNombre:l.producto.nombre,cantidad:l.cantidad,precioUnitario:l.producto.precioVenta,total:l.total,comision:l.comision,costoUnitario:l.producto.costo||0})),
+        productos:[...r.prodLineas,...r.prodLineasProf].map(l=>({productoId:l.producto.id,productoNombre:l.producto.nombre,cantidad:l.cantidad,precioUnitario:l.producto.precioVenta,total:l.total,comision:l.comision,costoUnitario:l.producto.costo||0})),
         motivo:(cobro.motivo||'').trim(), fecha:ymdLocal(new Date()), creadoEn:new Date().toISOString(), saldado:false
       };
       if(profTarget) await modificarDineroDe(profTarget.id,dd=>{ dd.deudores.push(deuda); return true; });
@@ -477,18 +492,28 @@ async function guardarCobro(){
         monto:r.servicioNeto, // lo unico que suma a la quincena
         medio:cobro.medio, fecha, creadoEn
       };
-      const ventas=r.prodLineas.map((l,i)=>({id:id+'p'+i, turnoId:id, cliente, clienteId:base.clienteId, sucursal:base.sucursal, productoId:l.producto.id, productoNombre:l.producto.nombre, cantidad:l.cantidad, precioUnitario:l.producto.precioVenta, total:l.total, comision:l.comision, costoUnitario:l.producto.costo||0, medio:cobro.medio, fecha, creadoEn}));
+      const haceVenta=(l,i,pref)=>({id:id+pref+i, turnoId:id, cliente, clienteId:base.clienteId, sucursal:base.sucursal, productoId:l.producto.id, productoNombre:l.producto.nombre, cantidad:l.cantidad, precioUnitario:l.producto.precioVenta, total:l.total, comision:l.comision, costoUnitario:l.producto.costo||0, medio:cobro.medio, fecha, creadoEn});
+      // ventasProf: productos que el profesional ya había cargado al registrar el turno -> van a SU quincena,
+      // junto con el turno. ventasPropias: productos que agrega AHORA quien está cobrando (recepción, u otro
+      // profesional cobrando directo) -> van a la quincena de QUIEN COBRA, nunca a la del profTarget. Antes
+      // todo se mezclaba en una sola lista y quedaba atribuido al profesional aunque fuera recepción quien
+      // vendió el producto por su cuenta. Pedido de Ivo, 1/10/2026.
+      const ventasProf=r.prodLineasProf.map((l,i)=>haceVenta(l,i,'pp'));
+      const ventasPropias=r.prodLineas.map((l,i)=>haceVenta(l,i,'p'));
       if(profTarget){
-        await modificarDineroDe(profTarget.id,dd=>{ dd.turnos.push(turno); ventas.forEach(v=>dd.ventas.push(v)); return true; });
+        await modificarDineroDe(profTarget.id,dd=>{ dd.turnos.push(turno); ventasProf.forEach(v=>dd.ventas.push(v)); return true; });
       } else {
         if(!dineroData.turnos) dineroData.turnos=[];
-        if(!dineroData.ventas) dineroData.ventas=[];
         dineroData.turnos.push(turno);
-        ventas.forEach(v=>dineroData.ventas.push(v));
-        saveDinero();
       }
+      if(ventasPropias.length){
+        if(!dineroData.ventas) dineroData.ventas=[];
+        ventasPropias.forEach(v=>dineroData.ventas.push(v));
+      }
+      if(!profTarget||ventasPropias.length) saveDinero();
     }
-    if(r.prodLineas.length) ajustarStock(r.prodLineas.map(l=>({id:l.producto.id,delta:-l.cantidad})));
+    const todosProds=[...r.prodLineas,...r.prodLineasProf];
+    if(todosProds.length) ajustarStock(todosProds.map(l=>({id:l.producto.id,delta:-l.cantidad})));
     closeModal('modal-registro');
     showToast(esDeuda?'Anotado como deuda — recepción lo ve para cobrarle':(profTarget?'Cobro guardado ✓ — se sumó a la quincena de '+profTarget.name:'Cobro guardado — recepción ya lo ve ✓'));
     const resenaResp=cobro.resena, resenaSentResp=cobro.resenaSent, paqueteResp=cobro.paqueteOfrecido, paqueteRubroResp=cobro.paqueteRubro, rolQueCobra=profile.role;
@@ -567,6 +592,7 @@ function renderRegistrarTurnoForm(c,back,color){
     <div class="field"><label>¿Qué le hiciste?</label>
       ${serviciosVisibles().length>10?`<input id="cb-q" type="search" placeholder="Buscar servicio..." value="${escH(cobro.q)}" oninput="cobro.q=this.value;refreshRegistroTurno()" style="margin-bottom:8px"/>`:''}
       <div id="cb-serv"></div><div id="cb-extra"></div></div>
+    <div class="field"><label>¿Le vendiste algún producto?</label><div id="cb-prods"></div></div>
     <div class="field"><label>🔁 ¿Reagendó?</label><div id="rt-reag"></div></div>
     <div class="field"><label>🎁 ¿Le comentaste algo de un paquete?</label><div id="rt-paq"></div></div>
     <button class="btn btn-primary" onclick="guardarRegistroTurno()" style="background:${color};margin-top:12px">Registrar turno →</button>`;
@@ -602,6 +628,7 @@ function refreshRegistroTurno(){
   document.getElementById('cb-extra').innerHTML=ex.join('');
   document.getElementById('rt-reag').innerHTML=`<div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button onclick="rtReag('${v}')" style="${pillStyle(cobro.reag.estado===v,color)}">${l}</button>`).join('')}</div>`;
   document.getElementById('rt-paq').innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap">${rubros.map(r=>`<button onclick="rtTogglePaquete('${r.id}')" style="${pillStyle(cobro.paqueteRubro===r.id,color)}">${escH(r.nombre)}</button>`).join('')}</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Tocá el rubro si le comentaste algo; si no, dejalo sin marcar.</div>`;
+  renderProdsCobro('cb-prods',color);
   renderSucCobro();
 }
 async function guardarRegistroTurno(){
@@ -616,10 +643,11 @@ async function guardarRegistroTurno(){
   const ahora=new Date().toISOString();
   const opciones={}, precios={};
   elegidos.forEach(id=>{ if(cobro.opciones[id]!=null) opciones[id]=cobro.opciones[id]; if(cobro.precios[id]!=null) precios[id]=cobro.precios[id]; });
+  const prods={}; Object.entries(cobro.prods||{}).forEach(([pid,n])=>{ if(n>0) prods[pid]=n; });
   const item={id:'rt'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),
     clienteId:cli?cli.id:null, clienteNombre:cli?cli.nombre:nombre, clienteNumero:cli?cli.numero:null,
     servicios:elegidos.map(id=>({id, nombre:(servicios.find(s=>s.id===id)||{}).nombre, precio:precioSvc(id)})),
-    opciones, precios,
+    opciones, precios, prods,
     reagendo:cobro.reag.estado==='si'?'si':'no',
     paqueteOfrecido:cobro.paqueteRubro?'si':'',
     paqueteRubro:cobro.paqueteRubro||null,
@@ -643,6 +671,7 @@ async function abrirCobrarPendiente(id){
   pt.servicios.forEach(s=>{ const real=servicios.find(x=>x.id===s.id); if(real&&real.variable&&s.precio!==real.precio) cobro.precios[s.id]=s.precio; });
   Object.assign(cobro.opciones, pt.opciones||{});
   Object.assign(cobro.precios, pt.precios||{});
+  Object.assign(cobro.prodsProf, pt.prods||{}); // productos que el profesional ya cargó al registrar el turno
   cobro.sucursal=pt.sucursal;
   if(pt.reagendo==='si') cobro.reag.estado='si';
   cobro.paqueteRubro=pt.paqueteRubro||null;
