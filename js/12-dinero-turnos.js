@@ -234,11 +234,11 @@ async function regSelTipo(tipo){ if((tipo==='turno'||tipo==='producto')&&!await 
 function regBack(){ if(regState.step>0){regState.step--;renderRegistro();} else closeModal('modal-registro'); }
 
 // ============ COBRO DE TURNO (servicios + combos + oferta + productos + medio) ============
-let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:''};
+let cobro = {cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:'', profAtendioId:null};
 // Cuando recepcion cobra un turno que un profesional dejo "registrado" en Diego Laure (ver turnosPendientesSt),
 // el cobro tiene que quedar guardado en la quincena de ESE profesional, no en la de quien lo cobra.
 let cobroParaProf=null, cobroPendienteId=null;
-function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:'', rubroAbierto:null}; cobroParaProf=null; cobroPendienteId=null; }
+function resetCobro(){ cobro={cliente:'', clienteId:null, senasSel:[], sucursal:'', reag:{estado:'',motivo:''}, prepagos:[], hora:'', servicios:[], opciones:{}, precios:{}, ofertaId:'', prods:{}, venderProd:'', medio:'efectivo', motivo:'', q:'', descGrupo:null, paqueteRubro:null, paqueteOfrecido:'', resena:'', resenaSent:'', reagFecha:'', reagHora:'', rubroAbierto:null, profAtendioId:null}; cobroParaProf=null; cobroPendienteId=null; }
 function elegirDescCobro(g){ cobro.descGrupo=(cobro.descGrupo===g?null:g); refreshCobro(); }
 
 function ofertasActivas(){ return ofertas.filter(o=>o.activa!==false); }
@@ -300,6 +300,7 @@ function renderCobroForm(c,back,color){
   c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px">${back}<div class="modal-title" style="margin:0">${cobroParaProf?'Cobrar turno 💈':'Cobro del turno 💈'}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     ${cobroParaProf?`<div style="background:rgba(74,19,107,.14);border:1.5px solid rgba(74,19,107,.5);border-radius:12px;padding:10px 12px;margin:-8px 0 16px;font-size:12.5px;font-weight:800;color:var(--accent2)">📝 Paso 2 · Cobrando el turno que registró ${escH(cobroParaProf.name)}</div>`:''}
     <div class="field"><label>Cliente * <span style="color:var(--muted);font-weight:500">(nombre y apellido, teléfono y nacimiento: recepción los necesita)</span></label><input id="turno-nombre" type="text" autocomplete="off" placeholder="Buscá o escribí el nombre..." value="${escH(cobro.cliente)}" oninput="cobroClienteInput(this.value)"/><div id="cb-cli-sug"></div></div>
+    ${(!cobroParaProf&&profile.role==='recepcionista')?'<div class="field"><label>¿Quién atendió a este cliente? *</label><div id="cb-profatendio"></div></div>':''}
     <div id="cb-suc"></div>
     <div id="cb-prepago"></div>
     <div class="field"><label>${cobroParaProf?'Qué se hizo':'¿Qué le hiciste?'}</label>
@@ -383,7 +384,7 @@ function refreshCobro(){
     return `<button onclick="cobroMedio('${v}')" style="min-width:0;padding:12px 3px;border-radius:12px;border:1.5px solid ${sel?color:'var(--border2)'};background:${sel?color+'22':'transparent'};cursor:pointer;font-family:var(--font);font-size:11px;font-weight:700;color:${sel?color:'var(--muted2)'};transition:all .15s"><div style="font-size:20px;margin-bottom:4px">${e}</div>${l}${sub?`<div style="font-size:9.5px;font-weight:600;opacity:.8;margin-top:2px">${sub}</div>`:''}</button>`;
   }).join('');
 
-  renderSucCobro(); renderPrepagoCobro(r); renderReagCobro();
+  renderSucCobro(); renderPrepagoCobro(r); renderReagCobro(); renderProfAtendioCobro();
   const mw=document.getElementById('cb-motivo-wrap'); if(mw) mw.style.display=cobro.medio==='debe'?'':'none';
   const pctServ=r.svcs.length?quincenaActualInfo().pct:0;
   const comServ=r.comFija!=null?Math.round(r.comFija+r.prepTotal*pctServ/100):Math.round(r.servicioNeto*pctServ/100);
@@ -439,8 +440,11 @@ async function guardarCobro(){
   if(profile.role==='profesional'&&cli&&cobro.paqueteOfrecido==='si'&&!cobro.paqueteRubro){ showToast('Elegí qué combinación le gustaría'); return; }
   if(cli&&!cli.yaDejoResena&&!cobro.resena){ showToast('Respondé si dejó una reseña en Google'); return; }
   if(cobroParaProf&&cobro.reag.estado==='si'&&!cobro.reagFecha){ showToast('Elegí día y hora del reagendo en la Agenda'); return; }
+  if(profile.role==='recepcionista'&&!cobroParaProf&&!cobro.profAtendioId){ showToast('Elegí qué profesional atendió al cliente'); return; }
   guardandoCobro=true;
-  const profTarget=cobroParaProf, pendId=cobroPendienteId; // capturados antes de que resetCobro() los borre: es el turno "registrado" de otro profesional que recepcion esta cobrando
+  // profTarget: a quien le queda la comisión. Si viene de "cobrar un turno registrado" ya se sabe (cobroParaProf);
+  // si recepción cobra directo, lo que eligió en "¿quién atendió?" (si no, quedaría mal atribuido a la recepcionista).
+  const profTarget=cobroParaProf||(profile.role==='recepcionista'&&cobro.profAtendioId?allUsers.find(u=>u.id===cobro.profAtendioId):null), pendId=cobroPendienteId; // capturados antes de que resetCobro() los borre: es el turno "registrado" de otro profesional que recepcion esta cobrando
   try{
     const nombresSvc=r.lineas.map(l=>nomSvc(l)).join(' + ');
     const ofD=r.descuentos.find(d=>d.tipo==='oferta');

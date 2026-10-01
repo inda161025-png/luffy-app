@@ -684,6 +684,17 @@ function renderReagCobro(){
     ${r.estado===''?'<div style="font-size:11px;color:var(--muted);margin-top:6px">Queda anotado en la ficha del cliente.</div>':''}`;
 }
 function cobroHora(v){ cobro.hora=v; refreshCobro(); }
+// Cuando recepción cobra un turno DIRECTO (no desde la cola de "Cosas por cobrar", donde ya se sabe quién
+// lo registró), no había forma de decir quién atendió al cliente — la comisión quedaba atribuida a quien
+// estaba logueado cobrando, es decir a la propia recepcionista. Bug real reportado por Ivo (1/10/2026): un
+// corte quedó cobrado dos veces, una a nombre de la recepcionista y otra del profesional que lo corrigió.
+function renderProfAtendioCobro(){
+  const el=document.getElementById('cb-profatendio'); if(!el) return;
+  const color=profile.color;
+  const profs=allUsers.filter(u=>esProf(u)&&sucursalesDe(u).includes(sucursalActual()));
+  el.innerHTML=`<div style="display:flex;flex-wrap:wrap;gap:6px">${profs.map(p=>`<button onclick="cobroElegirProfAtendio('${p.id}')" style="${pillStyle(cobro.profAtendioId===p.id,color)}">${escH(p.name)}</button>`).join('')||'<div style="font-size:12px;color:var(--muted)">No hay profesionales cargados en esta sucursal.</div>'}</div>`;
+}
+function cobroElegirProfAtendio(id){ cobro.profAtendioId=id; refreshCobro(); }
 function renderPrepagoCobro(r){
   const el=document.getElementById('cb-prepago'); if(!el) return;
   const color=profile.color, cli=clienteDe(cobro.clienteId);
