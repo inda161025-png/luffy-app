@@ -4,7 +4,16 @@ const DIAS_SEMANA = [
   {key:'jue',label:'Jueves'}, {key:'vie',label:'Viernes'}, {key:'sab',label:'Sábado'}, {key:'dom',label:'Domingo'},
 ];
 function defaultHorario(){
-  const h={}; DIAS_SEMANA.forEach(d=>{ h[d.key]={activo: d.key!=='dom', inicio:'10:00', fin:'20:00'}; }); return h;
+  const h={}; DIAS_SEMANA.forEach(d=>{ h[d.key]={activo: d.key!=='dom', tramos:[{inicio:'10:00',fin:'20:00'}]}; }); return h;
+}
+// Un día puede tener más de un tramo (ej. 9 a 13 y 16 a 20, con descanso en el medio -- pedido de Ivo,
+// 1/10/2026). Formato viejo (antes de los tramos): {activo,inicio,fin} sin array -- se sigue leyendo bien,
+// tratado como un único tramo, así no hace falta migrar nada ya guardado.
+function tramosDeDia(d){
+  if(!d) return [];
+  if(Array.isArray(d.tramos)&&d.tramos.length) return d.tramos;
+  if(d.inicio&&d.fin) return [{inicio:d.inicio,fin:d.fin}];
+  return [];
 }
 let horarioData = defaultHorario(); // horario laboral del profesional logueado
 let horarioEditando = false;
@@ -27,7 +36,25 @@ function profTrabajaEn(profId,fecha,desdeMin,hastaMin){
   const h=horariosProfs[profId]||defaultHorario();
   const dia=DIAS_SEMANA[(new Date(fecha+'T00:00:00').getDay()+6)%7].key; // getDay(): 0=domingo; DIAS_SEMANA arranca en lunes
   const d=h[dia]; if(!d||!d.activo) return false;
-  return desdeMin>=agMin(d.inicio)&&hastaMin<=agMin(d.fin);
+  return tramosDeDia(d).some(t=>desdeMin>=agMin(t.inicio)&&hastaMin<=agMin(t.fin));
+}
+// HTML de un día del editor de horario (con tramos), compartido entre "Mi perfil" (14-onboarding-social.js) y
+// el editor de Admin (15-admin-panel.js) para no duplicar el marcado. onToggleAttr/onCampoAttr(i,campo)/
+// onAgregarAttr/onQuitarAttr(i) son los strings de onclick/onchange ya armados por quien llama (cada editor
+// apunta a su propio estado en memoria).
+function htmlDiaHorarioTramos(label,diaData,onToggleAttr,onCampoAttr,onAgregarAttr,onQuitarAttr){
+  const tramos=tramosDeDia(diaData);
+  return `<div style="padding:8px 0;border-bottom:1px solid var(--border)">
+    <label style="display:flex;align-items:center;gap:6px;font-size:12px;font-weight:600;cursor:pointer">
+      <input type="checkbox" ${diaData&&diaData.activo?'checked':''} onchange="${onToggleAttr}"/> ${label}
+    </label>
+    ${diaData&&diaData.activo?`<div style="margin:6px 0 0 24px">${tramos.map((t,i)=>`<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
+      <input type="time" value="${t.inicio}" onchange="${onCampoAttr(i,'inicio')}" style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
+      <span style="font-size:11px;color:var(--muted2)">a</span>
+      <input type="time" value="${t.fin}" onchange="${onCampoAttr(i,'fin')}" style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
+      ${tramos.length>1?`<button type="button" onclick="${onQuitarAttr(i)}" style="background:none;border:none;color:#f472b6;font-size:18px;cursor:pointer;padding:0 4px">×</button>`:`<span style="width:26px;flex-shrink:0"></span>`}
+    </div>`).join('')}<button type="button" onclick="${onAgregarAttr}" style="background:none;border:none;color:var(--accent2);font-family:var(--font);font-size:11.5px;font-weight:700;cursor:pointer;padding:0">+ agregar otro horario este día (ej. para un descanso)</button></div>`:''}
+  </div>`;
 }
 
 // Horario sugerido para publicar cada tipo de story — un solo horario global, igual para todo el equipo

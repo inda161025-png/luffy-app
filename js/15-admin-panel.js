@@ -843,24 +843,21 @@ function abrirHorarioProf(profId){
   renderHorarioProf();
   openModal('modal-registro');
 }
-function admHorarioToggle(key,v){ admHorario.dias[key]={...(admHorario.dias[key]||{inicio:'10:00',fin:'20:00'}),activo:v}; renderHorarioProf(); }
-function admHorarioCampo(key,campo,v){ admHorario.dias[key]={...(admHorario.dias[key]||{activo:false}),[campo]:v}; renderHorarioProf(); }
+function admHorarioToggle(key,v){ admHorario.dias[key]={...(admHorario.dias[key]||{tramos:[{inicio:'10:00',fin:'20:00'}]}),activo:v}; renderHorarioProf(); }
+function admHorarioCampo(key,i,campo,v){ const tramos=tramosDeDia(admHorario.dias[key]).slice(); tramos[i]={...tramos[i],[campo]:v}; admHorario.dias[key]={...admHorario.dias[key],tramos}; renderHorarioProf(); }
+function admHorarioAgregarTramo(key){ const tramos=tramosDeDia(admHorario.dias[key]).slice(); tramos.push({inicio:'10:00',fin:'14:00'}); admHorario.dias[key]={...admHorario.dias[key],activo:true,tramos}; renderHorarioProf(); }
+function admHorarioQuitarTramo(key,i){ const tramos=tramosDeDia(admHorario.dias[key]).slice(); tramos.splice(i,1); admHorario.dias[key]={...admHorario.dias[key],tramos}; renderHorarioProf(); }
 function renderHorarioProf(){
   const s=admHorario; if(!s) return;
   const u=allUsers.find(x=>x.id===s.profId); const color=(profile&&profile.color)||'#4A136B';
   document.getElementById('registro-content').innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="modal-title" style="margin:0">🕒 Horario de ${escH(u?u.name:'')}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
-    <div style="font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:12px">Define qué días y en qué horario se le puede reservar un turno a esta persona (Agenda y reserva pública /#reserva).</div>
-    ${DIAS_SEMANA.map(d=>{
-      const h=s.dias[d.key]||{activo:false,inicio:'10:00',fin:'20:00'};
-      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-        <label style="display:flex;align-items:center;gap:6px;width:92px;font-size:12px;font-weight:600;flex-shrink:0">
-          <input type="checkbox" ${h.activo?'checked':''} onchange="admHorarioToggle('${d.key}',this.checked)"/> ${d.label}
-        </label>
-        <input type="time" value="${h.inicio}" ${h.activo?'':'disabled'} onchange="admHorarioCampo('${d.key}','inicio',this.value)" style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
-        <span style="font-size:11px;color:var(--muted2)">a</span>
-        <input type="time" value="${h.fin}" ${h.activo?'':'disabled'} onchange="admHorarioCampo('${d.key}','fin',this.value)" style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
-      </div>`;
-    }).join('')}
+    <div style="font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:12px">Define qué días y en qué horario se le puede reservar un turno a esta persona (Agenda y reserva pública /#reserva). Se puede agregar más de un horario el mismo día (ej. 9 a 13 y 16 a 20, con descanso en el medio).</div>
+    ${DIAS_SEMANA.map(d=>htmlDiaHorarioTramos(d.label,s.dias[d.key],
+      `admHorarioToggle('${d.key}',this.checked)`,
+      (i,campo)=>`admHorarioCampo('${d.key}',${i},'${campo}',this.value)`,
+      `admHorarioAgregarTramo('${d.key}')`,
+      (i)=>`admHorarioQuitarTramo('${d.key}',${i})`
+    )).join('')}
     <button class="btn btn-primary" onclick="guardarHorarioProf()" style="margin-top:14px;background:${color}">Guardar horario</button>`;
 }
 async function guardarHorarioProf(){

@@ -344,22 +344,21 @@ function guardarPerfilCreadorManual(){
   renderPerfil();
 }
 
+// Estado temporal mientras se edita (clon de horarioData) -- permite agregar/quitar tramos (ej. un descanso al
+// mediodía) sin ir leyendo inputs sueltos del DOM al guardar. Pedido de Ivo, 1/10/2026.
+let miHorarioEdit=null;
 function getHorarioHTML(color){
   if(profile.role!=='profesional') return '';
   if(horarioEditando){
+    if(!miHorarioEdit) miHorarioEdit=JSON.parse(JSON.stringify(horarioData));
     return `<div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:10px">
       <div style="font-size:13px;font-weight:700;margin-bottom:12px">🕒 Editar mi horario</div>
-      ${DIAS_SEMANA.map(d=>{
-        const h=horarioData[d.key]||{activo:false,inicio:'10:00',fin:'20:00'};
-        return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
-          <label style="display:flex;align-items:center;gap:6px;width:92px;font-size:12px;font-weight:600;flex-shrink:0">
-            <input type="checkbox" id="h-activo-${d.key}" ${h.activo?'checked':''} onchange="toggleHorarioDia('${d.key}')"/> ${d.label}
-          </label>
-          <input type="time" id="h-inicio-${d.key}" value="${h.inicio}" ${h.activo?'':'disabled'} style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
-          <span style="font-size:11px;color:var(--muted2)">a</span>
-          <input type="time" id="h-fin-${d.key}" value="${h.fin}" ${h.activo?'':'disabled'} style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
-        </div>`;
-      }).join('')}
+      ${DIAS_SEMANA.map(d=>htmlDiaHorarioTramos(d.label,miHorarioEdit[d.key],
+        `miHorarioToggle('${d.key}',this.checked)`,
+        (i,campo)=>`miHorarioCampo('${d.key}',${i},'${campo}',this.value)`,
+        `miHorarioAgregarTramo('${d.key}')`,
+        (i)=>`miHorarioQuitarTramo('${d.key}',${i})`
+      )).join('')}
       <div style="display:flex;gap:8px;margin-top:14px">
         <button onclick="cancelarEdicionHorario()" style="flex:1;padding:12px;border-radius:10px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Cancelar</button>
         <button onclick="guardarHorarioManual()" style="flex:1;padding:12px;border-radius:10px;border:none;background:${color};color:#fff;font-family:var(--font);font-size:13px;font-weight:700;cursor:pointer">Guardar</button>
@@ -369,32 +368,22 @@ function getHorarioHTML(color){
   const activos=DIAS_SEMANA.filter(d=>horarioData[d.key]?.activo);
   return `<div style="background:var(--s1);border:1px solid var(--border);border-radius:14px;padding:16px;margin-top:10px">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px"><div style="font-size:13px;font-weight:700">🕒 Mi horario laboral</div><button onclick="empezarEdicionHorario()" style="background:none;border:none;color:var(--muted2);font-family:var(--font);font-size:11px;font-weight:600;cursor:pointer">Editar</button></div>
-    ${activos.length?activos.map(d=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span>${d.label}</span><span style="color:var(--muted2)">${horarioData[d.key].inicio} – ${horarioData[d.key].fin}</span></div>`).join(''):'<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">Sin días cargados</div>'}
+    ${activos.length?activos.map(d=>`<div style="display:flex;justify-content:space-between;font-size:12px;padding:4px 0"><span>${d.label}</span><span style="color:var(--muted2)">${tramosDeDia(horarioData[d.key]).map(t=>t.inicio+' – '+t.fin).join(' y ')}</span></div>`).join(''):'<div style="font-size:12px;color:var(--muted);text-align:center;padding:8px">Sin días cargados</div>'}
   </div>`;
 }
+function miHorarioToggle(key,v){ miHorarioEdit[key]={...(miHorarioEdit[key]||{tramos:[{inicio:'10:00',fin:'20:00'}]}),activo:v}; renderPerfil(); }
+function miHorarioCampo(key,i,campo,v){ const tramos=tramosDeDia(miHorarioEdit[key]).slice(); tramos[i]={...tramos[i],[campo]:v}; miHorarioEdit[key]={...miHorarioEdit[key],tramos}; renderPerfil(); }
+function miHorarioAgregarTramo(key){ const tramos=tramosDeDia(miHorarioEdit[key]).slice(); tramos.push({inicio:'10:00',fin:'14:00'}); miHorarioEdit[key]={...miHorarioEdit[key],activo:true,tramos}; renderPerfil(); }
+function miHorarioQuitarTramo(key,i){ const tramos=tramosDeDia(miHorarioEdit[key]).slice(); tramos.splice(i,1); miHorarioEdit[key]={...miHorarioEdit[key],tramos}; renderPerfil(); }
 
-function toggleHorarioDia(key){
-  const chk=document.getElementById('h-activo-'+key);
-  const ini=document.getElementById('h-inicio-'+key);
-  const fin=document.getElementById('h-fin-'+key);
-  if(ini) ini.disabled=!chk.checked;
-  if(fin) fin.disabled=!chk.checked;
-}
-
-function empezarEdicionHorario(){ horarioEditando=true; renderPerfil(); }
-function cancelarEdicionHorario(){ horarioEditando=false; renderPerfil(); }
+function empezarEdicionHorario(){ horarioEditando=true; miHorarioEdit=JSON.parse(JSON.stringify(horarioData)); renderPerfil(); }
+function cancelarEdicionHorario(){ horarioEditando=false; miHorarioEdit=null; renderPerfil(); }
 
 function guardarHorarioManual(){
-  const nuevo={};
-  DIAS_SEMANA.forEach(d=>{
-    const activo=document.getElementById('h-activo-'+d.key)?.checked||false;
-    const inicio=document.getElementById('h-inicio-'+d.key)?.value||'10:00';
-    const fin=document.getElementById('h-fin-'+d.key)?.value||'20:00';
-    nuevo[d.key]={activo,inicio,fin};
-  });
-  horarioData=nuevo;
+  horarioData=miHorarioEdit;
+  horariosProfs[profile.id]=horarioData; // toma efecto ya mismo en profTrabajaEn(), sin esperar un reload
   saveHorario();
-  horarioEditando=false;
+  horarioEditando=false; miHorarioEdit=null;
   showToast('Horario guardado ✓');
   renderPerfil();
 }
