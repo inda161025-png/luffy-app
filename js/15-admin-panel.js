@@ -832,6 +832,46 @@ async function guardarRubrosProf(profId){
   closeModal('modal-registro'); showToast('Rubros guardados ✓'); refreshCurrentView();
   if(profile&&profile.id===profId) setTimeout(guiaInicial,500);
 }
+// ---------- Admin: horario laboral de cualquier integrante del equipo ----------
+// Pedido de Ivo (1/10/2026): poder cargar el horario de cada profesional él mismo desde Admin, en vez de
+// depender de que cada uno entre a su propio perfil y lo haga solo -- hace falta YA para que el fix de
+// disponibilidad real (ver profTrabajaEn en 02-horarios-auth.js) proteja a todo el equipo desde hoy.
+let admHorario=null;
+function abrirHorarioProf(profId){
+  const u=allUsers.find(x=>x.id===profId); if(!u) return;
+  admHorario={profId,dias:JSON.parse(JSON.stringify(horariosProfs[profId]||defaultHorario()))};
+  renderHorarioProf();
+  openModal('modal-registro');
+}
+function admHorarioToggle(key,v){ admHorario.dias[key]={...(admHorario.dias[key]||{inicio:'10:00',fin:'20:00'}),activo:v}; renderHorarioProf(); }
+function admHorarioCampo(key,campo,v){ admHorario.dias[key]={...(admHorario.dias[key]||{activo:false}),[campo]:v}; renderHorarioProf(); }
+function renderHorarioProf(){
+  const s=admHorario; if(!s) return;
+  const u=allUsers.find(x=>x.id===s.profId); const color=(profile&&profile.color)||'#4A136B';
+  document.getElementById('registro-content').innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div class="modal-title" style="margin:0">🕒 Horario de ${escH(u?u.name:'')}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);line-height:1.5;margin-bottom:12px">Define qué días y en qué horario se le puede reservar un turno a esta persona (Agenda y reserva pública /#reserva).</div>
+    ${DIAS_SEMANA.map(d=>{
+      const h=s.dias[d.key]||{activo:false,inicio:'10:00',fin:'20:00'};
+      return `<div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border)">
+        <label style="display:flex;align-items:center;gap:6px;width:92px;font-size:12px;font-weight:600;flex-shrink:0">
+          <input type="checkbox" ${h.activo?'checked':''} onchange="admHorarioToggle('${d.key}',this.checked)"/> ${d.label}
+        </label>
+        <input type="time" value="${h.inicio}" ${h.activo?'':'disabled'} onchange="admHorarioCampo('${d.key}','inicio',this.value)" style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
+        <span style="font-size:11px;color:var(--muted2)">a</span>
+        <input type="time" value="${h.fin}" ${h.activo?'':'disabled'} onchange="admHorarioCampo('${d.key}','fin',this.value)" style="flex:1;min-width:0;background:var(--s2);border:1.5px solid var(--border2);border-radius:8px;padding:6px;color:var(--text);font-family:var(--font);font-size:12px"/>
+      </div>`;
+    }).join('')}
+    <button class="btn btn-primary" onclick="guardarHorarioProf()" style="margin-top:14px;background:${color}">Guardar horario</button>`;
+}
+async function guardarHorarioProf(){
+  const s=admHorario; if(!s) return;
+  horariosProfs[s.profId]=s.dias; // toma efecto ya mismo en profTrabajaEn(), sin esperar un reload
+  try{ localStorage.setItem('luffy_horario_'+s.profId, JSON.stringify(s.dias)); }catch(e){}
+  if(DB){ try{ await DB.doc('luffy/horario_'+s.profId).set(s.dias); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
+  if(profile&&profile.id===s.profId) horarioData=s.dias; // si el admin se edita a si mismo (tambienProf)
+  const u=allUsers.find(x=>x.id===s.profId);
+  admHorario=null; closeModal('modal-registro'); showToast('Horario de '+(u?u.name:'')+' guardado ✓');
+}
 function refrescarRubrosPropios(){
   if(!DB||!profile||profile.role!=='profesional') return;
   Promise.resolve(DB.doc('luffy/rubros_prof').get()).then(r=>{
