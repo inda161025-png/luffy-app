@@ -311,7 +311,10 @@ function agGrid(){
   // temporal de reagendo desde un cobro, no lo pisamos). Recepcion/admin siguen viendo la grilla completa de
   // siempre, con el filtro de reagendo si corresponde (pedido de Ivo, 28/09/2026).
   const soyProfesional=profile.role==='profesional';
-  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal)&&(soyProfesional?u.id===profile.id:(!agProfFiltro||u.id===agProfFiltro)));
+  // esProf(), no u.role==='profesional' a secas: un admin con "también trabajo como profesional" (ej. Ivo) nunca
+  // aparecía como columna acá, ni en modo admin (viendo todas) ni se le ofrecía a nadie agendarle un turno — su
+  // propia Agenda quedaba invisible. Bug reportado por Ivo (1/10/2026).
+  const profs=allUsers.filter(u=>esProf(u)&&sucursalesDe(u).includes(agState.sucursal)&&(soyProfesional?u.id===profile.id:(!agProfFiltro||u.id===agProfFiltro)));
   if(!profs.length){ wrap.innerHTML='<div style="padding:24px 16px;text-align:center;color:var(--muted);font-size:13px">No hay profesionales asignados a esta sucursal.</div>'; return; }
   const slots=agSlots(), rowH=32;
   const turnos=agendaSt.list.filter(a=>a.fecha===agState.fecha&&a.sucursal===agState.sucursal&&agEstado(a)!=='cancelado');
@@ -445,7 +448,7 @@ function renderAgForm(){
     ?`<div style="display:flex;flex-wrap:wrap;gap:6px">${(grupos[rids[0]]||[]).map(pill).join('')}</div>`
     :`<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px">${rids.map(rid=>{ const n=grupos[rid].filter(x=>s.servicios.includes(x.id)).length; return `<button type="button" onclick="agAbrirRubro('${rid}')" style="${pillStyle(s.rubroAbierto===rid,color)}">${escH(nombreRubro(rid)||'Otros')}${n?' ('+n+')':''}</button>`; }).join('')}</div>`
       +(s.rubroAbierto&&grupos[s.rubroAbierto]?`<div style="display:flex;flex-wrap:wrap;gap:6px">${grupos[s.rubroAbierto].map(pill).join('')}</div>`:'<div style="font-size:11.5px;color:var(--muted2)">Tocá un rubro para ver sus servicios.</div>');
-  const profs=allUsers.filter(u=>u.role==='profesional'&&sucursalesDe(u).includes(agState.sucursal));
+  const profs=allUsers.filter(u=>esProf(u)&&sucursalesDe(u).includes(agState.sucursal));
   const cont=document.getElementById('registro-content');
   const box=document.querySelector('#modal-registro .modal-box'); const st=box?box.scrollTop:0;
   cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:16px"><div class="modal-title" style="margin:0">${s.editId?'Reagendar':'Agendar turno'} 📅</div><button onclick="agPendingPaquete=null;closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
