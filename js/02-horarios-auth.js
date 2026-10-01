@@ -9,6 +9,27 @@ function defaultHorario(){
 let horarioData = defaultHorario(); // horario laboral del profesional logueado
 let horarioEditando = false;
 
+// Horario laboral de CADA profesional (no solo el propio), para que la reserva de horarios reales (interna y
+// pública) sepa qué días/horas trabaja de verdad cada uno. Hasta acá se guardaba y se mostraba en "Mi perfil"
+// pero nada lo leía al armar los horarios ofrecidos — se ofrecía cualquier hora del día como libre para
+// cualquier profesional, sin filtrar. Bug crítico reportado por Ivo el día del lanzamiento (1/10/2026).
+let horariosProfs={};
+async function loadHorariosProfs(){
+  allUsers.filter(u=>esProf(u)).forEach(u=>{ try{ const c=JSON.parse(localStorage.getItem('luffy_horario_'+u.id)||'null'); if(c) horariosProfs[u.id]=c; }catch(e){} });
+  if(!DB) return;
+  const profs=allUsers.filter(u=>esProf(u));
+  await Promise.all(profs.map(u=>Promise.resolve(DB.doc('luffy/horario_'+u.id).get()).then(r=>{ if(r){ horariosProfs[u.id]=r; try{localStorage.setItem('luffy_horario_'+u.id,JSON.stringify(r));}catch(e){} } }).catch(()=>{})));
+}
+// Si el profesional todavía no guardó nunca su horario en "Mi perfil" (hoy, el caso más común: esto recién
+// empieza a importar), se usa el mismo horario por defecto que ya se le muestra ahí (lun a sáb 10 a 20) en vez
+// de no filtrar nada — mejor acotar a algo razonable que seguir ofreciendo cualquier hora del día.
+function profTrabajaEn(profId,fecha,desdeMin,hastaMin){
+  const h=horariosProfs[profId]||defaultHorario();
+  const dia=DIAS_SEMANA[(new Date(fecha+'T00:00:00').getDay()+6)%7].key; // getDay(): 0=domingo; DIAS_SEMANA arranca en lunes
+  const d=h[dia]; if(!d||!d.activo) return false;
+  return desdeMin>=agMin(d.inicio)&&hastaMin<=agMin(d.fin);
+}
+
 // Horario sugerido para publicar cada tipo de story — un solo horario global, igual para todo el equipo
 const STORY_HORARIOS_DEFAULT = {buenos_dias:'09:00', turnos_libres:'11:00', resultado:'16:00', cierre:'20:00'};
 let storyHorarios = {...STORY_HORARIOS_DEFAULT};
@@ -261,7 +282,7 @@ async function guardarRubrosDe(id,lista){
 
 // Todo lo que se carga de la nube necesita sesion iniciada
 function cargarCatalogos(){
-  loadStoryHorarios(); loadStoryRecTextos(); cargarEstadoCaja(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadTareasEquipo(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja(); loadTurnosRec(); loadProveedores(); loadDecisionesCom();
+  loadStoryHorarios(); loadStoryRecTextos(); cargarEstadoCaja(); loadProductos(); loadServicios(); loadOfertas(); loadRubros(); loadCombos(); loadReglasReels(); loadTareasRecepcion(); loadTareasEquipo(); loadCierres(); loadSucursales(); loadPromos(); loadSocial(); loadPuntosReglas(); loadFinanzas(); loadCaja(); loadTurnosRec(); loadProveedores(); loadDecisionesCom(); loadHorariosProfs();
   if(DB) Promise.resolve(DB.doc('luffy/reels').get()).then(r=>{ if(mergeReels(r)){ persistReelsLocal(); refreshCurrentView(); } }).catch(()=>{});
 }
 

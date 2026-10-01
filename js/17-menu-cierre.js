@@ -239,6 +239,9 @@ async function rpCargarDatos(){
     // (luffy/rubros_prof), no en luffy/users -- sin este paso, rubrosDeUsuario() siempre daba "sin
     // restriccion" acá y el filtro de profesional por rubro no filtraba nada (bug real, reportado por Ivo).
     await cargarRubrosProf();
+    // Mismo tipo de bug: sin el horario laboral de cada profesional, rpSlotsLibres() ofrecía cualquier hora
+    // como libre sin filtrar por día/horario real de trabajo (bug real, reportado por Ivo el 1/10/2026).
+    await loadHorariosProfs();
   }catch(e){}
 }
 // French no tiene los demas rubros. OJO: no usar sucursalConRecepcion() aca — esa funcion mira si HAY UNA
@@ -273,6 +276,7 @@ function rpSlotsLibres(profId,fecha,servicioIds){
   const hoy=hoyStr(), ahoraMin=fecha===hoy?(new Date().getHours()*60+new Date().getMinutes()):-1;
   const libres=agSlots().filter(m=>{
     if(m+dur>AG_FIN) return false;
+    if(!profTrabajaEn(profId,fecha,m,m+dur)) return false;
     for(let i=0;i<pasos;i++) if(ocupadoMin.has(m+i*AG_PASO)) return false;
     if(fecha===hoy&&m<=ahoraMin+30) return false;
     return true;
