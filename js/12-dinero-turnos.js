@@ -632,6 +632,10 @@ async function abrirCobrarPendiente(id){
   if(!pt||pt.estado!=='pendiente'){ showToast('Ese turno ya no está'); return; }
   const prof=allUsers.find(u=>u.id===pt.profId);
   if(!prof){ showToast('No encuentro al profesional que lo registró'); return; }
+  // Sale de "Cosas por cobrar" (ver cosasPorCobrarAbierto) para que el poll de 15s de recepción no vuelva a
+  // mostrar la lista encima de este cobro mientras está en curso — era la causa del bug "se sale del cobro
+  // a cada rato" reportado por Ivo el 1/10/2026.
+  cosasPorCobrarAbierto=false;
   if(!await cajaOkParaCobrar(pt.sucursal)) return;
   resetCobro();
   cobro.clienteId=pt.clienteId; cobro.cliente=pt.clienteNombre;

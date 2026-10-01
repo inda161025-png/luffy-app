@@ -124,10 +124,20 @@ function sucCajaDe(){
   }catch(e){ return null; }
 }
 async function cajaOkAccion(){ return cajaOkParaCobrar(sucCajaDe()); }
-// Todo lo que mueve plata pide la caja abierta
+// Todo lo que mueve plata pide la caja abierta. Tambien se sale de "Cosas por cobrar"/"Caja" (ver
+// cosasPorCobrarAbierto/cajaCompletaAbierta) para que el poll de 15s de recepción no vuelva a pisar esta
+// pantalla con la lista de nuevo mientras el usuario todavia la esta completando (bug reportado por Ivo
+// 1/10/2026: "se sale del cobro a cada rato" — renderRecepcion() reabría la lista encima de lo que fuera
+// que el usuario tuviera abierto, porque esos flags solo se apagaban al cerrar el modal entero).
 ['abrirVentaMembresia','abrirVentaPaquete','abrirPaqueteProximaVisita','abrirCobroDeuda','abrirFormSena','abrirVentaProducto'].forEach(n=>{
   const f=window[n]; if(typeof f!=='function') return;
-  window[n]=async function(...a){ if(!await cajaOkAccion()) return; return f.apply(this,a); };
+  window[n]=async function(...a){ if(!await cajaOkAccion()) return; cosasPorCobrarAbierto=false; cajaCompletaAbierta=false; return f.apply(this,a); };
+});
+// Acciones de Caja: no mueven plata por si mismas (no piden caja abierta), pero tienen el mismo problema
+// de quedar pisadas por el refresco automático si cajaCompletaAbierta sigue prendido.
+['abrirCambioRecepcionista','abrirMovCaja','cajaDetalle','abrirCierreCaja'].forEach(n=>{
+  const f=window[n]; if(typeof f!=='function') return;
+  window[n]=function(...a){ cosasPorCobrarAbierto=false; cajaCompletaAbierta=false; return f.apply(this,a); };
 });
 
 // ---------- que se cobro en el dia (todo lo de la sucursal, sin importar quien atendio la caja) ----------
