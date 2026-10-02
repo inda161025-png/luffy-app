@@ -56,6 +56,12 @@ const movsVivos=(s)=>(s.movs||[]).filter(m=>!m.borrado);
 
 // Lo que entro solo durante la caja: cobros de cada profesional (por medio) y membresias/paquetes vendidos
 const enCajaSuc=(s,sid)=>(s.sucursales&&s.sucursales.length)?s.sucursales.includes(sid):sucursalConRecepcion(sid);
+// Para la PLATA de la caja (esperado de efectivo/cuenta) hace falta algo mas estricto que enCajaSuc: una
+// sucursal sin recepcion propia (ej. French) queda "sincronizada" en s.sucursales para que su caja figure
+// abierta y su resumen del dia se vea (enCajaSuc), pero su efectivo/cuenta NUNCA entra físicamente en la
+// caja de Diego Laure, así que no puede sumarse al esperado. Bug real reportado por Ivo el 2/10/2026: la
+// caja de Diego Laure venia inflandose con el efectivo (y el MP/cuenta) cobrado en French.
+const enCajaEsperado=(s,sid)=>sucursalConRecepcion(sid)&&enCajaSuc(s,sid);
 function cajaAuto(s){
   const prev=todasSesiones().filter(x=>x.cierre&&String(x.apertura.ts)<String(s.apertura.ts)).pop();
   // lo cobrado desde que cerro la caja anterior (aunque haya sido de noche o con la caja cerrada) entra en la caja que se abre
@@ -65,12 +71,12 @@ function cajaAuto(s){
   allUsers.filter(u=>esProf(u)||u.role==='recepcionista').forEach(u=>{
     let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
     if(profile&&u.id===profile.id&&profile.role!=='admin'&&dineroData) dd=dineroData;
-    (dd.turnos||[]).filter(t=>dentro(t.creadoEn)&&enCajaSuc(s,t.sucursal||u.sucursal)).forEach(t=>add(u.id,u.name,t.medio,numV(t.aCobrar!=null?t.aCobrar:t.monto)));
-    (dd.ventas||[]).filter(v=>dentro(v.creadoEn)&&enCajaSuc(s,v.sucursal||u.sucursal)).forEach(v=>add(u.id,u.name,v.medio,numV(v.total)));
+    (dd.turnos||[]).filter(t=>dentro(t.creadoEn)&&enCajaEsperado(s,t.sucursal||u.sucursal)).forEach(t=>add(u.id,u.name,t.medio,numV(t.aCobrar!=null?t.aCobrar:t.monto)));
+    (dd.ventas||[]).filter(v=>dentro(v.creadoEn)&&enCajaEsperado(s,v.sucursal||u.sucursal)).forEach(v=>add(u.id,u.name,v.medio,numV(v.total)));
   });
-  membresiasSt.list.filter(m=>dentro(m.creadoEn)&&(!m.sucursal||enCajaSuc(s,m.sucursal))).forEach(m=>add('memb','Membresías vendidas',m.medio,numV(m.precio)));
-  paquetesSt.list.filter(p=>dentro(p.creadoEn)&&(!p.sucursal||enCajaSuc(s,p.sucursal))).forEach(p=>add('paq','Paquetes vendidos',p.medio,numV(p.total)));
-  senasSt.list.filter(x=>dentro(x.ts)&&(!x.sucursal||enCajaSuc(s,x.sucursal))).forEach(x=>add('sena','Señas recibidas',x.medio,numV(x.monto)));
+  membresiasSt.list.filter(m=>dentro(m.creadoEn)&&(!m.sucursal||enCajaEsperado(s,m.sucursal))).forEach(m=>add('memb','Membresías vendidas',m.medio,numV(m.precio)));
+  paquetesSt.list.filter(p=>dentro(p.creadoEn)&&(!p.sucursal||enCajaEsperado(s,p.sucursal))).forEach(p=>add('paq','Paquetes vendidos',p.medio,numV(p.total)));
+  senasSt.list.filter(x=>dentro(x.ts)&&(!x.sucursal||enCajaEsperado(s,x.sucursal))).forEach(x=>add('sena','Señas recibidas',x.medio,numV(x.monto)));
   return Object.values(lin);
 }
 function cajaSaldos(s){
