@@ -295,6 +295,34 @@ const TAREAS_RECEPCION_DEFAULT = [
 let tareasRecepcion = [...TAREAS_RECEPCION_DEFAULT]; // admin-editable
 let tareasData = {}; // {[fecha]: {[tareaId]: {done, ts}}}
 
+// Checklist de supervisión del encargado (un profesional designado por el admin, flag esEncargado) — pedido de
+// Ivo, confirmado el 2/10/2026. Mismo mecanismo que tareasRecepcion (lista admin-editable, se tilda y queda
+// registrado), pero sin ventana horaria: son tareas de "estar atento durante el día", no de un momento puntual.
+// Reusa el mismo tareasData/toggleTarea/hechaTarea que recepción -- los ids 'eX' no chocan con los 'tX'.
+const TAREAS_ENCARGADO_DEFAULT = [
+  {id:'e1', emoji:'⏰', label:'Controlar que lleguen a horario'},
+  {id:'e2', emoji:'🤝', label:'Supervisar que se cumplan los estándares de atención al cliente'},
+  {id:'e3', emoji:'✂️', label:'Observar la calidad de los cortes y detectar cosas para mejorar'},
+  {id:'e4', emoji:'🧹', label:'Controlar la limpieza de los puestos'},
+  {id:'e5', emoji:'🚽', label:'Supervisar baños, espejos, sillones, etc.'},
+  {id:'e6', emoji:'🔧', label:'Informar problemas en el equipo'},
+  {id:'e7', emoji:'📣', label:'Informar reclamos de clientes'},
+  {id:'e8', emoji:'⚠️', label:'Informar incumplimientos de horarios y normas'},
+];
+let tareasEncargado = [...TAREAS_ENCARGADO_DEFAULT]; // admin-editable
+function loadTareasEncargado(){
+  try{ const t=JSON.parse(localStorage.getItem('luffy_tareas_encargado')||'null'); if(t&&t.length) tareasEncargado=t; }catch(e){}
+  if(DB){
+    DB.doc('luffy/tareas_encargado').get().then(r=>{
+      if(r&&r.list&&r.list.length&&JSON.stringify(r.list)!==JSON.stringify(tareasEncargado)){ tareasEncargado=r.list; try{localStorage.setItem('luffy_tareas_encargado',JSON.stringify(tareasEncargado));}catch(e){} refreshCurrentView(); }
+    }).catch(()=>{});
+  }
+}
+function saveTareasEncargado(){
+  try{localStorage.setItem('luffy_tareas_encargado',JSON.stringify(tareasEncargado));}catch(e){}
+  if(DB){try{DB.doc('luffy/tareas_encargado').set({list:tareasEncargado});}catch(e){}}
+}
+
 function loadTareasRecepcion(){
   try{ const t=JSON.parse(localStorage.getItem('luffy_tareas_recepcion')||'null'); if(t&&t.length&&t.every(x=>x.desde)) tareasRecepcion=t; }catch(e){}
   if(DB){

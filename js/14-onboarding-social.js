@@ -466,7 +466,8 @@ function toggleTarea(tareaId){
   const current=tareasData[hoy][tareaId]||{done:false};
   tareasData[hoy][tareaId]={done:!current.done, ts:new Date().toISOString(), por:profile.name};
   saveTareasData();
-  renderRecepcion();
+  refreshCurrentView(); // antes llamaba renderRecepcion() a mano -- generalizado para que el checklist del
+  // encargado (en el Hub del profesional) también se actualice al tildar, no solo el de recepción
   if(tareasModalAbierto) abrirTareasCompleto();
 }
 function abrirTareasCompleto(){

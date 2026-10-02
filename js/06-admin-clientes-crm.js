@@ -409,6 +409,18 @@ function htmlTareasRec(){
     ${atrasadas.length?`<details class="card" style="margin-bottom:8px;border-color:rgba(244,114,182,.35)"><summary style="cursor:pointer;font-size:13px;font-weight:800;color:#f472b6">⚠️ Atrasadas (${atrasadas.length})</summary>${atrasadas.map(t=>fila(t,true)).join('')}</details>`:''}
     ${prox.length?`<div style="font-size:11.5px;color:var(--muted2);margin:0 2px 10px">⏭ Próximo bloque a las ${prox[0].desde}: ${prox.length} ${prox.length===1?'tarea':'tareas'}</div>`:''}`;
 }
+// ---------- checklist de supervisión del encargado (flag esEncargado) ----------
+// Mismo mecanismo que tareasRecepcion (admin-editable, se tilda y queda registrado) pero sin ventana horaria:
+// son tareas de "estar atento durante el día", no de un momento puntual. Pedido de Ivo, confirmado 2/10/2026.
+function htmlTareasEncargado(){
+  if(!profile||!profile.esEncargado) return '';
+  const hechas=tareasEncargado.filter(t=>hechaTarea(t.id)).length;
+  const fila=(t)=>{ const done=hechaTarea(t.id), por=(tareasData[hoyStr()]||{})[t.id]; return `<div onclick="toggleTarea('${t.id}')" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);cursor:pointer">
+    <div style="width:22px;height:22px;border-radius:7px;border:2px solid ${done?'#34d399':'var(--border2)'};background:${done?'#34d399':'transparent'};display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;color:#0b0b10">${done?'✓':''}</div>
+    <div style="flex:1;font-size:13px;${done?'color:var(--muted2);text-decoration:line-through':''}">${t.emoji||'✅'} ${escH(t.label)}${done&&por&&por.por?` <span style="font-size:10px;color:var(--muted)">· ${escH(por.por)}</span>`:''}</div></div>`; };
+  return `<div class="sec-hdr" style="margin-top:16px;margin-bottom:8px"><span class="sec-title">🕵️ Checklist de encargado (${hechas}/${tareasEncargado.length})</span><button class="sec-btn" onclick="abrirReportarIncidente()" style="background:#f472b6">📣 Reportar</button></div>
+    <div class="card" style="margin-bottom:8px">${tareasEncargado.length?tareasEncargado.map(fila).join(''):'<div style="font-size:13px;color:var(--muted2);padding:8px 0">Sin tareas cargadas</div>'}</div>`;
+}
 
 // ============ TAREAS DEL EQUIPO (rotativas, cualquier rol) ============
 // "Limpiar el baño", etc: no es de un horario fijo como tareasRecepcion, es una tarea que va rotando entre
@@ -475,7 +487,22 @@ function renderAdminTareasEquipo(c){
       const filas=(t.equipo||[]).map(uid=>{ const u=allUsers.find(x=>x.id===uid); return `<div class="ln"><span>${escH(u?u.name:uid)}</span><b>${c2[uid]||0}</b></div>`; }).join('');
       return `<div class="prof-card" style="margin-bottom:10px;padding:14px"><div style="display:flex;align-items:center;gap:8px;margin-bottom:8px"><div style="flex:1;font-size:14px;font-weight:800">${t.emoji||'🔁'} ${escH(t.label)}</div><button class="lnk" onclick="abrirFormTareaEquipo('${t.id}')">Editar</button><button class="lnk" style="color:#f472b6" onclick="borrarTareaEquipo('${t.id}')">Borrar</button></div>
       <div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px">Veces que la hizo cada uno</div>${filas||'<div style="font-size:12px;color:var(--muted)">Sin gente asignada</div>'}</div>`;
-    }).join('')||'<div class="empty"><div class="e-icon">🔁</div><p>No hay tareas del equipo cargadas.</p></div>'}`;
+    }).join('')||'<div class="empty"><div class="e-icon">🔁</div><p>No hay tareas del equipo cargadas.</p></div>'}
+    <div class="sec-hdr" style="margin:18px 0 8px"><span class="sec-title">🕵️ Checklist de encargado</span><button class="lnk" onclick="editarTareasEncargado()">Editar</button></div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Solo lo ve quien tenga el flag "Encargado" (se asigna en Equipo → Cuentas). Son tareas de estar atento durante el día, sin horario fijo.</div>
+    <div class="card">${tareasEncargado.map(t=>`<div style="font-size:12px;padding:3px 0">${t.emoji||'✅'} ${escH(t.label)}</div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Sin tareas cargadas</div>'}</div>`;
+}
+async function editarTareasEncargado(){
+  const actuales=tareasEncargado.map(t=>(t.emoji||'✅')+' '+t.label).join('\n');
+  const nuevo=await uiPrompt('Checklist de encargado',{msg:'Una tarea por línea, con el emoji adelante si querés: "⏰ Controlar que lleguen a horario". Sin horario fijo — se puede tildar en cualquier momento del día.',type:'textarea',value:actuales,ok:'Guardar'});
+  if(nuevo===null) return;
+  const out=[];
+  nuevo.split('\n').map(l=>l.trim()).filter(Boolean).forEach((l,i)=>{
+    let txt=l, emoji='✅'; const e=/^(\p{Extended_Pictographic}️?)\s*(.*)$/u.exec(txt); if(e&&e[2]){ emoji=e[1]; txt=e[2]; }
+    out.push({id:'e'+(i+1),emoji,label:txt});
+  });
+  if(!out.length){ showToast('Necesitás al menos una tarea'); return; }
+  tareasEncargado=out; saveTareasEncargado(); showToast('Checklist actualizado ✓'); renderAdmin();
 }
 let tareaEquipoEdit=null;
 function abrirFormTareaEquipo(id){
