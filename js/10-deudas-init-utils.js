@@ -362,6 +362,13 @@ function renderHub(){
   renderTramoBanner();
   renderCierresPendientesProf();
   { const el=document.getElementById('hub-suc-wrap'); if(el) el.innerHTML=htmlSucursalHub(); }
+  { const card=document.getElementById('hub-agenda-card');
+    if(card&&profile.role==='profesional'){
+      const n=agendaSt.list.filter(a=>a.profId===profile.id&&a.fecha===ymdLocal(new Date())&&agEsActivo(a)).length;
+      card.style.display='flex';
+      const txt=document.getElementById('hub-agenda-txt'); if(txt) txt.textContent='Hoy: '+n+' '+(n===1?'turno':'turnos');
+    } else if(card) card.style.display='none';
+  }
   { const el=document.getElementById('hub-tareasencargado'); if(el) el.innerHTML=htmlTareasEncargado(); }
   { const el=document.getElementById('hub-tareasequipo'); if(el) el.innerHTML=htmlTareasEquipoWidget(); }
 
