@@ -4,7 +4,7 @@
 function mergeDinero(target,remote){
   if(!remote) return false;
   let changed=false;
-  ['turnos','ventas'].forEach(k=>{
+  ['turnos','ventas','gastosMP'].forEach(k=>{
     if(!target[k]) target[k]=[];
     const ids=new Set(target[k].map(x=>x.id));
     (remote[k]||[]).forEach(x=>{ if(!ids.has(x.id)){ target[k].push(x); changed=true; } });
@@ -112,6 +112,35 @@ async function anularDeuda(profId,id){
 }
 function saveYo(){ const pid=profile.id; try{localStorage.setItem('luffy_yo_'+pid,JSON.stringify(yoData));}catch(e){} if(DB){try{DB.doc('luffy/yo_'+pid).set(yoData);}catch(e){}} }
 function saveHorario(){ const pid=profile.id; try{localStorage.setItem('luffy_horario_'+pid,JSON.stringify(horarioData));}catch(e){} if(DB){try{DB.doc('luffy/horario_'+pid).set(horarioData);}catch(e){}} }
+
+// ---------- gastos con el Mercado Pago del local (se descuentan solos de la comisión) ----------
+// Pedido de Ivo (1/10/2026): "los chicos no pueden anotar si hicieron un gasto con el mercadopago del local, y
+// que se les descuente de su comisión". Automático al anotarlo (sin aprobación previa), solo monto + motivo,
+// sin foto de comprobante -- confirmado con Ivo. Se descuenta en la quincena en que se anota (ver
+// renderTrabajo() en 13-generador-editor.js).
+function abrirFormGastoMP(){
+  document.getElementById('registro-content').innerHTML='';
+  renderFormGastoMP();
+  openModal('modal-registro');
+}
+function renderFormGastoMP(){
+  const color=(profile&&profile.color)||'#4A136B';
+  document.getElementById('registro-content').innerHTML=cabeceraModal('💳 Gasto con el MP del local')+`
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">Si usaste el Mercado Pago del local para algo tuyo, anotalo acá — se descuenta solo de tu comisión de esta quincena.</div>
+    <div class="field"><label>Monto</label><input id="gmp-monto" type="number" inputmode="decimal" placeholder="0" autofocus/></div>
+    <div class="field" style="margin-top:8px"><label>¿Para qué fue?</label><input id="gmp-motivo" placeholder="Ej: insumos personales"/></div>
+    <button class="btn btn-primary" onclick="guardarGastoMP()" style="background:${color};margin-top:12px">Guardar</button>`;
+}
+function guardarGastoMP(){
+  const monto=numV(document.getElementById('gmp-monto').value);
+  const motivo=(document.getElementById('gmp-motivo').value||'').trim();
+  if(monto<=0){ showToast('Poné el monto'); return; }
+  if(!motivo){ showToast('Poné para qué fue'); return; }
+  if(!dineroData.gastosMP) dineroData.gastosMP=[];
+  dineroData.gastosMP.push({id:'gmp'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),monto,motivo,fecha:hoyStr(),creadoEn:new Date().toISOString()});
+  saveDinero();
+  closeModal('modal-registro'); showToast('Anotado ✓ — se descuenta de tu comisión de esta quincena'); refreshCurrentView();
+}
 async function prewarm(){ try{ const s=await claudeAPI.use('sample'); if(s) await s('ok',{modelTier:'quick'}); }catch(e){} }
 
 // ============ REGISTRO RAPIDO ============

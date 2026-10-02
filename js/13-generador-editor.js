@@ -556,6 +556,11 @@ function renderTrabajo(wrap){
   const deudoresTodos=[...deudoresPend,...deudoresPagadas];
   const totalDeuda=deudoresPend.reduce((s,d)=>s+saldoDeuda(d),0);
 
+  // Gastos con el Mercado Pago del local: se descuentan solos de la comisión de la quincena en que se anotaron.
+  // Pedido de Ivo (1/10/2026): automático al anotarlo, sin aprobación previa, solo monto + motivo (sin foto).
+  const gastosMP=(dineroData.gastosMP||[]).filter(g=>enElMes(g.fecha)).sort(porReciente);
+  const totalGastosMP=gastosMP.reduce((s,g)=>s+num(g.monto),0);
+
   const currentQ=today.getDate()<=15?1:2;
   const esActual = dineroMesOffset===0 && q===currentQ;
   const mesLabel=viewDate.toLocaleDateString('es-AR',{month:'long',year:'numeric'});
@@ -679,9 +684,16 @@ function renderTrabajo(wrap){
       ${qRes.extra>0?dline('🌙 Plata extra (noche y descuentos altos)','+'+fp(qRes.extra),'color:#a78bfa'):''}
       ${extraAseg>0?dline('🛡️ Monto asegurado','+'+fp(extraAseg),'color:#34d399'):''}
       ${dline('📦 Productos','+'+fp(comisionVentas))}
-      ${dline('<b>Total a cobrar</b>','<b>'+fp(comision+comisionVentas)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px')}
+      ${totalGastosMP>0?dline('💳 Gastos con MP del local','−'+fp(totalGastosMP),'color:#f472b6'):''}
+      ${dline('<b>Total a cobrar</b>','<b>'+fp(comision+comisionVentas-totalGastosMP)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px')}
       ${(qRes.paqNormal+qRes.paqExtra)>0?`<div style="font-size:10.5px;color:var(--muted2);margin-top:6px">De eso, ${fp(qRes.paqNormal)} en Servicios${qRes.paqExtra>0?' y '+fp(qRes.paqExtra)+' en Plata extra':''} vinieron de paquetes ya redimidos.</div>`:''}
     </div>
+
+    <div class="sec-hdr">
+      <span class="sec-title">💳 Gastos con el MP del local</span>
+      <button class="sec-btn" onclick="abrirFormGastoMP()" style="background:#f472b6">+ Anotar</button>
+    </div>
+    ${!gastosMP.length?'<div class="empty"><div class="e-icon">💳</div><p>Nada anotado este período.</p></div>':gastosMP.map(g=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:#f472b6"></div><div class="ti-info"><strong>${escH(g.motivo)}</strong><span>${fechaCorta(g.fecha)}</span></div><div style="text-align:right"><div class="ti-monto" style="color:#f472b6">−${fp(num(g.monto))}</div></div></div>`).join('')}
 
     <div class="sec-hdr">
       <span class="sec-title" style="cursor:pointer" onclick="dineroAbrir('turnos')">💈 Últimos turnos ›</span>

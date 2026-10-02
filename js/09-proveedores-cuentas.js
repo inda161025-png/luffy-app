@@ -448,13 +448,21 @@ function htmlAseguradoProf(a){
   return `<div style="border:1.5px solid ${col}55;background:${col}12;border-radius:14px;padding:10px 12px;margin:6px 0 12px;font-size:12px;line-height:1.5"><b style="color:${col}">🛡 Monto asegurado: ${fp(a.garantizado)}</b> (${comCfg().asegurado.pct}% de tu piso de ${fp(a.piso)})<br>${txt}${a.estado==='auto'||a.estado==='dado'?` Se suman <b>${fp(a.extra)}</b> a tu comisión.`:''}</div>`;
 }
 // ---------- admin: Equipo → Comisiones ----------
+// Lo que anotó un profesional de gastos con el MP del local, dentro de una quincena puntual (se descuenta solo
+// de lo que se le paga — ver abrirFormGastoMP en 12-dinero-turnos.js).
+function gastosMPQuincena(profId,qk){
+  let dd={};
+  if(profile&&profile.id===profId&&typeof dineroData!=='undefined'&&dineroData) dd=dineroData;
+  else { try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+profId)||'{}'); }catch(e){} }
+  return (dd.gastosMP||[]).filter(g=>g.fecha&&quincenaKey(g.fecha)===qk).reduce((a,g)=>a+numV(g.monto),0);
+}
 function renderAdminComisiones(c){
   const cfg=comCfg(), T=tramosVigentes(), n=cfg.nuevos;
   const D=adminDatos(); const qk=quincenaKey(hoyStr());
   const pros=allUsers.filter(u=>esProf(u));
   const esq=(u)=>comisionFijaDe(u)?'Fija '+comisionFijaDe(u)+'%':(u.esquema==='nuevo'?(esNuevoEn(u)?'Nuevo (hasta '+fechaCortaStr(sumaMeses(u.inicio,n.meses))+')':'Nuevo → ya pasó a tramos'):'Por tramos');
-  const filas=pros.map(u=>{ const ts=D.turnos.filter(t=>t.prof.id===u.id); const r=comisionQuincenaDe(u,qk,ts); const a=estadoAsegurado(u,qk,factPorQuincena(ts),r.comision);
-    return `<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(u.name)}</div><div style="font-size:11.5px;color:var(--muted2)">${esq(u)}${numV(u.piso)>0?' · piso '+fpk(u.piso):''} · esta quincena ${fp(r.fact)} → <b style="color:var(--text)">${r.pct}%</b> = ${fp(r.comision)}${a&&extraAplicable(a)?' + '+fp(extraAplicable(a))+' asegurado':''}</div></div><button class="lnk" onclick="abrirComisionUsuario('${u.id}')">Cambiar</button></div></div>`; }).join('');
+  const filas=pros.map(u=>{ const ts=D.turnos.filter(t=>t.prof.id===u.id); const r=comisionQuincenaDe(u,qk,ts); const a=estadoAsegurado(u,qk,factPorQuincena(ts),r.comision); const gmp=gastosMPQuincena(u.id,qk);
+    return `<div class="card" style="margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0"><div style="font-size:13px;font-weight:800">${escH(u.name)}</div><div style="font-size:11.5px;color:var(--muted2)">${esq(u)}${numV(u.piso)>0?' · piso '+fpk(u.piso):''} · esta quincena ${fp(r.fact)} → <b style="color:var(--text)">${r.pct}%</b> = ${fp(r.comision)}${a&&extraAplicable(a)?' + '+fp(extraAplicable(a))+' asegurado':''}${gmp>0?' · <b style="color:#f472b6">−'+fp(gmp)+' MP del local</b> = <b style="color:var(--text)">'+fp(r.comision-gmp)+'</b>':''}</div></div><button class="lnk" onclick="abrirComisionUsuario('${u.id}')">Cambiar</button></div></div>`; }).join('');
   const pend=pendientesAsegurado();
   c.innerHTML=`${pend.length?`<div class="sec-title" style="margin:6px 0 8px;color:#fbbf24">🛡 Asegurados por decidir (${pend.length})</div>${pend.map(x=>`<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.5)"><div style="font-size:13px;font-weight:800">${escH(x.prof.name)} · quincena ${fechaCortaStr(qStart(x.qk))} al ${fechaCortaStr(x.fin)}</div><div style="font-size:12px;color:var(--muted2);margin:3px 0 8px;line-height:1.5">Facturó ${fp(x.fact)} (su piso es ${fpk(x.piso)}). Le corresponde el mínimo asegurado de ${fp(x.garantizado)}: le faltan <b style="color:var(--text)">${fp(x.extra)}</b> para completarlo. Mirá por qué bajó y decidí.</div><div style="display:flex;gap:8px"><button class="btn btn-primary" style="flex:1" onclick="decidirAsegurado('${x.prof.id}','${x.qk}','dar')">Dárselo igual</button><button class="btn btn-ghost" style="flex:1" onclick="decidirAsegurado('${x.prof.id}','${x.qk}','no')">No dárselo</button></div></div>`).join('')}`:''}
     <div class="sec-hdr" style="margin:10px 0 8px"><span class="sec-title">💰 Cómo se paga a cada uno</span></div>${filas||'<div class="empty"><p>No hay profesionales.</p></div>'}
