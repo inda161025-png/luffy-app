@@ -725,8 +725,8 @@ function htmlTurnosPendientesRec(){
       <div style="font-size:14px;font-weight:800"><span style="text-transform:capitalize">${escH(x.clienteNombre)}</span>${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
       <div style="font-size:12px;color:var(--muted2);margin:3px 0;text-transform:capitalize">${escH(x.servicios.map(s=>s.nombre).join(', '))}</div>
       <div style="font-size:11px;color:var(--muted2)">✂️ <span style="text-transform:capitalize">${escH(x.profNombre)}</span> · ${minutosDesde(x.ts)}</div>
-      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-primary" style="flex:1;padding:9px" onclick="abrirCobrarPendiente('${x.id}')">💳 Cobrar${x.reagendo==='si'||x.paqueteRubro?' <span style="opacity:.75;font-weight:600">('+[x.reagendo==='si'?'reagendó':null,x.paqueteRubro?'comentó '+escH(nombreRubro(x.paqueteRubro)||x.paqueteRubro):null].filter(Boolean).join(' · ')+')</span>':''}</button>
-      <button class="btn btn-ghost" style="padding:9px 12px;color:#f472b6" onclick="eliminarTurnoPendiente('${x.id}')">🗑️</button></div></div>`).join('')}`;
+      <div style="display:flex;align-items:center;gap:8px;margin-top:8px"><button class="btn btn-primary" style="flex:1" onclick="abrirCobrarPendiente('${x.id}')">💳 Cobrar${x.reagendo==='si'||x.paqueteRubro?' <span style="opacity:.75;font-weight:600">('+[x.reagendo==='si'?'reagendó':null,x.paqueteRubro?'comentó '+escH(nombreRubro(x.paqueteRubro)||x.paqueteRubro):null].filter(Boolean).join(' · ')+')</span>':''}</button>
+      <button class="btn btn-ghost" style="width:auto;flex:0 0 auto;padding:8px 10px;font-size:12px;color:var(--muted2)" onclick="eliminarTurnoPendiente('${x.id}')" title="Eliminar">🗑️</button></div></div>`).join('')}`;
 }
 // Pedido de Ivo (2/10/2026): sacar un turno "para cobrar" que un profesional mandó mal (ej. equivocado,
 // duplicado). No se cobró nunca, asi que no genera comision/puntos/caja/reagendo -- no toca nada de eso, solo
