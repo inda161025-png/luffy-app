@@ -672,6 +672,11 @@ async function abrirCobrarPendiente(id){
   Object.assign(cobro.opciones, pt.opciones||{});
   Object.assign(cobro.precios, pt.precios||{});
   Object.assign(cobro.prodsProf, pt.prods||{}); // productos que el profesional ya cargó al registrar el turno
+  // Hora real del servicio (cuando el profesional lo registró), no "ahora": si recepción tarda en cobrarlo y
+  // se pasa de una franja horaria con descuento (ej. 20% antes de las 12), el cliente perdía el descuento que
+  // le correspondía por la hora real en que lo atendieron. Bug real reportado por Ivo (1/10/2026). Sigue
+  // editable a mano si hace falta (campo "Hora del turno").
+  if(pt.ts) cobro.hora=new Date(pt.ts).toTimeString().slice(0,5);
   cobro.sucursal=pt.sucursal;
   if(pt.reagendo==='si') cobro.reag.estado='si';
   cobro.paqueteRubro=pt.paqueteRubro||null;
