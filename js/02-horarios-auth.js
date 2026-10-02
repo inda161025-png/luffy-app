@@ -653,7 +653,7 @@ document.addEventListener('touchstart', function(e){
 document.addEventListener('touchmove', function(e){
   if(__touchStartY===null) return;
   const dy = e.touches[0].clientY - __touchStartY;
-  if(dy > 10 && !e.target.closest('.scroll, #hub-scroll, .kanban-scroll, .modal-box, .ob-chat, #login')){
+  if(dy > 10 && !e.target.closest('.scroll, #hub-scroll, .kanban-scroll, .modal-box, .ob-chat, #login, #ag-grid-wrap')){
     e.preventDefault();
   }
 }, {passive:false});
