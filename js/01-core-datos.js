@@ -277,6 +277,20 @@ const TAREAS_RECEPCION_DEFAULT = [
   {id:'t23', emoji:'💰', label:'Cerrar la caja del día: contar efectivo y cuenta', desde:'19:45', hasta:'20:30'},
   {id:'t24', emoji:'🔌', label:'Apagar luces, aire, equipos y computadora', desde:'19:45', hasta:'20:30'},
   {id:'t25', emoji:'🔒', label:'Cerrar el local con llave y alarma', desde:'19:45', hasta:'20:30'},
+  // Agregadas el 2/10/2026 con la lista real que mandó el equipo (ver operacion/tareas-equipo-2026-10-02.md) —
+  // comparadas contra las de arriba para no duplicar (ej. limpieza de baño/piso/sillones/espejo y WhatsApp sin
+  // pendientes ya estaban cubiertas). "Respetar horarios de ingreso y egreso" no se sumó como tarea: es una
+  // expectativa de conducta, no algo que se tilde una vez — queda pendiente de hablarlo aparte.
+  {id:'t26', emoji:'🖥️', label:'Dejar el escritorio despejado y limpio', desde:'19:30', hasta:'20:30'},
+  {id:'t27', emoji:'☕', label:'Dejar la cafetera limpia y los elementos de servir (tazas, vasos) en orden', desde:'08:55', hasta:'10:30'},
+  {id:'t28', emoji:'🍵', label:'Controlar que haya insumos de infusiones (café, té, azúcar, etc.)', desde:'10:30', hasta:'12:30'},
+  {id:'t29', emoji:'📅', label:'Estar atenta a la agenda de las dos sucursales durante el día', desde:'10:30', hasta:'12:30'},
+  {id:'t30', emoji:'🧺', label:'Revisar que no queden toallas sucias en la bacha', desde:'15:30', hasta:'17:30'},
+  {id:'t31', emoji:'📦', label:'Controlar el stock de productos (no solo que estén exhibidos)', desde:'12:30', hasta:'14:00'},
+  {id:'t32', emoji:'🗑️', label:'Vaciar todos los cestos de basura', desde:'19:30', hasta:'20:30'},
+  {id:'t33', emoji:'🧻', label:'Reponer papel, jabón y demás insumos del baño', desde:'08:55', hasta:'10:30'},
+  {id:'t34', emoji:'🪑', label:'Dejar las sillas en los puestos antes de que entren los profesionales de estética (turno mañana)', desde:'08:45', hasta:'09:00'},
+  {id:'t35', emoji:'🪑', label:'Dejar las sillas en los puestos antes de que entren los profesionales de estética (turno tarde)', desde:'14:15', hasta:'14:30'},
 ];
 let tareasRecepcion = [...TAREAS_RECEPCION_DEFAULT]; // admin-editable
 let tareasData = {}; // {[fecha]: {[tareaId]: {done, ts}}}
