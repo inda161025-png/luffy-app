@@ -378,7 +378,7 @@ function agAbrirSlot(profId,minutos){
     rubroAbierto:null, nota:'',
     paqueteId:agPendingPaquete?agPendingPaquete.paqueteId:null,
     itemId:agPendingPaquete?agPendingPaquete.itemId:null,
-    repiteSemanas:0, repiteVeces:4,
+    repite:false, repiteTipo:'semanal', repiteVeces:4,
   };
   renderAgForm();
   openModal('modal-registro');
@@ -418,7 +418,7 @@ function agAbrirDetalle(id){
     <div class="card" style="margin-bottom:12px">
       ${(a.servicios||[]).map(s=>`<div style="font-size:14px;font-weight:700;padding:2px 0">${escH(s.nombre)}</div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Sin servicios cargados</div>'}
       ${precio>0?`<div style="font-size:13px;color:var(--muted2);margin-top:2px">${fp(precio)}</div>`:''}
-      <div style="font-size:12.5px;color:var(--muted2);margin-top:6px">${fechaCortaStr(a.fecha)} · ${a.hora}hs</div>
+      <div style="font-size:12.5px;color:var(--muted2);margin-top:6px">${fechaCortaStr(a.fecha)} · ${a.hora}hs${a.serieId?' · <span style="color:#60a5fa">🔁 turno fijo</span>':''}</div>
       <div style="font-size:12.5px;color:var(--muted2);margin-top:2px">🔒 Se atenderá con: <b style="color:var(--text)">${escH(a.profNombre)}</b></div>
       ${c&&c.tel?`<div style="display:flex;align-items:center;gap:8px;margin-top:8px;font-size:12.5px"><span>📱 ${escH(c.tel)}</span>${wa?`<a href="${wa}" target="_blank" rel="noopener" class="btn btn-ghost" style="padding:4px 10px;font-size:11.5px;text-decoration:none">💬 Hablar por WhatsApp</a>`:''}</div>`:''}
       ${c&&c.email?`<div style="font-size:12.5px;color:var(--muted2);margin-top:4px">✉️ ${escH(c.email)}</div>`:''}
@@ -466,9 +466,14 @@ function renderAgForm(){
     <div class="field"><label>¿Qué le va a hacer?</label>${serviciosHtml}</div>
     <div class="field"><label>Duración (minutos)</label><input type="number" inputmode="numeric" value="${s.duracion}" onchange="agSel.duracion=parseInt(this.value)||30"/></div>
     <div class="field"><label>Nota (opcional)</label><input type="text" value="${escH(s.nota)}" oninput="agSel.nota=this.value" placeholder="Ej: viene con su hijo"/></div>
-    ${(!s.editId&&!s.paqueteId)?`<label class="rub-opt" style="margin-top:4px"><input type="checkbox" ${s.repiteSemanas>0?'checked':''} onchange="agSel.repiteSemanas=this.checked?1:0;renderAgForm()"/> 🔁 Turno recurrente (cliente fiel)</label>
-    ${s.repiteSemanas>0?`<div style="display:flex;gap:8px;align-items:center;margin:6px 0 4px"><span style="font-size:12.5px;color:var(--muted2)">Cada</span><input type="number" min="1" max="8" value="${s.repiteSemanas}" oninput="agSel.repiteSemanas=parseInt(this.value)||1" style="width:60px;text-align:center"/><span style="font-size:12.5px;color:var(--muted2)">semana(s), durante</span><input type="number" min="2" max="26" value="${s.repiteVeces}" oninput="agSel.repiteVeces=parseInt(this.value)||1" style="width:60px;text-align:center"/><span style="font-size:12.5px;color:var(--muted2)">veces</span></div><div style="font-size:11px;color:var(--muted2);margin-bottom:6px">Se cargan todos los turnos de una — si algún horario ya está ocupado, ese día se salta.</div>`:''}`:''}
-    <button class="btn btn-primary" style="background:${color};margin-top:6px" onclick="agGuardar()">${s.editId?'Guardar cambios':(s.repiteSemanas>0?'Agendar todos':'Agendar')}</button>`;
+    ${(!s.editId&&!s.paqueteId)?`<label class="rub-opt" style="margin-top:4px"><input type="checkbox" ${s.repite?'checked':''} onchange="agSel.repite=this.checked;renderAgForm()"/> 🔁 Repetir (turno fijo)</label>
+    ${s.repite?`<div style="margin:6px 0 4px">
+        <div style="font-size:12.5px;color:var(--muted2);margin-bottom:4px">Cada</div>
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">${[['semanal','Semana'],['quincenal','2 semanas'],['mensual','Mes']].map(([v,l])=>`<button type="button" onclick="agSel.repiteTipo='${v}';renderAgForm()" style="${pillStyle(s.repiteTipo===v,color)}">${l}</button>`).join('')}</div>
+        <div style="display:flex;gap:8px;align-items:center"><span style="font-size:12.5px;color:var(--muted2)">Durante</span><input type="number" min="2" max="26" value="${s.repiteVeces}" oninput="agSel.repiteVeces=Math.min(26,Math.max(2,parseInt(this.value)||2))" style="width:60px;text-align:center"/><span style="font-size:12.5px;color:var(--muted2)">veces (tope 26)</span></div>
+        <div style="font-size:11px;color:var(--muted2);margin-top:6px">Se cargan todos de una, validando horario, choques y bloqueos de ${escH(s.profNombre||'el profesional')} — lo que no entre, se avisa cuál quedó afuera y por qué, no se pisa nada en silencio.</div>
+      </div>`:''}`:''}
+    <button class="btn btn-primary" style="background:${color};margin-top:6px" onclick="agGuardar()">${s.editId?'Guardar cambios':(s.repite?'Agendar todos':'Agendar')}</button>`;
   if(box) box.scrollTop=st;
   agRenderSugerencias();
 }
@@ -494,6 +499,18 @@ function agToggleServicio(id){
   renderAgForm();
 }
 function agAbrirRubro(rid){ agSel.rubroAbierto=agSel.rubroAbierto===rid?null:rid; renderAgForm(); }
+// Mismo dia-del-mes, n meses despues (Date normaliza los desbordes: el 31 de un mes corto cae unos dias
+// despues en el mes siguiente -- aceptable, caso borde raro para un turno de peluqueria/barberia).
+function addMeses(s,n){ const [y,m,d]=s.split('-').map(Number); return new Date(Date.UTC(y,m-1+n,d)).toISOString().split('T')[0]; }
+// Por que NO se puede agendar esta fecha/hora para este profesional, o null si esta libre.
+// Usada para validar cada ocurrencia de un turno recurrente antes de crearla (no pisa nada en silencio).
+function agMotivoNoDisponible(profId,fecha,hora,duracion,turnosExistentes){
+  if(turnosExistentes.some(a=>a.profId===profId&&a.fecha===fecha&&a.hora===hora&&a.estado!=='cancelado')) return 'ya tiene un turno a esa hora';
+  const desdeMin=agMin(hora), hastaMin=desdeMin+(duracion||30);
+  if(!profTrabajaEn(profId,fecha,desdeMin,hastaMin)) return 'no trabaja ese día/horario';
+  if(agBloqueosDeHoy(profId,fecha).some(b=>desdeMin<agMin(b.horaHasta)&&hastaMin>agMin(b.horaDesde))) return 'tiene un bloqueo ese horario';
+  return null;
+}
 async function agGuardar(){
   const s=agSel; if(!s) return;
   if(!s.clienteId){ showToast('Elegí un cliente'); return; }
@@ -504,19 +521,27 @@ async function agGuardar(){
   const ahora=new Date().toISOString();
   if(s.editId){
     await agendaSt.cambiar(l=>{ const a=l.find(x=>x.id===s.editId); if(a){ Object.assign(a,{profId:s.profId,profNombre:s.profNombre,fecha:s.fecha,hora:s.hora,duracion:s.duracion||30,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||''}); a.upd=ahora; } });
-  } else if(s.repiteSemanas>0&&s.repiteVeces>1){
-    // Turno recurrente: crea todas las ocurrencias de una, salteando las que ya tienen algo agendado a esa hora
-    let creados=0, saltados=0;
+  } else if(s.repite&&s.repiteVeces>1){
+    // Turno recurrente: crea todas las ocurrencias de una, validando cada fecha contra turnos ya agendados,
+    // bloqueos y horario laboral real del profesional (ver agMotivoNoDisponible). Pedido de Ivo (2/10/2026).
+    const paso=s.repiteTipo==='quincenal'?2:1;
+    const fechas=[]; for(let i=0;i<s.repiteVeces;i++) fechas.push(s.repiteTipo==='mensual'?addMeses(s.fecha,i):addDias(s.fecha,i*paso*7));
+    const serieId='sr'+Date.now().toString(36);
+    const excluidas=[];
     await agendaSt.cambiar(l=>{
-      for(let i=0;i<s.repiteVeces;i++){
-        const fecha=addDias(s.fecha,i*s.repiteSemanas*7);
-        if(l.some(a=>a.profId===s.profId&&a.fecha===fecha&&a.hora===s.hora&&a.estado!=='cancelado')){ saltados++; continue; }
-        l.push({id:'ag'+Date.now().toString(36)+i,sucursal:agState.sucursal,fecha,hora:s.hora,duracion:s.duracion||30,profId:s.profId,profNombre:s.profNombre,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||'',paqueteId:null,itemId:null,estado:'agendado',creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora});
-        creados++;
-      }
+      fechas.forEach((fecha,i)=>{
+        const motivo=agMotivoNoDisponible(s.profId,fecha,s.hora,s.duracion,l);
+        if(motivo){ excluidas.push({fecha,motivo}); return; }
+        l.push({id:'ag'+Date.now().toString(36)+i,sucursal:agState.sucursal,fecha,hora:s.hora,duracion:s.duracion||30,profId:s.profId,profNombre:s.profNombre,clienteId:s.clienteId,clienteNombre:s.clienteNombre,servicios:svcObjs,nota:s.nota||'',paqueteId:null,itemId:null,estado:'agendado',serieId,creadoPorId:profile.id,creadoPorNombre:profile.name,creadoEn:ahora,upd:ahora});
+      });
     });
+    const creados=fechas.length-excluidas.length;
     agSel=null; closeModal('modal-registro');
-    showToast(creados+' turno'+(creados===1?'':'s')+' agendado'+(creados===1?'':'s')+(saltados?' ('+saltados+' saltead'+(saltados===1?'o':'os')+' por estar ocupado)':'')+' ✓');
+    if(excluidas.length){
+      await uiDialog({title:creados+' de '+fechas.length+' turnos agendados',msg:'No se pudieron agendar — '+excluidas.map(e=>fechaCortaStr(e.fecha)+' ('+e.motivo+')').join(', ')+'.',ok:'Entendido',soloOk:true});
+    } else {
+      showToast(creados+' turnos agendados ✓');
+    }
     renderAgenda();
     return;
   } else {
@@ -543,7 +568,12 @@ async function agAbrirCobroDesdeTurno(id){
   // pagando dos veces. Bug reportado por Ivo (1/10/2026).
   renderRegistro();
 }
-async function agCancelar(id){
+function agCancelar(id){
+  const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
+  if(a.serieId){ agAbrirCancelarSerie(a); return; }
+  agCancelarUno(id);
+}
+async function agCancelarUno(id){
   const a=agendaSt.list.find(x=>x.id===id); if(!a) return;
   const ok=await uiConfirm('¿Cancelar este turno?', escH(a.clienteNombre)+' · '+fechaCortaStr(a.fecha)+' '+a.hora+'hs');
   if(!ok) return;
@@ -553,6 +583,32 @@ async function agCancelar(id){
   showToast('Turno cancelado');
   renderAgenda();
   if(a.fecha>=hoyStr()) abrirWaitlist(a); else closeModal('modal-registro');
+}
+// Turno que es parte de una serie fija (repetir): preguntar que alcance tiene la cancelacion, en vez de
+// cancelar directo -- pedido de Ivo (2/10/2026). Nunca toca los que ya se hicieron (estado 'hecho').
+function agAbrirCancelarSerie(a){
+  const cont=document.getElementById('registro-content');
+  cont.innerHTML=cabeceraModal('🔁 Es un turno fijo')+
+    `<div style="font-size:13px;color:var(--muted2);margin-bottom:14px">${escH(a.clienteNombre)} · ${fechaCortaStr(a.fecha)} ${a.hora}hs — es parte de una serie de turnos repetidos. ¿Qué querés cancelar?</div>
+    <button class="btn btn-ghost" style="margin-bottom:8px" onclick="agCancelarUno('${a.id}')">Solo este turno</button>
+    <button class="btn btn-ghost" style="margin-bottom:8px;color:#fbbf24" onclick="agCancelarSerieDesde('${a.serieId}','${a.fecha}')">Este y los que siguen</button>
+    <button class="btn btn-ghost" style="color:#f472b6" onclick="agCancelarSerieCompleta('${a.serieId}')">Toda la serie</button>`;
+}
+async function agCancelarSerieDesde(serieId,desdeFecha){
+  const ok=await uiConfirm('¿Cancelar este turno y los que siguen?','Se cancelan los turnos de esta serie desde '+fechaCortaStr(desdeFecha)+' en adelante (no toca los que ya se hicieron).');
+  if(!ok) return;
+  const ahora=new Date().toISOString(); let n=0;
+  await agendaSt.cambiar(l=>{ l.filter(x=>x.serieId===serieId&&x.fecha>=desdeFecha&&x.estado!=='cancelado'&&x.estado!=='hecho').forEach(x=>{ x.estado='cancelado'; x.upd=ahora; n++; }); });
+  showToast(n+' turno'+(n===1?'':'s')+' cancelado'+(n===1?'':'s')+' ✓');
+  closeModal('modal-registro'); renderAgenda();
+}
+async function agCancelarSerieCompleta(serieId){
+  const ok=await uiConfirm('¿Cancelar toda la serie?','Se cancelan todos los turnos pendientes de esta serie (no toca los que ya se hicieron).');
+  if(!ok) return;
+  const ahora=new Date().toISOString(); let n=0;
+  await agendaSt.cambiar(l=>{ l.filter(x=>x.serieId===serieId&&x.estado!=='cancelado'&&x.estado!=='hecho').forEach(x=>{ x.estado='cancelado'; x.upd=ahora; n++; }); });
+  showToast(n+' turno'+(n===1?'':'s')+' cancelado'+(n===1?'':'s')+' ✓');
+  closeModal('modal-registro'); renderAgenda();
 }
 // Waitlist: al liberarse un horario (cancelacion), ofrecerlo a clientes en riesgo/perdidos del CRM con la oferta de la hora si corresponde
 function agCandidatosWaitlist(a){
