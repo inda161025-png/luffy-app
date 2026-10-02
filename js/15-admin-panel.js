@@ -74,7 +74,7 @@ function renderAdmin(){
   </div>${sec.subs?`<div class="adm-sub">${sec.subs.map(([id,l])=>`<button class="${id===sub?'on':''}" onclick="switchAdminTab('${id}')">${l}</button>`).join('')}</div>`:''}`;
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
-  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlCobrosEditadosPanel()+htmlTareasEquipoWidget()); }
+  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlCobrosEditadosPanel()+htmlTurnosEliminadosPanel()+htmlTareasEquipoWidget()); }
   else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='asegurado') renderAdminAsegurado(c); else if(sub==='tareasequipo') renderAdminTareasEquipo(c); else if(sub==='cuentas') renderAdminCuentas(c); else if(sub==='comisiones') renderAdminComisiones(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else if(sub==='proveedores') renderAdminProveedores(c); else if(sub==='insumos') renderAdminInsumos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
@@ -907,6 +907,32 @@ async function marcarEdicionRevisada(profId,turnoId){
   const ahora=new Date().toISOString();
   await modificarDineroDe(profId,dd=>{ const t=(dd.turnos||[]).find(x=>x.id===turnoId); if(!t) return false; t.revisadoAdmin=true; t.revisadoPor=profile.name; t.revisadoEn=ahora; return true; });
   showToast('Marcado como revisado ✓'); abrirCobrosEditados(); refreshCurrentView();
+}
+// ---------- Admin: turnos "para cobrar" que recepción/admin eliminó — quedan para revisar ----------
+// Pedido de Ivo (2/10/2026), mismo criterio que los cobros corregidos de arriba: eliminar no puede ser mudo.
+function turnosPendientesEliminados(){
+  return turnosPendientesSt.list.filter(x=>x.estado==='eliminado'&&!x.revisadoAdmin).sort((a,b)=>String(b.eliminadoEn||'').localeCompare(String(a.eliminadoEn||'')));
+}
+function htmlTurnosEliminadosPanel(){
+  if(!profile||profile.role!=='admin') return '';
+  const n=turnosPendientesEliminados().length; if(!n) return '';
+  return `<div class="card" onclick="abrirTurnosEliminados()" style="cursor:pointer;margin:10px 0;border-color:rgba(244,114,182,.55);background:rgba(244,114,182,.07)"><div style="font-size:13px;font-weight:800;color:#f472b6">🗑️ ${n} ${n===1?'turno eliminado':'turnos eliminados'} de "Para cobrar"</div><div style="font-size:11.5px;color:var(--muted2)">Alguien sacó un turno que un profesional había mandado a cobrar. Tocá para ver por qué.</div></div>`;
+}
+function abrirTurnosEliminados(){
+  const L=turnosPendientesEliminados();
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🗑️ Turnos eliminados de "Para cobrar" ('+L.length+')')+
+    (L.length?L.map(x=>`<div class="card" style="margin-bottom:8px;border-left:5px solid #f472b6">
+      <div style="font-size:13.5px;font-weight:800">${escH(x.clienteNombre)} <span style="color:var(--muted2);font-weight:600">· ${escH(x.profNombre)}</span></div>
+      <div style="font-size:12px;color:var(--muted2);margin:3px 0">${escH(x.servicios.map(s=>s.nombre).join(', '))}</div>
+      <div style="font-size:11.5px;color:var(--muted2)">Eliminó ${escH(x.eliminadoPor)} el ${fechaCortaStr((x.eliminadoEn||'').slice(0,10))}${x.eliminadoMotivo?' · "'+escH(x.eliminadoMotivo)+'"':''}</div>
+      <button class="lnk" style="margin-top:6px" onclick="marcarEliminacionRevisada('${x.id}')">✓ Marcar como revisado</button>
+    </div>`).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay nada por revisar.</div>');
+  openModal('modal-registro');
+}
+async function marcarEliminacionRevisada(id){
+  const ahora=new Date().toISOString();
+  await turnosPendientesSt.cambiar(l=>{ const x=l.find(z=>z.id===id); if(x){ x.revisadoAdmin=true; x.revisadoPor=profile.name; x.revisadoEn=ahora; } });
+  showToast('Marcado como revisado ✓'); abrirTurnosEliminados(); refreshCurrentView();
 }
 function refrescarRubrosPropios(){
   if(!DB||!profile||profile.role!=='profesional') return;

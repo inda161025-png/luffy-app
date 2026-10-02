@@ -725,7 +725,24 @@ function htmlTurnosPendientesRec(){
       <div style="font-size:14px;font-weight:800"><span style="text-transform:capitalize">${escH(x.clienteNombre)}</span>${x.clienteNumero&&verNumeroCliente()?' #'+x.clienteNumero:''}</div>
       <div style="font-size:12px;color:var(--muted2);margin:3px 0;text-transform:capitalize">${escH(x.servicios.map(s=>s.nombre).join(', '))}</div>
       <div style="font-size:11px;color:var(--muted2)">✂️ <span style="text-transform:capitalize">${escH(x.profNombre)}</span> · ${minutosDesde(x.ts)}</div>
-      <button class="btn btn-primary" onclick="abrirCobrarPendiente('${x.id}')" style="margin-top:8px;padding:9px">💳 Cobrar${x.reagendo==='si'||x.paqueteRubro?' <span style="opacity:.75;font-weight:600">('+[x.reagendo==='si'?'reagendó':null,x.paqueteRubro?'comentó '+escH(nombreRubro(x.paqueteRubro)||x.paqueteRubro):null].filter(Boolean).join(' · ')+')</span>':''}</button></div>`).join('')}`;
+      <div style="display:flex;gap:8px;margin-top:8px"><button class="btn btn-primary" style="flex:1;padding:9px" onclick="abrirCobrarPendiente('${x.id}')">💳 Cobrar${x.reagendo==='si'||x.paqueteRubro?' <span style="opacity:.75;font-weight:600">('+[x.reagendo==='si'?'reagendó':null,x.paqueteRubro?'comentó '+escH(nombreRubro(x.paqueteRubro)||x.paqueteRubro):null].filter(Boolean).join(' · ')+')</span>':''}</button>
+      <button class="btn btn-ghost" style="padding:9px 12px;color:#f472b6" onclick="eliminarTurnoPendiente('${x.id}')">🗑️</button></div></div>`).join('')}`;
+}
+// Pedido de Ivo (2/10/2026): sacar un turno "para cobrar" que un profesional mandó mal (ej. equivocado,
+// duplicado). No se cobró nunca, asi que no genera comision/puntos/caja/reagendo -- no toca nada de eso, solo
+// cambia el estado de turnosPendientesSt (que ya deja de filtrarse en el proximo refresco de 15s, como cualquier
+// otro que ya no esta 'pendiente'). Una seña que el cliente ya haya dejado no depende de este registro: queda
+// en senasSt por profId/cliente, disponible para aplicarse al cobro real que se haga despues.
+async function eliminarTurnoPendiente(id){
+  const pt=turnosPendientesSt.list.find(x=>x.id===id);
+  if(!pt||pt.estado!=='pendiente'){ showToast('Ese turno ya no está'); return; }
+  const motivo=await uiPrompt('Eliminar turno para cobrar',{msg:'¿Por qué se elimina "'+pt.servicios.map(s=>s.nombre).join(', ')+'" de '+pt.clienteNombre+' ('+pt.profNombre+')? No se va a cobrar, y no genera comisión, puntos, caja ni reagendo.',type:'textarea',ok:'Eliminar'});
+  if(motivo==null) return;
+  const m=motivo.trim();
+  if(!m){ showToast('Poné un motivo breve'); return; }
+  const ahora=new Date().toISOString();
+  await turnosPendientesSt.cambiar(l=>{ const x=l.find(z=>z.id===id); if(x&&x.estado==='pendiente'){ x.estado='eliminado'; x.eliminadoPorId=profile.id; x.eliminadoPor=profile.name; x.eliminadoEn=ahora; x.eliminadoMotivo=m; x.upd=ahora; } });
+  showToast('Turno eliminado'); refreshCurrentView();
 }
 
 // ---------- corregir un cobro ya cerrado (ej. se cobró mal) ----------
