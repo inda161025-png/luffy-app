@@ -609,7 +609,11 @@ const FRANJAS_CRM=[
 const MSJ_CRM={
   porperder:(n)=>'Hola '+n+'! Te escribimos de Inda Studio 💈 Hace unas semanas que no te vemos, ¿te reservamos un turno?',
   inactivos:(n)=>'Hola '+n+'! Te extrañamos en Inda Studio 💈 Hace un tiempo que no venís, ¿querés que te consigamos un turno?',
-  perdidos:(n)=>'Hola '+n+' 👋 Somos INDA (antes Inda House). Hace tiempo que no te vemos y queremos que vuelvas — te dejamos un 25% en tu próximo servicio, válido los próximos 30 días, sin vueltas. Nosotros te separamos el turno, vos elegís el día. ¿Arrancamos esta semana?',
+  // 25% solo para +1 año sin venir (confirmado por Ivo, corregido 2/10/2026 — antes se lo ofrecia a toda la franja 61+ dias por error).
+  // De 61 dias a 1 año: mismo recordatorio sin descuento que "En riesgo" (ver marketing/reactivacion-clientes/mensajes.md).
+  perdidos:(n,dias)=>(dias!=null&&dias>365)
+    ?'Hola '+n+' 👋 Somos INDA (antes Inda House). Hace tiempo que no te vemos y queremos que vuelvas — te dejamos un 25% en tu próximo servicio, válido los próximos 30 días, sin vueltas. Nosotros te separamos el turno, vos elegís el día. ¿Arrancamos esta semana?'
+    :'Hola '+n+'! Desde INDA queríamos saber cómo estás — hace un tiempito no te vemos. Tenemos lugar esta semana si querés retomar tu corte/tratamiento de siempre. ¿Te reservamos un horario?',
   sin:(n)=>'Hola '+n+'! Te escribimos de Inda Studio 💈 ¿Te gustaría reservar un turno?',
   espera:()=>'', problema:()=>'',
 };
@@ -826,7 +830,7 @@ function inicialesCliente(nombre){
 }
 function crmCardHtml(c,dias,franja,color){
   const msjFn=MSJ_CRM[franja]||MSJ_CRM.sin;
-  const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0]));
+  const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0],dias));
   return `<div class="crm-kcard" style="border-left:3px solid ${color}" onpointerdown="crmPointerDown(event,'${c.id}')">
     <div style="display:flex;align-items:flex-start;gap:8px">
       <div style="flex:1;min-width:0">
@@ -980,7 +984,7 @@ function renderCRM(){
     el.innerHTML=cabecera+vistaTog+filtrosBlock+
       htmlBuscadorCRM()+
       `<div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${conDias.length} cliente${conDias.length===1?'':'s'} con estos filtros · ${conDias.filter(x=>x.c.tel).length} con teléfono cargado</div>
-      ${conDias.slice(0,80).map(({c,dias})=>{ const msjFn=MSJ_CRM[franjaClienteCRM(c,dias)]||MSJ_CRM.sin; const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0])); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">🔎</div><p>Nadie coincide con estos filtros.</p></div>'}
+      ${conDias.slice(0,80).map(({c,dias})=>{ const msjFn=MSJ_CRM[franjaClienteCRM(c,dias)]||MSJ_CRM.sin; const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0],dias)); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">🔎</div><p>Nadie coincide con estos filtros.</p></div>'}
       ${conDias.length>80?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 80 de ${conDias.length}. Usá el buscador para encontrar a alguien puntual.</div>`:''}`;
     return;
   }
@@ -996,7 +1000,7 @@ function renderCRM(){
     `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${FRANJAS_CRM.map(([f,l])=>`<button onclick="crmSet('${f}')" style="${pillStyle(crmFranja===f,'#4A136B')}">${l} (${counts[f]})</button>`).join('')}</div>
     ${htmlBuscadorCRM()}
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${L.length} cliente${L.length===1?'':'s'} en esta franja · ${conTel} con teléfono cargado</div>
-    ${L.slice(0,80).map(({c,u,dias})=>{ const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0])); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">📱</div><p>No hay clientes en esta franja.</p></div>'}
+    ${L.slice(0,80).map(({c,u,dias})=>{ const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0],dias)); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">📱</div><p>No hay clientes en esta franja.</p></div>'}
     ${L.length>80?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 80 de ${L.length}. Usá el buscador para encontrar a alguien puntual.</div>`:''}`;
 }
 // Cuatro medidores del dia, de las dos sucursales (los turnos de French figuran aunque recepcion no los pueda reagendar en persona)
