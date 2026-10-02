@@ -441,7 +441,14 @@ function agAbrirDetalle(id){
 function renderAgForm(){
   const s=agSel; if(!s) return;
   const color=(profile&&profile.color)||'#4A136B';
-  const grupos={}; servicios.forEach(x=>{ (grupos[x.rubro||'']=grupos[x.rubro||'']||[]).push(x); });
+  // Mostrar solo los servicios del profesional elegido (sus rubros asignados en Admin → Equipo → Cuentas →
+  // Rubros) -- antes se mostraban TODOS los rubros/servicios sin importar quién atiende. Si todavía no se
+  // eligió profesional (recepción/admin recién abriendo el form), se muestran todos hasta que elijan a alguien.
+  // Pedido de Ivo (2/10/2026).
+  const profParaFiltro=s.profId?allUsers.find(u=>u.id===s.profId):null;
+  const rbFiltro=profParaFiltro?rubrosDeUsuario(profParaFiltro):null;
+  const serviciosForm=rbFiltro?servicios.filter(x=>visiblePorRubro(x,rbFiltro)):servicios;
+  const grupos={}; serviciosForm.forEach(x=>{ (grupos[x.rubro||'']=grupos[x.rubro||'']||[]).push(x); });
   const rids=Object.keys(grupos);
   const pill=(x)=>`<button onclick="agToggleServicio('${x.id}')" style="${pillStyle(s.servicios.includes(x.id),color)}">${escH(x.nombre)}</button>`;
   const serviciosHtml=rids.length<=1
