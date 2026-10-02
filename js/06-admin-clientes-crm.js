@@ -557,6 +557,86 @@ function ultimasVisitas(){
   });
   return m;
 }
+// Dias sin venir: una visita real (cobrada en Luffy) siempre pisa a la estimada (importada desde AgendaPro).
+// Sin visita real, se usa la estimada si el cliente la tiene cargada (ver importarVisitasEstimadas). Devuelve {dias,estimado}.
+function diasSinVenirInfo(c,fechaReal){
+  if(fechaReal) return {dias:diasDesdeStr(fechaReal),estimado:false};
+  if(c.ultimaVisitaEstimada&&c.ultimaVisitaEstimada.fecha) return {dias:diasDesdeStr(c.ultimaVisitaEstimada.fecha),estimado:true};
+  return {dias:null,estimado:false};
+}
+// ---------- importar "ultima visita estimada" (desde AgendaPro, ver marketing/reactivacion-clientes) ----------
+// El CSV se lee y se cruza entero en el navegador de quien lo sube (FileReader + parseTabla, igual que
+// abrirImportClientes en 03-clientes.js) -- nunca pasa por ninguna herramienta nuestra, solo por Supabase
+// al confirmar. Cruza por telefono (10 digitos) y, si el telefono es compartido por mas de un cliente,
+// desambigua por nombre; lo que no se puede resolver solo se cuenta, no se escribe (lo revisa una persona).
+function filasVisitaEstimada(txt){
+  const rows=parseTabla(txt); if(!rows.length) return {validos:[],sinMatch:0,ambiguos:0,total:0};
+  const norm=(s)=>String(s||'').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-z0-9]+/g,' ').trim();
+  const header=rows[0].map(norm);
+  const idx=(...names)=>header.findIndex(h=>names.some(n=>h===n||h.includes(n)));
+  const iTel10=idx('telefono 10 digitos','10 digitos'), iTelOrig=idx('telefono original');
+  const iNombre=idx('nombre'), iApellido=idx('apellido');
+  const iFecha=idx('fecha ultima reserva estimada','fecha estimada'), iDiasEst=idx('dias estimados');
+  const esHeader=iTel10>=0||iTelOrig>=0||iNombre>=0;
+  const dataRows=esHeader?rows.slice(1):rows;
+  const porTel={};
+  clientesDir.forEach(c=>{ const d=String(c.tel||'').replace(/\D/g,'').slice(-10); if(d) (porTel[d]=porTel[d]||[]).push(c); });
+  const hoy=new Date();
+  const validos=[]; let sinMatch=0, ambiguos=0;
+  dataRows.forEach(r=>{
+    const telRaw=iTel10>=0?r[iTel10]:(iTelOrig>=0?r[iTelOrig]:'');
+    const tel10=String(telRaw||'').replace(/\D/g,'').slice(-10);
+    let fecha=iFecha>=0?String(r[iFecha]||'').trim():'';
+    if(!fecha&&iDiasEst>=0){ const dd=Number(r[iDiasEst]); if(dd>0){ const f=new Date(hoy); f.setDate(f.getDate()-dd); fecha=ymdLocal(f); } }
+    if(!tel10||!fecha){ sinMatch++; return; }
+    const cands=porTel[tel10]||[];
+    if(!cands.length){ sinMatch++; return; }
+    let elegido=cands[0];
+    if(cands.length>1){
+      const nombreCsv=norm([iNombre>=0?r[iNombre]:'',iApellido>=0?r[iApellido]:''].filter(Boolean).join(' '));
+      const porNombre=cands.filter(c=>{ const n=norm(c.nombre); return nombreCsv&&(n.includes(nombreCsv)||nombreCsv.includes(n)); });
+      if(porNombre.length===1) elegido=porNombre[0]; else { ambiguos++; return; }
+    }
+    validos.push({cliente:elegido,fecha});
+  });
+  const vistos=new Set(); const finales=validos.filter(v=>!vistos.has(v.cliente.id)&&vistos.add(v.cliente.id));
+  return {validos:finales,sinMatch,ambiguos,total:dataRows.length};
+}
+function abrirImportVisitasEstimadas(){
+  const c=document.getElementById('registro-content');
+  c.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:10px"><div class="modal-title" style="margin:0">Última visita estimada (AgendaPro)</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
+    <div style="font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:10px">Subí el CSV de <b style="color:var(--text)">marketing/reactivacion-clientes/ultima-visita-estimada.csv</b>. Cruza por teléfono (y por nombre si el teléfono está repetido entre varios clientes) contra los clientes ya cargados en Luffy. Queda marcada como <b style="color:var(--text)">estimada</b>: el día que a alguien se le cobre un turno de verdad, esa visita real pasa a valer y la estimada se deja de usar sola.<br>Todo el cruce se hace en este dispositivo — nada se guarda hasta que confirmes "Importar".</div>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <label class="btn btn-ghost" style="flex:1;margin:0;padding:10px;font-size:12px;text-align:center;cursor:pointer">📂 Subir CSV<input type="file" accept=".csv,.tsv,.txt" style="display:none" onchange="importVisitasEstimadasArchivo(this)"/></label>
+    </div>
+    <textarea id="ive-txt" rows="7" placeholder="O pegá acá el contenido del CSV..." oninput="previewImportVisitasEstimadas()" style="${inpCss};min-height:130px"></textarea>
+    <div id="ive-prev" style="font-size:12px;color:var(--muted2);margin:10px 0"></div>
+    <button id="ive-btn" class="btn btn-primary" onclick="confirmarImportVisitasEstimadas()" disabled>Importar</button>`;
+  openModal('modal-registro');
+}
+function importVisitasEstimadasArchivo(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{ document.getElementById('ive-txt').value=String(rd.result||''); previewImportVisitasEstimadas(); }; rd.readAsText(f,'utf-8');
+}
+function previewImportVisitasEstimadas(){
+  const txt=document.getElementById('ive-txt')?.value||'';
+  const prev=document.getElementById('ive-prev'), btn=document.getElementById('ive-btn');
+  if(!txt.trim()){ prev.textContent=''; btn.disabled=true; btn.textContent='Importar'; return; }
+  const {validos,sinMatch,ambiguos,total}=filasVisitaEstimada(txt);
+  prev.innerHTML=`De ${total} filas: <b style="color:var(--text)">${validos.length}</b> clientes para actualizar${sinMatch?` · ${sinMatch} sin un cliente que coincida por teléfono (se saltean)`:''}${ambiguos?` · <span style="color:#fbbf24">${ambiguos} con el mismo teléfono que más de un cliente, sin que el nombre alcance para distinguir (se saltean, revisalos a mano)</span>`:''}`;
+  btn.disabled=!validos.length; btn.textContent=validos.length?'Importar '+validos.length+' clientes':'Importar';
+}
+async function confirmarImportVisitasEstimadas(){
+  const txt=document.getElementById('ive-txt')?.value||'';
+  const {validos}=filasVisitaEstimada(txt); if(!validos.length) return;
+  const btn=document.getElementById('ive-btn'); if(btn){ btn.disabled=true; btn.textContent='Importando…'; }
+  const porId=new Map(validos.map(v=>[v.cliente.id,v.fecha]));
+  await cambiarClientes(list=>{
+    const ahora=new Date().toISOString();
+    list.forEach(c=>{ const fecha=porId.get(c.id); if(fecha){ c.ultimaVisitaEstimada={fecha}; c.upd=ahora; } });
+  });
+  closeModal('modal-registro'); showToast(validos.length+' clientes actualizados con su última visita estimada ✓'); renderAdmin();
+}
 function linkWhatsApp(tel,txt){ const d=String(tel||'').replace(/\D/g,'').replace(/^0+/,'').replace(/^54/,'').replace(/^9/,''); return d?'https://wa.me/549'+d+(txt?'?text='+encodeURIComponent(txt):''):''; }
 let recQ='';
 function recRenderBusqueda(){
@@ -564,8 +644,8 @@ function recRenderBusqueda(){
   const uv=ultimasVisitas(); const q=recQ.trim();
   if(q.length<2){ el.innerHTML=`<div style="font-size:11.5px;color:var(--muted2)">Escribí al menos 2 letras del nombre, el número (#) o el teléfono. Hay ${clientesDir.length} clientes cargados.</div>`; return; }
   const m=buscarClientes(q).slice(0,8);
-  el.innerHTML=m.length?m.map(c=>{ const u=uv[c.id]; return `<div class="card" onclick="abrirClienteDetalle('${c.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span>${(c.tarjetas&&c.tarjetas.length)?' 💳':''}${membresiaActivaDe(c.id)?' 🎫':''}</div>
-    <div style="font-size:11px;color:var(--muted2)">${escH(idCorto(c))}</div><div style="font-size:11px;color:var(--muted2)">${u?`✂️ ${escH([...u.barberos].join(', '))} · ${u.n} ${u.n===1?'visita':'visitas'} · última hace ${diasDesdeStr(u.fecha)} d`:'Sin visitas todavía'}</div></div><span style="color:var(--muted)">›</span></div></div>`; }).join(''):`<div style="font-size:12.5px;color:var(--muted2)">No aparece. Tocá "+ Cliente" para cargarlo.</div>`;
+  el.innerHTML=m.length?m.map(c=>{ const u=uv[c.id]; const est=!u&&c.ultimaVisitaEstimada&&c.ultimaVisitaEstimada.fecha?diasDesdeStr(c.ultimaVisitaEstimada.fecha):null; return `<div class="card" onclick="abrirClienteDetalle('${c.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;gap:8px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span>${(c.tarjetas&&c.tarjetas.length)?' 💳':''}${membresiaActivaDe(c.id)?' 🎫':''}</div>
+    <div style="font-size:11px;color:var(--muted2)">${escH(idCorto(c))}</div><div style="font-size:11px;color:var(--muted2)">${u?`✂️ ${escH([...u.barberos].join(', '))} · ${u.n} ${u.n===1?'visita':'visitas'} · última hace ${diasDesdeStr(u.fecha)} d`:(est!=null?'Sin cobros en Luffy · estimado hace '+est+' d (AgendaPro)':'Sin visitas todavía')}</div></div><span style="color:var(--muted)">›</span></div></div>`; }).join(''):`<div style="font-size:12.5px;color:var(--muted2)">No aparece. Tocá "+ Cliente" para cargarlo.</div>`;
 }
 function marcarCumpleCliente(cid){
   const k=new Date().getFullYear()+':'+cid; if(!recData.cumpleCli) recData.cumpleCli={};
@@ -747,7 +827,7 @@ function crmBuscar(v){ crmQ=v; renderCRM(); }
 // admin la usa como sub-pestaña de Clientes: renderiza directo en el contenedor "c", sin modal
 function adminCRM(c){
   crmTarget='crm-admin-body';
-  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📱 CRM · Reactivación por WhatsApp</span></div>
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">📱 CRM · Reactivación por WhatsApp</span>${profile.role==='admin'?`<button class="lnk" onclick="abrirImportVisitasEstimadas()">📅 Última visita estimada</button>`:''}</div>
     <div style="font-size:12px;color:var(--muted2);margin-bottom:10px;line-height:1.5">Agrupa a todos los clientes según hace cuánto no vienen, para armar las listas de WhatsApp. Es la misma lista para las dos sucursales (el WhatsApp del negocio es un solo número).</div>
     <div id="crm-admin-body"></div>`;
   renderCRM();
@@ -777,7 +857,7 @@ function crmSetVista(v){ crmVista=v; renderCRM(); }
 function crmClientesDeCol(franja){
   const uv=ultimasVisitas();
   const q=nkey(crmQ);
-  let todos=clientesDir.map(c=>{ const u=uv[c.id]; const dias=u?diasDesdeStr(u.fecha):null; return {c,dias,franja:franjaClienteCRM(c,dias)}; });
+  let todos=clientesDir.map(c=>{ const u=uv[c.id]; const {dias,estimado}=diasSinVenirInfo(c,u&&u.fecha); return {c,dias,estimado,franja:franjaClienteCRM(c,dias)}; });
   if(q) todos=todos.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
   return todos.filter(x=>x.franja===franja).sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
 }
@@ -790,14 +870,14 @@ function crmColScroll(el,franja){
   const color=CRM_COL_COLOR[franja]||'var(--muted2)';
   const next=col.slice(cur,cur+CRM_COL_PAGE);
   crmColVisible[franja]=cur+next.length;
-  el.insertAdjacentHTML('beforeend',next.map(({c,dias})=>crmCardHtml(c,dias,franja,color)).join(''));
+  el.insertAdjacentHTML('beforeend',next.map(({c,dias,estimado})=>crmCardHtml(c,dias,franja,color,estimado)).join(''));
 }
 function renderCRMTablero(el){
   if(!el) return;
   crmColVisible={};
   const uv=ultimasVisitas();
   const q=nkey(crmQ);
-  let todos=clientesDir.map(c=>{ const u=uv[c.id]; const dias=u?diasDesdeStr(u.fecha):null; return {c,dias,franja:franjaClienteCRM(c,dias)}; });
+  let todos=clientesDir.map(c=>{ const u=uv[c.id]; const {dias,estimado}=diasSinVenirInfo(c,u&&u.fecha); return {c,dias,estimado,franja:franjaClienteCRM(c,dias)}; });
   if(q) todos=todos.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
   const total=todos.length;
   el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:0 20px 12px;flex-wrap:wrap">
@@ -818,7 +898,7 @@ function renderCRMTablero(el){
         <span style="background:${color};color:#fff;border-radius:20px;padding:1px 8px;font-size:10px">${col.length}</span>
       </div>
       <div class="crm-kcol-body" data-franja="${f}" onscroll="crmColScroll(this,'${f}')">
-        ${mostrar.map(({c,dias})=>crmCardHtml(c,dias,f,color)).join('')||`<div style="text-align:center;color:var(--muted);font-size:11.5px;padding:14px 6px">Sin clientes</div>`}
+        ${mostrar.map(({c,dias,estimado})=>crmCardHtml(c,dias,f,color,estimado)).join('')||`<div style="text-align:center;color:var(--muted);font-size:11.5px;padding:14px 6px">Sin clientes</div>`}
       </div>
     </div>`;
   }).join('')}</div>
@@ -828,14 +908,14 @@ function inicialesCliente(nombre){
   const p=String(nombre||'').trim().split(/\s+/);
   return ((p[0]?.[0]||'')+(p[1]?.[0]||'')).toUpperCase()||'?';
 }
-function crmCardHtml(c,dias,franja,color){
+function crmCardHtml(c,dias,franja,color,estimado){
   const msjFn=MSJ_CRM[franja]||MSJ_CRM.sin;
   const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0],dias));
   return `<div class="crm-kcard" style="border-left:3px solid ${color}" onpointerdown="crmPointerDown(event,'${c.id}')">
     <div style="display:flex;align-items:flex-start;gap:8px">
       <div style="flex:1;min-width:0">
         <div style="font-size:12.5px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escH(c.nombre)}${c.crmManual?' 📌':''}</div>
-        <div style="font-size:10.5px;color:var(--muted2);margin-top:2px">${dias==null?'Sin visitas':'hace '+dias+' días'}${c.tel?'':' · sin teléfono'}</div>
+        <div style="font-size:10.5px;color:var(--muted2);margin-top:2px">${dias==null?'Sin visitas':'hace '+dias+' días'}${estimado?' (estimado)':''}${c.tel?'':' · sin teléfono'}</div>
       </div>
       <div style="width:24px;height:24px;border-radius:50%;background:${color}26;color:${color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">${inicialesCliente(c.nombre)}</div>
     </div>
@@ -980,16 +1060,16 @@ function renderCRM(){
     const datos=datosCRM(), estAg=estadosAgendaCRM();
     let L=clientesDir.filter(c=>clientePasaFiltros(c,datos,estAg,crmFiltros));
     if(q) L=L.filter(c=>c.nkey.includes(q)||String(c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
-    const conDias=L.map(c=>{ const d=datos[c.id]; const dias=d&&d.fecha?diasDesdeStr(d.fecha):null; return {c,dias}; }).sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
+    const conDias=L.map(c=>{ const d=datos[c.id]; const {dias,estimado}=diasSinVenirInfo(c,d&&d.fecha); return {c,dias,estimado}; }).sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
     el.innerHTML=cabecera+vistaTog+filtrosBlock+
       htmlBuscadorCRM()+
       `<div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${conDias.length} cliente${conDias.length===1?'':'s'} con estos filtros · ${conDias.filter(x=>x.c.tel).length} con teléfono cargado</div>
-      ${conDias.slice(0,80).map(({c,dias})=>{ const msjFn=MSJ_CRM[franjaClienteCRM(c,dias)]||MSJ_CRM.sin; const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0],dias)); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">🔎</div><p>Nadie coincide con estos filtros.</p></div>'}
+      ${conDias.slice(0,80).map(({c,dias,estimado})=>{ const msjFn=MSJ_CRM[franjaClienteCRM(c,dias)]||MSJ_CRM.sin; const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0],dias)); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${estimado?' (estimado)':''}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">🔎</div><p>Nadie coincide con estos filtros.</p></div>'}
       ${conDias.length>80?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 80 de ${conDias.length}. Usá el buscador para encontrar a alguien puntual.</div>`:''}`;
     return;
   }
   const uv=ultimasVisitas();
-  const todos=clientesDir.map(c=>{ const u=uv[c.id]; const dias=u?diasDesdeStr(u.fecha):null; return {c,u,dias,franja:franjaClienteCRM(c,dias)}; });
+  const todos=clientesDir.map(c=>{ const u=uv[c.id]; const {dias,estimado}=diasSinVenirInfo(c,u&&u.fecha); return {c,u,dias,estimado,franja:franjaClienteCRM(c,dias)}; });
   const counts={}; FRANJAS_CRM.forEach(([f])=>counts[f]=todos.filter(x=>x.franja===f).length);
   let L=todos.filter(x=>x.franja===crmFranja);
   if(q) L=L.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
@@ -1000,7 +1080,7 @@ function renderCRM(){
     `<div style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:10px">${FRANJAS_CRM.map(([f,l])=>`<button onclick="crmSet('${f}')" style="${pillStyle(crmFranja===f,'#4A136B')}">${l} (${counts[f]})</button>`).join('')}</div>
     ${htmlBuscadorCRM()}
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">${L.length} cliente${L.length===1?'':'s'} en esta franja · ${conTel} con teléfono cargado</div>
-    ${L.slice(0,80).map(({c,u,dias})=>{ const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0],dias)); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">📱</div><p>No hay clientes en esta franja.</p></div>'}
+    ${L.slice(0,80).map(({c,u,dias,estimado})=>{ const wa=linkWhatsApp(c.tel,msjFn(c.nombre.split(' ')[0],dias)); return `<div class="card" style="margin-bottom:6px;padding:10px 12px;display:flex;align-items:center;gap:10px"><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:800">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${dias==null?'Sin visitas registradas':'hace '+dias+' días'}${estimado?' (estimado)':''}${c.tel?' · '+escH(c.tel):' · sin teléfono'}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 12px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none;white-space:nowrap">WhatsApp</a>`:''}</div>`; }).join('')||'<div class="empty"><div class="e-icon">📱</div><p>No hay clientes en esta franja.</p></div>'}
     ${L.length>80?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 80 de ${L.length}. Usá el buscador para encontrar a alguien puntual.</div>`:''}`;
 }
 // Cuatro medidores del dia, de las dos sucursales (los turnos de French figuran aunque recepcion no los pueda reagendar en persona)
