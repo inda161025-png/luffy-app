@@ -329,7 +329,7 @@ function cobradosDelDia(fecha){
       const ex=ventas.filter(v=>v.turnoId===t.id); ex.forEach(v=>usadas.add(v.id));
       const desc=(t.descDetalle&&t.descDetalle.length)?t.descDetalle.map(d=>d.label+' −'+d.pct+'%').join(' · '):(numV(t.descuento)>0?'descuento −'+fp(t.descuento):'');
       L.push({ts:t.creadoEn,suc:t.sucursal||u.sucursal,cliente:t.cliente||'Cliente',num:t.clienteNumero,prof:u.name,detalle:t.servicio||'Servicio',extras:ex.map(v=>v.productoNombre+' x'+v.cantidad),
-        monto:numV(t.aCobrar!=null?t.aCobrar:t.monto)+ex.reduce((a,v)=>a+numV(v.total),0),medio:t.medio,desc,deuda:!!t.deudaId,cierre:c});
+        monto:numV(t.aCobrar!=null?t.aCobrar:t.monto)+ex.reduce((a,v)=>a+numV(v.total),0),medio:t.medio,desc,deuda:!!t.deudaId,cierre:c,profId:u.id,turnoId:t.id,editado:!!t.editado});
     });
     ventas.filter(v=>!usadas.has(v.id)).forEach(v=>{
       L.push({ts:v.creadoEn,suc:v.sucursal||u.sucursal,cliente:v.cliente||'Venta de mostrador',prof:u.name,detalle:v.productoNombre+' x'+v.cantidad,extras:[],monto:numV(v.total),medio:v.medio,venta:true});
@@ -357,7 +357,8 @@ function htmlCobradosInner(){
     ${htmlTotalesCobrados(L)}
     ${L.length?L.slice(0,40).map(x=>`<div class="card" style="margin-bottom:6px;padding:10px 12px;border-left:5px solid ${(sucursalDe(x.suc)||{}).color||'var(--border2)'}">
       <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px"><div style="font-size:13px;font-weight:800;min-width:0">${escH(x.cliente)}${x.num&&verNumeroCliente()?' <span style="color:var(--muted2);font-weight:700">#'+x.num+'</span>':''}</div><div style="font-size:16px;font-weight:900;white-space:nowrap">${fp(x.monto)}</div></div>
-      <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">${horaDeIso(x.ts)} · ${escH(x.detalle)}${x.extras.length?' + '+escH(x.extras.join(', ')):''}<br>${x.venta?'🛍️ Venta':'✂️'} ${escH(x.prof)} · ${MED_COBRANZA[x.medio]||escH(x.medio||'')}${x.deuda?' · <b style="color:#fbbf24">pago de deuda</b>':''}${x.desc?' · <span style="color:#34d399">'+escH(x.desc)+'</span>':''}${x.cierre&&x.cierre.por?' · cerró '+escH(x.cierre.por):''}</div></div>`).join(''):'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay cobros registrados</div>'}`;
+      <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">${horaDeIso(x.ts)} · ${escH(x.detalle)}${x.extras.length?' + '+escH(x.extras.join(', ')):''}<br>${x.venta?'🛍️ Venta':'✂️'} ${escH(x.prof)} · ${MED_COBRANZA[x.medio]||escH(x.medio||'')}${x.deuda?' · <b style="color:#fbbf24">pago de deuda</b>':''}${x.desc?' · <span style="color:#34d399">'+escH(x.desc)+'</span>':''}${x.cierre&&x.cierre.por?' · cerró '+escH(x.cierre.por):''}${x.editado?' · <b style="color:#fbbf24">✏️ editado</b>':''}</div>
+      ${(!x.venta&&!x.deuda)?`<button class="lnk" style="margin-top:4px" onclick="abrirEditarCobro('${x.profId}','${x.turnoId}')">✏️ Editar</button>`:''}</div>`).join(''):'<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay cobros registrados</div>'}`;
 }
 function htmlCobradosRec(){ return `<div id="rec-cob">${htmlCobradosInner()}</div>`; }
 

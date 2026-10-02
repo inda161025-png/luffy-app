@@ -74,7 +74,7 @@ function renderAdmin(){
   </div>${sec.subs?`<div class="adm-sub">${sec.subs.map(([id,l])=>`<button class="${id===sub?'on':''}" onclick="switchAdminTab('${id}')">${l}</button>`).join('')}</div>`:''}`;
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
-  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlTareasEquipoWidget()); }
+  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlCobrosEditadosPanel()+htmlTareasEquipoWidget()); }
   else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='asegurado') renderAdminAsegurado(c); else if(sub==='tareasequipo') renderAdminTareasEquipo(c); else if(sub==='cuentas') renderAdminCuentas(c); else if(sub==='comisiones') renderAdminComisiones(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else if(sub==='proveedores') renderAdminProveedores(c); else if(sub==='insumos') renderAdminInsumos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
@@ -868,6 +868,45 @@ async function guardarHorarioProf(){
   if(profile&&profile.id===s.profId) horarioData=s.dias; // si el admin se edita a si mismo (tambienProf)
   const u=allUsers.find(x=>x.id===s.profId);
   admHorario=null; closeModal('modal-registro'); showToast('Horario de '+(u?u.name:'')+' guardado ✓');
+}
+// ---------- Admin: cobros que recepción corrigió — quedan para revisar ----------
+// Pedido de Ivo (1/10/2026): recepción puede corregir un cobro mal hecho directo (ver abrirEditarCobro en
+// 12-dinero-turnos.js), pero no puede pasar desapercibido -- queda anotado acá hasta que Admin lo marque como
+// revisado, con el detalle completo de qué cambió y por qué.
+function turnosEditadosPendientes(){
+  const out=[];
+  allUsers.filter(u=>esProf(u)||u.role==='recepcionista').forEach(u=>{
+    let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+u.id)||'{}'); }catch(e){}
+    (dd.turnos||[]).filter(t=>t.editado&&!t.revisadoAdmin).forEach(t=>out.push({...t,profId:u.id,profNombre:u.name}));
+  });
+  return out.sort((a,b)=>String(b.editadoEn||'').localeCompare(String(a.editadoEn||'')));
+}
+function htmlCobrosEditadosPanel(){
+  if(!profile||profile.role!=='admin') return '';
+  const n=turnosEditadosPendientes().length; if(!n) return '';
+  return `<div class="card" onclick="abrirCobrosEditados()" style="cursor:pointer;margin:10px 0;border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.07)"><div style="font-size:13px;font-weight:800;color:#fbbf24">✏️ ${n} ${n===1?'cobro corregido':'cobros corregidos'} por revisar</div><div style="font-size:11.5px;color:var(--muted2)">Recepción corrigió un cobro mal hecho. Tocá para ver qué cambió.</div></div>`;
+}
+function abrirCobrosEditados(){
+  const L=turnosEditadosPendientes();
+  document.getElementById('registro-content').innerHTML=cabeceraModal('✏️ Cobros corregidos por revisar ('+L.length+')')+
+    (L.length?L.map(t=>{
+      const o=t.editOriginal||{};
+      return `<div class="card" style="margin-bottom:8px;border-left:5px solid #fbbf24">
+        <div style="font-size:13.5px;font-weight:800">${escH(t.cliente||'Cliente')} <span style="color:var(--muted2);font-weight:600">· ${escH(t.profNombre)}</span></div>
+        <div style="font-size:11.5px;color:var(--muted2);margin:4px 0">Corrigió ${escH(t.editadoPor)} el ${fechaCortaStr((t.editadoEn||'').slice(0,10))}${t.editMotivo?' · "'+escH(t.editMotivo)+'"':''}</div>
+        <div style="font-size:12.5px;background:var(--s2);border-radius:10px;padding:8px 10px;line-height:1.6">
+          <div style="color:#f472b6">Antes: ${escH(o.servicio||'—')} · ${fp(numV(o.aCobrar!=null?o.aCobrar:o.monto))} · ${MED_COBRANZA[o.medio]||escH(o.medio||'')}</div>
+          <div style="color:#34d399">Ahora: ${escH(t.servicio||'—')} · ${fp(numV(t.aCobrar!=null?t.aCobrar:t.monto))} · ${MED_COBRANZA[t.medio]||escH(t.medio||'')}</div>
+        </div>
+        <button class="lnk" style="margin-top:6px" onclick="marcarEdicionRevisada('${t.profId}','${t.id}')">✓ Marcar como revisado</button>
+      </div>`;
+    }).join(''):'<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px">No hay nada por revisar.</div>');
+  openModal('modal-registro');
+}
+async function marcarEdicionRevisada(profId,turnoId){
+  const ahora=new Date().toISOString();
+  await modificarDineroDe(profId,dd=>{ const t=(dd.turnos||[]).find(x=>x.id===turnoId); if(!t) return false; t.revisadoAdmin=true; t.revisadoPor=profile.name; t.revisadoEn=ahora; return true; });
+  showToast('Marcado como revisado ✓'); abrirCobrosEditados(); refreshCurrentView();
 }
 function refrescarRubrosPropios(){
   if(!DB||!profile||profile.role!=='profesional') return;

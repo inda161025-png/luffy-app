@@ -699,6 +699,61 @@ function htmlTurnosPendientesRec(){
       <button class="btn btn-primary" onclick="abrirCobrarPendiente('${x.id}')" style="margin-top:8px;padding:9px">💳 Cobrar${x.reagendo==='si'||x.paqueteRubro?' <span style="opacity:.75;font-weight:600">('+[x.reagendo==='si'?'reagendó':null,x.paqueteRubro?'comentó '+escH(nombreRubro(x.paqueteRubro)||x.paqueteRubro):null].filter(Boolean).join(' · ')+')</span>':''}</button></div>`).join('')}`;
 }
 
+// ---------- corregir un cobro ya cerrado (ej. se cobró mal) ----------
+// Pedido de Ivo (1/10/2026): recepción lo puede corregir directo (sin esperar a Admin), pero queda anotado
+// (editado/editadoPor/editOriginal) para que Admin lo revise después — ver turnosEditadosRecientes() en
+// 15-admin-panel.js. No rehace el cálculo de descuentos: es una corrección directa para errores comunes
+// (servicio equivocado, monto mal tipeado, medio de pago mal elegido), no para turnos con una seña aplicada.
+let editCobroSel=null;
+function abrirEditarCobro(profId,turnoId){
+  let dd={}; try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+profId)||'{}'); }catch(e){}
+  const t=(dd.turnos||[]).find(x=>x.id===turnoId);
+  if(!t){ showToast('No encuentro ese cobro en este dispositivo — probá desde uno que lo haya cargado'); return; }
+  if(t.fecha&&diasDesdeStr(t.fecha)>2){ showToast('Ya pasaron más de 2 días — pedile a Ivo que lo corrija desde Admin'); return; }
+  editCobroSel={profId,turnoId,servicio:t.servicio||'',monto:numV(t.aCobrar!=null?t.aCobrar:t.monto),medio:t.medio||'efectivo',motivo:''};
+  renderEditarCobro();
+  openModal('modal-registro');
+}
+// Lee lo tipeado en los campos libres ANTES de cualquier cambio que re-renderice el form (ej. tocar el medio
+// de pago) -- si no, un re-render los pisaba con lo que había al abrir y se perdía lo que la persona ya había
+// corregido. Mismo patrón que leerFormSena()/leerComUsr() en otros formularios de esta app.
+function leerEditCobro(){
+  const g=(i)=>{ const e=document.getElementById(i); return e?e.value:undefined; };
+  const s=g('ec-cobro-servicio'); if(s!==undefined) editCobroSel.servicio=s;
+  const m=g('ec-cobro-monto'); if(m!==undefined) editCobroSel.monto=m;
+  const mo=g('ec-cobro-motivo'); if(mo!==undefined) editCobroSel.motivo=mo;
+}
+function ecCobroMedio(m){ leerEditCobro(); editCobroSel.medio=m; renderEditarCobro(); }
+function renderEditarCobro(){
+  const s=editCobroSel; if(!s) return; const color=(profile&&profile.color)||'#4A136B';
+  document.getElementById('registro-content').innerHTML=cabeceraModal('✏️ Corregir cobro')+`
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">Para corregir un error al cobrar (servicio equivocado, monto mal puesto, medio de pago mal elegido). Queda anotado para que Admin lo revise.</div>
+    <div class="field"><label>Servicio</label><input id="ec-cobro-servicio" value="${escH(s.servicio)}"/></div>
+    <div class="field" style="margin-top:8px"><label>Monto que corresponde cobrar</label><input id="ec-cobro-monto" type="number" inputmode="decimal" value="${s.monto}"/></div>
+    <div class="field" style="margin-top:8px"><label>Medio de pago</label>${htmlMedios('ecCobroMedio',s.medio,color)}</div>
+    <div class="field" style="margin-top:8px"><label>¿Por qué se corrige? (opcional)</label><input id="ec-cobro-motivo" value="${escH(s.motivo||'')}" placeholder="Ej: se cobró el servicio equivocado"/></div>
+    <button class="btn btn-primary" onclick="guardarEdicionCobro()" style="background:${color}">Guardar corrección</button>`;
+}
+async function guardarEdicionCobro(){
+  leerEditCobro();
+  const s=editCobroSel; if(!s) return;
+  const servicio=(s.servicio||'').trim();
+  const monto=numV(s.monto);
+  const motivo=(s.motivo||'').trim();
+  if(!servicio){ showToast('Poné el servicio'); return; }
+  if(monto<=0){ showToast('Poné un monto válido'); return; }
+  const ahora=new Date().toISOString();
+  const ok=await modificarDineroDe(s.profId,dd=>{
+    const t=(dd.turnos||[]).find(x=>x.id===s.turnoId); if(!t) return false;
+    if(!t.editOriginal) t.editOriginal={servicio:t.servicio,monto:t.monto,aCobrar:t.aCobrar,medio:t.medio}; // solo la primera vez: se guarda el original real
+    t.servicio=servicio; t.monto=monto; t.aCobrar=monto; t.medio=s.medio;
+    t.editado=true; t.editadoPor=profile.name; t.editadoEn=ahora; t.editMotivo=motivo;
+    return true;
+  });
+  if(!ok){ showToast('No se encontró el cobro'); return; }
+  editCobroSel=null; closeModal('modal-registro'); showToast('Cobro corregido ✓ — queda anotado para que Admin lo revise'); refreshCurrentView();
+}
+
 function guardarVentaProducto(){
   const nomP=(ventaProd.cliente||'').trim(); let cli=null;
   if(nomP){ cli=clienteDe(ventaProd.clienteId)||clientesDir.find(x=>x.nkey===nkey(nomP)); if(!cli){ showToast('Elegí al cliente de la lista o tocá "➕ Agregar" para cargarlo nuevo'); return; } }
