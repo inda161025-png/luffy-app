@@ -376,7 +376,16 @@ function renderProdsCobro(targetId,color){
 }
 function refreshCobro(){
   const color=profile.color;
-  const r=calcCobro();
+  const planMemb=cobro.vendeMembPlanId?planesVendiblesEnCobro(clienteDe(cobro.clienteId),cobro.servicios||[]).find(p=>p.id===cobro.vendeMembPlanId):null;
+  const membAdd=planMemb?planMemb.precio:0;
+  let r;
+  if(planMemb){
+    // Se muestra el cobro como va a quedar al guardar: el servicio del plan queda cubierto por el uso 1 (ver guardarCobro).
+    const guardados=cobro.prepagos;
+    cobro.prepagos=[...(guardados||[]),{kind:'memb',refId:'__venta__',itemId:'__venta__',svcId:servicioDePlanEnCobro(planMemb,cobro.servicios).id,credito:Math.round(planMemb.precio/planMemb.creditos),nombre:'Membresía nueva'}];
+    r=calcCobro();
+    cobro.prepagos=guardados;
+  } else r=calcCobro();
   const serv=document.getElementById('cb-serv');
   if(!serv) return;
   // --- servicios: si viene de un turno ya registrado (recepcion cobrando), es de solo lectura: ya lo decidio el profesional ---
@@ -440,7 +449,8 @@ function refreshCobro(){
     ${r.svcs.length?row('<b>Servicios a cobrar</b>','<b>'+fp(r.aCobrarServ)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
     ${r.prodLineas.map(l=>row(`${escH(l.producto.nombre)} x${l.cantidad}`,fp(l.total))).join('')}
     ${r.prodLineas.length?row('<b>Productos</b>','<b>'+fp(r.prodTotal)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
-    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">${cobro.medio==='debe'?'QUEDA DEBIENDO':'TOTAL A COBRAR'}</span><span style="font-size:24px;font-weight:900">${fp(r.total)}</span></div>
+    ${membAdd?row('<b>Membresía nueva (precio fijo)</b>','<b>'+fp(membAdd)+'</b>','border-top:1px solid var(--border);margin-top:4px;padding-top:6px'):''}
+    <div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">${cobro.medio==='debe'?'QUEDA DEBIENDO':'TOTAL A COBRAR'}</span><span style="font-size:24px;font-weight:900">${fp(r.total+membAdd)}</span></div>
     <div style="font-size:11px;color:var(--muted2);margin-top:8px;line-height:1.5">
       ${cobro.medio==='debe'?'⏳ <b>No suma a tu quincena todavía.</b> Cuando pague, se suma a la quincena del día en que pague (no a la de hoy). Recepción lo ve para cobrarle.':r.svcs.length?`Suma a tu quincena: <b>${fp(r.servicioNeto)}</b> → comisión ≈ ${fp(comServ)} ${r.esNoche?'(turno de noche: '+numV(nocheCfg().pct)+'% fijo)':r.comFija!=null?'(descuento alto: comisión fija sobre lo que paga el cliente)':'('+pctServ+'%)'}<br>`:''}
       ${cobro.medio!=='debe'&&r.prodLineas.length?`Productos (aparte de tu quincena): comisión <b>${fp(r.prodComision)}</b>`:''}
@@ -470,7 +480,7 @@ let guardandoCobro=false;
 async function guardarCobro(){
   if(guardandoCobro) return;
   if(!await cajaOkParaCobrar(sucursalActual())) return;
-  const r=calcCobro();
+  let r=calcCobro();
   if(!r.svcs.length){ showToast('Elegí qué le hiciste'); return; }
   const falta=r.lineas.flatMap(l=>l.faltan)[0];
   if(falta){ showToast('Elegí: '+falta.titulo.toLowerCase()+' ('+falta.servicio+')'); return; }
@@ -490,6 +500,17 @@ async function guardarCobro(){
   // si recepción cobra directo, lo que eligió en "¿quién atendió?" (si no, quedaría mal atribuido a la recepcionista).
   const profTarget=cobroParaProf||(profile.role==='recepcionista'&&cobro.profAtendioId?allUsers.find(u=>u.id===cobro.profAtendioId):null), pendId=cobroPendienteId; // capturados antes de que resetCobro() los borre: es el turno "registrado" de otro profesional que recepcion esta cobrando
   try{
+    if(cobro.vendeMembPlanId){
+      // Membresia vendida en este mismo cobro: se crea recien ahora, y su primer uso es el servicio de hoy.
+      const plan=planesVendiblesEnCobro(cli,cobro.servicios||[]).find(p=>p.id===cobro.vendeMembPlanId);
+      if(!plan){ showToast('Esa membresía ya no se puede vender en este cobro'); return; }
+      const sv=servicioDePlanEnCobro(plan,cobro.servicios), nueva=membresiaRecNueva(cli,plan,sv,cobro.medio);
+      let yaTiene=false;
+      await membresiasSt.cambiar(l=>{ if(l.some(x=>x.clienteId===cli.id&&x.usos.length<x.creditos&&(!x.vence||x.vence>=nueva.fecha))){ yaTiene=true; return; } l.push(nueva); });
+      if(yaTiene){ showToast('Ya tiene una membresía activa: usala desde "Lo que el cliente ya pagó"'); return; }
+      cobro.prepagos=[...(cobro.prepagos||[]),{kind:'memb',refId:nueva.id,itemId:nueva.id,svcId:sv.id,credito:nueva.valorCredito,nombre:'Membresía · '+sv.nombre}];
+      r=calcCobro();
+    }
     const nombresSvc=r.lineas.map(l=>nomSvc(l)).join(' + ');
     const ofD=r.descuentos.find(d=>d.tipo==='oferta');
     const ofertaReg=ofD&&r.oferta?{id:r.oferta.id,nombre:r.oferta.nombre,pct:r.oferta.pct}:null;

@@ -389,23 +389,38 @@ function renderVentaMembresia(){
     <div class="field"><label>¿Cómo paga?</label>${htmlMedios('ventaMedio',s.medio,color)}</div>
     <button class="btn btn-primary" onclick="confirmarVentaMembresia()" style="background:${color}">Cobrar ${fp(plan.precio)} y activar</button>`;
 }
+// Registro nuevo de una membresia (precio fijo, vence a los 30 dias desde hoy). Lo usan la venta suelta y el cobro de un turno.
+function membresiaRecNueva(c,plan,sv,medio){
+  const ahora=new Date().toISOString(), hoy=hoyStr();
+  return {id:'mb'+Date.now().toString(36),clienteId:c.id,clienteNombre:c.nombre,clienteNumero:c.numero,
+    planId:plan.id,planNombre:plan.nombre,servicioId:sv.id,servicioNombre:sv.nombre,rubro:sv.rubro||'',
+    creditos:plan.creditos,precio:plan.precio,valorCredito:Math.round(plan.precio/plan.creditos),
+    medio,fecha:hoy,vence:addDias(hoy,30),sucursal:sucursalActual(),
+    vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,usos:[],creadoEn:ahora,upd:ahora};
+}
 async function confirmarVentaMembresia(){
   const s=ventaSel; if(!s||s.ocupado) return; s.ocupado=true;
   const c=clienteDe(s.cid); const plan=(promos.membresiaPlanes||[]).find(p=>p.id===s.planId); const sv=plan?servicioDePlan(plan):null;
   if(!c||!plan||!sv){ s.ocupado=false; showToast('Faltan datos'); return; }
-  const ahora=new Date().toISOString(), hoy=hoyStr();
+  const hoy=hoyStr();
   const r=await membresiasSt.cambiar(l=>{
     if(l.some(m=>m.clienteId===c.id&&m.usos.length<m.creditos&&(!m.vence||m.vence>=hoy))) return {error:true};
-    const m={id:'mb'+Date.now().toString(36),clienteId:c.id,clienteNombre:c.nombre,clienteNumero:c.numero,
-      planId:plan.id,planNombre:plan.nombre,servicioId:sv.id,servicioNombre:sv.nombre,rubro:sv.rubro||'',
-      creditos:plan.creditos,precio:plan.precio,valorCredito:Math.round(plan.precio/plan.creditos),
-      medio:s.medio,fecha:hoy,vence:addDias(hoy,30),sucursal:sucursalActual(),
-      vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,usos:[],creadoEn:ahora,upd:ahora};
+    const m=membresiaRecNueva(c,plan,sv,s.medio);
     l.push(m); return {m};
   });
   ventaSel=null;
   if(r.error){ showToast('Ya tenía una membresía activa'); return; }
   closeModal('modal-registro'); showToast('Membresía activada ✓ '+fp(plan.precio)); refreshCurrentView();
+}
+// Planes que se pueden vender en el cobro de un turno: el servicio del plan tiene que estar entre los servicios
+// que se le hacen al cliente (y se cobran como linea propia), y el cliente no puede tener otra membresia activa.
+function planesVendiblesEnCobro(cli,servicioIds){
+  if(!cli||membresiaActivaDe(cli.id)||cobro.medio==='debe') return [];
+  return membresiaPlanesDisponibles().filter(p=>servicioDePlanEnCobro(p,servicioIds));
+}
+function cobroVenderMembresia(planId){
+  cobro.vendeMembPlanId=cobro.vendeMembPlanId===planId?null:planId;
+  refreshCobro();
 }
 
 // ============ vender paquete (promos cruzadas) ============
@@ -654,7 +669,12 @@ function prepagosDisponibles(){
   const c=clienteDe(cobro.clienteId); if(!c) return [];
   const rb=rubrosDeUsuario(profile); const out=[];
   const m=membresiaActivaDe(c.id);
-  if(m){ const sv=servicios.find(x=>x.id===m.servicioId); if(sv) out.push({kind:'memb',refId:m.id,itemId:m.id,svcId:sv.id,credito:m.valorCredito,nombre:'Membresía · '+sv.nombre+' (quedan '+(m.creditos-m.usos.length)+' de '+m.creditos+')'}); }
+  if(m){
+    const plan=(promos.membresiaPlanes||[]).find(p=>p.id===m.planId);
+    const ids=plan?planServicioIds(plan):[m.servicioId];
+    const sv=ids.map(id=>servicios.find(x=>x.id===id)).find(x=>x&&(cobro.servicios||[]).includes(x.id))||ids.map(id=>servicios.find(x=>x.id===id)).find(x=>x&&visiblePorRubro(x,rb));
+    if(sv) out.push({kind:'memb',refId:m.id,itemId:m.id,svcId:sv.id,credito:m.valorCredito,nombre:'Membresía · '+sv.nombre+' (quedan '+(m.creditos-m.usos.length)+' de '+m.creditos+')'});
+  }
   paquetesAbiertosDe(c.id).forEach(p=>p.items.filter(i=>!i.usado).forEach(i=>{ const sv=servicios.find(x=>x.id===i.svcId); if(sv&&visiblePorRubro(sv,rb)) out.push({kind:'paq',refId:p.id,itemId:i.id,svcId:i.svcId,credito:i.final,descPct:i.descPct,nombre:'Paquete · '+i.nombre}); }));
   return out;
 }
@@ -714,8 +734,9 @@ function renderPrepagoCobro(r){
     h+=`<div style="font-size:12.5px;margin:-2px 0 10px;color:var(--accent2);font-weight:700">${paqTxt}</div>`;
   }
   if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#4A136B')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
-  // Visibilidad de "vender membresia" tambien desde el cobro, no solo desde la ficha -- Ivo no la encontraba (2/10/2026)
-  if(cli&&!membresiaActivaDe(cli.id)&&membresiaPlanesDisponibles().length) h+=`<button type="button" class="lnk" style="margin:-4px 0 10px;display:block" onclick="abrirVentaMembresia('${cli.id}')">💳 No tiene membresía — vender una</button>`;
+  // Vender la membresia y usar este mismo corte como uso 1, en un solo paso (se crea recien al guardar el cobro).
+  const planesCobro=planesVendiblesEnCobro(cli,cobro.servicios||[]);
+  if(planesCobro.length) h+=`<div class="field"><label>¿Compra membresía hoy?</label><div style="display:flex;flex-wrap:wrap;gap:6px">${planesCobro.map(p=>{ const on=cobro.vendeMembPlanId===p.id; return `<button type="button" onclick="cobroVenderMembresia('${p.id}')" style="${pillStyle(on,'#4A136B')}">${on?'✓ ':''}💳 Vender ${escH(p.nombre)} y usar este corte</button>`; }).join('')}</div>${planesCobro.some(p=>p.id===cobro.vendeMembPlanId)?`<div style="font-size:11.5px;color:var(--muted2);margin-top:4px">Cobra solo la membresía (${fp(planesCobro.find(p=>p.id===cobro.vendeMembPlanId).precio)}) — el servicio de hoy queda como uso 1. Lo que sea extra (lavado, toalla, etc.) se cobra aparte a precio de lista.</div>`:''}</div>`;
   if(r.tarj){ const inf=r.tarj; h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(inf)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones acumulados':''}`}</div>`; }
   const debeC=cli?saldoDeCliente(cli.id,cli.nombre):0;
   if(debeC>0) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#f472b6;font-weight:800">⚠️ Este cliente debe ${fp(debeC)} de turnos anteriores.</div>`;
