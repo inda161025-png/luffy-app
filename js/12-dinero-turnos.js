@@ -427,7 +427,7 @@ function refreshCobro(){
     if(s&&svcConVariante(id)&&!cobro.opciones[id]) ex.push(`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:5px">${escH(s.nombre)}: ${escH(s.variante.titulo||'Opción')} <span style="color:#f472b6">*</span> <span style="color:var(--muted2);font-weight:500">(no quedó cargado, elegilo para poder cobrar)</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.variante.opciones.map((o,oi)=>`<button onclick="cobroOpcion('${id}',${oi})" style="${pillStyle(cobro.opciones[id]===o.n,color)}">${escH(o.n)}${numV(o.extra)?' +'+fp(o.extra):''}</button>`).join('')}</div></div>`);
   });
   if(r.esNoche) ex.unshift(`<div style="background:rgba(74,19,107,.12);border:1px solid rgba(74,19,107,.35);border-radius:12px;padding:9px 12px;margin-top:8px;font-size:12px;color:#a89fff;font-weight:700">🌙 Turno de noche (desde las ${escH(nocheCfg().desde)}): precio de lista, sin descuentos. Tu comisión es ${numV(nocheCfg().pct)}% fijo.</div>`);
-  document.getElementById('cb-extra').innerHTML=ex.join('');
+  document.getElementById('cb-extra').innerHTML=ex.join('')+htmlAgregados('cb');
 
   renderProdsProfCobro();
   renderProdsCobro('cb-prods',color);
@@ -464,6 +464,22 @@ function cobroToggleServicio(id){
   refreshCobro();
 }
 function cobroAbrirRubro(rid){ cobro.rubroAbierto=cobro.rubroAbierto===rid?null:rid; if(document.getElementById('rt-paq')) refreshRegistroTurno(); else refreshCobro(); }
+// Agregados "a un toque" (regla de Ivo, 3/10/2026): lavado y limpieza facial se ofrecen con cualquier corte o barba;
+// la toalla a vapor solo si ya hay barba. Cada uno suma su precio de lista como una linea mas del mismo cobro/turno.
+const AGREGADOS_REGLA=[{re:/lavado/i},{re:/limpieza facial/i},{re:/toalla/i,soloConBarba:true}];
+function agregadosOfrecidos(){
+  const sel=(cobro.servicios||[]).map(id=>servicios.find(x=>x.id===id)).filter(Boolean);
+  const bases=sel.filter(s=>!AGREGADOS_REGLA.some(a=>a.re.test(s.nombre)));
+  if(!bases.some(s=>/corte|barba/i.test(s.nombre))) return [];
+  const hayBarba=bases.some(s=>/barba/i.test(s.nombre));
+  const vis=serviciosVisibles();
+  return AGREGADOS_REGLA.filter(a=>!a.soloConBarba||hayBarba).map(a=>vis.find(s=>a.re.test(s.nombre)&&!cobro.servicios.includes(s.id))).filter(Boolean);
+}
+function htmlAgregados(modo){
+  const ofrec=agregadosOfrecidos(); if(!ofrec.length) return '';
+  const color=profile.color||'#4A136B', fn=modo==='rt'?'rtToggleServicio':'cobroToggleServicio';
+  return `<div style="margin-top:10px"><div style="font-size:11.5px;color:var(--muted2);margin-bottom:5px">➕ Agregados (se suman al servicio de hoy, a precio de lista)</div><div style="display:flex;gap:6px;flex-wrap:wrap">${ofrec.map(s=>`<button type="button" onclick="${fn}('${s.id}')" style="${pillStyle(false,color)}">+ ${escH(s.nombre)} · ${fp(s.precio)}</button>`).join('')}</div></div>`;
+}
 function cobroOpcion(id,i){ const s=servicios.find(x=>x.id===id); if(!s||!s.variante) return; cobro.opciones[id]=s.variante.opciones[i].n; refreshCobro(); }
 function cobroPrecio(id,v){ const n=parseFloat(v)||0; if(n>0) cobro.precios[id]=n; else delete cobro.precios[id]; refreshCobro(); }
 function cobroToggleOferta(id){ cobro.ofertaId=(cobro.ofertaId===id?'':id); refreshCobro(); }
@@ -675,7 +691,7 @@ function refreshRegistroTurno(){
       ex.push(`<div style="margin-top:8px"><div style="font-size:11px;font-weight:700;color:var(--muted2);margin-bottom:5px">${escH(s.nombre)}: ${escH(s.variante.titulo||'Opción')} <span style="color:#f472b6">*</span></div><div style="display:flex;gap:6px;flex-wrap:wrap">${s.variante.opciones.map((o,oi)=>`<button onclick="rtOpcion('${id}',${oi})" style="${pillStyle(cobro.opciones[id]===o.n,color)}">${escH(o.n)}${numV(o.extra)?' +'+fp(o.extra):''}</button>`).join('')}</div></div>`);
     }
   });
-  document.getElementById('cb-extra').innerHTML=ex.join('');
+  document.getElementById('cb-extra').innerHTML=ex.join('')+htmlAgregados('rt');
   document.getElementById('rt-reag').innerHTML=`<div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button onclick="rtReag('${v}')" style="${pillStyle(cobro.reag.estado===v,color)}">${l}</button>`).join('')}</div>`;
   document.getElementById('rt-paq').innerHTML=`<div style="display:flex;gap:6px;flex-wrap:wrap">${rubros.map(r=>`<button onclick="rtTogglePaquete('${r.id}')" style="${pillStyle(cobro.paqueteRubro===r.id,color)}">${escH(r.nombre)}</button>`).join('')}</div><div style="font-size:11px;color:var(--muted2);margin-top:4px">Tocá el rubro si le comentaste algo; si no, dejalo sin marcar.</div>`;
   renderProdsCobro('cb-prods',color);
