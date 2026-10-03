@@ -416,7 +416,7 @@ async function confirmarVentaMembresia(){
 // que se le hacen al cliente (y se cobran como linea propia), y el cliente no puede tener otra membresia activa.
 function planesVendiblesEnCobro(cli,servicioIds){
   if(!cli||membresiaActivaDe(cli.id)||cobro.medio==='debe') return [];
-  return membresiaPlanesDisponibles().filter(p=>servicioDePlanEnCobro(p,servicioIds));
+  return membresiaPlanesDisponibles().filter(p=>{ const s=servicioDePlanEnCobro(p,servicioIds); return s&&s.rubro==='barberia'; });
 }
 function cobroVenderMembresia(planId){
   cobro.vendeMembPlanId=cobro.vendeMembPlanId===planId?null:planId;

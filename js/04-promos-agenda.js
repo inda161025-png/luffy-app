@@ -22,8 +22,10 @@ const PROMOS_DEFAULT={
   // nombre contra el catalogo real de servicios (igual criterio que ya usaba el viejo servicioMembresia()).
   // servicioIds: los servicios reales del catalogo que cubre cada plan (el corte existe en dos rubros).
   membresiaPlanes:[
-    {id:'mp-corte',nombre:'Corte de Cabello',servicioIds:['ap2673599','ap2986217'],creditos:4,precio:60000},
-    {id:'mp-cortebarba',nombre:'Corte + Barba',servicioIds:['ap2986224'],creditos:4,precio:70000},
+    // Solo la Barberia normal: el rubro de autor (barberia-premium) no entra en membresias.
+    {id:'mp-corte',nombre:'Corte de Cabello',servicioIds:['ap2673599'],creditos:4,precio:60000},
+    // Sin servicio de Barberia normal todavia: queda sin vender hasta que se cargue "Corte + Barba" en ese rubro.
+    {id:'mp-cortebarba',nombre:'Corte + Barba',servicioIds:[],creditos:4,precio:70000},
   ],
   tarjetas:[{id:'tj-barberia',rubro:'barberia,barberia-premium',nombre:'Tarjeta de fidelidad',activa:true,
     visitas:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15},{n:10,pct:50}],referidos:[10,15,20,25],premio:{visitas:5,refs:4}},
@@ -663,7 +665,7 @@ function htmlProximosTurnosHub(){
 function membresiaActivaDe(cid){ const hoy=hoyStr(); return membresiasSt.list.filter(m=>m.clienteId===cid&&m.usos.length<m.creditos&&(!m.vence||m.vence>=hoy)).sort((a,b)=>String(a.creadoEn).localeCompare(String(b.creadoEn)))[0]||null; }
 function paquetesAbiertosDe(cid){ return paquetesSt.list.filter(p=>p.clienteId===cid&&p.items.some(i=>!i.usado)); }
 // Ids de catalogo que cubre un plan. Si la config remota es vieja y no los trae, se toman de los defaults del mismo plan.
-function planServicioIds(plan){ if(!plan) return []; if(plan.servicioIds&&plan.servicioIds.length) return plan.servicioIds; return (PROMOS_DEFAULT.membresiaPlanes.find(d=>d.id===plan.id)||{}).servicioIds||[]; }
+function planServicioIds(plan){ if(!plan) return []; if(Array.isArray(plan.servicioIds)) return plan.servicioIds; return (PROMOS_DEFAULT.membresiaPlanes.find(d=>d.id===plan.id)||{}).servicioIds||[]; }
 // El primer servicio real del catalogo que cubre el plan (para mostrar el nombre y como servicio por defecto).
 function servicioDePlan(plan){ const ids=planServicioIds(plan); for(const id of ids){ const s=servicios.find(x=>x.id===id); if(s) return s; } return null; }
 // El servicio del plan que de verdad se esta haciendo en un cobro (puede ser el corte de barberia o el de premium).

@@ -472,8 +472,11 @@ function agregadosOfrecidos(){
   const bases=sel.filter(s=>!AGREGADOS_REGLA.some(a=>a.re.test(s.nombre)));
   if(!bases.some(s=>/corte|barba/i.test(s.nombre))) return [];
   const hayBarba=bases.some(s=>/barba/i.test(s.nombre));
-  const vis=serviciosVisibles();
-  return AGREGADOS_REGLA.filter(a=>!a.soloConBarba||hayBarba).map(a=>vis.find(s=>a.re.test(s.nombre)&&!cobro.servicios.includes(s.id))).filter(Boolean);
+  const familia=['barberia','barberia-premium'];
+  const rubroBase=bases.find(s=>/corte|barba/i.test(s.nombre)).rubro;
+  // Agregados de la familia barberia (normal o de autor); si existe uno del mismo rubro que el servicio base, ese gana.
+  const buscar=(re)=>{ const c=servicios.filter(s=>re.test(s.nombre)&&familia.includes(s.rubro)&&!cobro.servicios.includes(s.id)); return c.find(s=>s.rubro===rubroBase)||c[0]||null; };
+  return AGREGADOS_REGLA.filter(a=>!a.soloConBarba||hayBarba).map(a=>buscar(a.re)).filter(Boolean);
 }
 function htmlAgregados(modo){
   const ofrec=agregadosOfrecidos(); if(!ofrec.length) return '';

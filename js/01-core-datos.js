@@ -191,7 +191,7 @@ function saveOfertas(){
 // ============ RUBROS Y COMBOS ============
 // Rubro = sector del negocio (Barberia, Peluqueria...). Cada profesional tiene asignados los suyos
 // (u.rubros) y solo ve los servicios, combos y ofertas de esos rubros. Sin rubros asignados ve todo.
-const RUBROS_DEFAULT=[{id:'barberia',nombre:'Barbería'},{id:'barberia-premium',nombre:'Barbería Premium'},{id:'peluqueria',nombre:'Peluquería'},{id:'cosmetologia',nombre:'Cosmetología'},{id:'cejas',nombre:'Cejas y Pestañas'},{id:'podologia',nombre:'Podología'},{id:'masajes',nombre:'Masajes'},{id:'manos',nombre:'Manos'}];
+const RUBROS_DEFAULT=[{id:'barberia',nombre:'Barbería'},{id:'barberia-premium',nombre:'Barbería de Autor'},{id:'peluqueria',nombre:'Peluquería'},{id:'cosmetologia',nombre:'Cosmetología'},{id:'cejas',nombre:'Cejas y Pestañas'},{id:'podologia',nombre:'Podología'},{id:'masajes',nombre:'Masajes'},{id:'manos',nombre:'Manos'}];
 let rubros=JSON.parse(JSON.stringify(RUBROS_DEFAULT));
 let combos=[]; // {id, nombre, rubro, servicioIds:[..], precio}
 function loadRubros(){
