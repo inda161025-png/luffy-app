@@ -52,11 +52,11 @@ function adminMembresias(c){
       <div class="stat-card"><div class="sc-lbl">Sumado a los chicos</div><div class="sc-val" style="font-size:20px">${fp(pagadoProf)}</div></div>
       <div class="stat-card"><div class="sc-lbl">Cortes por usar</div><div class="sc-val" style="font-size:20px">${fp(pendiente)}</div></div>
     </div>
-    ${L.map(m=>{ const usados=m.usos.length, deb=usados>=m.creditos; return `<div class="card" style="margin-bottom:8px;border-left:4px solid ${deb?'#f472b6':'#34d399'}">
-      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><div style="font-size:13.5px;font-weight:800">${escH(m.clienteNombre)} <span style="color:var(--muted2)">#${m.clienteNumero}</span></div><b>${fp(m.precio)}</b></div>
+    ${L.map(m=>{ const usados=m.usos.length, agotada=usados>=m.creditos, vencida=m.vence&&m.vence<hoyStr(), deb=agotada||vencida; return `<div class="card" style="margin-bottom:8px;border-left:4px solid ${deb?'#f472b6':'#34d399'}">
+      <div style="display:flex;justify-content:space-between;gap:8px;align-items:baseline"><div style="font-size:13.5px;font-weight:800">${escH(m.clienteNombre)} <span style="color:var(--muted2)">#${m.clienteNumero}</span>${m.planNombre?' · '+escH(m.planNombre):''}</div><b>${fp(m.precio)}</b></div>
       <div style="display:flex;gap:4px;margin:6px 0">${Array.from({length:m.creditos},(_,i)=>`<div style="flex:1;height:8px;border-radius:4px;background:${i<usados?'#4A136B':'var(--border2)'}"></div>`).join('')}</div>
-      <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">Pagó el ${fechaCortaStr(m.fecha)} (${({efectivo:'efectivo',mp:'Mercado Pago',tarjeta:'tarjeta'}[m.medio]||m.medio)}) · vendió ${escH(m.vendedorNombre||'')} · ${usados}/${m.creditos} cortes usados · membresías pagadas por este cliente: <b style="color:var(--text)">${porCli[m.clienteId]}</b><br>
-      ${deb?'<b style="color:#f472b6">Tiene que renovar</b> (usó todos los cortes)':'<b style="color:#34d399">Al día</b> · le quedan '+(m.creditos-usados)}${m.usos.length?'<br>Cortes: '+m.usos.map(u=>fechaCortaStr(u.fecha)+' con '+escH(u.profNombre)).join(' · '):''}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">💳</div><p>Todavía no se vendió ninguna membresía.<br>Se venden desde la ficha del cliente.</p></div>'}`;
+      <div style="font-size:11.5px;color:var(--muted2);line-height:1.6">Pagó el ${fechaCortaStr(m.fecha)} (${({efectivo:'efectivo',mp:'Mercado Pago',tarjeta:'tarjeta'}[m.medio]||m.medio)}) · vendió ${escH(m.vendedorNombre||'')} · ${usados}/${m.creditos} usados${m.vence?' · vence '+fechaCortaStr(m.vence):''} · membresías pagadas por este cliente: <b style="color:var(--text)">${porCli[m.clienteId]}</b><br>
+      ${vencida?'<b style="color:#f472b6">Vencida</b>'+(usados<m.creditos?' — se perdieron '+(m.creditos-usados)+' sin usar':''):agotada?'<b style="color:#f472b6">Tiene que renovar</b> (usó todos)':'<b style="color:#34d399">Al día</b> · le quedan '+(m.creditos-usados)}${m.usos.length?'<br>Usos: '+m.usos.map(u=>fechaCortaStr(u.fecha)+' con '+escH(u.profNombre)).join(' · '):''}</div></div>`; }).join('')||'<div class="empty"><div class="e-icon">💳</div><p>Todavía no se vendió ninguna membresía.<br>Se venden desde la ficha del cliente.</p></div>'}`;
 }
 function adminPaquetes(c){
   const L=paquetesSt.list.slice().sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));
@@ -160,7 +160,7 @@ async function borrarTarjetaCfg(id){
 }
 function adminDescuentos(c){
   const hoy=hoyStr(); const r=rangoPeriodo('quincena'); const P=htmlPerdidaDescuentos(r.desde,r.hasta);
-  const sv=servicioMembresia(); const cm=promos.comision, mb=promos.membresia, nc=nocheCfg();
+  const cm=promos.comision, nc=nocheCfg();
   const diasTxt=(d)=>d&&d.length?d.map(x=>DIAS_NOM[x]).join(', '):'todos los días';
   c.innerHTML=`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.35)">
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span style="font-size:13px;font-weight:800">🌐 Reserva pública</span><button class="lnk" onclick="abrirConfigReservaPublica()">Configurar</button></div>
@@ -177,7 +177,7 @@ function adminDescuentos(c){
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🌙 Turnos de noche</span><button class="lnk" onclick="editarNocheCfg()">Editar</button></div>
     <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Los turnos que terminan a partir de las <b>${escH(nc.desde)}</b> (en cualquier sucursal) van a <b>precio de lista, sin ningún descuento</b> (ni efectivo, ni promos, ni fidelidad, ni referidos) y el profesional cobra el <b>${numV(nc.pct)}%</b> de lo que paga el cliente.</div>
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">🎁 Paquetes y 💳 membresía</span><button class="lnk" onclick="editarVentasCfg()">Editar</button></div>
-    <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Paquetes (servicios juntos): 1 = normal · ${(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ')} · primero se aplica el descuento individual de cada servicio y recién después este %, repartido entre las líneas · la comisión de quien lo vende se ve en Clientes → Paquetes<br>Membresía: ${mb.creditos} cortes de <b>${sv?escH(sv.nombre)+' ('+fp(sv.precio)+')':'— sin servicio configurado —'}</b> con ${mb.descPct}% menos${sv?' = '+fp(Math.round(sv.precio*mb.creditos*(1-mb.descPct/100))):''}</div>
+    <div class="card" style="margin-bottom:8px;font-size:12.5px;line-height:1.7">Paquetes (servicios juntos): 1 = normal · ${(promos.paquetes||[]).map(x=>x.n+(x===promos.paquetes[promos.paquetes.length-1]?'+':'')+' = '+x.pct+'%').join(' · ')} · primero se aplica el descuento individual de cada servicio y recién después este %, repartido entre las líneas · la comisión de quien lo vende se ve en Clientes → Paquetes<br>Membresía (precio fijo, vence a los 30 días): ${(promos.membresiaPlanes||[]).map(p=>{ const sv=servicioDePlan(p); return escH(p.nombre)+' — '+p.creditos+' de '+(sv?escH(sv.nombre):'<span style="color:#f87171">sin servicio '+escH(p.servicioNombre)+'</span>')+' por '+fp(p.precio); }).join(' · ')}</div>
     <div class="sec-hdr" style="margin:16px 0 8px"><span class="sec-title">📉 Plata que dejamos en descuentos</span><span style="font-size:11px;color:var(--muted2)">${r.label}</span></div>
     <div class="card">${P.html}</div>`;
 }
@@ -301,17 +301,16 @@ async function editarNocheCfg(){
   promos.noche={desde:h.padStart(5,'0'),pct:p}; savePromos(); showToast('Guardado ✓'); renderAdmin();
 }
 async function editarVentasCfg(){
-  const sv=servicioMembresia(); const mb=promos.membresia;
-  const v=await uiDialog({title:'Paquetes y membresía',msg:'Escalera de paquetes: "servicios:%" separados por coma. La comisión de quien vende paquetes se edita aparte, en Clientes → Paquetes.',fields:[
+  const planes=promos.membresiaPlanes||[];
+  const v=await uiDialog({title:'Paquetes y membresía',msg:'Escalera de paquetes: "servicios:%" separados por coma. Las membresías son a precio fijo (no %) y vencen a los 30 días — eso no se edita acá, son reglas del negocio. La comisión de quien vende paquetes se edita aparte, en Clientes → Paquetes.',fields:[
     {label:'Paquetes (ej: 2:5, 3:10, 4:15)',value:(promos.paquetes||[]).map(x=>x.n+':'+x.pct).join(', ')},
-    {label:'Membresía: cantidad de cortes',type:'number',value:mb.creditos},{label:'Membresía: % más barata',type:'number',value:mb.descPct},
-    {label:'Membresía: nombre exacto del servicio (ej: Corte)',value:sv?sv.nombre:''}],ok:'Guardar'});
+    {label:'Membresía: cantidad de servicios (las dos)',type:'number',value:planes[0]?planes[0].creditos:4},
+    ...planes.map(p=>({label:'Membresía '+p.nombre+': precio fijo',type:'number',value:p.precio}))],ok:'Guardar'});
   if(!v) return;
   const esc=v[0].split(',').map(s=>s.trim().split(':').map(Number)).filter(a=>a[0]>1&&a[1]>=0).map(a=>({n:a[0],pct:a[1]})).sort((a,b)=>a.n-b.n);
-  const nom=nkey(v[3]); const s2=servicios.find(x=>nkey(x.nombre)===nom&&rubroEn(mb.rubro,x.rubro||''))||servicios.find(x=>nkey(x.nombre)===nom);
-  if(v[3].trim()&&!s2){ showToast('No encontré un servicio con ese nombre'); return; }
+  const creditos=Math.max(1,Math.round(numV(v[1]))||4);
   promos.paquetes=esc.length?esc:promos.paquetes;
-  promos.membresia={...mb,creditos:Math.max(1,Math.round(numV(v[1]))||4),descPct:Math.min(90,Math.max(0,numV(v[2]))),servicioId:s2?s2.id:mb.servicioId};
+  promos.membresiaPlanes=planes.map((p,i)=>({...p,creditos,precio:Math.max(0,numV(v[2+i]))||p.precio}));
   savePromos(); showToast('Guardado ✓'); renderAdmin();
 }
 async function editarComisionRubro(){
@@ -832,16 +831,26 @@ function adminCRM(c){
     <div id="crm-admin-body"></div>`;
   renderCRM();
 }
-// Membresias a las que le queda 1 credito nomas -- avisar antes de que se quede sin nada, para que renueve
+// Membresias a las que le queda 1 credito nomas, o que vencen (30 dias) en 5 dias o menos con creditos sin
+// usar -- avisar antes de que se quede sin nada o se le venza, para que renueve o venga a usarla.
 function membresiasPorVencer(){
-  const out=[];
-  membresiasSt.list.forEach(m=>{ const restantes=numV(m.creditos)-(m.usos||[]).length; if(restantes===1){ const c=clienteDe(m.clienteId); if(c) out.push({c,m,restantes}); } });
+  const out=[]; const hoy=hoyStr();
+  membresiasSt.list.forEach(m=>{
+    const restantes=numV(m.creditos)-(m.usos||[]).length; if(restantes<=0) return;
+    if(m.vence&&m.vence<hoy) return; // ya vencida: no tiene sentido avisar para que la use, ya la perdio
+    const diasVence=m.vence?diasEntre(hoy,m.vence):null;
+    if(restantes===1||(diasVence!=null&&diasVence<=5)){ const c=clienteDe(m.clienteId); if(c) out.push({c,m,restantes,diasVence}); }
+  });
   return out;
 }
 function htmlMembresiasPorVencerRec(){
   const L=membresiasPorVencer();
   if(!L.length) return '<div class="card" style="text-align:center;color:var(--muted);font-size:13px;padding:20px">Nadie está por quedarse sin cortes 🎉</div>';
-  return L.map(({c,restantes})=>{ const wa=linkWhatsApp(c.tel,'Hola '+c.nombre.split(' ')[0]+'! Te queda '+restantes+' corte en tu membresía de Inda Studio 💈 ¿Querés renovarla para no quedarte sin nada?'); return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="font-size:28px">💳</div><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:700">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">Le queda ${restantes} corte</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 10px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}</div>`; }).join('');
+  return L.map(({c,restantes,diasVence})=>{
+    const porDias=diasVence!=null&&diasVence<=5;
+    const motivo=porDias?'Vence en '+(diasVence<=0?'menos de 1 día':diasVence+' día'+(diasVence===1?'':'s'))+' · le quedan '+restantes+' sin usar':'Le queda '+restantes+' corte';
+    const wa=linkWhatsApp(c.tel,'Hola '+c.nombre.split(' ')[0]+'! '+(porDias?'Tu membresía de Inda Studio está por vencer y todavía te quedan '+restantes+' corte'+(restantes===1?'':'s')+' sin usar 💈 ¿Coordinamos antes de que se pierdan?':'Te queda '+restantes+' corte en tu membresía de Inda Studio 💈 ¿Querés renovarla para no quedarte sin nada?'));
+    return `<div class="card" style="margin-bottom:8px;display:flex;align-items:center;gap:12px"><div style="font-size:28px">💳</div><div style="flex:1;min-width:0" onclick="abrirClienteDetalle('${c.id}')"><div style="font-size:13px;font-weight:700">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><div style="font-size:11px;color:var(--muted2)">${motivo}</div></div>${wa?`<a href="${wa}" target="_blank" rel="noopener" style="padding:8px 10px;border-radius:10px;background:rgba(52,211,153,.15);color:#34d399;font-size:12px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}</div>`; }).join('');
 }
 function htmlParaContactarRec(){
   const L=contactosPendientesSt.list.filter(x=>!x.atendido).sort((a,b)=>String(b.creadoEn).localeCompare(String(a.creadoEn)));

@@ -18,7 +18,12 @@ const PROMOS_DEFAULT={
   comision:{t1:30,p1:60,t2:50,p2:95},
   noche:{desde:'21:00',pct:70}, // turnos que terminan desde esta hora: sin descuentos y el profesional cobra pct%
   paquetes:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15}],
-  membresia:{creditos:4,descPct:20,servicioId:'',rubro:'barberia,barberia-premium'},
+  // Precio FIJO por membresia (no % calculado) -- decidido por Ivo, 2/10/2026. servicioNombre matchea por
+  // nombre contra el catalogo real de servicios (igual criterio que ya usaba el viejo servicioMembresia()).
+  membresiaPlanes:[
+    {id:'mp-corte',nombre:'Corte de Cabello',servicioNombre:'Corte',creditos:4,precio:60000},
+    {id:'mp-cortebarba',nombre:'Corte + Barba',servicioNombre:'Corte + Barba',creditos:4,precio:70000},
+  ],
   tarjetas:[{id:'tj-barberia',rubro:'barberia,barberia-premium',nombre:'Tarjeta de fidelidad',activa:true,
     visitas:[{n:2,pct:5},{n:3,pct:10},{n:4,pct:15},{n:10,pct:50}],referidos:[10,15,20,25],premio:{visitas:5,refs:4}},
     // Tarjeta de Dai: 1.° y 2.° servicio normales, 3.° con 10% en cualquier servicio, 6.° tratamiento de hidratacion gratis
@@ -653,18 +658,10 @@ function htmlProximosTurnosHub(){
 }
 
 // ---------- membresia y paquetes de un cliente ----------
-function membresiaActivaDe(cid){ return membresiasSt.list.filter(m=>m.clienteId===cid&&m.usos.length<m.creditos).sort((a,b)=>String(a.creadoEn).localeCompare(String(b.creadoEn)))[0]||null; }
+// Vencida (30 dias desde que se contrato) no sirve aunque le queden cortes sin usar -- pedido de Ivo (2/10/2026).
+function membresiaActivaDe(cid){ const hoy=hoyStr(); return membresiasSt.list.filter(m=>m.clienteId===cid&&m.usos.length<m.creditos&&(!m.vence||m.vence>=hoy)).sort((a,b)=>String(a.creadoEn).localeCompare(String(b.creadoEn)))[0]||null; }
 function paquetesAbiertosDe(cid){ return paquetesSt.list.filter(p=>p.clienteId===cid&&p.items.some(i=>!i.usado)); }
-function servicioMembresia(){
-  const cfg=promos.membresia||{};
-  let s=servicios.find(x=>x.id===cfg.servicioId);
-  if(!s) s=servicios.filter(x=>rubroEn(cfg.rubro,x.rubro||'')&&/^corte$/i.test(x.nombre.trim()))[0]||servicios.filter(x=>rubroEn(cfg.rubro,x.rubro||'')&&/^corte/i.test(x.nombre.trim())).sort((a,b)=>a.precio-b.precio)[0];
-  return s||null;
-}
-// El corte de la membresia para cada profesional: el configurado si lo ve, o el corte mas barato de su rubro (Barberia / Barberia Premium)
-function servicioMembresiaPara(u){
-  const rb=rubrosDeUsuario(u); const base=servicioMembresia();
-  if(base&&visiblePorRubro(base,rb)) return base;
-  return servicios.filter(x=>visiblePorRubro(x,rb)&&rubroEn(promos.membresia.rubro,x.rubro||'')&&/^corte/i.test(x.nombre.trim())).sort((a,b)=>a.precio-b.precio)[0]||null;
-}
+// El servicio real de catalogo que corresponde a un plan de membresia (matchea por nombre).
+function servicioDePlan(plan){ return plan?servicios.find(x=>nkey(x.nombre)===nkey(plan.servicioNombre)):null; }
+function membresiaPlanesDisponibles(){ return (promos.membresiaPlanes||[]).filter(p=>servicioDePlan(p)); }
 

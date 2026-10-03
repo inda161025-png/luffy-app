@@ -369,37 +369,43 @@ const htmlMedios=(fn,sel,color)=>`<div style="display:flex;gap:8px;margin-bottom
 const cabeceraModal=(t)=>`<div style="display:flex;align-items:center;gap:8px;margin-bottom:12px"><div class="modal-title" style="margin:0">${t}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>`;
 function abrirVentaMembresia(cid){
   const c=clienteDe(cid); if(!c) return;
-  const sv=servicioMembresia(); const cfg=promos.membresia||{};
-  if(!sv){ showToast('El admin todavía no configuró el servicio de la membresía'); return; }
+  const planes=membresiaPlanesDisponibles();
+  if(!planes.length){ showToast('El admin todavía no configuró las membresías'); return; }
   if(membresiaActivaDe(cid)){ showToast('Ya tiene una membresía con cortes disponibles'); return; }
-  ventaSel={tipo:'memb',cid,medio:'efectivo'};
+  ventaSel={tipo:'memb',cid,medio:'efectivo',planId:planes[0].id};
   renderVentaMembresia(); openModal('modal-registro');
 }
+function ventaMembresiaPlan(id){ if(ventaSel){ ventaSel.planId=id; renderVentaMembresia(); } }
 function ventaMedio(m){ if(ventaSel){ ventaSel.medio=m; ventaSel.tipo==='memb'?renderVentaMembresia():renderVentaPaquete(); } }
 function renderVentaMembresia(){
-  const s=ventaSel; const c=clienteDe(s.cid); const sv=servicioMembresia(); const cfg=promos.membresia;
-  const lista=sv.precio*cfg.creditos, precio=Math.round(lista*(1-cfg.descPct/100)), vc=Math.round(precio/cfg.creditos);
+  const s=ventaSel; const c=clienteDe(s.cid); const planes=membresiaPlanesDisponibles();
+  const plan=planes.find(p=>p.id===s.planId)||planes[0]; s.planId=plan.id;
+  const sv=servicioDePlan(plan), vc=Math.round(plan.precio/plan.creditos);
   const color=(profile&&profile.color)||'#4A136B';
   document.getElementById('registro-content').innerHTML=cabeceraModal('Vender membresía 💳')+`
-    <div class="card" style="margin-bottom:12px"><div style="font-size:15px;font-weight:800">${escH(c.nombre)}${verNumeroCliente()?' #'+c.numero:''}</div>
-      <div style="font-size:12px;color:var(--muted2);margin-top:4px;line-height:1.6">${cfg.creditos} cortes (${escH(sv.nombre)}) que se abonan ahora, con ${cfg.descPct}% menos.<br>Precio normal ${fp(lista)} → <b style="color:var(--text)">${fp(precio)}</b><br>Cada corte le suma al profesional ${fp(vc)}.</div></div>
+    <div class="card" style="margin-bottom:12px"><div style="font-size:15px;font-weight:800">${escH(c.nombre)}${verNumeroCliente()?' #'+c.numero:''}</div></div>
+    ${planes.length>1?`<div class="field"><label>¿Qué membresía?</label><div style="display:flex;gap:6px;flex-wrap:wrap">${planes.map(p=>`<button onclick="ventaMembresiaPlan('${p.id}')" style="${pillStyle(s.planId===p.id,color)}">${escH(p.nombre)}</button>`).join('')}</div></div>`:''}
+    <div class="card" style="margin-bottom:12px"><div style="font-size:12px;color:var(--muted2);line-height:1.6">${plan.creditos} servicios de ${escH(sv.nombre)}, se abonan ahora.<br>Precio fijo: <b style="color:var(--text)">${fp(plan.precio)}</b> (${fp(vc)} por servicio)<br>Vence a los 30 días. Cada servicio le suma al profesional ${fp(vc)}.</div></div>
     <div class="field"><label>¿Cómo paga?</label>${htmlMedios('ventaMedio',s.medio,color)}</div>
-    <button class="btn btn-primary" onclick="confirmarVentaMembresia()" style="background:${color}">Cobrar ${fp(precio)} y activar</button>`;
+    <button class="btn btn-primary" onclick="confirmarVentaMembresia()" style="background:${color}">Cobrar ${fp(plan.precio)} y activar</button>`;
 }
 async function confirmarVentaMembresia(){
   const s=ventaSel; if(!s||s.ocupado) return; s.ocupado=true;
-  const c=clienteDe(s.cid), sv=servicioMembresia(), cfg=promos.membresia;
-  const lista=sv.precio*cfg.creditos, precio=Math.round(lista*(1-cfg.descPct/100));
-  const ahora=new Date().toISOString();
+  const c=clienteDe(s.cid); const plan=(promos.membresiaPlanes||[]).find(p=>p.id===s.planId); const sv=plan?servicioDePlan(plan):null;
+  if(!c||!plan||!sv){ s.ocupado=false; showToast('Faltan datos'); return; }
+  const ahora=new Date().toISOString(), hoy=hoyStr();
   const r=await membresiasSt.cambiar(l=>{
-    if(l.some(m=>m.clienteId===c.id&&m.usos.length<m.creditos)) return {error:true};
-    const m={id:'mb'+Date.now().toString(36),clienteId:c.id,clienteNombre:c.nombre,clienteNumero:c.numero,servicioId:sv.id,servicioNombre:sv.nombre,rubro:sv.rubro||'',creditos:cfg.creditos,descPct:cfg.descPct,
-      precio,valorCredito:Math.round(precio/cfg.creditos),medio:s.medio,fecha:hoyStr(),sucursal:sucursalActual(),vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,usos:[],creadoEn:ahora,upd:ahora};
+    if(l.some(m=>m.clienteId===c.id&&m.usos.length<m.creditos&&(!m.vence||m.vence>=hoy))) return {error:true};
+    const m={id:'mb'+Date.now().toString(36),clienteId:c.id,clienteNombre:c.nombre,clienteNumero:c.numero,
+      planId:plan.id,planNombre:plan.nombre,servicioId:sv.id,servicioNombre:sv.nombre,rubro:sv.rubro||'',
+      creditos:plan.creditos,precio:plan.precio,valorCredito:Math.round(plan.precio/plan.creditos),
+      medio:s.medio,fecha:hoy,vence:addDias(hoy,30),sucursal:sucursalActual(),
+      vendedorId:profile.id,vendedorNombre:profile.name,vendedorRol:profile.role,usos:[],creadoEn:ahora,upd:ahora};
     l.push(m); return {m};
   });
   ventaSel=null;
   if(r.error){ showToast('Ya tenía una membresía activa'); return; }
-  closeModal('modal-registro'); showToast('Membresía activada ✓ '+fp(precio)); refreshCurrentView();
+  closeModal('modal-registro'); showToast('Membresía activada ✓ '+fp(plan.precio)); refreshCurrentView();
 }
 
 // ============ vender paquete (promos cruzadas) ============
@@ -648,7 +654,7 @@ function prepagosDisponibles(){
   const c=clienteDe(cobro.clienteId); if(!c) return [];
   const rb=rubrosDeUsuario(profile); const out=[];
   const m=membresiaActivaDe(c.id);
-  if(m){ const sv=servicioMembresiaPara(profile); if(sv) out.push({kind:'memb',refId:m.id,itemId:m.id,svcId:sv.id,credito:m.valorCredito,nombre:'Membresía · '+sv.nombre+' (quedan '+(m.creditos-m.usos.length)+' de '+m.creditos+')'}); }
+  if(m){ const sv=servicios.find(x=>x.id===m.servicioId); if(sv) out.push({kind:'memb',refId:m.id,itemId:m.id,svcId:sv.id,credito:m.valorCredito,nombre:'Membresía · '+sv.nombre+' (quedan '+(m.creditos-m.usos.length)+' de '+m.creditos+')'}); }
   paquetesAbiertosDe(c.id).forEach(p=>p.items.filter(i=>!i.usado).forEach(i=>{ const sv=servicios.find(x=>x.id===i.svcId); if(sv&&visiblePorRubro(sv,rb)) out.push({kind:'paq',refId:p.id,itemId:i.id,svcId:i.svcId,credito:i.final,descPct:i.descPct,nombre:'Paquete · '+i.nombre}); }));
   return out;
 }
@@ -708,6 +714,8 @@ function renderPrepagoCobro(r){
     h+=`<div style="font-size:12.5px;margin:-2px 0 10px;color:var(--accent2);font-weight:700">${paqTxt}</div>`;
   }
   if(disp.length) h+=`<div class="field"><label>Lo que el cliente ya pagó</label><div style="display:flex;flex-wrap:wrap;gap:6px">${disp.map(p=>{ const on=(cobro.prepagos||[]).some(x=>x.kind===p.kind&&x.refId===p.refId&&x.itemId===p.itemId); return `<button onclick="cobroTogglePrepago('${p.kind}','${p.refId}','${p.itemId}')" style="${pillStyle(on,'#4A136B')}">${on?'✓ ':''}${escH(p.nombre)}</button>`; }).join('')}</div></div>`;
+  // Visibilidad de "vender membresia" tambien desde el cobro, no solo desde la ficha -- Ivo no la encontraba (2/10/2026)
+  if(cli&&!membresiaActivaDe(cli.id)&&membresiaPlanesDisponibles().length) h+=`<button type="button" class="lnk" style="margin:-4px 0 10px;display:block" onclick="abrirVentaMembresia('${cli.id}')">💳 No tiene membresía — vender una</button>`;
   if(r.tarj){ const inf=r.tarj; h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#fbbf24;font-weight:700">⭐ Tarjeta: ${inf.regalo?'¡corte de regalo!':`${unidadTarj(inf)} n°${inf.k}${inf.pasoLabel?' · 🎁 '+escH(inf.pasoLabel)+' (sumalo al turno)':(inf.pctFid?' · '+inf.pctFid+'% fidelidad':'')}${inf.pctRef?' · '+inf.pctRef+'% en cupones acumulados':''}`}</div>`; }
   const debeC=cli?saldoDeCliente(cli.id,cli.nombre):0;
   if(debeC>0) h+=`<div style="font-size:12px;margin:-2px 0 10px;color:#f472b6;font-weight:800">⚠️ Este cliente debe ${fp(debeC)} de turnos anteriores.</div>`;

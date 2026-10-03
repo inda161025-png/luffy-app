@@ -373,7 +373,8 @@ function abrirClienteDetalle(id){
     ${typeof htmlTarjetaCliente==='function'?htmlTarjetaCliente(c):''}
     ${tarjetaConRegaloListo(c)?`<button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="abrirCanjeRegaloProducto('${c.id}')">🎁 Canjear el regalo por un producto (en vez de corte gratis)</button>`:''}
     ${htmlDeudaCliente(c)}${htmlSenaCliente(c)}
-    ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(74,19,107,.4)"><div style="font-size:12px;font-weight:800;color:#4A136B">💳 Membresía activa</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} cortes · pagó ${fp(m.precio)} el ${fch(m.fecha)}</div></div>`:''}
+    ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(74,19,107,.4)"><div style="font-size:12px;font-weight:800;color:#4A136B">💳 Membresía activa${m.planNombre?' · '+escH(m.planNombre):''}</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} · pagó ${fp(m.precio)} el ${fch(m.fecha)}${m.vence?' · <b style="color:var(--text)">vence el '+fch(m.vence)+'</b>':''}</div></div>`
+      :`<button class="btn btn-primary" style="width:100%;margin-bottom:10px" onclick="abrirVentaMembresia('${c.id}')">💳 Vender membresía</button>`}
     ${paqs.map(p=>`<div class="card" style="margin-bottom:10px;border-color:rgba(52,211,153,.4)"><div style="font-size:12px;font-weight:800;color:#34d399">🎁 Paquete pagado (${p.pct}% off)</div><div style="font-size:12.5px;margin-top:3px">Le faltan: ${p.items.filter(i=>!i.usado).map(i=>escH(i.nombre)+(i.coord&&i.coord.fecha?' ('+fechaCortaStr(i.coord.fecha)+(i.coord.hora?' '+i.coord.hora+'hs':'')+')':'')).join(', ')}</div></div>`).join('')}
     <div class="stat-grid" style="grid-template-columns:repeat(3,1fr)">
       <div class="stat-card"><div class="sc-lbl">Visitas</div><div class="sc-val">${s.visitas}</div><div class="sc-sub">${s.servicios} servicios</div></div>
@@ -384,7 +385,6 @@ function abrirClienteDetalle(id){
     <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 12px">Primera visita: ${fch(s.primera)} · Última: ${fch(s.ultima)}</div>
     <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirFormCliente('${c.id}')">✏️ Editar datos</button>
-      <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirVentaMembresia('${c.id}')">💳 Vender membresía</button>
       <button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="abrirVentaPaquete('${c.id}')">🎁 Vender paquete</button>
       ${typeof tarjetasDisponibles==='function'&&tarjetasDisponibles().some(t=>!(c.tarjetas||[]).some(x=>x.cardId===t.id))?`<button class="btn btn-ghost" style="flex:1;min-width:120px" onclick="activarTarjetaCliente('${c.id}')">⭐ Activar tarjeta</button>`:''}
       <button class="btn btn-ghost" style="flex:1;min-width:120px;color:#f472b6" onclick="toggleClienteProblema('${c.id}')">${c.problematico?'✓ Quitar marca':'🗑️ Marcar problemático'}</button>
