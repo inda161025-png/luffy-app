@@ -362,6 +362,8 @@ function renderHub(){
   renderTramoBanner();
   renderCierresPendientesProf();
   { const el=document.getElementById('hub-suc-wrap'); if(el) el.innerHTML=htmlSucursalHub(); }
+  { const hab=paquetesEnCobroHabilitados()?'':'none';
+    ['hub-armar-paquete','hub-paq-proxima'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display=hab; }); }
   { const card=document.getElementById('hub-agenda-card');
     if(card&&profile.role==='profesional'){
       const n=agendaSt.list.filter(a=>a.profId===profile.id&&a.fecha===ymdLocal(new Date())&&agEsActivo(a)).length;

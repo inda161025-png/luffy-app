@@ -371,6 +371,7 @@ function abrirClienteDetalle(id){
     </div>
     <div class="field" style="margin-bottom:12px"><label>✉️ Mail</label><input id="cd-email" type="email" placeholder="nombre@mail.com" value="${escH(c.email||'')}" onblur="guardarEmailRapido('${c.id}',this.value)"/></div>
     ${typeof htmlTarjetaCliente==='function'?htmlTarjetaCliente(c):''}
+    ${(c.tarjetas&&c.tarjetas.length&&profile.role!=='profesional')?`<button class="lnk" style="margin:-4px 0 10px;display:block" onclick="abrirAjusteTarjeta('${c.id}')">🔧 Ajustar visitas de la tarjeta física</button>`:''}
     ${tarjetaConRegaloListo(c)?`<button class="btn btn-ghost" style="width:100%;margin-bottom:10px" onclick="abrirCanjeRegaloProducto('${c.id}')">🎁 Canjear el regalo por un producto (en vez de corte gratis)</button>`:''}
     ${htmlDeudaCliente(c)}${htmlSenaCliente(c)}
     ${m?`<div class="card" style="margin-bottom:10px;border-color:rgba(74,19,107,.4)"><div style="font-size:12px;font-weight:800;color:#4A136B">💳 Membresía activa${m.planNombre?' · '+escH(m.planNombre):''}</div><div style="font-size:13px;margin-top:3px">Le quedan <b>${m.creditos-m.usos.length}</b> de ${m.creditos} · pagó ${fp(m.precio)} el ${fch(m.fecha)}${m.vence?' · <b style="color:var(--text)">vence el '+fch(m.vence)+'</b>':''}</div></div>`

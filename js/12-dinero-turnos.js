@@ -509,8 +509,8 @@ async function guardarCobro(){
   if(!cli){ showToast(cobro.medio==='debe'?'Poné el nombre del cliente para poder cobrarle después':'Elegí o cargá al cliente: recepción necesita sus datos'); return; }
   const faltan=faltanDatosCliente(cli);
   if(faltan.length){ showToast('Completá '+faltan.join(' y ')+' de '+cli.nombre); abrirFormCliente(cli.id,{deCobro:true}); return; }
-  if(profile.role==='profesional'&&cli&&!cobro.paqueteOfrecido){ showToast('Respondé si le ofreciste un paquete'); return; }
-  if(profile.role==='profesional'&&cli&&cobro.paqueteOfrecido==='si'&&!cobro.paqueteRubro){ showToast('Elegí qué combinación le gustaría'); return; }
+  if(profile.role==='profesional'&&cli&&paquetesEnCobroHabilitados()&&!cobro.paqueteOfrecido){ showToast('Respondé si le ofreciste un paquete'); return; }
+  if(profile.role==='profesional'&&cli&&paquetesEnCobroHabilitados()&&cobro.paqueteOfrecido==='si'&&!cobro.paqueteRubro){ showToast('Elegí qué combinación le gustaría'); return; }
   if(cli&&!cli.yaDejoResena&&!cobro.resena){ showToast('Respondé si dejó una reseña en Google'); return; }
   if(cobroParaProf&&cobro.reag.estado==='si'&&!cobro.reagFecha){ showToast('Elegí día y hora del reagendo en la Agenda'); return; }
   if(profile.role==='recepcionista'&&!cobroParaProf&&!cobro.profAtendioId){ showToast('Elegí qué profesional atendió al cliente'); return; }

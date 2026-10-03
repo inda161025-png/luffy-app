@@ -259,6 +259,39 @@ function htmlTarjetaCliente(c){
   const tabs=`<div style="display:flex;gap:6px;margin-bottom:10px;overflow-x:auto;padding-bottom:2px">${L.map((t,i)=>{ const col=colorDeTarjeta(t); return `<button onclick="walletMostrar('${wid}',${i})" data-wtab="${wid}-${i}" data-col="${col}" style="flex-shrink:0;display:flex;align-items:center;gap:5px;padding:7px 13px;border-radius:20px;border:1.5px solid ${i===0?col:'var(--border2)'};background:${i===0?col+'22':'transparent'};color:${i===0?col:'var(--muted2)'};font-family:var(--font);font-size:12px;font-weight:700;cursor:pointer">${iconoDeTarjeta(t)} ${escH(rubrosNombres(t.snap.rubro))}</button>`; }).join('')}</div>`;
   return `<div id="${wid}">${tabs}${L.map((t,i)=>`<div data-wcard="${wid}-${i}" style="${i===0?'':'display:none'}">${htmlUnaTarjetaCliente(c,t)}</div>`).join('')}</div>`;
 }
+// Tarjeta de papel con visitas que no estan en la app: recepcion/admin fija la cantidad real de visitas,
+// queda registrado quien, cuando, de cuanto a cuanto y por que, y se ve como cambia el escalon de descuento.
+let ajusteTarjetaSel=null;
+function abrirAjusteTarjeta(cid){
+  const c=clienteDe(cid); if(!c) return;
+  const L=(c.tarjetas||[]).filter(t=>t.snap);
+  if(!L.length){ showToast('Este cliente no tiene tarjeta de fidelidad activa'); return; }
+  ajusteTarjetaSel={cid,idx:0,visitas:null,motivo:''};
+  renderAjusteTarjeta(); openModal('modal-registro');
+}
+function renderAjusteTarjeta(){
+  const s=ajusteTarjetaSel; const c=clienteDe(s.cid); const L=(c.tarjetas||[]).filter(t=>t.snap);
+  const t=L[s.idx]||L[0]; const actual=numV(t.visitas);
+  const nueva=s.visitas==null?actual:numV(s.visitas);
+  const paso=(v)=>{ const i=infoDeTarjeta({...t,visitas:v}); return i?(i.k+'° visita · '+(i.pctFid?i.pctFid+'% de fidelidad':'sin descuento')+(i.pasoLabel?' · '+i.pasoLabel:'')):'—'; };
+  const color=(profile&&profile.color)||'#4A136B';
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🔧 Ajustar tarjeta física')+`
+    <div class="card" style="margin-bottom:12px"><div style="font-size:14px;font-weight:800">${escH(c.nombre)}</div>
+      ${L.length>1?`<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">${L.map((x,i)=>`<button type="button" onclick="ajusteTarjetaSel.idx=${i};ajusteTarjetaSel.visitas=null;renderAjusteTarjeta()" style="${pillStyle(i===s.idx,color)}">${escH(x.rubro||'tarjeta')}</button>`).join('')}</div>`:''}</div>
+    <div class="field"><label>Visitas que tiene la tarjeta de papel</label><input type="number" min="0" inputmode="numeric" value="${nueva}" onchange="ajusteTarjetaSel.visitas=Math.max(0,parseInt(this.value)||0);renderAjusteTarjeta()"/></div>
+    <div class="card" style="margin-bottom:12px;font-size:12.5px;line-height:1.7">En la app ahora: <b>${actual}</b> visitas → ${paso(actual)}<br>Con el ajuste: <b style="color:var(--text)">${nueva}</b> visitas → <b style="color:var(--text)">${paso(nueva)}</b></div>
+    <div class="field"><label>Motivo (obligatorio)</label><input type="text" value="${escH(s.motivo)}" placeholder="Ej: tarjeta de papel con 4 visitas hechas antes de la app" oninput="ajusteTarjetaSel.motivo=this.value"/></div>
+    <button class="btn btn-primary" onclick="confirmarAjusteTarjeta()" style="background:${color}" ${nueva===actual?'disabled':''}>Guardar ajuste</button>`;
+}
+async function confirmarAjusteTarjeta(){
+  const s=ajusteTarjetaSel; if(!s) return;
+  const motivo=(s.motivo||'').trim(); if(!motivo){ showToast('Poné el motivo del ajuste'); return; }
+  const nueva=s.visitas==null?null:s.visitas; const c=clienteDe(s.cid); if(!c||nueva==null) return;
+  const L=(c.tarjetas||[]).filter(t=>t.snap); const cardId=L[s.idx].cardId; const de=numV(L[s.idx].visitas);
+  const ahora=new Date().toISOString();
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===s.cid); const t=x&&(x.tarjetas||[]).find(q=>q.cardId===cardId); if(t){ t.visitas=nueva; t.ajustes=[...(t.ajustes||[]),{ts:ahora,por:profile.name,porId:profile.id,de,a:nueva,motivo}]; x.upd=ahora; } });
+  ajusteTarjetaSel=null; closeModal('modal-registro'); showToast('Tarjeta ajustada: '+de+' → '+nueva+' visitas ✓'); abrirClienteDetalle(s.cid);
+}
 function walletMostrar(wid,idx){
   document.querySelectorAll(`[data-wcard^="${wid}-"]`).forEach(el=>{ el.style.display=el.dataset.wcard===(wid+'-'+idx)?'':'none'; });
   document.querySelectorAll(`[data-wtab^="${wid}-"]`).forEach(el=>{
@@ -752,7 +785,7 @@ function renderPrepagoCobro(r){
     const av=sugerenciasPaqSt.list.filter(x=>x.clienteId===cli.id&&!x.atendido);
     if(av.length) h+=av.map(a=>`<div class="card" style="margin:2px 0 10px;border-color:rgba(74,19,107,.4);background:rgba(74,19,107,.06)"><div style="font-size:12px;font-weight:700">${a.tipo==='recordatorio'?'🔔 Nadie le ofreció un combo todavía — ofrecéselo vos':'🎁 Le interesa un combo de '+escH(nombreRubro(a.rubro)||a.rubro)}</div><button class="lnk" onclick="marcarSugerenciaAtendida('${a.id}');refreshCobro()" style="margin-top:4px">✓ Ya se lo ofrecí</button></div>`).join('');
   }
-  if(profile.role==='profesional'&&cli){
+  if(profile.role==='profesional'&&cli&&paquetesEnCobroHabilitados()){
     h+=`<div class="field"><label>🎁 ¿Le ofreciste un paquete?</label><div style="display:flex;gap:8px">${[['si','✅ Sí'],['no','❌ No']].map(([v,l])=>`<button type="button" onclick="cobroPaqueteOfrecido('${v}')" style="flex:1;${pillStyle(cobro.paqueteOfrecido===v,color)}">${l}</button>`).join('')}</div></div>`;
     if(cobro.paqueteOfrecido==='si') h+=`<div class="field"><label>¿Qué combinación le gustaría?</label><div style="display:flex;flex-wrap:wrap;gap:6px">${rubros.map(r2=>`<button type="button" onclick="cobro.paqueteRubro=('${r2.id}'===cobro.paqueteRubro?null:'${r2.id}');refreshCobro()" style="${pillStyle(cobro.paqueteRubro===r2.id,color)}">${escH(r2.nombre)}</button>`).join('')}</div></div>`;
   }
@@ -762,6 +795,9 @@ function renderPrepagoCobro(r){
   }
   el.innerHTML=h;
 }
+// Pedido de Ivo (3/10/2026): en French los profesionales no arman paquetes desde el cobro. Sin recepcion en
+// la sucursal, esas piezas (pregunta de paquete, "paquete para la proxima visita", "armar paquete") no se muestran.
+function paquetesEnCobroHabilitados(){ return !(profile&&profile.role==='profesional'&&!sucursalConRecepcion(sucursalActual())); }
 function cobroPaqueteOfrecido(v){ cobro.paqueteOfrecido=(cobro.paqueteOfrecido===v?'':v); if(cobro.paqueteOfrecido!=='si') cobro.paqueteRubro=null; refreshCobro(); }
 function cobroResena(v){ cobro.resena=(cobro.resena===v?'':v); if(cobro.resena!=='si') cobro.resenaSent=''; refreshCobro(); }
 function cobroResenaSent(v){ cobro.resenaSent=(cobro.resenaSent===v?'':v); refreshCobro(); }
