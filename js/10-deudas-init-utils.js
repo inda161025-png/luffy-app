@@ -366,7 +366,7 @@ function renderHub(){
     if(card&&profile.role==='profesional'){
       const n=agendaSt.list.filter(a=>a.profId===profile.id&&a.fecha===ymdLocal(new Date())&&agEsActivo(a)).length;
       card.style.display='flex';
-      const txt=document.getElementById('hub-agenda-txt'); if(txt) txt.textContent='Hoy: '+n+' '+(n===1?'turno':'turnos');
+      const txt=document.getElementById('hub-agenda-txt'); if(txt) txt.textContent='Hoy: '+n+' '+(n===1?'turno reservado':'turnos reservados');
     } else if(card) card.style.display='none';
   }
   { const el=document.getElementById('hub-tareasencargado'); if(el) el.innerHTML=htmlTareasEncargado(); }
@@ -409,11 +409,6 @@ function renderHub(){
     }
   } catch(e){}
 
-  // Proximos turnos agendados (Agenda)
-  try {
-    const pt=document.getElementById('hub-proximos-turnos');
-    if(pt) pt.innerHTML=htmlProximosTurnosHub();
-  } catch(e){}
 
   // Tramo sub in dinero card
   try {

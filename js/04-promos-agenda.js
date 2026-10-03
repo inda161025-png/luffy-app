@@ -642,27 +642,6 @@ function abrirWaitlist(a){
   openModal('modal-registro');
 }
 // Franja en el Inicio del profesional: lo que tiene agendado y cuanto va a sumar de comision cuando lo haga (estimado)
-// Agenda del profesional al inicio del inicio (pedido de Ivo, 3/10/2026): hoy primero, con el color de su estado
-// (verde = hecho, azul = reservado), y los próximos después. Se actualiza sola al cobrar (ver agMarcarHechoAutoPorCobro).
-function htmlProximosTurnosHub(){
-  if(!profile||profile.role!=='profesional') return '';
-  const hoy=hoyStr();
-  const L=agendaSt.list.filter(a=>a.profId===profile.id&&a.fecha>=hoy&&agEstado(a)!=='cancelado').sort((a,b)=>(a.fecha+a.hora).localeCompare(b.fecha+b.hora)).slice(0,6);
-  if(!L.length) return '<div style="font-size:12px;color:var(--muted2);margin:0 0 10px">📅 Sin turnos agendados por ahora.</div>';
-  return `<div style="font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--muted);margin:0 0 10px">📅 Tu agenda · ${L[0].fecha===hoy?'hoy':'próximos'}</div>
-    ${L.map(a=>{
-      const colorE=AG_ESTADO_COLOR[agEstado(a)]||AG_ESTADO_COLOR.agendado;
-      let com=0;
-      if(a.paqueteId){ const p=paquetesSt.list.find(x=>x.id===a.paqueteId); const it=p&&p.items.find(x=>x.id===a.itemId); if(it) com=Math.round(numV(it.final)*comisionRubroEstim(it.rubro)/100); }
-      else { com=(a.servicios||[]).reduce((s,sv)=>{ const full=servicios.find(x=>x.id===sv.svcId); return s+(full?Math.round(numV(full.precio)*comisionRubroEstim(full.rubro)/100):0); },0); }
-      return `<div class="card" style="margin-bottom:8px;cursor:pointer;border-left:4px solid ${colorE}" onclick="abrirAgenda('${a.sucursal}');agState.fecha='${a.fecha}';renderAgenda()">
-        <div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:13px">${escH(a.clienteNombre)}</b><span style="font-size:11.5px;color:var(--muted2)">${a.fecha===hoy?'':fechaCortaStr(a.fecha)+' · '}${a.hora}hs</span></div>
-        <div style="font-size:10.5px;font-weight:700;color:${colorE};margin-top:2px">${escH(AG_ESTADO_LABEL[agEstado(a)]||'Reservado')}</div>
-        <div style="font-size:11.5px;color:var(--muted2);margin-top:2px">${escH((a.servicios[0]||{}).nombre||'')}${a.servicios.length>1?' +'+(a.servicios.length-1):''}${a.paqueteId?' · 🎁 ya pagado':''}</div>
-        ${com>0?`<div style="font-size:11.5px;color:#34d399;font-weight:700;margin-top:3px">≈ ${fp(com)} de comisión cuando lo hagas</div>`:''}
-      </div>`;
-    }).join('')}`;
-}
 
 // ---------- membresia y paquetes de un cliente ----------
 // Vencida (30 dias desde que se contrato) no sirve aunque le queden cortes sin usar -- pedido de Ivo (2/10/2026).
