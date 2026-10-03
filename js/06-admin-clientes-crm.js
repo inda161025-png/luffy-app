@@ -973,12 +973,12 @@ function renderCRMTablero(el){
         return `<span style="font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;background:${color}1f;color:${color}">${l.replace(/^\S+\s/,'')} · ${n}</span>`;
       }).join('')}</div>
     </div>
-    <div class="kanban-scroll" style="padding:0 20px 4px">${FRANJAS_CRM.map(([f,l])=>{
+    <div class="crm-board">${FRANJAS_CRM.map(([f,l])=>{
     const col=todos.filter(x=>x.franja===f).sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
     crmColVisible[f]=Math.min(CRM_COL_PAGE,col.length);
     const mostrar=col.slice(0,crmColVisible[f]);
     const color=CRM_COL_COLOR[f]||'var(--muted2)';
-    return `<div class="kanban-col" style="flex:1 1 230px;min-width:230px;width:auto">
+    return `<div class="kanban-col" style="flex:1 1 0;min-width:200px;width:auto">
       <div class="kanban-col-hdr" style="background:${color}14;border-radius:10px;padding:8px 10px;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:6px;color:${color}"><div style="width:8px;height:8px;border-radius:50%;background:${color}"></div>${l}</div>
         <span style="background:${color};color:#fff;border-radius:20px;padding:1px 8px;font-size:10px">${col.length}</span>
@@ -1136,7 +1136,7 @@ function renderCRM(){
   else if(crmContactarAbierto) abrirCRMContactar();
   const vistaTog=`<div style="display:flex;gap:6px;margin-bottom:10px">${[['tablero','🗂️ Tablero'],['lista','📋 Lista']].map(([v,l])=>`<button onclick="crmSetVista('${v}')" style="${pillStyle(crmVista===v,'#4A136B')}">${l}</button>`).join('')}</div>`;
   if(crmVista==='tablero'){
-    el.innerHTML=cabecera+vistaTog+htmlBuscadorCRM()+`<div id="crm-tablero-wrap"></div>`;
+    el.innerHTML=cabecera+vistaTog+htmlBuscadorCRM()+`<div class="crm-board-bleed"><div id="crm-tablero-wrap"></div></div>`;
     renderCRMTablero(document.getElementById('crm-tablero-wrap'));
     return;
   }

@@ -337,6 +337,14 @@ label.rub-opt,.field label.rub-opt{display:flex;align-items:center;gap:10px;padd
 /* ── KANBAN ── */
 .kanban-scroll{display:flex;gap:12px;overflow-x:auto;padding:0 20px 20px;flex:1;scrollbar-width:none}
 .kanban-scroll::-webkit-scrollbar{display:none}
+/* Tablero del CRM: casi todo el ancho de la pantalla, con barra fina y minimalista abajo */
+.crm-board-bleed{position:relative;left:50%;transform:translateX(-50%);width:calc(100vw - 24px);max-width:1900px}
+.crm-board{display:flex;gap:12px;overflow-x:auto;padding:4px 4px 14px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.2) transparent}
+.crm-board::-webkit-scrollbar{height:5px}
+.crm-board::-webkit-scrollbar-track{background:transparent}
+.crm-board::-webkit-scrollbar-thumb{background:rgba(255,255,255,.16);border-radius:8px}
+.crm-board::-webkit-scrollbar-thumb:hover{background:rgba(255,255,255,.34)}
+.crm-board > .kanban-col{flex:1 1 0;min-width:200px}
 .kanban-col{flex-shrink:0;width:200px;display:flex;flex-direction:column;gap:8px}
 .kanban-col-hdr{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.08em;margin-bottom:4px;display:flex;align-items:center;gap:6px}
 .kanban-card{background:var(--s1);border:1px solid var(--border);border-radius:12px;padding:12px;cursor:pointer}
