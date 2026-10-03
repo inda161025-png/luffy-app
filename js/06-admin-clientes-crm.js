@@ -34,8 +34,9 @@ function renderAdminClientes(c,sub){
 }
 function adminDirectorio(c){
   const q=nkey(adminCliQ);
-  const lista=clientesDir.filter(x=>!q||buscarClientes(adminCliQ,[x]).length).sort((a,b)=>b.numero-a.numero);
-  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">👥 Clientes del salón (${clientesDir.length})</span>${profile.role==='admin'?`<button class="lnk" onclick="abrirImportClientes()">📂 Importar</button>`:''}</div>
+  const lista=clientesVigentes().filter(x=>!q||buscarClientes(adminCliQ,[x]).length).sort((a,b)=>b.numero-a.numero);
+  const nArch=clientesDir.filter(x=>x.archivado).length;
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">👥 Clientes del salón (${clientesVigentes().length})</span>${profile.role==='admin'?`<div style="display:flex;gap:10px"><button class="lnk" onclick="abrirImportRubrosPrevios()">📚 Rubros previos</button><button class="lnk" onclick="abrirArchivarSinTel()">🗃️ Archivar sin tel.</button>${nArch?`<button class="lnk" onclick="abrirArchivados()">Archivados (${nArch})</button>`:''}<button class="lnk" onclick="abrirImportClientes()">📂 Importar</button></div>`:''}</div>
     <input type="search" placeholder="Buscar por nombre, #, profesión o teléfono…" value="${escH(adminCliQ)}" oninput="adminCliQ=this.value;renderAdmin();var e=document.querySelector('#adm-content input[type=search]');e.focus();e.setSelectionRange(e.value.length,e.value.length);" style="width:100%;background:var(--s1);border:1.5px solid var(--border2);border-radius:12px;padding:11px 14px;color:var(--text);font-family:var(--font);font-size:14px;margin-bottom:10px"/>
     ${lista.slice(0,60).map(x=>{ const s=statsCliente(x); const m=membresiaActivaDe(x.id); return `<div class="card" onclick="abrirClienteDetalle('${x.id}')" style="cursor:pointer;margin-bottom:6px"><div style="display:flex;gap:10px;align-items:center"><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(x.nombre)} <span style="color:var(--muted2)">#${x.numero}</span>${(x.tarjetas&&x.tarjetas.length)?' 💳':''}${m?' 🎫':''}</div><div style="font-size:11px;color:var(--muted2)">${escH(idCorto(x))}${s.barberos.length?' · ✂️ '+escH(s.barberos.join(', ')):''}</div></div><div style="text-align:right;font-size:11.5px;color:var(--muted2)">${s.visitas} visitas<br><b style="color:var(--text)">${fp(s.gastado)}</b></div></div></div>`; }).join('')||'<div class="empty"><div class="e-icon">👥</div><p>No hay clientes.</p></div>'}
     ${lista.length>60?`<div style="text-align:center;font-size:11px;color:var(--muted)">Mostrando 60 de ${lista.length}. Usá el buscador.</div>`:''}`;
@@ -636,6 +637,82 @@ async function confirmarImportVisitasEstimadas(){
   });
   closeModal('modal-registro'); showToast(validos.length+' clientes actualizados con su última visita estimada ✓'); renderAdmin();
 }
+// ---------- archivar clientes sin telefono importados de AgendaPro, y rubros previos (pedidos de Marketing/Ivo, 3/10/2026) ----------
+// Archivar no borra: el cliente queda guardado y se puede desarchivar. Nunca toca a quien tenga deuda, seña, tarjeta,
+// membresía, turno a futuro ni visitas en Luffy.
+const MARCA_IMPORT_AGENDAPRO='Pendiente: pedir mail real al cobrar';
+const clientesVigentes=()=>clientesDir.filter(c=>!c.archivado);
+function candidatosArchivarSinTel(){
+  const uv=ultimasVisitas();
+  return clientesDir.filter(c=>!c.archivado&&!String(c.tel||'').replace(/\D/g,'')&&String(c.nota||'').includes(MARCA_IMPORT_AGENDAPRO)
+    &&!uv[c.id]&&!c.ultimaVisitaEstimada&&!clienteTieneTurnoFuturo(c.id)&&!saldoDeCliente(c.id,c.nombre)
+    &&!(c.tarjetas&&c.tarjetas.length)&&!membresiaActivaDe(c.id)&&!senasDeCliente(c.id,c.nombre).length);
+}
+function abrirArchivarSinTel(){
+  const L=candidatosArchivarSinTel();
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🗃️ Archivar sin teléfono ('+L.length+')')+
+    `<div style="font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:10px">Solo aparecen los importados de AgendaPro, sin teléfono, sin visitas en Luffy, sin turno a futuro, sin deuda, seña, tarjeta ni membresía. Archivar no borra nada y se puede desarchivar.<br>Vienen desmarcados: marcá solo los que quieras archivar.</div>`+
+    (L.length?`<div style="display:flex;gap:10px;margin-bottom:8px"><button class="lnk" onclick="document.querySelectorAll('.arch-chk').forEach(x=>x.checked=true)">Marcar todos</button><button class="lnk" onclick="document.querySelectorAll('.arch-chk').forEach(x=>x.checked=false)">Desmarcar todos</button></div>
+    <div style="max-height:50vh;overflow-y:auto">${L.map(c=>`<label class="rub-opt" style="margin-bottom:4px"><input type="checkbox" class="arch-chk" value="${c.id}"/> ${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></label>`).join('')}</div>
+    <button class="btn btn-primary" style="margin-top:12px;background:#4A136B" onclick="confirmarArchivarSinTel()">Archivar seleccionados</button>`:'<div style="font-size:13px;color:var(--muted)">No hay clientes que cumplan el criterio.</div>');
+  openModal('modal-registro');
+}
+async function confirmarArchivarSinTel(){
+  const ids=[...document.querySelectorAll('.arch-chk:checked')].map(x=>x.value);
+  if(!ids.length){ showToast('No marcaste ninguno'); return; }
+  if(!await uiConfirm('¿Archivar '+ids.length+' cliente'+(ids.length===1?'':'s')+'?','No se borran: quedan guardados y se pueden desarchivar.',{ok:'Archivar'})) return;
+  const ahora=new Date().toISOString();
+  await cambiarClientes(list=>{ list.forEach(c=>{ if(ids.includes(c.id)&&!c.archivado){ c.archivado=true; c.archivadoEn=ahora; c.archivadoPor=profile.name; c.upd=ahora; } }); });
+  closeModal('modal-registro'); showToast(ids.length+' archivado'+(ids.length===1?'':'s')+' ✓'); renderAdmin();
+}
+function abrirArchivados(){
+  const L=clientesDir.filter(c=>c.archivado);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Clientes archivados ('+L.length+')')+
+    (L.length?L.map(c=>`<div class="card" style="margin-bottom:6px;display:flex;align-items:center;gap:8px"><div style="flex:1;font-size:13px;font-weight:700">${escH(c.nombre)} <span style="color:var(--muted2)">#${c.numero}</span></div><button class="lnk" onclick="desarchivarCliente('${c.id}')">Desarchivar</button></div>`).join(''):'<div style="color:var(--muted);font-size:13px">No hay archivados.</div>');
+  openModal('modal-registro');
+}
+async function desarchivarCliente(id){
+  await cambiarClientes(list=>{ const c=list.find(x=>x.id===id); if(c){ c.archivado=false; c.upd=new Date().toISOString(); } });
+  showToast('Desarchivado ✓'); abrirArchivados(); renderAdmin();
+}
+// Rubros que el cliente se hizo antes de Luffy (importados de AgendaPro). Se guardan aparte y se suman a lo que muestra la app; no pisan nada.
+function rubrosDesdeTexto(txt){ const out=[]; String(txt||'').split(/[;,\/]/).map(x=>nkey(x)).filter(Boolean).forEach(n=>{ const r=rubros.find(x=>nkey(x.id)===n||nkey(x.nombre)===n||nkey(x.nombre).includes(n)); if(r&&!out.includes(r.id)) out.push(r.id); }); return out; }
+function abrirImportRubrosPrevios(){
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📚 Rubros previos de importados')+
+    `<div style="font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:10px">Una fila por cliente: <b style="color:var(--text)">teléfono,rubros</b>. Los rubros van separados por ; (ej: <i>Barbería;Masajes</i>). Cruza por teléfono; si el teléfono es de más de un cliente, esa fila se saltea. Se suma a lo que ya tenga cargado, no lo reemplaza.</div>
+    <textarea id="rp-txt" rows="7" placeholder="1167444023,Barbería;Masajes" oninput="previewRubrosPrevios()" style="${inpCss};min-height:130px"></textarea>
+    <div id="rp-prev" style="font-size:12px;color:var(--muted2);margin:10px 0"></div>
+    <button id="rp-btn" class="btn btn-primary" onclick="confirmarRubrosPrevios()" disabled>Importar</button>`;
+  openModal('modal-registro');
+}
+function filasRubrosPrevios(txt){
+  const rows=parseTabla(txt); const dataRows=rows.length&&/tel/i.test(rows[0].join(' '))?rows.slice(1):rows;
+  const porTel={}; clientesDir.forEach(c=>{ const d=String(c.tel||'').replace(/\D/g,'').slice(-10); if(d) (porTel[d]=porTel[d]||[]).push(c); });
+  const validos=[]; let sinMatch=0, ambiguos=0, sinRubros=0;
+  dataRows.forEach(r=>{
+    const tel=String(r[0]||'').replace(/\D/g,'').slice(-10); const ids=rubrosDesdeTexto(r[1]);
+    if(!tel){ sinMatch++; return; }
+    const c=porTel[tel]||[];
+    if(!c.length){ sinMatch++; return; }
+    if(c.length>1){ ambiguos++; return; }
+    if(!ids.length){ sinRubros++; return; }
+    validos.push({cliente:c[0],ids});
+  });
+  return {validos,sinMatch,ambiguos,sinRubros,total:dataRows.length};
+}
+function previewRubrosPrevios(){
+  const txt=document.getElementById('rp-txt').value, prev=document.getElementById('rp-prev'), btn=document.getElementById('rp-btn');
+  if(!txt.trim()){ prev.textContent=''; btn.disabled=true; return; }
+  const f=filasRubrosPrevios(txt);
+  prev.innerHTML=`De ${f.total} filas: <b style="color:var(--text)">${f.validos.length}</b> clientes para actualizar${f.sinMatch?` · ${f.sinMatch} sin cliente por teléfono`:''}${f.ambiguos?` · ${f.ambiguos} con teléfono repetido (revisar a mano)`:''}${f.sinRubros?` · ${f.sinRubros} sin rubro reconocido`:''}`;
+  btn.disabled=!f.validos.length; btn.textContent=f.validos.length?'Importar '+f.validos.length+' clientes':'Importar';
+}
+async function confirmarRubrosPrevios(){
+  const {validos}=filasRubrosPrevios(document.getElementById('rp-txt').value); if(!validos.length) return;
+  const porId=new Map(validos.map(v=>[v.cliente.id,v.ids]));
+  await cambiarClientes(list=>{ list.forEach(c=>{ const ids=porId.get(c.id); if(ids){ c.rubrosPrevios=[...new Set([...(c.rubrosPrevios||[]),...ids])]; c.upd=new Date().toISOString(); } }); });
+  closeModal('modal-registro'); showToast(validos.length+' clientes con rubros previos ✓'); renderAdmin();
+}
 function linkWhatsApp(tel,txt){ const d=String(tel||'').replace(/\D/g,'').replace(/^0+/,'').replace(/^54/,'').replace(/^9/,''); return d?'https://wa.me/549'+d+(txt?'?text='+encodeURIComponent(txt):''):''; }
 let recQ='';
 function recRenderBusqueda(){
@@ -866,7 +943,7 @@ function crmSetVista(v){ crmVista=v; renderCRM(); }
 function crmClientesDeCol(franja){
   const uv=ultimasVisitas();
   const q=nkey(crmQ);
-  let todos=clientesDir.map(c=>{ const u=uv[c.id]; const {dias,estimado}=diasSinVenirInfo(c,u&&u.fecha); return {c,dias,estimado,franja:franjaClienteCRM(c,dias)}; });
+  let todos=clientesVigentes().map(c=>{ const u=uv[c.id]; const {dias,estimado}=diasSinVenirInfo(c,u&&u.fecha); return {c,dias,estimado,franja:franjaClienteCRM(c,dias)}; });
   if(q) todos=todos.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
   return todos.filter(x=>x.franja===franja).sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
 }
@@ -886,7 +963,7 @@ function renderCRMTablero(el){
   crmColVisible={};
   const uv=ultimasVisitas();
   const q=nkey(crmQ);
-  let todos=clientesDir.map(c=>{ const u=uv[c.id]; const {dias,estimado}=diasSinVenirInfo(c,u&&u.fecha); return {c,dias,estimado,franja:franjaClienteCRM(c,dias)}; });
+  let todos=clientesVigentes().map(c=>{ const u=uv[c.id]; const {dias,estimado}=diasSinVenirInfo(c,u&&u.fecha); return {c,dias,estimado,franja:franjaClienteCRM(c,dias)}; });
   if(q) todos=todos.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
   const total=todos.length;
   el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:0 20px 12px;flex-wrap:wrap">
@@ -1067,7 +1144,7 @@ function renderCRM(){
   const q=nkey(crmQ);
   if(crmFiltroActivo(crmFiltros)){
     const datos=datosCRM(), estAg=estadosAgendaCRM();
-    let L=clientesDir.filter(c=>clientePasaFiltros(c,datos,estAg,crmFiltros));
+    let L=clientesVigentes().filter(c=>clientePasaFiltros(c,datos,estAg,crmFiltros));
     if(q) L=L.filter(c=>c.nkey.includes(q)||String(c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
     const conDias=L.map(c=>{ const d=datos[c.id]; const {dias,estimado}=diasSinVenirInfo(c,d&&d.fecha); return {c,dias,estimado}; }).sort((a,b)=>(a.dias==null?1e9:a.dias)-(b.dias==null?1e9:b.dias));
     el.innerHTML=cabecera+vistaTog+filtrosBlock+
@@ -1078,7 +1155,7 @@ function renderCRM(){
     return;
   }
   const uv=ultimasVisitas();
-  const todos=clientesDir.map(c=>{ const u=uv[c.id]; const {dias,estimado}=diasSinVenirInfo(c,u&&u.fecha); return {c,u,dias,estimado,franja:franjaClienteCRM(c,dias)}; });
+  const todos=clientesVigentes().map(c=>{ const u=uv[c.id]; const {dias,estimado}=diasSinVenirInfo(c,u&&u.fecha); return {c,u,dias,estimado,franja:franjaClienteCRM(c,dias)}; });
   const counts={}; FRANJAS_CRM.forEach(([f])=>counts[f]=todos.filter(x=>x.franja===f).length);
   let L=todos.filter(x=>x.franja===crmFranja);
   if(q) L=L.filter(x=>x.c.nkey.includes(q)||String(x.c.tel||'').replace(/\D/g,'').includes(q.replace(/\D/g,'')));
