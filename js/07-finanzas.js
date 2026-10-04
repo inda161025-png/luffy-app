@@ -264,6 +264,16 @@ function agregarHojaIngresos(wb,suc,D,desde,hasta){
   D.ventas.filter(v=>v.fecha>=desde&&v.fecha<=hasta&&sucDeReg(v,v.vendedor)===suc.id).forEach(v=>{
     items.push({fecha:v.fecha,row:[fechaCortaStr(v.fecha),'Producto',v.productoNombre+' x'+v.cantidad,numV(v.precioUnitario)*numV(v.cantidad),0,numV(v.total),medioTxt(v.medio),v.vendedor.name]});
   });
+  // Mismo criterio que finCalc: membresias, paquetes y señas tambien son ingresos del local
+  membresiasSt.list.filter(m=>m.fecha>=desde&&m.fecha<=hasta&&sucDeReg(m,allUsers.find(u=>u.id===m.vendedorId))===suc.id).forEach(m=>{
+    items.push({fecha:m.fecha,row:[fechaCortaStr(m.fecha),'Membresía',(m.planNombre||'Membresía')+' · '+(m.clienteNombre||''),numV(m.precio),0,numV(m.precio),medioTxt(m.medio),m.vendedorNombre||'']});
+  });
+  paquetesSt.list.filter(p=>p.fecha>=desde&&p.fecha<=hasta&&sucDeReg(p,allUsers.find(u=>u.id===p.vendedorId))===suc.id).forEach(p=>{
+    items.push({fecha:p.fecha,row:[fechaCortaStr(p.fecha),'Paquete',(p.clienteNombre||'')+' · '+p.items.length+' servicios',numV(p.totalLista),numV(p.totalLista)-numV(p.total),numV(p.total),medioTxt(p.medio),p.vendedorNombre||'']});
+  });
+  senasSt.list.filter(x=>x.fecha>=desde&&x.fecha<=hasta&&x.estado!=='devuelta'&&sucDeReg(x,allUsers.find(u=>u.id===x.recId))===suc.id).forEach(x=>{
+    items.push({fecha:x.fecha,row:[fechaCortaStr(x.fecha),'Seña',(x.clienteNombre||'')+' · '+(x.profNombre||''),numV(x.monto),0,numV(x.monto),medioTxt(x.medio),(allUsers.find(u=>u.id===x.recId)||{}).name||'']});
+  });
   items.sort((a,b)=>a.fecha.localeCompare(b.fecha));
   const rows=items.map(x=>x.row), total=rows.reduce((s,r)=>s+r[5],0);
   const ws=xlsxSheetFromRows(['INDA STUDIO — '+suc.nombre,'Ingresos','Generado: '+fechaCortaStr(hoyStr())],['Fecha','Rubro','Servicio','Precio lista','Descuento','Total cobrado','Medio de pago','Profesional'],rows,[3,4,5],['Total del período','','','','',total,'','']);
@@ -302,15 +312,26 @@ function agregarHojaFichaProf(wb,suc){
   const ws=xlsxSheetFromRows(['INDA STUDIO — '+suc.nombre,'Ficha de cada profesional (referencia)','Generado: '+fechaCortaStr(hoyStr())],['Profesional','Alias / cuenta de Mercado Pago','Monotributo (categoría / costo mensual)','Obra social'],rows,[],null);
   XLSX.utils.book_append_sheet(wb,ws,hojaNombre('Ficha prof.',suc));
 }
-function agregarHojaGastos(wb,suc,desde,hasta){
-  const items=[];
+function agregarHojaGastos(wb,suc,D,desde,hasta){
+  const items=[], n=Math.max(1,sucursales.length);
   finData.gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta&&(g.sucursal===suc.id||!g.sucursal||g.sucursal==='todas')).forEach(g=>{
-    const compartido=!g.sucursal||g.sucursal==='todas', monto=compartido?numV(g.monto)/Math.max(1,sucursales.length):numV(g.monto);
+    const compartido=!g.sucursal||g.sucursal==='todas', monto=compartido?numV(g.monto)/n:numV(g.monto);
     items.push({fecha:g.fecha,row:[fechaCortaStr(g.fecha),catFin(g.categoria).n,(g.desc||'')+(compartido?' (compartido entre sucursales)':''),monto,g.origen==='proveedor'?'Compra a proveedor':'Carga manual']});
+  });
+  // Gastos fijos devengados en el periodo (alquiler, sueldos...): mismo reparto que finCalc
+  finData.fijos.forEach(f=>{
+    const v=fijoDevengado(f,desde,hasta); if(!v) return;
+    const compartido=!f.sucursal||f.sucursal==='todas'; if(!compartido&&f.sucursal!==suc.id) return;
+    items.push({fecha:desde,row:[fechaCortaStr(desde),catFin(f.categoria).n,(f.nombre||'Gasto fijo')+' · devengado del período'+(compartido?' (compartido entre sucursales)':''),compartido?v/n:v,'Gasto fijo']});
+  });
+  // Costo de los productos vendidos en el periodo (finCalc lo resta como costoprod)
+  D.ventas.filter(v=>v.fecha>=desde&&v.fecha<=hasta&&sucDeReg(v,v.vendedor)===suc.id).forEach(v=>{
+    const c=costoVenta(v); if(!c) return;
+    items.push({fecha:v.fecha,row:[fechaCortaStr(v.fecha),'Costo de productos vendidos',v.productoNombre+' x'+v.cantidad,c,'Venta de producto']});
   });
   todasSesiones().forEach(s=>movsVivos(s).filter(m=>m.tipo==='salida'&&m.gasto).forEach(m=>{
     const f=ymdLocal(new Date(m.ts)); if(f<desde||f>hasta) return;
-    const sId=s.sucursal||suc.id; if(sId!==suc.id) return;
+    const sId=s.sucursal||(sucursales[0]||{}).id; if(sId!==suc.id) return;
     items.push({fecha:f,row:[fechaCortaStr(f),catFin(m.cat||'otros').n,m.detalle||m.concepto||'',numV(m.monto),'Movimiento de caja']});
   }));
   items.sort((a,b)=>a.fecha.localeCompare(b.fecha));
@@ -361,7 +382,7 @@ function generarExcelContador(){
     agregarHojaIngresos(wb,suc,D,desde,hasta);
     agregarHojaResumenProf(wb,suc,D,pctMap,desde,hasta);
     agregarHojaFichaProf(wb,suc);
-    agregarHojaGastos(wb,suc,desde,hasta);
+    agregarHojaGastos(wb,suc,D,desde,hasta);
     agregarHojaLiquidacion(wb,suc,D,pctMap,desde,hasta);
     agregarHojaCaja(wb,suc,S[suc.id]||{interno:[]});
   });
