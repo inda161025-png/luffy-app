@@ -36,6 +36,8 @@ returns boolean language sql stable security definer set search_path = public as
     when public.luffy_role() is null then false
     when public.luffy_role() = 'admin' then true
     when public.luffy_role() = 'cliente' then k in ('luffy/clientes','luffy/reservas_holds')
+    when k = 'luffy/puesta_marcha' then false
+    when k = 'luffy/horario_hist' then true
     when starts_with(k, 'luffy/dinero_')  then (public.luffy_role() = 'recepcionista' or k = 'luffy/dinero_'  || public.luffy_app_id())
     when starts_with(k, 'luffy/yo_')      then k = 'luffy/yo_'      || public.luffy_app_id()
     when starts_with(k, 'luffy/perfil_')  then k = 'luffy/perfil_'  || public.luffy_app_id()
