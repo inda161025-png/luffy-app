@@ -62,9 +62,11 @@ function calcCobro(){
     if(l){ cubiertas.add(l.id); prepagos.push({...p,linea:l}); }
   });
   const normales=lineas.filter(l=>!(l.tipo==='servicio'&&cubiertas.has(l.id)));
+  // Barberia de Autor no entra en promos, cupones ni ofertas: siempre precio de lista (decidido por Ivo, 3/10/2026). Solo el 10% por efectivo le aplica.
+  const normalesPromo=normales.filter(l=>rubroDeLinea(l)!=='barberia-premium'), subPromo=normalesPromo.reduce((a,l)=>a+l.precio,0);
   const subNormal=normales.reduce((a,l)=>a+l.precio,0);
   const prepTotal=prepagos.reduce((a,p)=>a+p.credito,0);
-  const base=(rubro)=>normales.filter(l=>rubroEn(rubro,rubroDeLinea(l))).reduce((a,l)=>a+l.precio,0);
+  const base=(rubro)=>normalesPromo.filter(l=>rubroEn(rubro,rubroDeLinea(l))).reduce((a,l)=>a+l.precio,0);
   const D=[];
   const oferta=ofertasVisibles().find(o=>o.id===cobro.ofertaId)||null;
   let fijo=null, ofertaSinEfecto=false;
@@ -76,7 +78,7 @@ function calcCobro(){
   // acumulado por tarjeta (ver mas abajo, donde se calcula tarjUso.fidSobra).
   const TOPE_FID_ACUMULADA=30;
   // Promo fija: puede valer solo para ciertos servicios y sumar un adicional segun la profesion del cliente (ej: fuerzas +15%). Gana la que mas descuenta.
-  const baseF=(f)=>normales.filter(l=>rubroEn(f.rubro,rubroDeLinea(l))&&(!(f.servicioIds&&f.servicioIds.length)||l.ids.some(id=>f.servicioIds.includes(id)))).reduce((a,l)=>a+l.precio,0);
+  const baseF=(f)=>normalesPromo.filter(l=>rubroEn(f.rubro,rubroDeLinea(l))&&(!(f.servicioIds&&f.servicioIds.length)||l.ids.some(id=>f.servicioIds.includes(id)))).reduce((a,l)=>a+l.precio,0);
   const extraFijo=(f)=>!!(f.extra&&f.extra.profesion&&cli&&nkey(cli.profesion)===nkey(f.extra.profesion));
   const pctFijo=(f)=>numV(f.pct)+(extraFijo(f)?numV(f.extra.pct):0);
   (promos.fijos||[]).filter(f=>reglaAplica(f,ctx)).forEach(f=>{ const b=baseF(f); if(b<=0) return; const m=Math.round(b*pctFijo(f)/100); if(!fijo||m>fijo._m) fijo={...f,_m:m}; });
@@ -85,13 +87,13 @@ function calcCobro(){
   const cand=[];
   if(tarj&&tarj.regalo&&bT>0) cand.push({tipo:'regalo',label:'Corte de regalo (tarjeta completa)',pct:100,monto:bT});
   if(fijo) cand.push({tipo:'fijo',label:fijo.nombre+(extraFijo(fijo)?' + '+fijo.extra.profesion+' '+numV(fijo.extra.pct)+'%':''),pct:pctFijo(fijo),monto:fijo._m});
-  const baseOferta=oferta?normales.filter(l=>ofertaAplicaA(oferta,l.ids)).reduce((a,l)=>a+l.precio,0):0;
+  const baseOferta=oferta?normalesPromo.filter(l=>ofertaAplicaA(oferta,l.ids)).reduce((a,l)=>a+l.precio,0):0;
   const descOferta=oferta?Math.round(baseOferta*oferta.pct/100):0;
   ofertaSinEfecto=!!oferta&&descOferta===0&&!esNoche;
   if(descOferta>0) cand.push({tipo:'oferta',label:'Oferta '+oferta.nombre,pct:oferta.pct,monto:descOferta});
   if(tarj&&tarj.pctFid>0){
     // el escalon puede ser sobre un servicio concreto (ej: la hidratacion gratis); si no, sobre todo el rubro de la tarjeta
-    const bF=(tarj.pasoSvcs&&tarj.pasoSvcs.length)?normales.filter(l=>rubroEn(tarj.rubro,rubroDeLinea(l))&&l.ids.some(id=>tarj.pasoSvcs.includes(id))).reduce((a,l)=>a+l.precio,0):bT;
+    const bF=(tarj.pasoSvcs&&tarj.pasoSvcs.length)?normalesPromo.filter(l=>rubroEn(tarj.rubro,rubroDeLinea(l))&&l.ids.some(id=>tarj.pasoSvcs.includes(id))).reduce((a,l)=>a+l.precio,0):bT;
     if(bF>0) cand.push({tipo:'fidelidad',label:tarj.pasoLabel?tarj.pasoLabel+' · visita n°'+tarj.k:'Fidelidad · visita n°'+tarj.k,pct:tarj.pctFid,monto:Math.round(bF*tarj.pctFid/100)});
   }
   let mejorCupon=null;
@@ -101,13 +103,13 @@ function calcCobro(){
   // Cuenta con Google (10%) + reseña dejada (5%): unico caso que se SUMA antes de competir (decidido con Ivo,
   // 27/09/2026) -- sin grupo asignado, asi que compite libre contra todo el resto como una mas (igual que efectivo).
   const pctCuenta=(cli&&cli.authUid)?CUENTA_DESC_PCT:0, pctResena=(cli&&cli.resenaGoogle)?RESENA_DESC_PCT:0, pctCuentaTotal=pctCuenta+pctResena;
-  if(pctCuentaTotal>0&&subNormal>0){
+  if(pctCuentaTotal>0&&subPromo>0){
     const partes=[pctCuenta?'cuenta':null,pctResena?'reseña':null].filter(Boolean).join(' + ');
-    cand.push({tipo:'cuenta',label:'⭐ '+partes.charAt(0).toUpperCase()+partes.slice(1),pct:pctCuentaTotal,monto:Math.round(subNormal*pctCuentaTotal/100)});
+    cand.push({tipo:'cuenta',label:'⭐ '+partes.charAt(0).toUpperCase()+partes.slice(1),pct:pctCuentaTotal,monto:Math.round(subPromo*pctCuentaTotal/100)});
   }
   // Descuento de cumpleaños: el dia y los 2 siguientes (mismo "valido por 3 dias" que se usa en el resto de la app)
   const diasCumple=cli?diasDesdeCumple(cli.cumple):null;
-  if(diasCumple!=null&&diasCumple>=0&&diasCumple<=CUMPLE_DESC_DIAS&&subNormal>0) cand.push({tipo:'cumple',label:'🎂 Cumpleaños',pct:CUMPLE_DESC_PCT,monto:Math.round(subNormal*CUMPLE_DESC_PCT/100)});
+  if(diasCumple!=null&&diasCumple>=0&&diasCumple<=CUMPLE_DESC_DIAS&&subPromo>0) cand.push({tipo:'cumple',label:'🎂 Cumpleaños',pct:CUMPLE_DESC_PCT,monto:Math.round(subPromo*CUMPLE_DESC_PCT/100)});
   // Tarjeta vs. descuento del dia: si los dos aplican y dan plata, el profesional elige cual usar (capaz le conviene mas el del dia).
   // Si solo aplica uno de los dos (o ninguno), sigue siendo automatico como antes.
   const GRUPO_DESC={regalo:'tarjeta',fidelidad:'tarjeta',referidos:'tarjeta',fijo:'dia',oferta:'dia',cumple:'dia'};
@@ -480,6 +482,7 @@ function mejorDescuentoServicio(svc,cli,ctx,medioEfectivo){
     const mejorCupon=tarj.cupones.slice().sort((a,b)=>numV(b.pct)-numV(a.pct))[0];
     if(mejorCupon){ const m=Math.round(precio*numV(mejorCupon.pct)/100); if(m>0) cand.push({tipo:'referidos',label:'Referidos',pct:numV(mejorCupon.pct),monto:m}); }
   }
+  if(rubro==='barberia-premium') cand.length=0; // Barberia de Autor: sin promos, cupones ni ofertas (decidido por Ivo, 3/10/2026); solo el 10% por efectivo
   if(medioEfectivo){ const m=Math.round(precio*DESC_EFECTIVO_PCT/100); if(m>0) cand.push({tipo:'efectivo',label:'Pago en efectivo',pct:DESC_EFECTIVO_PCT,monto:m}); }
   // Cuenta con Google (10%) + reseña (5%): mismo candidato que ya existe en calcCobro() para el cobro final,
   // pero acá falta para la reserva publica y "Armar paquete" (que usan este motor por-servicio, no calcCobro).
@@ -488,7 +491,7 @@ function mejorDescuentoServicio(svc,cli,ctx,medioEfectivo){
   // ver rpCliente/rpCtx), "cli" cubre "Armar paquete" con una ficha real seleccionada por el staff.
   const idCuenta=(cli&&cli.authUid)?cli:(ctx&&ctx.cliente&&ctx.cliente.authUid?ctx.cliente:null);
   const pctCuenta=idCuenta?CUENTA_DESC_PCT:0, pctResena=idCuenta&&idCuenta.resenaGoogle?RESENA_DESC_PCT:0, pctCuentaTotal=pctCuenta+pctResena;
-  if(pctCuentaTotal>0){
+  if(pctCuentaTotal>0&&rubro!=='barberia-premium'){
     const m=Math.round(precio*pctCuentaTotal/100);
     if(m>0){ const partes=[pctCuenta?'cuenta':null,pctResena?'reseña':null].filter(Boolean).join(' + '); cand.push({tipo:'cuenta',label:'⭐ '+partes.charAt(0).toUpperCase()+partes.slice(1),pct:pctCuentaTotal,monto:m}); }
   }
@@ -497,14 +500,16 @@ function mejorDescuentoServicio(svc,cli,ctx,medioEfectivo){
 }
 // Arma un paquete: descuento individual por linea + % del paquete sobre lo ya descontado, repartido proporcional
 function calcPaqueteItems(items,cli,ctx,medioEfectivo){
+  // Barberia de Autor no entra en el descuento de paquete ni cuenta para el escalon (decidido por Ivo, 3/10/2026)
+  const esAutor=svc=>svc.rubro==='barberia-premium';
   const base=items.map(svc=>{ const lista=numV(svc.precio); const descInd=mejorDescuentoServicio(svc,cli,ctx,medioEfectivo); const lineaFinal=lista-(descInd?descInd.monto:0); return {svc,lista,descInd,lineaFinal}; });
-  const sub=base.reduce((a,x)=>a+x.lineaFinal,0);
-  const pct=pctPaquete(items.length);
-  const descPaq=Math.round(sub*pct/100), total=sub-descPaq;
-  let acum=0;
+  const sub=base.filter(x=>!esAutor(x.svc)).reduce((a,x)=>a+x.lineaFinal,0);
+  const pct=pctPaquete(items.filter(s=>!esAutor(s)).length);
+  const descPaq=Math.round(sub*pct/100), total=base.reduce((a,x)=>a+x.lineaFinal,0)-descPaq;
+  let acum=0, ultimo=base.map((x,i)=>i).filter(i=>!esAutor(base[i].svc)).pop();
   const out=base.map((x,i)=>{
-    const dq=(i===base.length-1)?(descPaq-acum):(sub>0?Math.round(x.lineaFinal/sub*descPaq):0);
-    if(i!==base.length-1) acum+=dq;
+    let dq=0;
+    if(!esAutor(x.svc)){ dq=(i===ultimo)?(descPaq-acum):(sub>0?Math.round(x.lineaFinal/sub*descPaq):0); if(i!==ultimo) acum+=dq; }
     const final=Math.max(0,x.lineaFinal-dq);
     const descPct=x.lista>0?Math.round((x.lista-final)/x.lista*1000)/10:0;
     return {...x,dq,final,descPct};

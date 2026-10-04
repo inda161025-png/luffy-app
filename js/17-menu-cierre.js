@@ -263,7 +263,7 @@ function rpMejorFijoRubro(sucId,rubroId){
   });
   return mejor;
 }
-function rpTieneOferta(R){ return R.items.some(x=>x.descInd); }
+function rpTieneOferta(R){ return R.items.some(x=>x.descInd&&!(x.svc.rubro==='barberia-premium'&&x.descInd.tipo==='efectivo')); }
 function rpHoldsVivos(){ const ahora=Date.now(); return holdsSt.list.filter(h=>numV(h.expira)>ahora); }
 function rpSlotsLibres(profId,fecha,servicioIds){
   const dur=Math.max(AG_PASO,duracionServicios(servicioIds)), pasos=Math.max(1,Math.ceil(dur/AG_PASO));
