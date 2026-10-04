@@ -51,7 +51,7 @@ function prefetchAdminTeamData(){
 
 const ADMIN_SECCIONES=[
   {id:'panel',ico:mi('panel',16),label:'Inicio'},
-  {id:'equipo',ico:mi('equipo',16),label:'Equipo',subs:[['estado','Estado'],['cuentas','Cuentas'],['comisiones','Comisiones'],['asegurado','Piso asegurado'],['tareasequipo','Tareas del equipo'],['stories','Stories'],['puntos','Puntos']]},
+  {id:'equipo',ico:mi('equipo',16),label:'Equipo',subs:[['estado','Estado'],['cuentas','Cuentas'],['comisiones','Comisiones'],['asegurado','Piso asegurado'],['tareasequipo','Tareas del equipo'],['stories','Stories'],['puntos','Puntos'],['puesta','Puesta en marcha']]},
   {id:'catalogo',ico:mi('catalogo',16),label:'Catálogo',subs:[['servicios','Servicios'],['combos','Combos y ofertas'],['productos','Stock (para vender)'],['proveedores','Proveedores'],['insumos','Insumos']]},
   {id:'contenido',ico:mi('contenido',16),label:'Contenido',subs:[['banco','Banco de reels'],['reglas','Reglas y prendas']]},
   {id:'clientes',ico:mi('clientes',16),label:'Clientes',subs:[['directorio','Clientes'],['crm','CRM'],['deudas','Deudas'],['senas','Señas'],['membresias','Membresías'],['paquetes','Paquetes'],['tarjetas','Tarjetas']]},
@@ -75,7 +75,7 @@ function renderAdmin(){
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
   if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlCobrosEditadosPanel()+htmlTurnosEliminadosPanel()+htmlOcupacionAdmin()+htmlTareasEquipoWidget()); }
-  else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='asegurado') renderAdminAsegurado(c); else if(sub==='tareasequipo') renderAdminTareasEquipo(c); else if(sub==='cuentas') renderAdminCuentas(c); else if(sub==='comisiones') renderAdminComisiones(c); else renderAdminEstadoEquipo(c); }
+  else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='puesta') renderAdminPuesta(c); else if(sub==='asegurado') renderAdminAsegurado(c); else if(sub==='tareasequipo') renderAdminTareasEquipo(c); else if(sub==='cuentas') renderAdminCuentas(c); else if(sub==='comisiones') renderAdminComisiones(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else if(sub==='proveedores') renderAdminProveedores(c); else if(sub==='insumos') renderAdminInsumos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
   else if(tab==='clientes') renderAdminClientes(c,sub);
@@ -1271,4 +1271,47 @@ function confirmarAjustePuntos(profId){
   if(!motivo){ showToast('Poné el motivo del ajuste'); return; }
   if(!ajustarPuntosManual(profId,pts,motivo)){ showToast('No se pudo guardar el ajuste'); return; }
   closeModal('modal-registro'); showToast('Ajuste guardado ✓'); renderAdmin();
+}
+
+// ---------- puesta en marcha: lista tildable de las cargas a mano en Admin (pedido de Ivo, 3/10/2026) ----------
+// Tareas tomadas de operacion/tareas-de-carga-para-nehuen.md. Lo tildado queda guardado con quien y cuando.
+const PUESTA_MARCHA=[
+  {sec:'A. Catálogo de Barbería (Admin → Catálogo → Servicios)',items:[
+    ['pm-a1','Crear "Corte + Barba" en Barbería normal, $22.000, 60 min'],
+    ['pm-a2','Crear los agregados en Barbería normal, $2.000 c/u: Lavado de pelo con styling, Limpieza facial, Toalla a vapor'],
+    ['pm-a3','Cambiar el precio de "Barba" (normal) de $10.000 a $12.000'],
+    ['pm-a4','"Corte de cabello" normal ($18.000): sacar "incluye lavado de pelo" de la descripción, 45 min'],
+    ['pm-a5','Renombrar el rubro "Barbería Premium" a "Barbería de Autor" (Rubros)'],
+    ['pm-a6','"Corte de cabello" de Autor ($22.000): renombrar a "Corte de Autor", 45 min'],
+    ['pm-a7','"Corte + Barba" de Autor ($25.000): renombrar a "Corte + Barba de Autor", 60 min (no tocar el precio)'],
+    ['pm-a8','Crear "Barba de Autor" en Autor, $15.000']]},
+  {sec:'B. Horarios de atención (Admin → Equipo → Cuentas → 🕒 Horario)',items:[
+    ['pm-b1','Cargar horario de Ivo'],['pm-b2','Cargar horario de Priscila'],['pm-b3','Cargar horario de Laura'],
+    ['pm-b4','Cargar horario de Sandra'],['pm-b5','Cargar horario de Malena']]},
+  {sec:'C. Archivos del CRM (una sola vez cada uno)',items:[
+    ['pm-c1','Subir marketing/reactivacion-clientes/ultima-visita-estimada.csv (Admin → CRM, antes del 07/10)'],
+    ['pm-c2','Subir marketing/reactivacion-clientes/rubros-previos.csv (Admin → Clientes → 📚 Rubros previos)']]},
+  {sec:'D. Limpieza de datos de prueba',items:[
+    ['pm-d1','Borrar el cliente "Juan Perez Test" si todavía está'],['pm-d2','Borrar las cuentas de prueba (las que terminan en "test")']]},
+  {sec:'E. Datos del negocio',items:[
+    ['pm-e1','WhatsApp del negocio en Reserva pública: 1140852534'],['pm-e2','Link de la reseña de Google (lo pasa Ivo)'],
+    ['pm-e3','Sucursal de cada profesional (Equipo → Cuentas)'],['pm-e4','Calendario de recepción: quién cubre cada bloque'],
+    ['pm-e5','Piso asegurado y esquema de comisión de cada barbero (lo define Ivo)'],['pm-e6','Gastos fijos, proveedores e insumos (Finanzas y Catálogo)']]}
+];
+let puestaMarcha={};
+try{ puestaMarcha=JSON.parse(localStorage.getItem('luffy_puesta_marcha')||'{}'); }catch(e){}
+if(DB){ Promise.resolve(DB.doc('luffy/puesta_marcha').get()).then(r=>{ if(r&&typeof r==='object'){ puestaMarcha=r; try{localStorage.setItem('luffy_puesta_marcha',JSON.stringify(r));}catch(e){} refreshCurrentView(); } }).catch(()=>{}); }
+function renderAdminPuesta(c){
+  const hechos=PUESTA_MARCHA.flatMap(s=>s.items).filter(([id])=>puestaMarcha[id]).length, total=PUESTA_MARCHA.flatMap(s=>s.items).length;
+  c.innerHTML=`<div class="sec-title" style="margin:6px 0 4px">📋 Puesta en marcha</div>
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:10px">${hechos} de ${total} hechos. Tildá cada cosa cuando esté cargada en la app.</div>
+    ${PUESTA_MARCHA.map(s=>`<div class="sec-title" style="margin:12px 0 6px;font-size:12px">${escH(s.sec)}</div>${s.items.map(([id,txt])=>{ const h=puestaMarcha[id]; return `<label class="rub-opt" style="margin-bottom:6px;align-items:flex-start"><input type="checkbox" ${h?'checked':''} onchange="toggleItemPuesta('${id}',this.checked)"/><span style="font-size:12.5px;${h?'color:var(--muted2);text-decoration:line-through':''}">${escH(txt)}${h?`<br><span style="font-size:10.5px;color:var(--muted)">${escH(h.por)} · ${fechaCortaStr(h.fecha)}</span>`:''}</span></label>`; }).join('')}`).join('')}`;
+}
+async function toggleItemPuesta(id,on){
+  if(!profile||profile.role!=='admin') return;
+  const ahora=new Date().toISOString();
+  if(on) puestaMarcha[id]={por:profile.name,fecha:hoyStr(),ts:ahora}; else delete puestaMarcha[id];
+  try{ localStorage.setItem('luffy_puesta_marcha',JSON.stringify(puestaMarcha)); }catch(e){}
+  if(DB){ try{ DB.doc('luffy/puesta_marcha').set(puestaMarcha); }catch(e){} }
+  refreshCurrentView();
 }
