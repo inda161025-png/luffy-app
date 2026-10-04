@@ -255,7 +255,8 @@ function renderAdminCuentas(c){
 }
 function editarCuenta(id){
   const u=allUsers.find(x=>x.id===id); if(!u) return; const esPro=u.role==='profesional'||(u.role==='admin'&&!!u.tambienProf), esRec=u.role==='recepcionista', esAdm=u.role==='admin';
-  document.getElementById('registro-content').innerHTML=cabeceraModal('Editar cuenta')+`
+  const btnClave=`<button class="btn btn-ghost" style="margin-top:10px" onclick="resetearClaveCuenta('${u.id}')">🔑 Resetear contraseña</button>`;
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Editar cuenta')+btnClave+`
     <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 10px">Usuario: <b>@${escH(u.username||'')}</b> (no se cambia)</div>
     <div class="field"><label>Nombre</label><input id="ec-nombre" value="${escH(u.name)}"/></div>
     <div style="display:flex;gap:8px;margin-top:8px"><div class="field" style="flex:1"><label>Emoji</label><input id="ec-emoji" value="${escH(u.emoji||'')}" placeholder="✂️"/></div><div class="field" style="flex:1"><label>Color</label><input id="ec-color" type="color" value="${u.color||'#4A136B'}" style="height:46px;padding:4px"/></div></div>
@@ -537,4 +538,15 @@ function htmlAseguradosPanel(){
   if(!profile||profile.role!=='admin') return '';
   const n=pendientesAsegurado().length; if(!n) return '';
   return `<div class="card" onclick="switchAdminTab('comisiones')" style="cursor:pointer;margin:10px 0;border-color:rgba(251,191,36,.55);background:rgba(251,191,36,.07)"><div style="font-size:13px;font-weight:800;color:#fbbf24">🛡 ${n} ${n===1?'monto asegurado':'montos asegurados'} por decidir</div><div style="font-size:11.5px;color:var(--muted2)">Alguien facturó menos que su piso. Tocá para revisar.</div></div>`;
+}
+
+// Reseteo de contraseña por el admin (función de servidor reset-password, ver supabase/functions/reset-password)
+async function resetearClaveCuenta(uid){
+  if(!profile||profile.role!=='admin'){ showToast('Solo el admin puede resetear claves'); return; }
+  const u=allUsers.find(x=>x.id===uid); if(!u) return;
+  const r=await uiPrompt('Nueva contraseña para '+u.name,{msg:'La persona entra con esta clave y después la puede cambiar. Mínimo 4 caracteres.',type:'text',ok:'Resetear'});
+  const pw=(r||'').trim(); if(pw.length<4){ if(r!=null) showToast('Mínimo 4 caracteres'); return; }
+  const { data, error } = await supaClient.functions.invoke('reset-password',{body:{uid,password:pw}});
+  if(error||(data&&data.error)){ showToast('No se pudo resetear: '+((data&&data.error)||error.message||'error')); return; }
+  closeModal('modal-registro'); showToast('Contraseña de '+u.name+' reseteada ✓');
 }
