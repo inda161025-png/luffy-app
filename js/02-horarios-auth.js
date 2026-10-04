@@ -701,7 +701,9 @@ function dineroDeProfParaOcupacion(profId){
   try{ return JSON.parse(localStorage.getItem('luffy_dinero_'+profId)||'{}'); }catch(e){ return {}; }
 }
 function ocupacionPeriodo(profId,desde,hasta){
-  let disponible=0; for(let d=desde;d<=hasta;d=addDias(d,1)) disponible+=minutosDisponiblesDia(profId,d);
+  // Solo cuenta hasta hoy: los dias que todavia no llegaron no son capacidad usada ni perdida.
+  const hastaCap=hasta<hoyStr()?hasta:hoyStr();
+  let disponible=0; for(let d=desde;d<=hastaCap;d=addDias(d,1)) disponible+=minutosDisponiblesDia(profId,d);
   let cobrado=0;
   (dineroDeProfParaOcupacion(profId).turnos||[]).filter(t=>t.fecha>=desde&&t.fecha<=hasta).forEach(t=>{
     cobrado+=duracionServicios((t.servicios||[]).map(s=>s.id).filter(Boolean));
