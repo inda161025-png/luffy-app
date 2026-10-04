@@ -899,3 +899,73 @@ function regGuardar(){
   renderHub();
 }
 
+
+// ---------- adelantos de plata (aprobado por Ivo, 3/10/2026) ----------
+// El profesional pide monto + motivo; lo aprueba el admin y lo entrega recepcion desde la caja (sale como "adelanto",
+// no como gasto del local). Se descuenta de la comision de la quincena de la entrega; si no alcanza, el resto se
+// descuenta de la quincena siguiente. Tope: 50% de lo facturado en la quincena en curso. Un solo adelanto abierto por vez.
+const ADELANTO_TOPE_PCT=50;
+function adelantosDe(profId){ let dd={}; if(profile&&profile.id===profId) dd=dineroData||{}; else { try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+profId)||'{}'); }catch(e){} } return dd.adelantos||[]; }
+function adelantoSiguienteQk(qk){ const p=qk.split('-'), y=Number(p[0]), m=Number(p[1]); return Number(p[2])===1?y+'-'+pad2(m)+'-2':(m===12?(y+1)+'-01-1':y+'-'+pad2(m+1)+'-1'); }
+// Cuanto del adelanto se descuenta en la quincena qk, y cuanto queda arrastrado para la siguiente.
+function adelantoDeQuincena(u,D,qk){
+  const ents=adelantosDe(u.id).filter(a=>a.estado==='entregado'&&a.quincena);
+  if(!ents.length) return {desc:0,arrastre:0};
+  const turnos=(D&&D.turnos||[]).filter(t=>t.prof&&t.prof.id===u.id);
+  let q=ents.map(a=>a.quincena).sort()[0], owed=0, desc=0;
+  for(let guard=0; guard<400 && q<=qk; guard++){
+    owed+=ents.filter(a=>a.quincena===q).reduce((s,a)=>s+numV(a.monto),0);
+    const pago=Math.max(0,comisionQuincenaDe(u,q,turnos).comision);
+    const cubre=Math.min(owed,pago); owed-=cubre;
+    if(q===qk) desc=cubre;
+    q=adelantoSiguienteQk(q);
+  }
+  return {desc,arrastre:owed};
+}
+function adelantoAbierto(profId){ return adelantosDe(profId).some(a=>a.estado==='pendiente'||a.estado==='aprobado'||(a.estado==='entregado'&&a.quincena&&adelantoDeQuincena(allUsers.find(u=>u.id===profId)||{id:profId},adminDatos(),quincenaKey(hoyStr())).arrastre>0)); }
+function topeAdelanto(profId){ const ts=(adminDatos().turnos||[]).filter(t=>t.prof&&t.prof.id===profId); return Math.round((factPorQuincena(ts)[quincenaKey(hoyStr())]||0)*ADELANTO_TOPE_PCT/100); }
+function abrirPedirAdelanto(){
+  const tope=topeAdelanto(profile.id), color=(profile&&profile.color)||'#4A136B';
+  document.getElementById('registro-content').innerHTML=cabeceraModal('💵 Pedir adelanto')+`
+    <div style="font-size:12px;color:var(--muted2);margin-bottom:12px;line-height:1.5">Hasta <b style="color:var(--text)">${fp(tope)}</b> (la mitad de lo que facturaste en esta quincena). Lo aprueba el admin, lo entrega recepción, y se descuenta de tu comisión.</div>
+    <div class="field"><label>Monto</label><input id="ad-monto" type="number" inputmode="decimal" placeholder="0"/></div>
+    <div class="field" style="margin-top:8px"><label>¿Para qué?</label><input id="ad-motivo" placeholder="Ej: pagar la luz"/></div>
+    <button class="btn btn-primary" onclick="guardarPedirAdelanto()" style="background:${color};margin-top:12px">Pedir</button>`;
+  openModal('modal-registro');
+}
+async function guardarPedirAdelanto(){
+  const monto=numV(document.getElementById('ad-monto').value), motivo=(document.getElementById('ad-motivo').value||'').trim();
+  if(monto<=0){ showToast('Poné el monto'); return; }
+  if(!motivo){ showToast('Poné para qué es'); return; }
+  if(adelantoAbierto(profile.id)){ showToast('Ya tenés un adelanto abierto: esperá a que se cierre'); return; }
+  const tope=topeAdelanto(profile.id);
+  if(monto>tope){ showToast('El máximo que podés pedir ahora es '+fp(tope)); return; }
+  if(!dineroData.adelantos) dineroData.adelantos=[];
+  dineroData.adelantos.push({id:'ad'+Date.now().toString(36),monto,motivo,estado:'pendiente',fecha:hoyStr(),creadoEn:new Date().toISOString()});
+  saveDinero(); closeModal('modal-registro'); showToast('Pedido enviado ✓ — lo ve el admin'); refreshCurrentView();
+}
+async function decidirAdelanto(profId,id,ok){
+  await modificarDineroDe(profId,dd=>{ const a=(dd.adelantos||[]).find(x=>x.id===id); if(!a||a.estado!=='pendiente') return false; a.estado=ok?'aprobado':'rechazado'; a.decididoPor=profile.name; a.decididoEn=new Date().toISOString(); return true; });
+  showToast(ok?'Adelanto aprobado ✓':'Adelanto rechazado'); refreshCurrentView();
+}
+async function registrarEntregaAdelanto(profId,id){
+  const ab=sesionAbierta(); if(!ab){ showToast('La caja está cerrada: abrila para entregar el adelanto'); return; }
+  const a=adelantosDe(profId).find(x=>x.id===id); if(!a||a.estado!=='aprobado'){ showToast('Ese adelanto ya no está aprobado'); return; }
+  const ts=new Date().toISOString(), qk=quincenaKey(hoyStr()), pn=(allUsers.find(u=>u.id===profId)||{}).name||'';
+  await cambiarCaja(ab.fecha.slice(0,7),l=>{ const s=l.find(x=>x.id===ab.id); if(s){ s.movs=[...(s.movs||[]),{id:'m'+Date.now().toString(36),concepto:'Adelanto a un profesional',cat:null,gasto:false,interno:'adelanto',detalle:pn+' · '+a.motivo,ts,por:profile.name,tipo:'salida',medio:'efectivo',monto:numV(a.monto)}]; s.upd=ts; } });
+  await modificarDineroDe(profId,dd=>{ const x=(dd.adelantos||[]).find(z=>z.id===id); if(!x||x.estado!=='aprobado') return false; x.estado='entregado'; x.entregadoPor=profile.name; x.entregadoEn=ts; x.quincena=qk; return true; });
+  showToast('Adelanto entregado ✓ — sale de la caja como adelanto'); refreshCurrentView();
+}
+// Pendientes para el admin (en Equipo → Comisiones) y aprobados para entregar (en la caja de recepcion)
+function htmlAdelantosAdmin(){
+  if(!profile||profile.role!=='admin') return '';
+  const L=allUsers.filter(u=>esProf(u)).flatMap(u=>adelantosDe(u.id).filter(a=>a.estado==='pendiente').map(a=>({...a,pid:u.id,pn:u.name})));
+  if(!L.length) return '';
+  return `<div class="sec-title" style="margin:6px 0 8px;color:#fbbf24">💵 Adelantos para aprobar (${L.length})</div>${L.map(a=>`<div class="card" style="margin-bottom:8px;border-color:rgba(251,191,36,.5)"><div style="font-size:13px;font-weight:800">${escH(a.pn)} · ${fp(a.monto)}</div><div style="font-size:11.5px;color:var(--muted2);margin:2px 0 6px">${escH(a.motivo)} · pedido el ${fechaCortaStr(a.fecha)}</div><div style="display:flex;gap:8px"><button class="btn btn-primary" style="flex:1;padding:9px" onclick="decidirAdelanto('${a.pid}','${a.id}',true)">✓ Aprobar</button><button class="btn btn-ghost" style="flex:1;padding:9px" onclick="decidirAdelanto('${a.pid}','${a.id}',false)">Rechazar</button></div></div>`).join('')}`;
+}
+function htmlAdelantosEntregarRec(){
+  if(!profile||(profile.role!=='recepcionista'&&profile.role!=='admin')) return '';
+  const L=allUsers.filter(u=>esProf(u)).flatMap(u=>adelantosDe(u.id).filter(a=>a.estado==='aprobado').map(a=>({...a,pid:u.id,pn:u.name})));
+  if(!L.length) return '';
+  return `<div class="sec-title" style="margin:10px 0 8px">💵 Adelantos para entregar (${L.length})</div>${L.map(a=>`<div class="card" style="margin-bottom:8px"><div style="font-size:13px;font-weight:800">${escH(a.pn)} · ${fp(a.monto)}</div><div style="font-size:11.5px;color:var(--muted2);margin:2px 0 6px">${escH(a.motivo)}</div><button class="btn btn-primary" style="padding:9px" onclick="registrarEntregaAdelanto('${a.pid}','${a.id}')">💵 Registrar entrega</button></div>`).join('')}`;
+}

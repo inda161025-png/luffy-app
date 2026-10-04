@@ -691,7 +691,7 @@ function renderTrabajo(wrap){
 
     <div class="sec-hdr">
       <span class="sec-title">💳 Gastos con el MP del local</span>
-      <button class="sec-btn" onclick="abrirFormGastoMP()" style="background:#f472b6">+ Anotar</button>
+      <button class="sec-btn" onclick="abrirFormGastoMP()" style="background:#f472b6">+ Anotar</button><button class="sec-btn" onclick="abrirPedirAdelanto()" style="background:#fbbf24;color:#000">💵 Pedir adelanto</button>
     </div>
     ${!gastosMP.length?'<div class="empty"><div class="e-icon">💳</div><p>Nada anotado este período.</p></div>':gastosMP.map(g=>`<div class="turno-item" style="cursor:default"><div class="ti-dot" style="background:#f472b6"></div><div class="ti-info"><strong>${escH(g.motivo)}</strong><span>${fechaCorta(g.fecha)}</span></div><div style="text-align:right"><div class="ti-monto" style="color:#f472b6">−${fp(num(g.monto))}</div></div></div>`).join('')}
 

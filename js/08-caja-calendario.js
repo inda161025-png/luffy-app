@@ -193,7 +193,7 @@ function bloqueParaApertura(){
 }
 
 // ---------- pantalla de recepcion ----------
-function htmlCajaRec(){ return htmlCajaRecBase()+htmlResumenDia(); }
+function htmlCajaRec(){ return htmlCajaRecBase()+htmlAdelantosEntregarRec()+htmlResumenDia(); }
 // Quien esta a cargo AHORA: el ultimo cambio de recepcionista si hubo, sino quien abrio
 function recepcionistaActual(s){
   const L=s.entregas||[]; const ult=L[L.length-1];
