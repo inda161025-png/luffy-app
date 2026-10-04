@@ -253,9 +253,18 @@ function getPuntos(profId){
 function addPuntos(profId, tipo, pts, razon, uid){
   if(!puntosData[profId]) puntosData[profId]={total:0,movimientos:[]};
   if(uid&&puntosData[profId].movimientos.some(m=>m.uid===uid)) return false; // ya se aplico
-  puntosData[profId].total = (puntosData[profId].total||0) + pts;
-  puntosData[profId].movimientos.unshift({tipo,pts,razon,uid,ts:new Date().toISOString(),fecha:ymdLocal(new Date())});
+  // El saldo nunca baja de cero: un movimiento negativo se acota a lo que tiene (regla de Ivo, 3/10/2026)
+  const total=puntosData[profId].total||0; const aplicado=Math.max(pts,-total);
+  if(!aplicado) return false;
+  puntosData[profId].total = total + aplicado;
+  puntosData[profId].movimientos.unshift({tipo,pts:aplicado,razon,uid,por:profile?profile.name:'',ts:new Date().toISOString(),fecha:ymdLocal(new Date())});
   savePuntosData();
+}
+// Ajuste manual de puntos: solo admin, motivo obligatorio, sin tope por ajuste. Queda en el libro como cualquier movimiento.
+function ajustarPuntosManual(profId,pts,motivo){
+  if(!profile||profile.role!=='admin') return false;
+  if(!motivo||!motivo.trim()||!pts) return false;
+  return addPuntos(profId,'ajuste',pts,motivo.trim(),'aj:'+profId+':'+Date.now().toString(36)+Math.random().toString(36).slice(2,7))!==false;
 }
 
 const STAGES = {

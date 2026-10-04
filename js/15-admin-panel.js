@@ -1177,7 +1177,7 @@ function renderAdminPuntos(body){
   const rankHtml = ranking.map((p,i)=>`<div class="ranking-item">
     <div class="ranking-pos" style="background:${i<3?'rgba(251,191,36,.2)':'var(--s2)'};color:${i<3?'#fbbf24':'var(--muted2)'}">${medals[i]||i+1}</div>
     <div class="ranking-av" style="background:${p.color}33;border-color:${p.color}">${p.emoji}</div>
-    <div class="ranking-info"><strong>${p.name}</strong><span>${(getPuntos(p.id).movimientos||[]).length} movimientos</span></div>
+    <div class="ranking-info"><strong>${p.name}</strong><span>${(getPuntos(p.id).movimientos||[]).length} movimientos <button class="lnk" onclick="abrirLibroPuntos('${p.id}')">Ver libro</button> · <button class="lnk" onclick="abrirAjustePuntos('${p.id}')">Ajustar</button></span></div>
     <div class="ranking-pts" style="color:${p.color}">⭐${p.pts}</div>
   </div>`).join('');
 
@@ -1246,3 +1246,29 @@ function rechazarCanje(solId){
   renderAdmin();
 }
 
+
+// ---------- libro de puntos (3/10/2026): cada movimiento guarda su cantidad, motivo y quien lo cargo ----------
+function abrirLibroPuntos(profId){
+  const p=allUsers.find(u=>u.id===profId); const d=getPuntos(profId)||{total:0,movimientos:[]};
+  const movs=(d.movimientos||[]);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('📒 Libro de puntos · '+escH(p?p.name:''))+
+    `<div style="font-size:13px;margin-bottom:10px">Saldo actual: <b style="color:var(--text)">${d.total||0} puntos</b> · los puntos no vencen y el saldo no baja de cero</div>`+
+    (movs.length?movs.map(m=>`<div class="card" style="margin-bottom:6px;padding:9px 12px"><div style="display:flex;justify-content:space-between;align-items:baseline"><b style="font-size:12.5px">${escH(m.razon||m.tipo||'')}</b><b style="color:${m.pts>=0?'#34d399':'#f472b6'}">${m.pts>=0?'+':''}${m.pts}</b></div><div style="font-size:11px;color:var(--muted2);margin-top:2px">${fechaCortaStr((m.fecha||'').slice(0,10)||'')} · ${escH(m.tipo||'')}${m.por?' · cargó '+escH(m.por):''}</div></div>`).join(''):'<div class="empty"><p>Todavía no hay movimientos.</p></div>');
+  openModal('modal-registro');
+}
+function abrirAjustePuntos(profId){
+  if(!profile||profile.role!=='admin') return;
+  const p=allUsers.find(u=>u.id===profId);
+  document.getElementById('registro-content').innerHTML=cabeceraModal('Ajustar puntos · '+escH(p?p.name:''))+`
+    <div class="field"><label>Cantidad (negativa para restar)</label><input id="aj-pts" type="number" inputmode="numeric" placeholder="Ej: 20 o -10"/></div>
+    <div class="field" style="margin-top:8px"><label>Motivo (obligatorio)</label><input id="aj-motivo" placeholder="Ej: premio por la campaña de septiembre"/></div>
+    <button class="btn btn-primary" style="margin-top:12px" onclick="confirmarAjustePuntos('${profId}')">Guardar ajuste</button>`;
+  openModal('modal-registro');
+}
+function confirmarAjustePuntos(profId){
+  const pts=parseInt(document.getElementById('aj-pts').value,10), motivo=(document.getElementById('aj-motivo').value||'').trim();
+  if(!pts){ showToast('Poné la cantidad de puntos'); return; }
+  if(!motivo){ showToast('Poné el motivo del ajuste'); return; }
+  if(!ajustarPuntosManual(profId,pts,motivo)){ showToast('No se pudo guardar el ajuste'); return; }
+  closeModal('modal-registro'); showToast('Ajuste guardado ✓'); renderAdmin();
+}
