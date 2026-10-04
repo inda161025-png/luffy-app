@@ -24,6 +24,7 @@ let horarioEditando = false;
 // cualquier profesional, sin filtrar. Bug crítico reportado por Ivo el día del lanzamiento (1/10/2026).
 let horariosProfs={};
 async function loadHorariosProfs(){
+  loadHorarioHist();
   allUsers.filter(u=>esProf(u)).forEach(u=>{ try{ const c=JSON.parse(localStorage.getItem('luffy_horario_'+u.id)||'null'); if(c) horariosProfs[u.id]=c; }catch(e){} });
   if(!DB) return;
   const profs=allUsers.filter(u=>esProf(u));
@@ -659,3 +660,75 @@ document.addEventListener('touchmove', function(e){
 }, {passive:false});
 document.addEventListener('touchend', function(){ __touchStartY = null; }, {passive:true});
 
+
+// ---------- ocupacion: minutos cobrados de la persona / minutos disponibles en SU horario (3/10/2026) ----------
+// Cuenta lo realmente cobrado (no lo agendado), con la duracion del catalogo. La capacidad sale del horario que
+// tenia cada dia (historial de cambios), menos los bloqueos de la agenda. Sin horario cargado = capacidad 0 (no se inventa).
+let horarioHist={vig:{},hist:{}};
+async function loadHorarioHist(){
+  try{ const c=JSON.parse(localStorage.getItem('luffy_horario_hist')||'null'); if(c) horarioHist=c; }catch(e){}
+  if(DB){ try{ const r=await DB.doc('luffy/horario_hist').get(); if(r){ horarioHist=r; try{localStorage.setItem('luffy_horario_hist',JSON.stringify(r));}catch(e){} } }catch(e){} }
+}
+// Llamar ANTES de reemplazar el horario de una persona: archiva el anterior con el dia en que dejo de valer.
+function archivarHorarioPrevio(profId){
+  const prev=horariosProfs[profId]; const hoy=hoyStr();
+  horarioHist.hist=horarioHist.hist||{}; horarioHist.vig=horarioHist.vig||{};
+  if(prev){ const desde=horarioHist.vig[profId]||'2000-01-01'; if(desde<hoy) (horarioHist.hist[profId]=horarioHist.hist[profId]||[]).push({desde,hasta:addDias(hoy,-1),dias:prev}); }
+  horarioHist.vig[profId]=hoy;
+  try{localStorage.setItem('luffy_horario_hist',JSON.stringify(horarioHist));}catch(e){}
+  if(DB){ try{ DB.doc('luffy/horario_hist').set(horarioHist); }catch(e){} }
+}
+function horarioDelDia(profId,fecha){
+  const e=((horarioHist.hist||{})[profId]||[]).find(x=>fecha>=x.desde&&fecha<=x.hasta); if(e) return e.dias;
+  const vig=(horarioHist.vig||{})[profId];
+  if(horariosProfs[profId]&&(!vig||fecha>=vig)) return horariosProfs[profId];
+  return null;
+}
+function minutosDisponiblesDia(profId,fecha){
+  const dias=horarioDelDia(profId,fecha); if(!dias) return 0;
+  const d=dias[DIAS_SEMANA[(new Date(fecha+'T00:00:00').getDay()+6)%7].key];
+  if(!d||!d.activo) return 0;
+  const tramos=tramosDeDia(d).map(t=>[agMin(t.inicio),agMin(t.fin)]).filter(([a,b])=>b>a);
+  let libre=tramos.reduce((s,[a,b])=>s+(b-a),0);
+  // Bloqueos recortados a los tramos y unidos entre si, para no restar dos veces lo mismo
+  const bl=agBloqueosDeHoy(profId,fecha).map(b=>[agMin(b.horaDesde),agMin(b.horaHasta)]).filter(([a,b])=>b>a).sort((x,y)=>x[0]-y[0]);
+  const unidos=[]; bl.forEach(([a,b])=>{ const u=unidos[unidos.length-1]; if(u&&a<=u[1]) u[1]=Math.max(u[1],b); else unidos.push([a,b]); });
+  unidos.forEach(([ba,bb])=>tramos.forEach(([a,b])=>{ libre-=Math.max(0,Math.min(b,bb)-Math.max(a,ba)); }));
+  return Math.max(0,libre);
+}
+function dineroDeProfParaOcupacion(profId){
+  if(profile&&profId===profile.id) return dineroData||{};
+  try{ return JSON.parse(localStorage.getItem('luffy_dinero_'+profId)||'{}'); }catch(e){ return {}; }
+}
+function ocupacionPeriodo(profId,desde,hasta){
+  let disponible=0; for(let d=desde;d<=hasta;d=addDias(d,1)) disponible+=minutosDisponiblesDia(profId,d);
+  let cobrado=0;
+  (dineroDeProfParaOcupacion(profId).turnos||[]).filter(t=>t.fecha>=desde&&t.fecha<=hasta).forEach(t=>{
+    cobrado+=duracionServicios((t.servicios||[]).map(s=>s.id).filter(Boolean));
+  });
+  return {cobrado,disponible,pct:disponible>0?Math.round(cobrado/disponible*100):null};
+}
+// Periodos: hoy, semana (lunes a domingo) y mes calendario, todos hasta hoy inclusive para lo cobrado.
+function periodosOcupacion(){
+  const hoy=hoyStr(), dow=(new Date(hoy+'T00:00:00').getDay()+6)%7;
+  const lunes=addDias(hoy,-dow), y=hoy.slice(0,4), m=hoy.slice(5,7);
+  return [['Hoy',hoy,hoy],['Esta semana',lunes,addDias(lunes,6)],['Este mes',y+'-'+m+'-01',y+'-'+m+'-'+pad2(finMesUTC(Number(y),Number(m)))]];
+}
+function filaOcupacion(profId,label,desde,hasta){
+  const o=ocupacionPeriodo(profId,desde,hasta);
+  const txt=o.disponible>0?`<b style="color:var(--text)">${o.pct}%</b> · ${o.cobrado} de ${o.disponible} min`:'<span style="color:var(--muted)">sin horario cargado</span>';
+  return `<div style="display:flex;justify-content:space-between;font-size:12.5px;padding:4px 0"><span style="color:var(--muted2)">${label}</span><span>${txt}</span></div>`;
+}
+function htmlOcupacionPersona(profId){
+  if(!profile||!esProf(allUsers.find(u=>u.id===profId)||{})) return '';
+  return `<div class="card" style="margin-top:10px"><div style="font-size:12px;font-weight:800;margin-bottom:6px">📈 Ocupación (minutos cobrados ÷ minutos de tu horario)</div>${periodosOcupacion().map(([l,d,h])=>filaOcupacion(profId,l,d,h)).join('')}</div>`;
+}
+function htmlOcupacionAdmin(){
+  if(!profile||profile.role!=='admin') return '';
+  const ps=allUsers.filter(u=>esProf(u));
+  const per=periodosOcupacion();
+  return `<div class="card" style="margin:10px 0"><div style="font-size:12px;font-weight:800;margin-bottom:8px">📈 Ocupación por persona</div>
+    <div style="display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:4px;font-size:11px;color:var(--muted2);margin-bottom:4px"><span></span>${per.map(p=>`<span>${p[0]}</span>`).join('')}</div>
+    ${ps.map(u=>{ return `<div style="display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:4px;font-size:12.5px;padding:3px 0;border-top:1px solid var(--border)"><span>${escH(u.name)}</span>${per.map(([,d,h])=>{ const o=ocupacionPeriodo(u.id,d,h); return `<span>${o.disponible>0?o.pct+'%':'—'}</span>`; }).join('')}</div>`; }).join('')}
+    <div style="font-size:10.5px;color:var(--muted);margin-top:6px">— = todavía no tiene horario cargado. Cuenta lo cobrado, no lo agendado.</div></div>`;
+}

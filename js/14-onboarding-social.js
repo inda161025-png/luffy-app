@@ -381,6 +381,7 @@ function cancelarEdicionHorario(){ horarioEditando=false; miHorarioEdit=null; re
 
 function guardarHorarioManual(){
   horarioData=miHorarioEdit;
+  archivarHorarioPrevio(profile.id);
   horariosProfs[profile.id]=horarioData; // toma efecto ya mismo en profTrabajaEn(), sin esperar un reload
   saveHorario();
   horarioEditando=false; miHorarioEdit=null;
@@ -599,3 +600,6 @@ function pedirCanje(canjeId){
   showToast('Solicitud enviada al admin ✓');
 }
 
+
+const _renderPerfilOcupacionBase=renderPerfil;
+renderPerfil=function(){ _renderPerfilOcupacionBase(); const b=document.getElementById('perfil-body'); if(b&&profile) b.insertAdjacentHTML('beforeend',htmlOcupacionPersona(profile.id)); };

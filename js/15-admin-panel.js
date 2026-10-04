@@ -74,7 +74,7 @@ function renderAdmin(){
   </div>${sec.subs?`<div class="adm-sub">${sec.subs.map(([id,l])=>`<button class="${id===sub?'on':''}" onclick="switchAdminTab('${id}')">${l}</button>`).join('')}</div>`:''}`;
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
-  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlCobrosEditadosPanel()+htmlTurnosEliminadosPanel()+htmlTareasEquipoWidget()); }
+  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlCobrosEditadosPanel()+htmlTurnosEliminadosPanel()+htmlOcupacionAdmin()+htmlTareasEquipoWidget()); }
   else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='asegurado') renderAdminAsegurado(c); else if(sub==='tareasequipo') renderAdminTareasEquipo(c); else if(sub==='cuentas') renderAdminCuentas(c); else if(sub==='comisiones') renderAdminComisiones(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else if(sub==='proveedores') renderAdminProveedores(c); else if(sub==='insumos') renderAdminInsumos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
@@ -862,6 +862,7 @@ function renderHorarioProf(){
 }
 async function guardarHorarioProf(){
   const s=admHorario; if(!s) return;
+  archivarHorarioPrevio(s.profId);
   horariosProfs[s.profId]=s.dias; // toma efecto ya mismo en profTrabajaEn(), sin esperar un reload
   try{ localStorage.setItem('luffy_horario_'+s.profId, JSON.stringify(s.dias)); }catch(e){}
   if(DB){ try{ await DB.doc('luffy/horario_'+s.profId).set(s.dias); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
