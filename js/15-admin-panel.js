@@ -1177,7 +1177,7 @@ function renderAdminPuntos(body){
   const rankHtml = ranking.map((p,i)=>`<div class="ranking-item">
     <div class="ranking-pos" style="background:${i<3?'rgba(251,191,36,.2)':'var(--s2)'};color:${i<3?'#fbbf24':'var(--muted2)'}">${medals[i]||i+1}</div>
     <div class="ranking-av" style="background:${p.color}33;border-color:${p.color}">${p.emoji}</div>
-    <div class="ranking-info"><strong>${p.name}</strong><span>${(getPuntos(p.id).movimientos||[]).length} movimientos <button class="lnk" onclick="abrirLibroPuntos('${p.id}')">Ver libro</button> · <button class="lnk" onclick="abrirAjustePuntos('${p.id}')">Ajustar</button></span></div>
+    <div class="ranking-info"><strong>${p.name}</strong><span>${(getPuntos(p.id).movimientos||[]).length} movimientos <button class="lnk" onclick="abrirLibroPuntos('${p.id}')">Ver libro</button>${esDuenoPuntos()?` · <button class="lnk" onclick="abrirAjustePuntos('${p.id}')">Ajustar</button>`:''}</span></div>
     <div class="ranking-pts" style="color:${p.color}">⭐${p.pts}</div>
   </div>`).join('');
 
@@ -1257,7 +1257,7 @@ function abrirLibroPuntos(profId){
   openModal('modal-registro');
 }
 function abrirAjustePuntos(profId){
-  if(!profile||profile.role!=='admin') return;
+  if(!esDuenoPuntos()) return;
   const p=allUsers.find(u=>u.id===profId);
   document.getElementById('registro-content').innerHTML=cabeceraModal('Ajustar puntos · '+escH(p?p.name:''))+`
     <div class="field"><label>Cantidad (negativa para restar)</label><input id="aj-pts" type="number" inputmode="numeric" placeholder="Ej: 20 o -10"/></div>

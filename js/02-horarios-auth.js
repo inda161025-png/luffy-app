@@ -261,8 +261,11 @@ function addPuntos(profId, tipo, pts, razon, uid){
   savePuntosData();
 }
 // Ajuste manual de puntos: solo admin, motivo obligatorio, sin tope por ajuste. Queda en el libro como cualquier movimiento.
+// Solo la cuenta del dueño puede dar o quitar puntos a mano (decidido por Ivo, 3/10/2026).
+const PUNTOS_DUENO_ID='1790010618333';
+function esDuenoPuntos(){ return !!profile && profile.id===PUNTOS_DUENO_ID; }
 function ajustarPuntosManual(profId,pts,motivo){
-  if(!profile||profile.role!=='admin') return false;
+  if(!esDuenoPuntos()) return false;
   if(!motivo||!motivo.trim()||!pts) return false;
   return addPuntos(profId,'ajuste',pts,motivo.trim(),'aj:'+profId+':'+Date.now().toString(36)+Math.random().toString(36).slice(2,7))!==false;
 }
