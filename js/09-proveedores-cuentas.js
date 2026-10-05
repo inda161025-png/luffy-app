@@ -547,7 +547,10 @@ async function resetearClaveCuenta(uid){
   const r=await uiPrompt('Nueva contraseña para '+u.name,{msg:'La persona entra con esta clave y después la puede cambiar. Mínimo 4 caracteres.',type:'text',ok:'Resetear'});
   const pw=(r||'').trim(); if(pw.length<4){ if(r!=null) showToast('Mínimo 4 caracteres'); return; }
   // Slug real: Supabase creó la función como "dynamic-function" y el slug no se puede renombrar.
-  const { data, error } = await supaClient.functions.invoke('dynamic-function',{body:{uid,password:pw}});
-  if(error||(data&&data.error)){ showToast('No se pudo resetear: '+((data&&data.error)||error.message||'error')); return; }
+  const rr=await supaClient.from('luffy_roles').select('uid').eq('app_id',uid).maybeSingle();
+  if(!rr.data){ showToast('Esa cuenta todavía no tiene usuario de acceso'); return; }
+  const { data, error } = await supaClient.functions.invoke('dynamic-function',{body:{uid:rr.data.uid,password:pw}});
+  if(error){ let msg=error.message; try{ const j=await error.context.json(); if(j&&j.error) msg=j.error; }catch(e){} showToast('No se pudo resetear: '+msg); return; }
+  if(data&&data.error){ showToast('No se pudo resetear: '+data.error); return; }
   closeModal('modal-registro'); showToast('Contraseña de '+u.name+' reseteada ✓');
 }
