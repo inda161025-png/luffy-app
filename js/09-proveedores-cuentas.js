@@ -248,7 +248,7 @@ async function editarUsuario(id,patch){
 const ROL_TXT={admin:'Administrador',profesional:'Profesional',recepcionista:'Recepcionista',encargado:'Encargado (cuenta vieja)'};
 function renderAdminCuentas(c){
   const grupos=[['profesional','✂️ Profesionales'],['recepcionista','📞 Recepcionistas'],['encargado','📋 Encargado (cuenta vieja)'],['admin','👑 Administrador']];
-  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🔧 Cuentas del equipo</span></div>
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🔧 Cuentas del equipo</span><button class="lnk" style="margin-left:auto" onclick="abrirRevisionAccesos()">🔎 Revisión de accesos</button></div>
     <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Desde acá podés cambiar todo de cada persona: <b style="color:var(--text)">nombre, rol, sucursales</b> (puede estar en más de una), rubros, comisión y <b style="color:var(--text)">darla de baja</b>. Las cuentas nuevas se aprueban en Estado.</div>
     ${grupos.map(([rol,tit])=>{ const L=allUsers.filter(u=>u.role===rol); if(!L.length) return ''; return `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${tit}</div>${L.map(u=>`<div class="card" onclick="editarCuenta('${u.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:${(u.color||'#4A136B')}33;border:1.5px solid ${u.color||'#4A136B'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${u.emoji||'👤'}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(u.name)} <span style="font-size:11px;font-weight:600;color:var(--muted2)">@${escH(u.username||'')}</span>${u.esEncargado?' <span style="font-size:10px;background:rgba(52,211,153,.18);color:#34d399;border-radius:6px;padding:1px 6px">ENCARGADO</span>':''}${u.role==='admin'&&u.tambienProf?' <span style="font-size:10px;background:rgba(74,19,107,.18);color:#a89fff;border-radius:6px;padding:1px 6px">TAMBIÉN PROFESIONAL</span>':''}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${sucursalesDe(u).map(s=>chipSucursal(s,true)).join('')||'<span style="font-size:10.5px;color:var(--muted)">sin sucursal</span>'}${esProf(u)&&u.rubros&&u.rubros.length?`<span style="font-size:10.5px;color:var(--muted2)">· ${escH(u.rubros.map(nombreRubro).filter(Boolean).join(', '))}</span>`:''}</div></div><span style="color:var(--muted)">✏️</span></div></div>`).join('')}`; }).join('')}
     ${usuariosBaja.length?`<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;font-weight:800;color:var(--muted2)">🗄 Dados de baja (${usuariosBaja.length})</summary>${usuariosBaja.map(u=>`<div class="ln"><span>${escH(u.name)} <i style="color:var(--muted)">· ${ROL_TXT[u.role]||u.role} · baja ${u.baja?fechaCortaStr(u.baja):''}</i></span><button class="lnk" onclick="reactivarCuenta('${u.id}')">Reactivar</button></div>`).join('')}<div style="font-size:10.5px;color:var(--muted);margin-top:6px">Sus cobros y su historia se conservan en los reportes.</div></details>`:''}`;
@@ -324,6 +324,31 @@ async function reactivarCuenta(id){
   else if(!b.uid){ showToast('No tengo su cuenta guardada: que se registre de nuevo y la aprobás'); return; }
   const {lista,bajas}=await leerUsuariosFresco(); const {baja,uid,...u}=bajas.find(z=>z.id===id)||b;
   allUsers=[...lista.filter(z=>z.id!==id),u]; usuariosBaja=bajas.filter(z=>z.id!==id); saveUsers(); showToast(u.name+' reactivada ✓'); renderAdmin();
+}
+async function abrirRevisionAccesos(){
+  if(!profile||profile.role!=='admin') return;
+  if(!supaClient){ showToast('Sin conexión a la base'); return; }
+  const r=await supaClient.from('luffy_roles').select('uid,app_id,role');
+  if(r.error){ showToast('No se pudo leer luffy_roles: '+r.error.message); return; }
+  const filas=r.data||[], porApp=new Map(filas.map(f=>[f.app_id,f]));
+  const idsApp=new Set([...allUsers,...usuariosBaja].map(u=>u.id));
+  const ROJO='#f472b6', VERDE='#34d399', GRIS='#94a3b8', AMARILLO='#fbbf24';
+  const linea=(u,estado,color,detalle)=>`<div class="ln" style="align-items:flex-start;border-left:4px solid ${color};padding-left:8px;margin-bottom:6px"><span><b>${escH(u.name||u.app_id)}</b> <i style="color:var(--muted)">@${escH(u.username||'')}</i><div style="font-size:11.5px;color:var(--muted2)">${detalle}</div></span><span style="font-size:11px;font-weight:800;color:${color};white-space:nowrap;margin-left:8px">${estado}</span></div>`;
+  const activas=allUsers.map(u=>{ const f=porApp.get(u.id);
+    if(!f) return linea(u,'ACTIVA SIN ROL',ROJO,`Rol en la app: ${ROLES[u.role]||u.role}. Sin fila en luffy_roles: se quedaría afuera al bloquear.`);
+    const dif=f.role!==u.role?` · <b style="color:${AMARILLO}">rol distinto: app ${ROLES[u.role]||u.role}, Supabase ${f.role}</b>`:'';
+    return linea(u,'activa',VERDE,`Rol en la app: ${ROLES[u.role]||u.role} · en Supabase: ${f.role}${dif}`); }).join('');
+  const bajas=usuariosBaja.map(u=>{ const f=porApp.get(u.id);
+    if(f) return linea(u,'DE BAJA CON ROL',ROJO,`Dada de baja el ${fechaCortaStr(u.baja||hoyStr())}, pero su fila en luffy_roles sigue con rol ${f.role}: sigue autorizada.`);
+    return linea(u,'de baja',GRIS,`Dada de baja el ${fechaCortaStr(u.baja||hoyStr())}. Sin acceso.`); }).join('');
+  const huerfanas=filas.filter(f=>!idsApp.has(f.app_id)).map(f=>`<div class="ln" style="border-left:4px solid ${ROJO};padding-left:8px;margin-bottom:6px"><span><b>app_id ${escH(f.app_id)}</b><div style="font-size:11.5px;color:var(--muted2)">Rol ${escH(f.role)} · uid ${escH(f.uid)} · sin cuenta en la app</div></span><span style="font-size:11px;font-weight:800;color:${ROJO}">HUÉRFANA</span></div>`).join('');
+  const sec=(t)=>`<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${t}</div>`;
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🔎 Revisión de accesos')+
+    `<div style="font-size:12px;color:var(--muted2);line-height:1.5">Compara cada cuenta de la app con la tabla de roles de Supabase. Rojo = hay que mirar antes de correr el 03/04.</div>`+
+    sec(`Cuentas activas (${allUsers.length})`)+(activas||'<div class="empty"><p>No hay cuentas activas.</p></div>')+
+    sec(`Dadas de baja (${usuariosBaja.length})`)+(bajas||'<div class="empty"><p>No hay bajas.</p></div>')+
+    sec(`Filas de roles sin cuenta en la app (${filas.filter(f=>!idsApp.has(f.app_id)).length})`)+(huerfanas||'<div class="empty"><p>Ninguna.</p></div>');
+  openModal('modal-registro');
 }
 // ---------- sucursales de una persona (varias) ----------
 function abrirSucursalProf(profId){
