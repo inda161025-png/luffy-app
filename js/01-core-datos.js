@@ -74,6 +74,13 @@ function refreshCurrentView(){
 
 // ============ STATE ============
 const ROLES = {admin:'Administrador', profesional:'Profesional', recepcionista:'Recepcionista', encargado:'Encargado'};
+// Nada se borra: se anula con motivo, quién y cuándo, y se puede restaurar (ver abrirAnulados).
+function anularRegistro(x,motivo){ const ts=new Date().toISOString(); x.anulado={motivo,por:profile?profile.name:'',porId:profile?profile.id:null,ts}; x.upd=ts; }
+function restaurarRegistro(x){ const ts=new Date().toISOString(); x.restauradoEn=ts; x.anulado=null; x.upd=ts; }
+async function pedirMotivoAnulacion(titulo){
+  const m=await uiPrompt(titulo,{msg:'No se borra: queda anotado con quién y cuándo, y se puede restaurar desde Anulados.',type:'textarea',ok:'Anular'});
+  if(m==null) return null; const t=m.trim(); if(!t){ showToast('Poné un motivo'); return null; } return t;
+}
 
 // Iconos vectoriales chicos (linea, sin relleno) para reemplazar emojis en los lugares mas visibles: menu, header, pestanas del admin.
 const ICN={

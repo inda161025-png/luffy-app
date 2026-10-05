@@ -433,7 +433,7 @@ function gananciaPaquete(p){ return Math.round(numV(p.total)-(p.items||[]).reduc
 function comRecPaquete(p){ if(p.vendedorRol!=='recepcionista') return 0; const {pct}=pctPaqueteDe(p.vendedorId,quincenaKey(p.fecha)); return Math.round(Math.max(0,gananciaPaquete(p))*pct/100); }
 // ---------- costo por servicio (insumos) y capacidad ----------
 function finCostos(c){
-  const L=finData.consumibles||[]; const cf=cfgFin();
+  const L=(finData.consumibles||[]).filter(x=>!x.anulado); const cf=cfgFin();
   const porRubro={}; rubros.forEach(r=>{ porRubro[r.id]=costoInsumosServicio(r.id); });
   c.innerHTML=`<div class="sec-hdr" style="margin:0 0 8px"><span class="sec-title">🧴 Insumos por servicio</span><button class="lnk" onclick="editarConsumible('')">+ Nuevo</button></div>
     <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Lo que se gasta en <b style="color:var(--text)">cada servicio</b>. Ej: un gel de afeitar de $10.000 que rinde 200 servicios cuesta $50 por servicio; una cera de $10.000 que rinde 80, $125. Se usa en el punto de equilibrio para calcular el costo variable de cada servicio.</div>
@@ -451,7 +451,7 @@ async function editarConsumible(id){
   await cambiarFin(d=>{ if(!d.consumibles) d.consumibles=[]; const z=id?d.consumibles.find(k=>k.id===id):null; const dato={nombre,precio,rinde,rubro:v[3].trim(),unidad:v[4].trim()||'unidad',stock:numV(v[5]),alerta:numV(v[6]),upd:ahora}; if(z) Object.assign(z,dato); else d.consumibles.push({id:'c'+Date.now().toString(36),...dato}); });
   showToast('Guardado ✓'); renderAdmin();
 }
-async function borrarConsumible(id){ if(!await uiConfirm('¿Borrar este insumo?','',{ok:'Borrar'})) return; await cambiarFin(d=>{ d.consumibles=d.consumibles.filter(x=>x.id!==id); d.borrados=[...(d.borrados||[]),id]; }); renderAdmin(); }
+async function borrarConsumible(id){ const motivo=await pedirMotivoAnulacion('¿Anular este insumo?'); if(!motivo) return; await cambiarFin(d=>{ const x=d.consumibles.find(z=>z.id===id); if(x) anularRegistro(x,motivo); }); renderAdmin(); }
 async function editarCapacidad(){
   const cf=cfgFin();
   const v=await uiDialog({title:'Capacidad y reservas',fields:[{label:'Días de trabajo por mes',type:'number',value:cf.diasLab},{label:'Turnos por día por profesional',type:'number',value:cf.turnosDia},{label:'Reservas de dinero (% del resultado)',type:'number',value:cf.reserva},{label:'Inversiones (% del resultado)',type:'number',value:cf.inversion},{label:'Retiros de socios (% del resultado)',type:'number',value:cf.retiros}],ok:'Guardar'});

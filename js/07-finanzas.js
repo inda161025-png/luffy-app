@@ -107,8 +107,8 @@ function finCalc(desde,hasta,pre){
   extrasAsegurado(D,desde,hasta).forEach(x=>{ const ex=extraAplicable(x); if(ex) eg(sx(sucDeReg({},x.prof)),'comisiones',ex); });
   const ids=sucursales.map(s=>s.id), n=Math.max(1,ids.length);
   const reparto=(suc,cat,v)=>{ if(!v) return; if(suc&&suc!=='todas'&&S[suc]) eg(S[suc],cat,v); else ids.forEach(i=>eg(S[i],cat,v/n)); };
-  finData.gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta).forEach(g=>reparto(g.sucursal,g.categoria,numV(g.monto)));
-  finData.fijos.forEach(f=>reparto(f.sucursal,f.categoria,fijoDevengado(f,desde,hasta)));
+  finData.gastos.filter(g=>!g.anulado&&g.fecha>=desde&&g.fecha<=hasta).forEach(g=>reparto(g.sucursal,g.categoria,numV(g.monto)));
+  finData.fijos.filter(f=>!f.anulado).forEach(f=>reparto(f.sucursal,f.categoria,fijoDevengado(f,desde,hasta)));
   // gastos anotados en la caja de recepcion (los retiros y pagos de gastos fijos no cuentan: ya estan devengados)
   todasSesiones().forEach(s=>movsVivos(s).filter(m=>m.tipo==='salida').forEach(m=>{
     const f=ymdLocal(new Date(m.ts)); if(f<desde||f>hasta) return;
@@ -198,7 +198,7 @@ function proximoVenc(f){
   const [y2,m2]=m===12?[y+1,1]:[y,m+1]; return y2+'-'+pad2(m2)+'-'+pad2(f.frecuencia==='quincenal'?15:Math.min(numV(f.dia)||1,finMesUTC(y2,m2)));
 }
 function htmlProximosPagos(){
-  const hoy=hoyStr(); const L=finData.fijos.filter(f=>f.activo!==false&&(finState.suc==='todas'||!f.sucursal||f.sucursal==='todas'||f.sucursal===finState.suc)).map(f=>({f,fe:proximoVenc(f)})).sort((a,b)=>a.fe.localeCompare(b.fe)).slice(0,8);
+  const hoy=hoyStr(); const L=finData.fijos.filter(f=>!f.anulado&&f.activo!==false&&(finState.suc==='todas'||!f.sucursal||f.sucursal==='todas'||f.sucursal===finState.suc)).map(f=>({f,fe:proximoVenc(f)})).sort((a,b)=>a.fe.localeCompare(b.fe)).slice(0,8);
   const q=rangoPeriodo('quincena'); const Sq=finCalc(q.desde,q.hasta); const com=juntarS(Sq,finState.suc==='todas'?sucursales.map(s=>s.id):[finState.suc]).eg.comisiones||0;
   return `<div class="sec-title" style="margin:14px 0 8px">📅 Próximos pagos</div><div class="card">
     ${L.map(({f,fe})=>{ const dd=diasEntre(hoy,fe); return linea(`${escH(f.nombre)} <span style="color:var(--muted);font-size:10.5px">${fechaCortaStr(fe)} · ${dd===0?'hoy':dd===1?'mañana':'en '+dd+' días'}</span>`,`<b>${fp(f.monto)}</b>`,dd<=3?'color:#fbbf24':''); }).join('')}
@@ -314,12 +314,12 @@ function agregarHojaFichaProf(wb,suc){
 }
 function agregarHojaGastos(wb,suc,D,desde,hasta){
   const items=[], n=Math.max(1,sucursales.length);
-  finData.gastos.filter(g=>g.fecha>=desde&&g.fecha<=hasta&&(g.sucursal===suc.id||!g.sucursal||g.sucursal==='todas')).forEach(g=>{
+  finData.gastos.filter(g=>!g.anulado&&g.fecha>=desde&&g.fecha<=hasta&&(g.sucursal===suc.id||!g.sucursal||g.sucursal==='todas')).forEach(g=>{
     const compartido=!g.sucursal||g.sucursal==='todas', monto=compartido?numV(g.monto)/n:numV(g.monto);
     items.push({fecha:g.fecha,row:[fechaCortaStr(g.fecha),catFin(g.categoria).n,(g.desc||'')+(compartido?' (compartido entre sucursales)':''),monto,g.origen==='proveedor'?'Compra a proveedor':'Carga manual']});
   });
   // Gastos fijos devengados en el periodo (alquiler, sueldos...): mismo reparto que finCalc
-  finData.fijos.forEach(f=>{
+  finData.fijos.filter(f=>!f.anulado).forEach(f=>{
     const v=fijoDevengado(f,desde,hasta); if(!v) return;
     const compartido=!f.sucursal||f.sucursal==='todas'; if(!compartido&&f.sucursal!==suc.id) return;
     items.push({fecha:desde,row:[fechaCortaStr(desde),catFin(f.categoria).n,(f.nombre||'Gasto fijo')+' · devengado del período'+(compartido?' (compartido entre sucursales)':''),compartido?v/n:v,'Gasto fijo']});
@@ -394,7 +394,7 @@ function generarExcelContador(){
 // ---------- gastos (dia a dia) ----------
 function finGastos(c){
   const r=rangoFin(); const ids=finState.suc;
-  const L=finData.gastos.filter(g=>g.fecha>=r.desde&&g.fecha<=r.hasta&&(ids==='todas'||g.sucursal===ids||(!g.sucursal||g.sucursal==='todas'))).sort((a,b)=>b.fecha.localeCompare(a.fecha)||String(b.creadoEn).localeCompare(String(a.creadoEn)));
+  const L=finData.gastos.filter(g=>!g.anulado&&g.fecha>=r.desde&&g.fecha<=r.hasta&&(ids==='todas'||g.sucursal===ids||(!g.sucursal||g.sucursal==='todas'))).sort((a,b)=>b.fecha.localeCompare(a.fecha)||String(b.creadoEn).localeCompare(String(a.creadoEn)));
   const total=L.reduce((s,g)=>s+numV(g.monto),0);
   const dias={}; L.forEach(g=>{ (dias[g.fecha]=dias[g.fecha]||[]).push(g); });
   c.innerHTML=chipsFin()+`<div class="sec-hdr" style="margin:0 0 8px"><span class="sec-title">🧾 Gastos cargados · ${fp(total)}</span><button class="lnk" onclick="abrirFormGasto('')">+ Cargar gasto</button></div>
@@ -481,16 +481,16 @@ async function guardarGasto(id){
   closeModal('modal-registro'); showToast('Gasto guardado ✓'); renderAdmin();
 }
 async function borrarGasto(id){
-  if(!await uiConfirm('¿Borrar este gasto?','Deja de contar en el balance.',{ok:'Borrar'})) return;
-  await cambiarFin(d=>{ d.gastos=d.gastos.filter(x=>x.id!==id); d.borrados=[...(d.borrados||[]),id]; });
+  const motivo=await pedirMotivoAnulacion('¿Anular este gasto?'); if(!motivo) return;
+  await cambiarFin(d=>{ const g=d.gastos.find(x=>x.id===id); if(g) anularRegistro(g,motivo); });
   renderAdmin();
 }
 
 // ---------- gastos fijos ----------
 function finFijos(c){
-  const act=finData.fijos.filter(f=>f.activo!==false);
+  const act=finData.fijos.filter(f=>!f.anulado&&f.activo!==false);
   const ver=(f)=>finState.suc==='todas'||!f.sucursal||f.sucursal==='todas'||f.sucursal===finState.suc;
-  const L=finData.fijos.filter(ver);
+  const L=finData.fijos.filter(f=>!f.anulado).filter(ver);
   const totMes=L.filter(f=>f.activo!==false).reduce((s,f)=>s+mensualizado(f),0);
   const porTipo=GRUPOS_FIN.filter(([t])=>t!=='comision'&&t!=='variable').map(([t,n])=>({t,n,v:L.filter(f=>f.activo!==false&&catFin(f.categoria).t===t).reduce((s,f)=>s+mensualizado(f),0)})).filter(x=>x.v>0);
   const porSuc=sucursales.map(s=>({s,v:act.reduce((a,f)=>a+((f.sucursal&&f.sucursal!=='todas')?(f.sucursal===s.id?mensualizado(f):0):mensualizado(f)/sucursales.length),0)}));
@@ -535,8 +535,8 @@ async function guardarFijo(id){
 }
 async function pausarFijo(id){ await cambiarFin(d=>{ const f=d.fijos.find(x=>x.id===id); if(f){ f.activo=f.activo===false; f.upd=new Date().toISOString(); } }); renderAdmin(); }
 async function borrarFijo(id){
-  if(!await uiConfirm('¿Borrar este gasto fijo?','Deja de contarse. Lo ya devengado en meses anteriores también deja de figurar; si querés conservarlo, mejor pausalo.',{ok:'Borrar'})) return;
-  await cambiarFin(d=>{ d.fijos=d.fijos.filter(x=>x.id!==id); d.borrados=[...(d.borrados||[]),id]; }); renderAdmin();
+  const motivo=await pedirMotivoAnulacion('¿Anular este gasto fijo?'); if(!motivo) return;
+  await cambiarFin(d=>{ const f=d.fijos.find(x=>x.id===id); if(f) anularRegistro(f,motivo); }); renderAdmin();
 }
 
 // ---------- punto de equilibrio (mismo modelo que la planilla de costos) ----------
@@ -544,13 +544,13 @@ async function borrarFijo(id){
 // costo fijo por servicio = gastos fijos / servicios hechos       margen = precio - costo total
 // punto de equilibrio = gastos fijos / (precio - costo variable)   ocupacion = servicios / (dias x turnos x profesionales)
 const cfgFin=()=>({diasLab:22,turnosDia:10,reserva:5,inversion:15,retiros:15,...(finData.cfg||{})});
-function costoInsumosServicio(rubro){ return (finData.consumibles||[]).filter(x=>rubroEn(x.rubro,rubro)).reduce((a,x)=>a+numV(x.precio)/Math.max(1,numV(x.rinde)),0); }
+function costoInsumosServicio(rubro){ return (finData.consumibles||[]).filter(x=>!x.anulado&&rubroEn(x.rubro,rubro)).reduce((a,x)=>a+numV(x.precio)/Math.max(1,numV(x.rinde)),0); }
 function finEquilibrio(c){
   const hoy=hoyStr(), [y,m]=hoy.split('-').map(Number), desde=y+'-'+pad2(m)+'-01', hasta=y+'-'+pad2(m)+'-'+finMesUTC(y,m);
   const diasMes=finMesUTC(y,m), diasPas=Math.max(1,numV(hoy.slice(8))), cf=cfgFin();
   const suc=finState.suc, ids=suc==='todas'?sucursales.map(s=>s.id):[suc], nS=Math.max(1,sucursales.length);
   const S=finCalc(desde,hasta), T=juntarS(S,ids);
-  const fijosAlc=finData.fijos.filter(f=>f.activo!==false).map(f=>{ const compartido=!f.sucursal||f.sucursal==='todas'; const share=compartido?(suc==='todas'?1:1/nS):(suc==='todas'||f.sucursal===suc?1:0); return {f,monto:mensualizado(f)*share}; }).filter(x=>x.monto>0);
+  const fijosAlc=finData.fijos.filter(f=>!f.anulado&&f.activo!==false).map(f=>{ const compartido=!f.sucursal||f.sucursal==='todas'; const share=compartido?(suc==='todas'?1:1/nS):(suc==='todas'||f.sucursal===suc?1:0); return {f,monto:mensualizado(f)*share}; }).filter(x=>x.monto>0);
   const totFijo=fijosAlc.reduce((a,x)=>a+x.monto,0);
   const porRubro={};
   T.turnos.forEach(x=>{ const r=x.rubro||'otros'; const o=porRubro[r]||(porRubro[r]={visitas:0,ingreso:0,com:0}); o.visitas++; o.ingreso+=numV(x.t.monto); o.com+=x.com; });

@@ -148,7 +148,11 @@ function profesionesLista(){
   return [...PROFESIONES_BASE,...extra];
 }
 function clienteDe(id){ return id?clientesDir.find(c=>c.id===id)||null:null; }
-function persistClientes(){ try{ localStorage.setItem('luffy_clientes',JSON.stringify(clientesDir)); }catch(e){} }
+// Los anulados viajan en la misma lista de la nube, pero fuera de clientesDir: ninguna pantalla los muestra.
+let clientesAnulados=[];
+const todosClientes=()=>[...clientesDir,...clientesAnulados];
+function repartirClientes(todos){ clientesDir=todos.filter(c=>!c.anulado); clientesAnulados=todos.filter(c=>c.anulado); }
+function persistClientes(){ try{ localStorage.setItem('luffy_clientes',JSON.stringify(todosClientes())); }catch(e){} }
 // migracion: antes un cliente tenia una sola tarjeta (c.tarjeta); ahora puede tener varias (c.tarjetas, array)
 function normTarjetasCliente(c){
   if(c.tarjeta&&!c.tarjetas){ c.tarjetas=[c.tarjeta]; delete c.tarjeta; }
@@ -157,26 +161,28 @@ function normTarjetasCliente(c){
 }
 function mergeClientes(remote){
   if(!remote||!Array.isArray(remote.list)) return false;
-  const antes=JSON.stringify(clientesDir);
-  const m=new Map(clientesDir.map(c=>[c.id,c]));
+  const antes=JSON.stringify(todosClientes());
+  const m=new Map(todosClientes().map(c=>[c.id,c]));
   remote.list.forEach(r=>{ normTarjetasCliente(r); const l=m.get(r.id); if(!l||String(r.upd||'')>String(l.upd||'')) m.set(r.id,r); });
-  clientesDir=[...m.values()];
-  return antes!==JSON.stringify(clientesDir);
+  repartirClientes([...m.values()]);
+  return antes!==JSON.stringify(todosClientes());
 }
 function loadClientes(){
   if(!profile) return;
-  try{ clientesDir=JSON.parse(localStorage.getItem('luffy_clientes')||'[]'); }catch(e){ clientesDir=[]; }
-  clientesDir.forEach(normTarjetasCliente);
+  let todos=[]; try{ todos=JSON.parse(localStorage.getItem('luffy_clientes')||'[]'); }catch(e){}
+  todos.forEach(normTarjetasCliente); repartirClientes(todos);
   if(DB){
     DB.doc('luffy/clientes').get().then(r=>{ if(mergeClientes(r)){ persistClientes(); refreshCurrentView(); } }).catch(()=>{});
   }
 }
 // Lee lo ultimo de la nube, aplica el cambio y lo vuelve a guardar (nadie pisa lo que cargo otra persona)
 async function cambiarClientes(fn){
-  if(DB){ try{ mergeClientes(await DB.doc('luffy/clientes').get()); }catch(e){} }
-  const res=fn(clientesDir);
+  if(DB){ try{ mergeClientes(await DB.doc('luffy/clientes').get()); }catch(e){ showToast('Sin conexión: no se guardó. Probá de nuevo.'); return {error:'sin-conexion'}; } }
+  const todos=todosClientes();
+  const res=fn(todos);
+  repartirClientes(todos);
   persistClientes();
-  if(DB){ try{ await DB.doc('luffy/clientes').set({list:clientesDir}); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
+  if(DB){ try{ await DB.doc('luffy/clientes').set({list:todosClientes()}); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
   return res;
 }
 function misClientesLista(){
@@ -262,17 +268,24 @@ async function confirmarImportClientes(){
   const txt=document.getElementById('icl-txt')?.value||'';
   const {validos}=clientesDeTabla(txt); if(!validos.length) return;
   const btn=document.getElementById('icl-btn'); if(btn){ btn.disabled=true; btn.textContent='Importando…'; }
+  let importados=0, omitidos=0;
   await cambiarClientes(list=>{
     let numero=list.reduce((m,c)=>Math.max(m,numV(c.numero)),0);
     const base=Date.now().toString(36);
     const ahora=new Date().toISOString();
+    const conocidos=new Set(list.map(c=>c.nkey));
+    let nuevos=0, saltados=0;
     validos.forEach(v=>{
+      const k=nkey(v.nombre);
+      if(conocidos.has(k)){ saltados++; return; }
+      conocidos.add(k); nuevos++;
       numero++;
-      list.push({id:'c'+numero+'x'+base, numero, nombre:v.nombre, nkey:nkey(v.nombre), profesion:'', tel:v.tel, nacimiento:'', email:v.email, ref:'', nota:v.nota, cumple:'',
+      list.push({id:'c'+numero+'x'+base, numero, nombre:v.nombre, nkey:k, profesion:'', tel:v.tel, nacimiento:'', email:v.email, ref:'', nota:v.nota, cumple:'',
         creadoPor:profile.id, creadoPorNombre:profile.name, profs:[], sucursal:null, refPor:null, tarjetas:[], creado:ahora, upd:ahora});
     });
+    importados=nuevos; omitidos=saltados;
   });
-  closeModal('modal-registro'); showToast(validos.length+' clientes importados ✓'); renderAdmin();
+  closeModal('modal-registro'); showToast(importados+' clientes importados'+(omitidos?' · '+omitidos+' ya existían (incluye anulados) y no se duplicaron':'')+' ✓'); renderAdmin();
 }
 
 // ---------- visitas (salen de los cobros) ----------
@@ -474,8 +487,8 @@ async function borrarClienteAdmin(id){
   const aviso=s.visitas>0
     ? `Tiene ${s.visitas} ${s.visitas===1?'visita':'visitas'} registradas. Esa historia se conserva en el dinero de cada profesional y en los reportes, pero el cliente deja de aparecer en el buscador y en su ficha.`
     : 'No tiene visitas registradas.';
-  if(!await uiConfirm('¿Eliminar a '+c.nombre+'?', aviso+' Esta acción no se puede deshacer.', {ok:'Eliminar',danger:true})) return;
-  await cambiarClientes(list=>{ clientesDir=list.filter(x=>x.id!==id); });
+  const motivo=await pedirMotivoAnulacion('¿Anular a '+c.nombre+'?'); if(!motivo) return;
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===id); if(x) anularRegistro(x,motivo); });
   closeModal('modal-registro'); showToast(c.nombre+' eliminado ✓'); refreshCurrentView();
 }
 

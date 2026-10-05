@@ -45,7 +45,7 @@ const insumoDeItem=(it)=>it.tipo==='insumo'?(finData.consumibles||[]).find(c=>c.
 
 // ---------- lista de proveedores ----------
 function renderAdminProveedores(c){
-  const L=provData.list.slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
+  const L=provData.list.filter(p=>!p.anulado).slice().sort((a,b)=>a.nombre.localeCompare(b.nombre));
   const gastado=(pid)=>provData.compras.filter(k=>k.provId===pid).reduce((s,k)=>s+numV(k.total),0);
   c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🚚 Proveedores (${L.length})</span><button class="lnk" onclick="editarProveedor('')">+ Proveedor</button></div>
     <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cargá a quién le comprás y qué. Cada producto puede ser <b style="color:var(--text)">📦 stock para vender</b> (va a Catálogo → Stock) o <b style="color:var(--text)">🧴 insumo de trabajo</b> (va a Catálogo → Insumos). Elegís de una lista ya cargada o lo creás nuevo, y al registrar una compra se suma solo.</div>
@@ -61,8 +61,8 @@ async function editarProveedor(id){
   showToast('Guardado ✓'); if(!id) abrirProveedor(nuevoId); else renderAdmin();
 }
 async function borrarProveedor(id){
-  if(!await uiConfirm('¿Borrar este proveedor?','No borra los productos del stock ni los insumos ya cargados.',{ok:'Borrar'})) return;
-  await cambiarProv(d=>{ d.list=d.list.filter(x=>x.id!==id); d.borrados=[...(d.borrados||[]),id]; }); closeModal('modal-registro'); renderAdmin();
+  const motivo=await pedirMotivoAnulacion('¿Anular este proveedor?'); if(!motivo) return;
+  await cambiarProv(d=>{ const x=d.list.find(z=>z.id===id); if(x) anularRegistro(x,motivo); }); closeModal('modal-registro'); renderAdmin();
 }
 
 // ---------- ficha del proveedor ----------
@@ -248,7 +248,7 @@ async function editarUsuario(id,patch){
 const ROL_TXT={admin:'Administrador',profesional:'Profesional',recepcionista:'Recepcionista',encargado:'Encargado (cuenta vieja)'};
 function renderAdminCuentas(c){
   const grupos=[['profesional','✂️ Profesionales'],['recepcionista','📞 Recepcionistas'],['encargado','📋 Encargado (cuenta vieja)'],['admin','👑 Administrador']];
-  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🔧 Cuentas del equipo</span><button class="lnk" style="margin-left:auto" onclick="abrirRevisionAccesos()">🔎 Revisión de accesos</button></div>
+  c.innerHTML=`<div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🔧 Cuentas del equipo</span><button class="lnk" style="margin-left:auto" onclick="abrirAnulados()">🗑 Anulados</button><button class="lnk" style="margin-left:8px" onclick="abrirRevisionAccesos()">🔎 Revisión de accesos</button></div>
     <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Desde acá podés cambiar todo de cada persona: <b style="color:var(--text)">nombre, rol, sucursales</b> (puede estar en más de una), rubros, comisión y <b style="color:var(--text)">darla de baja</b>. Las cuentas nuevas se aprueban en Estado.</div>
     ${grupos.map(([rol,tit])=>{ const L=allUsers.filter(u=>u.role===rol); if(!L.length) return ''; return `<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${tit}</div>${L.map(u=>`<div class="card" onclick="editarCuenta('${u.id}')" style="cursor:pointer;margin-bottom:6px;padding:10px 12px"><div style="display:flex;align-items:center;gap:10px"><div style="width:38px;height:38px;border-radius:50%;background:${(u.color||'#4A136B')}33;border:1.5px solid ${u.color||'#4A136B'};display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0">${u.emoji||'👤'}</div><div style="flex:1;min-width:0"><div style="font-size:13.5px;font-weight:800">${escH(u.name)} <span style="font-size:11px;font-weight:600;color:var(--muted2)">@${escH(u.username||'')}</span>${u.esEncargado?' <span style="font-size:10px;background:rgba(52,211,153,.18);color:#34d399;border-radius:6px;padding:1px 6px">ENCARGADO</span>':''}${u.role==='admin'&&u.tambienProf?' <span style="font-size:10px;background:rgba(74,19,107,.18);color:#a89fff;border-radius:6px;padding:1px 6px">TAMBIÉN PROFESIONAL</span>':''}</div><div style="display:flex;gap:4px;flex-wrap:wrap;margin-top:3px">${sucursalesDe(u).map(s=>chipSucursal(s,true)).join('')||'<span style="font-size:10.5px;color:var(--muted)">sin sucursal</span>'}${esProf(u)&&u.rubros&&u.rubros.length?`<span style="font-size:10.5px;color:var(--muted2)">· ${escH(u.rubros.map(nombreRubro).filter(Boolean).join(', '))}</span>`:''}</div></div><span style="color:var(--muted)">✏️</span></div></div>`).join('')}`; }).join('')}
     ${usuariosBaja.length?`<details class="card" style="margin-top:14px"><summary style="cursor:pointer;font-size:13px;font-weight:800;color:var(--muted2)">🗄 Dados de baja (${usuariosBaja.length})</summary>${usuariosBaja.map(u=>`<div class="ln"><span>${escH(u.name)} <i style="color:var(--muted)">· ${ROL_TXT[u.role]||u.role} · baja ${u.baja?fechaCortaStr(u.baja):''}</i></span><button class="lnk" onclick="reactivarCuenta('${u.id}')">Reactivar</button></div>`).join('')}<div style="font-size:10.5px;color:var(--muted);margin-top:6px">Sus cobros y su historia se conservan en los reportes.</div></details>`:''}`;
@@ -361,6 +361,28 @@ async function revocarAccesoBaja(id){
   const d=await supaClient.from('luffy_roles').delete().eq('app_id',id);
   if(d.error){ showToast('No se pudo revocar: '+d.error.message); return; }
   showToast('Acceso de '+b.name+' revocado ✓'); abrirRevisionAccesos();
+}
+// ---------- anulados: nada se borra, se puede ver y restaurar ----------
+function abrirAnulados(){
+  if(!profile||profile.role!=='admin') return;
+  const grupos=[
+    ['Clientes',clientesAnulados,'clientes',c=>c.nombre],
+    ['Gastos',(finData.gastos||[]).filter(x=>x.anulado),'gastos',x=>x.nombre||x.descripcion||x.categoria||'Gasto'],
+    ['Gastos fijos',(finData.fijos||[]).filter(x=>x.anulado),'fijos',x=>x.nombre||'Gasto fijo'],
+    ['Insumos',(finData.consumibles||[]).filter(x=>x.anulado),'consumibles',x=>x.nombre||'Insumo'],
+    ['Proveedores',(provData.list||[]).filter(x=>x.anulado),'proveedores',x=>x.nombre||'Proveedor'],
+  ];
+  const sec=(t)=>`<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${t}</div>`;
+  const html=grupos.map(([t,L,tipo,nom])=>sec(`${t} (${L.length})`)+(L.map(x=>`<div class="ln" style="align-items:flex-start;margin-bottom:6px"><span><b>${escH(nom(x))}</b><div style="font-size:11.5px;color:var(--muted2)">Anulado por ${escH(x.anulado.por||'')} el ${fechaCortaStr((x.anulado.ts||'').slice(0,10))} · "${escH(x.anulado.motivo||'')}"</div></span><button class="lnk" onclick="restaurarAnulado('${tipo}','${x.id}')">Restaurar</button></div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Ninguno.</div>')).join('');
+  document.getElementById('registro-content').innerHTML=cabeceraModal('🗑 Anulados')+`<div style="font-size:12px;color:var(--muted2);line-height:1.5">Lo que se anuló queda acá con quién y cuándo. Restaurar lo vuelve a contar en la app.</div>`+html;
+  openModal('modal-registro');
+}
+async function restaurarAnulado(tipo,id){
+  if(!await uiConfirm('¿Restaurar este registro?','Vuelve a contar en la app.',{ok:'Restaurar'})) return;
+  if(tipo==='clientes') await cambiarClientes(l=>{ const x=l.find(z=>z.id===id); if(x) restaurarRegistro(x); });
+  else if(tipo==='proveedores') await cambiarProv(d=>{ const x=d.list.find(z=>z.id===id); if(x) restaurarRegistro(x); });
+  else { const key={gastos:'gastos',fijos:'fijos',consumibles:'consumibles'}[tipo]; await cambiarFin(d=>{ const x=(d[key]||[]).find(z=>z.id===id); if(x) restaurarRegistro(x); }); }
+  abrirAnulados(); renderAdmin();
 }
 // ---------- sucursales de una persona (varias) ----------
 function abrirSucursalProf(profId){
