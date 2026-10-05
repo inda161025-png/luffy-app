@@ -339,16 +339,28 @@ async function abrirRevisionAccesos(){
     const dif=f.role!==u.role?` · <b style="color:${AMARILLO}">rol distinto: app ${ROLES[u.role]||u.role}, Supabase ${f.role}</b>`:'';
     return linea(u,'activa',VERDE,`Rol en la app: ${ROLES[u.role]||u.role} · en Supabase: ${f.role}${dif}`); }).join('');
   const bajas=usuariosBaja.map(u=>{ const f=porApp.get(u.id);
-    if(f) return linea(u,'DE BAJA CON ROL',ROJO,`Dada de baja el ${fechaCortaStr(u.baja||hoyStr())}, pero su fila en luffy_roles sigue con rol ${f.role}: sigue autorizada.`);
+    if(f) return linea(u,'DE BAJA CON ROL',ROJO,`Dada de baja el ${fechaCortaStr(u.baja||hoyStr())}, pero su fila en luffy_roles sigue con rol ${f.role}: sigue autorizada.<div style="margin-top:6px"><button class="btn btn-ghost" style="padding:6px 10px;font-size:12px" onclick="revocarAccesoBaja('${u.id}')">Revocar acceso</button></div>`);
     return linea(u,'de baja',GRIS,`Dada de baja el ${fechaCortaStr(u.baja||hoyStr())}. Sin acceso.`); }).join('');
   const huerfanas=filas.filter(f=>!idsApp.has(f.app_id)).map(f=>`<div class="ln" style="border-left:4px solid ${ROJO};padding-left:8px;margin-bottom:6px"><span><b>app_id ${escH(f.app_id)}</b><div style="font-size:11.5px;color:var(--muted2)">Rol ${escH(f.role)} · uid ${escH(f.uid)} · sin cuenta en la app</div></span><span style="font-size:11px;font-weight:800;color:${ROJO}">HUÉRFANA</span></div>`).join('');
+  const porAppCuenta={}; filas.forEach(f=>{ (porAppCuenta[f.app_id]=porAppCuenta[f.app_id]||[]).push(f); });
+  const dobles=Object.entries(porAppCuenta).filter(([,L])=>L.length>1).map(([app,L])=>`<div class="ln" style="border-left:4px solid ${AMARILLO};padding-left:8px;margin-bottom:6px"><span><b>app_id ${escH(app)}</b><div style="font-size:11.5px;color:var(--muted2)">${L.map(f=>'rol '+escH(f.role)+' · uid '+escH(f.uid)).join(' · ')}</div></span><span style="font-size:11px;font-weight:800;color:${AMARILLO}">DOBLE</span></div>`).join('');
   const sec=(t)=>`<div style="font-size:11px;font-weight:800;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin:12px 0 6px">${t}</div>`;
   document.getElementById('registro-content').innerHTML=cabeceraModal('🔎 Revisión de accesos')+
     `<div style="font-size:12px;color:var(--muted2);line-height:1.5">Compara cada cuenta de la app con la tabla de roles de Supabase. Rojo = hay que mirar antes de correr el 03/04.</div>`+
     sec(`Cuentas activas (${allUsers.length})`)+(activas||'<div class="empty"><p>No hay cuentas activas.</p></div>')+
     sec(`Dadas de baja (${usuariosBaja.length})`)+(bajas||'<div class="empty"><p>No hay bajas.</p></div>')+
-    sec(`Filas de roles sin cuenta en la app (${filas.filter(f=>!idsApp.has(f.app_id)).length})`)+(huerfanas||'<div class="empty"><p>Ninguna.</p></div>');
+    sec(`Filas de roles sin cuenta en la app (${filas.filter(f=>!idsApp.has(f.app_id)).length})`)+(huerfanas||'<div class="empty"><p>Ninguna.</p></div>')+
+    sec(`Cuentas con más de una fila de roles (${Object.values(porAppCuenta).filter(L=>L.length>1).length})`)+(dobles||'<div class="empty"><p>Ninguna.</p></div>');
   openModal('modal-registro');
+}
+async function revocarAccesoBaja(id){
+  const b=usuariosBaja.find(x=>x.id===id); if(!b||!supaClient) return;
+  const r=await supaClient.from('luffy_roles').select('uid').eq('app_id',id);
+  if(r.error||!r.data||!r.data.length){ showToast('No encuentro la fila de roles de esa cuenta'); return; }
+  if(!await uiConfirm('¿Revocar el acceso de '+b.name+'?','Se borra su fila de roles: no va a poder leer ni escribir datos. Se puede reactivar desde "Dados de baja".',{ok:'Revocar',danger:true})) return;
+  const d=await supaClient.from('luffy_roles').delete().eq('app_id',id);
+  if(d.error){ showToast('No se pudo revocar: '+d.error.message); return; }
+  showToast('Acceso de '+b.name+' revocado ✓'); abrirRevisionAccesos();
 }
 // ---------- sucursales de una persona (varias) ----------
 function abrirSucursalProf(profId){
