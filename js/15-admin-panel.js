@@ -74,7 +74,7 @@ function renderAdmin(){
   </div>${sec.subs?`<div class="adm-sub">${sec.subs.map(([id,l])=>`<button class="${id===sub?'on':''}" onclick="switchAdminTab('${id}')">${l}</button>`).join('')}</div>`:''}`;
   body.innerHTML=nav+`<div id="adm-content" class="${tab==='panel'?'':'adm-narrow'}"></div>`;
   const c=document.getElementById('adm-content');
-  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlCobrosEditadosPanel()+htmlTurnosEliminadosPanel()+htmlOcupacionAdmin()+htmlTareasEquipoWidget()); }
+  if(tab==='panel'){ renderAdminPanel(c); c.insertAdjacentHTML('afterbegin',htmlAperturaAdmin()+htmlAseguradosPanel()+htmlCobrosEditadosPanel()+htmlTurnosEliminadosPanel()+htmlBancoAdmins()+htmlOcupacionAdmin()+htmlTareasEquipoWidget()); }
   else if(tab==='equipo'){ if(sub==='stories') renderAdminStories(c); else if(sub==='puntos') renderAdminPuntos(c); else if(sub==='puesta') renderAdminPuesta(c); else if(sub==='asegurado') renderAdminAsegurado(c); else if(sub==='tareasequipo') renderAdminTareasEquipo(c); else if(sub==='cuentas') renderAdminCuentas(c); else if(sub==='comisiones') renderAdminComisiones(c); else renderAdminEstadoEquipo(c); }
   else if(tab==='catalogo'){ if(sub==='productos') renderAdminProductos(c); else if(sub==='combos') renderAdminCombos(c); else if(sub==='proveedores') renderAdminProveedores(c); else if(sub==='insumos') renderAdminInsumos(c); else renderAdminServicios(c); }
   else if(tab==='contenido'){ if(sub==='reglas') renderAdminReglasReels(c); else renderAdminBanco(c); }
@@ -1314,4 +1314,29 @@ async function toggleItemPuesta(id,on){
   try{ localStorage.setItem('luffy_puesta_marcha',JSON.stringify(puestaMarcha)); }catch(e){}
   if(DB){ try{ DB.doc('luffy/puesta_marcha').set(puestaMarcha); }catch(e){} }
   refreshCurrentView();
+}
+
+// ---------- banco de tareas y puntos para los admins (aprobado por Ivo, 4/10/2026) ----------
+// Solo el dueño marca las tareas y da los puntos. Cada tarea se cuenta una vez por mes y por admin.
+const BANCO_ADMIN_TAREAS=[
+  {id:'cierre-mes',label:'Cierre de mes a tiempo',pts:2000},{id:'meta-mensual',label:'Meta mensual cumplida',pts:5000},
+  {id:'revisar-cobros',label:'Revisar cobros editados',pts:500},{id:'reunion-mensual',label:'Reunión mensual',pts:1000},
+  {id:'arqueo-semanal',label:'Arqueo semanal sin diferencias',pts:500},{id:'pagos-proveedores',label:'Pagos a proveedores al día 1',pts:1000}];
+const BANCO_ADMIN_PREMIOS=[{label:'Cena',pts:150000},{label:'Escapada',pts:600000},{label:'Reloj o notebook',pts:1500000},{label:'Viaje',pts:5000000}];
+function htmlBancoAdmins(){
+  if(!profile||profile.role!=='admin') return '';
+  const admins=allUsers.filter(u=>u.role==='admin'), mes=hoyStr().slice(0,7), dueno=esDuenoPuntos();
+  const filas=admins.map(a=>{ const pts=getPuntos(a.id).total||0;
+    return `<div style="font-size:12px;margin:6px 0 2px"><b>${escH(a.name)}</b> · ⭐ ${pts} puntos</div>`+BANCO_ADMIN_TAREAS.map(t=>{ const key='banco:'+t.id+':'+mes+':'+a.id; const hecho=(getPuntos(a.id).movimientos||[]).some(m=>m.uid===key);
+      return `<div style="display:flex;align-items:center;gap:8px;font-size:12px;padding:3px 0"><span style="flex:1;${hecho?'text-decoration:line-through;color:var(--muted2)':''}">${escH(t.label)} · +${t.pts}</span>${hecho?'<span style="color:#34d399">✓</span>':(dueno?`<button class="lnk" onclick="marcarBancoAdmin('${a.id}','${t.id}')">Marcar</button>`:'')}</div>`; }).join('');
+  }).join('');
+  return `<div class="card" style="margin:10px 0"><div style="font-size:12px;font-weight:800;margin-bottom:6px">🏁 Banco de tareas de los admins</div>${filas}
+    <div style="font-size:11.5px;color:var(--muted2);margin-top:8px">Premios: ${BANCO_ADMIN_PREMIOS.map(p=>p.label+' ('+p.pts.toLocaleString('es-AR')+')').join(' · ')}</div></div>`;
+}
+function marcarBancoAdmin(adminId,tareaId){
+  if(!esDuenoPuntos()) return;
+  const t=BANCO_ADMIN_TAREAS.find(x=>x.id===tareaId); if(!t) return;
+  const key='banco:'+t.id+':'+hoyStr().slice(0,7)+':'+adminId;
+  addPuntos(adminId,'banco',t.pts,t.label,key);
+  showToast('Puntos cargados ✓'); renderAdmin();
 }
