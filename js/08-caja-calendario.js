@@ -43,7 +43,7 @@ function loadCaja(){
   });
 }
 async function cambiarCaja(ym,fn){
-  if(DB){ try{ mergeCajaDoc(ym,await DB.doc('luffy/caja_'+ym).get()); }catch(e){} }
+  if(DB){ try{ mergeCajaDoc(ym,await DB.doc('luffy/caja_'+ym).get()); }catch(e){ showToast('Sin conexión: no se guardó. Probá de nuevo.'); return {error:'sin-conexion'}; } }
   if(!cajaDocs[ym]) cajaDocs[ym]={sesiones:[]};
   const res=fn(cajaDocs[ym].sesiones); persistCaja(ym);
   if(DB){ try{ await DB.doc('luffy/caja_'+ym).set(cajaDocs[ym]); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }

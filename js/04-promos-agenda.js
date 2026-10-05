@@ -80,14 +80,29 @@ function almacenLista(doc,localKey,unir){
     if(DB) DB.doc(doc).get().then(r=>{ if(st.merge(r)){ st.persist(); refreshCurrentView(); } }).catch(()=>{});
   };
   st.cambiar=async(fn)=>{
-    if(DB){ try{ st.merge(await DB.doc(doc).get()); }catch(e){} }
-    const res=fn(st.list); st.persist();
-    if(DB){ try{ await DB.doc(doc).set({list:st.list}); }catch(e){ showToast('Se guardó en este dispositivo; falta conexión para subirlo'); } }
+    if(DB){
+      let r; try{ r=await DB.doc(doc).get(); }catch(e){ showToast('Sin conexión: no se guardó. Probá de nuevo.'); return {error:'sin-conexion'}; }
+      st.merge(r);
+    }
+    const antes=new Map(st.list.map(x=>[x.id,contenidoVer(x)]));
+    const res=fn(st.list);
+    const ahora=new Date().toISOString();
+    st.list.forEach(x=>{ const p=antes.get(x.id); if(p===undefined||p!==contenidoVer(x)){ x.v=verDe(x)+1; x.upd=ahora; } });
+    st.persist();
+    if(DB){
+      for(let i=0;i<3;i++){
+        try{ await DB.doc(doc).set({list:st.list}); return res; }
+        catch(e){ if(i<2){ await new Promise(ok=>setTimeout(ok,700)); try{ st.merge(await DB.doc(doc).get()); }catch(_){} } }
+      }
+      showToast('No se pudo subir a la nube: quedó guardado en este dispositivo y se reintenta.');
+    }
     return res;
   };
   return st;
 }
-const nuevoMayor=(a,b)=>String(b.upd||'')>String(a.upd||'')?b:a;
+const verDe=(x)=>numV(x&&x.v);
+const contenidoVer=(x)=>JSON.stringify(x,(k,v)=>(k==='v'||k==='upd')?undefined:v);
+const nuevoMayor=(a,b)=>{ const va=verDe(a), vb=verDe(b); if(vb!==va) return vb>va?b:a; return String(b.upd||'')>=String(a.upd||'')?b:a; };
 const membresiasSt=almacenLista('luffy/membresias','luffy_membresias',(a,b)=>{
   const base=nuevoMayor(a,b); const usos=new Map(); [...(a.usos||[]),...(b.usos||[])].forEach(u=>usos.set(u.turnoId,u));
   return {...base,usos:[...usos.values()]};

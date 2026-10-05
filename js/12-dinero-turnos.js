@@ -1,37 +1,54 @@
 // ============ DINERO: guardado seguro + DEUDAS ============
 // Cada profesional tiene su propio doc de dinero, pero recepcion/admin tambien escriben ahi
 // (cuando cobran una deuda). Para que nadie pise lo del otro, todo se guarda "uniendo" por id.
+// Cada registro de dinero lleva una version (v) que sube con cada cambio. Gana la version mas alta; si empatan, la fecha de cambio.
+// La base guarda un hash de cada registro como se subio la ultima vez, para saber qué cambio desde entonces.
+const DIN_LISTAS=['turnos','ventas','gastosMP','deudores'];
+function hashDin(s){ let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return (h>>>0).toString(36)+'.'+s.length; }
+function snapDinero(d){ const m={}; DIN_LISTAS.forEach(k=>(d[k]||[]).forEach(x=>{ m[k+'|'+x.id]=hashDin(contenidoVer(x)); })); return m; }
+function versionarDinero(d,base){
+  const ahora=new Date().toISOString();
+  DIN_LISTAS.forEach(k=>(d[k]||[]).forEach(x=>{
+    const p=base[k+'|'+x.id];
+    if(p===undefined){ if(!verDe(x)) x.v=1; }
+    else if(p!==hashDin(contenidoVer(x))){ x.v=verDe(x)+1; x.upd=ahora; }
+  }));
+}
+function dinBase(pid){ try{ return JSON.parse(localStorage.getItem('luffy_dinero_base_'+pid)||'{}'); }catch(e){ return {}; } }
+function guardarDinBase(pid,snap){ try{ localStorage.setItem('luffy_dinero_base_'+pid,JSON.stringify(snap)); }catch(e){} }
 function mergeDinero(target,remote){
   if(!remote) return false;
   let changed=false;
+  DIN_LISTAS.forEach(k=>{ if(!target[k]) target[k]=[]; });
   ['turnos','ventas','gastosMP'].forEach(k=>{
-    if(!target[k]) target[k]=[];
-    const ids=new Set(target[k].map(x=>x.id));
-    (remote[k]||[]).forEach(x=>{ if(!ids.has(x.id)){ target[k].push(x); changed=true; } });
+    const idx=new Map(target[k].map((x,i)=>[x.id,i]));
+    (remote[k]||[]).forEach(x=>{
+      const i=idx.get(x.id);
+      if(i===undefined){ target[k].push(x); changed=true; }
+      else if(nuevoMayor(target[k][i],x)===x&&contenidoVer(target[k][i])!==contenidoVer(x)){ target[k][i]=x; changed=true; }
+    });
   });
-  if(!target.deudores) target.deudores=[];
   (remote.deudores||[]).forEach(rd=>{
     const ld=target.deudores.find(x=>x.id===rd.id);
-    if(!ld){ target.deudores.push(rd); changed=true; }
-    else {
-      const ya=new Set((ld.pagos||[]).map(p=>p.id)); const nuevos=(rd.pagos||[]).filter(p=>!ya.has(p.id));
-      if(nuevos.length){ ld.pagos=[...(ld.pagos||[]),...nuevos]; changed=true; }
-      if(rd.saldado&&!ld.saldado){ const pg=ld.pagos; Object.assign(ld,rd); if(pg) ld.pagos=pg; changed=true; }
-    }
+    if(!ld){ target.deudores.push(rd); changed=true; return; }
+    const ya=new Set((ld.pagos||[]).map(p=>p.id)); const nuevos=(rd.pagos||[]).filter(p=>!ya.has(p.id));
+    if(nuevoMayor(ld,rd)===rd&&contenidoVer(ld)!==contenidoVer(rd)){ Object.assign(ld,rd); changed=true; }
+    if(nuevos.length){ changed=true; }
+    ld.pagos=[...(ld.pagos||[]),...nuevos];
   });
   return changed;
 }
 function saveDinero(){
   const pid=profile.id, mine=dineroData;
   normalizarFechas(mine);
-  try{localStorage.setItem('luffy_dinero_'+pid,JSON.stringify(mine));}catch(e){}
-  if(!DB) return;
+  if(!DB){ try{localStorage.setItem('luffy_dinero_'+pid,JSON.stringify(mine));}catch(e){} return; }
   const ref=DB.doc('luffy/dinero_'+pid);
   Promise.resolve(ref.get()).then(remote=>{
+    versionarDinero(mine,dinBase(pid));
     const changed=mergeDinero(mine,remote);
     try{localStorage.setItem('luffy_dinero_'+pid,JSON.stringify(mine));}catch(e){}
-    return Promise.resolve(ref.set(mine)).then(()=>{ if(changed&&dineroData===mine) refreshCurrentView(); });
-  }).catch(()=>{ try{ref.set(mine);}catch(e){} });
+    return Promise.resolve(ref.set(mine)).then(()=>{ guardarDinBase(pid,snapDinero(mine)); if(changed&&dineroData===mine) refreshCurrentView(); });
+  }).catch(()=>{ try{localStorage.setItem('luffy_dinero_'+pid,JSON.stringify(mine));}catch(e){} showToast('Sin conexión: el cambio quedó en este dispositivo y se sube después.'); });
 }
 // El profesional se entera de lo que cobra recepcion/admin sin tener que reiniciar
 let dineroPollTimer=null;
@@ -48,16 +65,20 @@ function refrescarDineroPropio(){
 // Lee-modifica-escribe el dinero de OTRA persona usando la copia mas fresca de la nube
 function modificarDineroDe(profId,fn){
   const ref=DB?DB.doc('luffy/dinero_'+profId):null;
-  return (ref?Promise.resolve(ref.get()).catch(()=>null):Promise.resolve(null)).then(remote=>{
-    let dd=remote;
+  const leer=ref?Promise.resolve(ref.get()).then(r=>({ok:true,r})).catch(()=>({ok:false})):Promise.resolve({ok:true,r:null});
+  return leer.then(({ok,r})=>{
+    if(!ok){ showToast('Sin conexión: no se guardó. Probá de nuevo.'); return false; }
+    let dd=r;
     if(!dd){ try{ dd=JSON.parse(localStorage.getItem('luffy_dinero_'+profId)||'null'); }catch(e){} }
     dd=dd||{};
     ['turnos','ventas','deudores'].forEach(k=>{ if(!dd[k]) dd[k]=[]; });
     normalizarFechas(dd);
+    const base=snapDinero(dd);
     if(!fn(dd)) return false;
+    versionarDinero(dd,base);
     try{localStorage.setItem('luffy_dinero_'+profId,JSON.stringify(dd));}catch(e){}
-    if(ref) return Promise.resolve(ref.set(dd)).then(()=>true);
-    return true;
+    if(!ref) return true;
+    return Promise.resolve(ref.set(dd)).then(()=>true,()=>{ showToast('No se pudo subir a la nube: quedó en este dispositivo y se reintenta.'); return true; });
   });
 }
 

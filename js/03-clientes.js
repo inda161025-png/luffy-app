@@ -10,11 +10,12 @@ async function revisarEpoca(){
   if(!n) return false;
   let mio=null; try{ mio=localStorage.getItem('luffy_epoca'); }catch(e){}
   if(String(n)===mio) return false;
-  const prefijos=['luffy_dinero_','luffy_yo_','luffy_rec_','luffy_caja_'];
-  const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_tareas_equipo_log','luffy_cierres','luffy_reels','luffy_reels_del','luffy_avisos_leidos','luffy_incidentes','luffy_membresias','luffy_paquetes','luffy_senas','luffy_agenda','luffy_turnos_pendientes','luffy_reservas_holds','luffy_decisiones_com','luffy_estado_caja'];
+  // Nunca se tocan cobros, cajas, señas, membresías, paquetes, turnos ni agenda: el reinicio no destruye plata ni turnos.
+  const prefijos=['luffy_yo_','luffy_rec_'];
+  const exactos=['luffy_puntos','luffy_canjes_sol','luffy_stories','luffy_tareas_data','luffy_tareas_equipo_log','luffy_cierres','luffy_reels','luffy_reels_del','luffy_avisos_leidos','luffy_incidentes','luffy_reservas_holds','luffy_decisiones_com','luffy_estado_caja'];
   try{ Object.keys(localStorage).forEach(k=>{ if(prefijos.some(p=>k.startsWith(p))||exactos.includes(k)) localStorage.removeItem(k); }); localStorage.setItem('luffy_epoca',String(n)); }catch(e){}
-  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; tareasEquipoLog={}; membresiasSt.list=[]; paquetesSt.list=[]; senasSt.list=[]; agendaSt.list=[]; turnosPendientesSt.list=[]; holdsSt.list=[]; cajaDocs={}; decisionesCom={};
-  dineroData={turnos:[],ventas:[],deudores:[]}; yoData={ingresos:[],gastos:[],deudas:[]}; avisosLeidos=[]; cierresData={byKey:{}}; estadoCaja={};
+  reels=[]; reelsBorrados=[]; reelsSnap={}; puntosData={}; canjesSolicitudes=[]; storiesData={}; tareasData={}; tareasEquipoLog={}; holdsSt.list=[]; decisionesCom={};
+  yoData={ingresos:[],gastos:[],deudas:[]}; avisosLeidos=[]; cierresData={byKey:{}}; estadoCaja={};
   return true;
 }
 async function chequearEpocaViva(){
