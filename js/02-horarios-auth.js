@@ -579,6 +579,7 @@ const PERFIL_PRUEBA = {
 };
 
 async function loginAs(id){
+  marcarActividad();
   const myToken = ++sessionToken;
   await loadUsers();
   if(myToken!==sessionToken) return; // superseded by a newer login/logout while we awaited
@@ -746,3 +747,10 @@ function htmlOcupacionAdmin(){
     ${ps.map(u=>{ return `<div style="display:grid;grid-template-columns:1.4fr repeat(3,1fr);gap:4px;font-size:12.5px;padding:3px 0;border-top:1px solid var(--border)"><span>${escH(u.name)}</span>${per.map(([,d,h])=>{ const o=ocupacionPeriodo(u.id,d,h); return `<span>${o.disponible>0?o.pct+'%':'—'}</span>`; }).join('')}</div>`; }).join('')}
     <div style="font-size:10.5px;color:var(--muted);margin-top:6px">— = todavía no tiene horario cargado. Cuenta lo cobrado, no lo agendado.</div></div>`;
 }
+
+// Cierre automatico de sesion tras 12 horas sin uso (aprobado por Ivo, 4/10/2026).
+const SESION_MAX_INACTIVA_MS=12*3600*1000;
+function marcarActividad(){ try{ localStorage.setItem('luffy_last_activity',String(Date.now())); }catch(e){} }
+function sesionVencidaPorInactividad(){ const t=Number(localStorage.getItem('luffy_last_activity')||0); return t>0&&Date.now()-t>SESION_MAX_INACTIVA_MS; }
+['click','keydown','touchstart'].forEach(ev=>document.addEventListener(ev,()=>{ if(profile) marcarActividad(); },{passive:true,capture:true}));
+setInterval(()=>{ if(profile&&sesionVencidaPorInactividad()) showLogin(); },60000);

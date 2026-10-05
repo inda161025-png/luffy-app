@@ -322,6 +322,7 @@ async function init(){
   const rolInicio=await cargarMiRol();
   // Keep the session across reloads/app switches — without this, iOS
   // backgrounding the tab (or any reload) forces a fresh login every time.
+  if(rolInicio && sesionVencidaPorInactividad()){ await supaClient.auth.signOut().catch(()=>{}); showLogin(false); return; }
   if(rolInicio){ await loginAs(rolInicio.app_id); } else { showLogin(false); }
   setInterval(chequearEpocaViva,120000);
 }
