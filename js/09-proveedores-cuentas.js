@@ -546,7 +546,8 @@ async function resetearClaveCuenta(uid){
   const u=allUsers.find(x=>x.id===uid); if(!u) return;
   const r=await uiPrompt('Nueva contraseña para '+u.name,{msg:'La persona entra con esta clave y después la puede cambiar. Mínimo 4 caracteres.',type:'text',ok:'Resetear'});
   const pw=(r||'').trim(); if(pw.length<4){ if(r!=null) showToast('Mínimo 4 caracteres'); return; }
-  const { data, error } = await supaClient.functions.invoke('reset-password',{body:{uid,password:pw}});
+  // Slug real: Supabase creó la función como "dynamic-function" y el slug no se puede renombrar.
+  const { data, error } = await supaClient.functions.invoke('dynamic-function',{body:{uid,password:pw}});
   if(error||(data&&data.error)){ showToast('No se pudo resetear: '+((data&&data.error)||error.message||'error')); return; }
   closeModal('modal-registro'); showToast('Contraseña de '+u.name+' reseteada ✓');
 }
