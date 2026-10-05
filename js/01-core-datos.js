@@ -1,11 +1,13 @@
 // ============ ANTHROPIC API ============
 async function callClaude(prompt, system='') {
   const messages = [{role:'user', content:prompt}];
-  const body = {model:'claude-haiku-4-5-20251001', max_tokens:1500, messages};
+  const body = {messages};
   if(system) body.system = system;
+  const {data:{session}={}} = supaClient ? await supaClient.auth.getSession() : {};
+  if(!session) throw new Error('Sesión vencida: volvé a entrar');
   const r = await fetch('/api/chat', {
     method:'POST',
-    headers:{'Content-Type':'application/json'},
+    headers:{'Content-Type':'application/json','Authorization':'Bearer '+session.access_token},
     body:JSON.stringify(body)
   });
   const d = await r.json();
