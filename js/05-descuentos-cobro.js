@@ -512,7 +512,7 @@ function aplicarDescPaquete(base){
   base=base.map(x=>({...x}));
   // Combos: si estan todos sus servicios, el descuento del combo se reparte entre sus lineas y compite como descuento propio
   const libres=base.map((x,i)=>i), ids=base.map(x=>x.svc.id); let enCombos=0;
-  combos.filter(c=>c.servicioIds&&c.servicioIds.length>1&&c.servicioIds.every(id=>ids.includes(id)))
+  combos.filter(c=>comboVigente(c)&&c.servicioIds&&c.servicioIds.length>1&&c.servicioIds.every(id=>ids.includes(id)))
     .map(c=>({c,lista:c.servicioIds.reduce((a,id)=>a+precioSvc(id),0)}))
     .filter(x=>numV(x.c.precio)>0&&x.c.precio<x.lista)
     .sort((a,b)=>(b.lista-b.c.precio)-(a.lista-a.c.precio))

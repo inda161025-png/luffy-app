@@ -949,11 +949,12 @@ function renderAdminCombos(body){
   const nom=(id)=>(servicios.find(s=>s.id===id)||{}).nombre||'?';
   body.innerHTML+=`
     <div class="sec-hdr" style="margin:6px 0 8px"><span class="sec-title">🧩 Combos</span><button class="lnk" onclick="abrirFormCombo()">+ Nuevo combo</button></div>
-    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cuando el profesional elige <b style="color:var(--text)">todos los servicios de un combo</b>, se cobra el precio del combo solo, sin que tenga que hacer nada.</div>
+    <div class="card" style="margin-bottom:10px;font-size:12px;color:var(--muted2);line-height:1.5">Cuando el profesional elige <b style="color:var(--text)">todos los servicios de un combo</b>, se cobra el precio del combo solo, sin que tenga que hacer nada. En <b style="color:var(--text)">Armar Paquete</b> el combo cuenta como 1 servicio. Los combos <b style="color:var(--text)">solo para paquetes</b> no se aplican en el cobro de un turno, y con <b style="color:var(--text)">válido hasta</b> se apagan solos después de esa fecha.</div>
     ${combos.length?combos.map(c=>{ const lista=c.servicioIds.reduce((a,id)=>a+numV((servicios.find(s=>s.id===id)||{}).precio),0);
       return `<div class="prof-card" style="margin-bottom:8px;padding:12px 14px"><div style="display:flex;align-items:center;gap:10px">
-        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">${escH(c.nombre)} ${c.rubro?`<span class="bdg">${escH(nombreRubro(c.rubro))}</span>`:''}</div>
+        <div style="flex:1;min-width:0"><div style="font-size:14px;font-weight:700">${escH(c.nombre)} ${c.rubro?`<span class="bdg">${escH(nombreRubro(c.rubro))}</span>`:'<span class="bdg">Varios rubros</span>'}</div>
           <div style="font-size:11.5px;color:var(--muted2);margin-top:3px">${c.servicioIds.map(id=>escH(nom(id))).join(' + ')}</div>
+          ${c.soloPaquete||!c.rubro||c.hasta?`<div style="font-size:11px;margin-top:3px;font-weight:700;color:${comboVigente(c)?'#fbbf24':'#f472b6'}">${[c.soloPaquete||!c.rubro?'📦 Solo para paquetes':'',c.hasta?(comboVigente(c)?'Válido hasta el '+fechaCortaStr(c.hasta):'⛔ Vencido el '+fechaCortaStr(c.hasta)+' (ya no se aplica)'):''].filter(Boolean).join(' · ')}</div>`:''}
           <div style="font-size:11.5px;margin-top:3px"><span style="color:var(--muted2)">Por separado ${fp(lista)}</span> → <b>${fp(c.precio)}</b> <span style="color:#34d399;font-weight:700">(ahorro ${fp(lista-c.precio)})</span></div></div>
         <button onclick="abrirFormCombo('${c.id}')" style="background:none;border:none;color:var(--muted2);font-size:15px;cursor:pointer">✏️</button>
         <button onclick="borrarCombo('${c.id}')" style="background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">×</button>
@@ -986,17 +987,19 @@ function abrirFormCombo(id){
   cont.innerHTML=`<div style="display:flex;align-items:center;gap:8px;margin-bottom:14px"><div class="modal-title" style="margin:0">${c?'Editar combo':'Combo nuevo'}</div><button onclick="closeModal('modal-registro')" style="margin-left:auto;background:var(--s3);border:none;color:var(--muted2);font-size:18px;width:32px;height:32px;border-radius:50%;cursor:pointer">×</button></div>
     <input type="hidden" id="cbo-id" value="${c?c.id:''}"/>
     <div class="field"><label>Nombre del combo</label><input id="cbo-nombre" placeholder="Ej: Corte y Barba" value="${escH(c?c.nombre:'')}"/></div>
-    <div class="field" style="margin-top:8px"><label>Rubro</label>${selRubroHtml('cbo-rubro',c?c.rubro:(adminSvcRubro!=='todos'&&adminSvcRubro!=='sin'?adminSvcRubro:'barberia'),false).replace('<select ','<select onchange="comboRefrescar()" ')}</div>
+    <div class="field" style="margin-top:8px"><label>Rubro</label>${selRubroHtml('cbo-rubro',c?(c.rubro||''):(adminSvcRubro!=='todos'&&adminSvcRubro!=='sin'?adminSvcRubro:'barberia'),true).replace('<select ','<select onchange="comboRefrescar()" ').replace('>Todos los rubros<','>Varios rubros (solo para paquetes)<')}</div>
     <div class="field" style="margin-top:8px"><label>Servicios que lo forman (2 o más)</label><div id="cbo-lista" style="max-height:220px;overflow-y:auto;border:1.5px solid var(--border2);border-radius:12px;padding:6px 10px"></div></div>
     <div class="field" style="margin-top:8px"><label>Precio del combo ($)</label><input id="cbo-precio" type="number" inputmode="decimal" placeholder="0" value="${c?c.precio:''}" oninput="comboResumen()"/></div>
     <div class="field" style="margin-top:8px"><label>Duración real de hacerlo junto (minutos) — vacío = suma la de cada servicio por separado</label><input id="cbo-duracion" type="number" inputmode="numeric" placeholder="Ej: 60" value="${c&&c.duracion?c.duracion:''}" oninput="comboResumen()"/></div>
+    <label class="rub-opt" style="margin-top:8px"><input type="checkbox" id="cbo-solopaq" ${c&&c.soloPaquete?'checked':''}/> 📦 Solo para paquetes (en el cobro de un turno no se aplica)</label>
+    <div class="field" style="margin-top:8px"><label>Válido hasta (inclusive) — vacío = siempre</label><input id="cbo-hasta" type="date" value="${c&&c.hasta?c.hasta:''}"/></div>
     <div id="cbo-resumen" style="font-size:12px;margin:10px 0;line-height:1.6"></div>
     <button class="btn btn-primary" onclick="guardarCombo()">${c?'Guardar cambios':'Crear combo'}</button>`;
   comboRefrescar(); openModal('modal-registro');
 }
 function comboRefrescar(){
   const rid=document.getElementById('cbo-rubro').value;
-  comboSel=comboSel.filter(id=>{ const s=servicios.find(x=>x.id===id); return s&&s.rubro===rid; });
+  comboSel=comboSel.filter(id=>{ const s=servicios.find(x=>x.id===id); return s&&(!rid||s.rubro===rid); });
   document.getElementById('cbo-lista').innerHTML=listaChecksServicios(rid,comboSel,'comboToggle');
   comboResumen();
 }
@@ -1019,8 +1022,9 @@ function guardarCombo(){
   if(precio>=lista){ showToast('El combo tiene que costar menos que la suma ('+fp(lista)+')'); return; }
   const id=document.getElementById('cbo-id').value;
   const duracion=numV(document.getElementById('cbo-duracion').value)||undefined;
-  if(id){ const c=combos.find(x=>x.id===id); if(c) Object.assign(c,{nombre,precio,rubro,servicioIds:[...comboSel],duracion}); }
-  else combos.push({id:Date.now().toString(),nombre,precio,rubro,servicioIds:[...comboSel],duracion});
+  const soloPaquete=(!rubro||document.getElementById('cbo-solopaq').checked)||undefined, hasta=document.getElementById('cbo-hasta').value||undefined;
+  if(id){ const c=combos.find(x=>x.id===id); if(c){ Object.assign(c,{nombre,precio,rubro,servicioIds:[...comboSel],duracion,soloPaquete,hasta}); ['duracion','soloPaquete','hasta'].forEach(k=>{ if(c[k]===undefined) delete c[k]; }); } }
+  else { const c={id:Date.now().toString(),nombre,precio,rubro,servicioIds:[...comboSel]}; if(duracion) c.duracion=duracion; if(soloPaquete) c.soloPaquete=true; if(hasta) c.hasta=hasta; combos.push(c); }
   saveCombos(); closeModal('modal-registro'); showToast('Combo guardado ✓'); renderAdmin();
 }
 async function borrarCombo(id){

@@ -229,6 +229,8 @@ function saveCombos(){
 }
 function nombreRubro(id){ return (rubros.find(r=>r.id===id)||{}).nombre||''; }
 function rubrosDeUsuario(u){ return (u&&Array.isArray(u.rubros)&&u.rubros.length)?u.rubros:null; }
+// Combo con "valido hasta" (combos de campaña, ej. Dia de la Madre 2026): despues de esa fecha no se aplica en ningun lado
+function comboVigente(c){ return !!c&&(!c.hasta||hoyStr()<=c.hasta); }
 function visiblePorRubro(item,rb){ return !rb||!item.rubro||rb.includes(item.rubro); }
 function serviciosVisibles(){ const rb=rubrosDeUsuario(profile); return servicios.filter(s=>visiblePorRubro(s,rb)); }
 // Duracion para calcular huecos libres en la Agenda: la que cargó el admin en el servicio, o 45min por defecto en barbería
@@ -241,7 +243,7 @@ function svcDuracion(sv){ return numV(sv&&sv.duracion)||((sv&&sv.rubro==='barber
 // se sigue sumando servicio por servicio, como siempre.
 function duracionServicios(ids){
   const usados=new Set(); let total=0;
-  combos.filter(c=>c.servicioIds&&c.servicioIds.length>1&&numV(c.duracion)>0&&c.servicioIds.every(id=>ids.includes(id)))
+  combos.filter(c=>comboVigente(c)&&c.servicioIds&&c.servicioIds.length>1&&numV(c.duracion)>0&&c.servicioIds.every(id=>ids.includes(id)))
     .sort((a,b)=>b.servicioIds.length-a.servicioIds.length)
     .forEach(c=>{
       if(c.servicioIds.some(id=>usados.has(id))) return;

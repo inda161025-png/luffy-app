@@ -319,7 +319,8 @@ function lineasCobro(){
   const rb=rubrosDeUsuario(profile);
   const elegidos=cobro.servicios.filter(id=>servicios.some(s=>s.id===id));
   const usados=new Set(), lineas=[];
-  combos.filter(c=>visiblePorRubro(c,rb)&&c.servicioIds.length>1&&c.servicioIds.every(id=>elegidos.includes(id)))
+  // Los combos "solo para paquetes" (o de varios rubros) no se aplican en el cobro de un turno, solo en Armar Paquete
+  combos.filter(c=>comboVigente(c)&&!c.soloPaquete&&c.rubro&&visiblePorRubro(c,rb)&&c.servicioIds.length>1&&c.servicioIds.every(id=>elegidos.includes(id)))
     .map(c=>({c,lista:c.servicioIds.reduce((a,id)=>a+precioSvc(id),0)}))
     .filter(x=>x.c.precio<x.lista)
     .sort((a,b)=>(b.lista-b.c.precio)-(a.lista-a.c.precio))
