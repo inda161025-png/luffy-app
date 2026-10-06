@@ -968,6 +968,7 @@ function renderCRMTablero(el){
   const total=todos.length;
   el.innerHTML=`<div style="display:flex;align-items:center;gap:8px;padding:0 20px 12px;flex-wrap:wrap">
       <div style="font-size:13px;font-weight:800">${total} cliente${total===1?'':'s'}</div>
+      ${(()=>{ const n=crmHabladosHoy(), L=crmLimiteDia(), lleno=n>=L; return `<span ${profile&&profile.role==='admin'?'onclick="crmEditarLimite()" title="Cambiar el límite" ':''}style="font-size:11px;font-weight:800;padding:3px 10px;border-radius:20px;background:${lleno?'rgba(244,114,182,.15)':'rgba(96,165,250,.15)'};color:${lleno?'#f472b6':'#60a5fa'};${profile&&profile.role==='admin'?'cursor:pointer':''}">💬 ${n} de ${L} hoy${profile&&profile.role==='admin'?' ✏️':''}</span>`; })()}
       <div style="display:flex;gap:6px;flex-wrap:wrap">${FRANJAS_CRM.map(([f,l])=>{
         const n=todos.filter(x=>x.franja===f).length; const color=CRM_COL_COLOR[f]||'var(--muted2)';
         return `<span style="font-size:10.5px;font-weight:800;padding:3px 9px;border-radius:20px;background:${color}1f;color:${color}">${l.replace(/^\S+\s/,'')} · ${n}</span>`;
@@ -1005,8 +1006,37 @@ function crmCardHtml(c,dias,franja,color,estimado){
       </div>
       <div style="width:24px;height:24px;border-radius:50%;background:${color}26;color:${color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;flex-shrink:0">${inicialesCliente(c.nombre)}</div>
     </div>
-    ${wa?`<a href="${wa}" target="_blank" rel="noopener" style="display:inline-block;margin-top:8px;padding:5px 9px;border-radius:8px;background:rgba(52,211,153,.15);color:#34d399;font-size:10.5px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">
+      ${wa?`<a href="${wa}" target="_blank" rel="noopener" style="display:inline-block;padding:5px 9px;border-radius:8px;background:rgba(52,211,153,.15);color:#34d399;font-size:10.5px;font-weight:800;text-decoration:none">WhatsApp</a>`:''}
+      ${c.crmHablado===hoyStr()?`<button onclick="crmMarcarHablado('${c.id}')" style="padding:5px 9px;border-radius:8px;border:none;background:rgba(96,165,250,.18);color:#60a5fa;font-family:var(--font);font-size:10.5px;font-weight:800;cursor:pointer">✓ Hablado hoy</button>`
+        :`<button onclick="crmMarcarHablado('${c.id}')" style="padding:5px 9px;border-radius:8px;border:1.5px solid var(--border2);background:transparent;color:var(--muted2);font-family:var(--font);font-size:10.5px;font-weight:800;cursor:pointer">Ya le hablé</button>`}
+    </div>
+    ${c.crmHablado&&c.crmHablado!==hoyStr()?`<div style="font-size:10px;color:var(--muted);margin-top:4px">Le hablamos el ${fechaCortaStr(c.crmHablado)}</div>`:''}
   </div>`;
+}
+// Contactos del CRM: se marcan a mano con "Ya le hablé" y hay un tope diario editable por el admin
+// (pedido de Ivo, 6/10/2026). Cuando el cliente reserva, la tarjeta cambia de columna sola, como siempre.
+const CRM_LIMITE_DEF=20;
+function crmLimiteDia(){ return numV(promos.crmLimiteDia)||CRM_LIMITE_DEF; }
+function crmHabladosHoy(){ const h=hoyStr(); return clientesVigentes().filter(c=>c.crmHablado===h).length; }
+async function crmMarcarHablado(cid){
+  const c=clienteDe(cid); if(!c) return;
+  const h=hoyStr(), desmarcar=c.crmHablado===h;
+  if(!desmarcar&&crmHabladosHoy()>=crmLimiteDia()){
+    if(!profile||profile.role!=='admin'){ showToast('Llegaste al límite de hoy ('+crmLimiteDia()+'). Seguí mañana'); return; }
+    if(!await uiConfirm('Llegaste al límite de hoy','Ya se marcaron '+crmLimiteDia()+' contactos. ¿Marcarlo igual?')) return;
+  }
+  await cambiarClientes(list=>{ const x=list.find(z=>z.id===cid); if(!x) return;
+    if(desmarcar){ x.crmHablado=x.crmHabladoAntes||null; delete x.crmHabladoAntes; delete x.crmHabladoPor; }
+    else { if(x.crmHablado) x.crmHabladoAntes=x.crmHablado; x.crmHablado=h; x.crmHabladoPor=profile?profile.name:''; }
+    x.upd=new Date().toISOString(); });
+  renderCRM();
+}
+async function crmEditarLimite(){
+  if(!profile||profile.role!=='admin') return;
+  const r=await uiPrompt('Límite diario de contactos',{msg:'Cuántas personas se pueden marcar como "Ya le hablé" por día.',type:'number',value:String(crmLimiteDia()),ok:'Guardar'});
+  if(r==null) return; const n=parseInt(r)||0; if(n<1){ showToast('Poné un número mayor a 0'); return; }
+  promos.crmLimiteDia=n; savePromos(); showToast('Límite: '+n+' por día ✓'); renderCRM();
 }
 let crmDrag=null;
 function crmPointerDown(e,cid){
