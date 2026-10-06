@@ -263,7 +263,7 @@ function rpMejorFijoRubro(sucId,rubroId){
   });
   return mejor;
 }
-function rpTieneOferta(R){ return R.items.some(x=>x.descInd&&!(x.svc.rubro==='barberia-premium'&&x.descInd.tipo==='efectivo')); }
+function rpTieneOferta(R){ return R.items.some(x=>x.descInd&&x.descInd.tipo!=='combo'&&!(x.svc.rubro==='barberia-premium'&&x.descInd.tipo==='efectivo')); }
 function rpHoldsVivos(){ const ahora=Date.now(); return holdsSt.list.filter(h=>numV(h.expira)>ahora); }
 function rpSlotsLibres(profId,fecha,servicioIds){
   const dur=Math.max(AG_PASO,duracionServicios(servicioIds)), pasos=Math.max(1,Math.ceil(dur/AG_PASO));
@@ -421,8 +421,8 @@ function vpElegirHorario(hora){
   if(vpGrupoActual()) vpIniciarGrupoActual(); else s.modo='horarioConfirmar';
   renderVentaPaquete();
 }
-// Mismo criterio que siempre: descuento individual por horario/fecha propio de cada rubro, y recien despues
-// UN solo % de paquete (por cantidad total de servicios) sobre la suma ya descontada.
+// Descuento propio de cada servicio segun su horario/fecha, y despues aplicarDescPaquete: por servicio gana
+// el mas alto entre ese y el % del paquete (por cantidad total de servicios), sin sumarse (regla del 6/10/2026).
 function vpCalcFinal(){
   const s=ventaSel, base=[], {cli,cliente}=vpClienteCtx();
   vpGruposRubro().forEach(g=>{
@@ -431,19 +431,10 @@ function vpCalcFinal(){
     g.servicioIds.forEach(id=>{
       const svc=servicios.find(x=>x.id===id); if(!svc) return;
       const lista=numV(svc.precio), descInd=mejorDescuentoServicio(svc,cli,ctx,s.medio==='efectivo');
-      base.push({svc,lista,descInd,lineaFinal:lista-(descInd?descInd.monto:0)});
+      base.push({svc,lista,descInd});
     });
   });
-  const sub=base.reduce((a,x)=>a+x.lineaFinal,0);
-  const pct=pctPaquete(base.length);
-  const descPaq=Math.round(sub*pct/100), total=sub-descPaq;
-  let acum=0;
-  const out=base.map((x,i)=>{
-    const dq=(i===base.length-1)?(descPaq-acum):(sub>0?Math.round(x.lineaFinal/sub*descPaq):0);
-    if(i!==base.length-1) acum+=dq;
-    return {...x,dq,final:Math.max(0,x.lineaFinal-dq)};
-  });
-  return {items:out,sub,pct,descPaq,total,lista:base.reduce((a,x)=>a+x.lista,0)};
+  return aplicarDescPaquete(base);
 }
 // 2+ horarios a la vez (sea el cliente o el staff quien armo el combo) -> seña de 30% obligatoria (decidido con
 // Ivo, 27/09/2026). 30% es transferencia manual a la cuenta central "inda.dl"; el 20% de Mercado Pago Checkout
@@ -471,7 +462,7 @@ function vpRenderConfirmar(body){
       <div style="font-size:12.5px;color:var(--muted2)">${escH(suc?suc.nombre:'')}</div>
       ${grupos.map(g=>{ const a=s.asignaciones[g.rubro]||{}, prof=allUsers.find(u=>u.id===a.profId);
         return `<div style="margin-top:8px;padding-top:8px;border-top:1px solid var(--border)"><div style="font-size:12.5px;font-weight:700">${escH(nombreRubro(g.rubro)||g.rubro)} · con ${escH(prof?prof.name:'')}</div><div style="font-size:11.5px;color:var(--muted2)">${fechaCortaStr(a.fecha)} a las ${a.hora}hs</div></div>`; }).join('')}
-      <div style="margin-top:8px">${R.items.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${escH(x.svc.nombre)}</span><span>${fp(x.lista)}</span></div>${x.descInd?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#34d399"><span>↳ ${escH(x.descInd.label)}</span><span>−${fp(x.descInd.monto)}</span></div>`:''}${x.dq>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#a89fff"><span>↳ Descuento por paquete</span><span>−${fp(x.dq)}</span></div>`:''}</div>`).join('')}</div>
+      <div style="margin-top:8px">${R.items.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${escH(x.svc.nombre)}</span><span>${fp(x.lista)}</span></div>${x.descInd?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#34d399"><span>↳ ${escH(x.descInd.label)}</span><span>−${fp(x.descInd.monto)}</span></div>`:''}${x.dq>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#a89fff"><span>↳ Descuento por paquete (${R.pct}%)</span><span>−${fp(x.dq)}</span></div>`:''}</div>`).join('')}</div>
       <div style="font-size:20px;font-weight:900;margin-top:8px">${fp(R.total)}${R.total<R.lista?` <span style="font-size:11px;color:#34d399;font-weight:700">(ahorrás ${fp(R.lista-R.total)})</span>`:''}</div>
     </div>
     <div style="font-size:11px;color:var(--muted2);margin:-8px 0 12px">${grupos.length>1?'Estos horarios se reservan':'Este horario se reserva'} recién al confirmar — no quedan bloqueados mientras elegís.</div>

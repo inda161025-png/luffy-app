@@ -460,8 +460,8 @@ function cobroVenderMembresia(planId){
 
 // ============ vender paquete (promos cruzadas) ============
 // Cada servicio del paquete calcula primero SU propio mejor descuento (como si se cobrara solo: promo horaria/fuerzas,
-// efectivo, fidelidad, referidos — el mas alto de todos). Recien sobre esa suma ya descontada se aplica el % del paquete,
-// repartido proporcional entre las lineas.
+// efectivo, fidelidad, referidos — el mas alto de todos). Despues aplicarDescPaquete decide, por linea, si gana ese o el
+// % del paquete (nunca los dos).
 function mejorDescuentoServicio(svc,cli,ctx,medioEfectivo){
   const precio=precioSvc(svc.id), rubro=svc.rubro||'';
   const tarj=infoTarjeta(cli,rubro);
@@ -498,23 +498,43 @@ function mejorDescuentoServicio(svc,cli,ctx,medioEfectivo){
   let ganador=null; cand.forEach(c=>{ if(!ganador||c.monto>ganador.monto) ganador=c; });
   return ganador;
 }
-// Arma un paquete: descuento individual por linea + % del paquete sobre lo ya descontado, repartido proporcional
+// Arma un paquete con UN solo descuento por servicio, el mas alto: el propio (combo, promo horaria, efectivo,
+// fidelidad, etc.) o el % del paquete sobre el precio de lista -- nunca los dos sumados (regla de Ivo, 6/10/2026;
+// antes el % del paquete iba encima de lo ya descontado). Los combos de Catalogo -> Combos y ofertas se detectan
+// igual que en el cobro (lineasCobro) y cuentan como 1 servicio para el escalon del 5/10/15%.
 function calcPaqueteItems(items,cli,ctx,medioEfectivo){
+  return aplicarDescPaquete(items.map(svc=>({svc,lista:numV(svc.precio),descInd:mejorDescuentoServicio(svc,cli,ctx,medioEfectivo)})));
+}
+// base: [{svc,lista,descInd}] con el mejor descuento propio de cada servicio ya elegido. Lo usan calcPaqueteItems y vpCalcFinal.
+function aplicarDescPaquete(base){
   // Barberia de Autor no entra en el descuento de paquete ni cuenta para el escalon (decidido por Ivo, 3/10/2026)
   const esAutor=svc=>svc.rubro==='barberia-premium';
-  const base=items.map(svc=>{ const lista=numV(svc.precio); const descInd=mejorDescuentoServicio(svc,cli,ctx,medioEfectivo); const lineaFinal=lista-(descInd?descInd.monto:0); return {svc,lista,descInd,lineaFinal}; });
-  const sub=base.filter(x=>!esAutor(x.svc)).reduce((a,x)=>a+x.lineaFinal,0);
-  const pct=pctPaquete(items.filter(s=>!esAutor(s)).length);
-  const descPaq=Math.round(sub*pct/100), total=base.reduce((a,x)=>a+x.lineaFinal,0)-descPaq;
-  let acum=0, ultimo=base.map((x,i)=>i).filter(i=>!esAutor(base[i].svc)).pop();
-  const out=base.map((x,i)=>{
-    let dq=0;
-    if(!esAutor(x.svc)){ dq=(i===ultimo)?(descPaq-acum):(sub>0?Math.round(x.lineaFinal/sub*descPaq):0); if(i!==ultimo) acum+=dq; }
-    const final=Math.max(0,x.lineaFinal-dq);
+  base=base.map(x=>({...x}));
+  // Combos: si estan todos sus servicios, el descuento del combo se reparte entre sus lineas y compite como descuento propio
+  const libres=base.map((x,i)=>i), ids=base.map(x=>x.svc.id); let enCombos=0;
+  combos.filter(c=>c.servicioIds&&c.servicioIds.length>1&&c.servicioIds.every(id=>ids.includes(id)))
+    .map(c=>({c,lista:c.servicioIds.reduce((a,id)=>a+precioSvc(id),0)}))
+    .filter(x=>numV(x.c.precio)>0&&x.c.precio<x.lista)
+    .sort((a,b)=>(b.lista-b.c.precio)-(a.lista-a.c.precio))
+    .forEach(({c,lista})=>{
+      const idx=[]; c.servicioIds.forEach(id=>{ const k=libres.find(i=>!idx.includes(i)&&base[i].svc.id===id); if(k!=null) idx.push(k); });
+      if(idx.length!==c.servicioIds.length) return;
+      idx.forEach(i=>libres.splice(libres.indexOf(i),1)); enCombos+=idx.length-1;
+      const descTot=lista-numV(c.precio), pctC=Math.round(descTot/lista*1000)/10; let acum=0;
+      idx.forEach((i,j)=>{ const x=base[i]; const m=j===idx.length-1?descTot-acum:Math.round(x.lista*descTot/lista); acum+=m;
+        if(!x.descInd||x.descInd.monto<m) x.descInd={tipo:'combo',label:'Combo '+c.nombre,pct:pctC,monto:m}; });
+    });
+  const pct=pctPaquete(base.filter(x=>!esAutor(x.svc)).length-enCombos);
+  let descPaq=0;
+  const out=base.map(x=>{
+    let descInd=x.descInd, dq=0;
+    if(!esAutor(x.svc)&&pct>0){ const m=Math.round(x.lista*pct/100); if(m>(descInd?descInd.monto:0)){ descInd=null; dq=m; descPaq+=m; } }
+    const lineaFinal=x.lista-(descInd?descInd.monto:0), final=Math.max(0,lineaFinal-dq);
     const descPct=x.lista>0?Math.round((x.lista-final)/x.lista*1000)/10:0;
-    return {...x,dq,final,descPct};
+    return {...x,descInd,lineaFinal,dq,final,descPct};
   });
-  return {items:out,sub,pct,descPaq,total,lista:items.reduce((a,x)=>a+numV(x.precio),0)};
+  const total=out.reduce((a,x)=>a+x.final,0);
+  return {items:out,sub:total+descPaq,pct,descPaq,total,lista:base.reduce((a,x)=>a+x.lista,0)};
 }
 // Cuanto lleva facturado en paquetes esta quincena (sin plata de comision: para no anclarse mientras se calibra el escalonado)
 function facturadoPaqQuincena(recId,qk){ const k=qk||quincenaKey(hoyStr()); return paquetesSt.list.filter(p=>p.vendedorId===recId&&p.vendedorRol==='recepcionista'&&p.fecha&&quincenaKey(p.fecha)===k).reduce((s,p)=>s+numV(p.total),0); }
@@ -678,7 +698,7 @@ function renderVentaPaquete(){
     <div style="font-size:11.5px;color:var(--muted2);margin-bottom:10px">Primero el descuento de cada servicio (como si fuera solo) y recién después el % del paquete: 1 = normal · ${escala}</div>
     ${rubrosHtml}
     <div class="card" style="margin:14px 0 10px">
-      ${R.items.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${escH(x.svc.nombre)}</span><span>${fp(x.lista)}</span></div>${x.descInd?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#34d399"><span>↳ ${escH(x.descInd.label)} (−${Math.round(x.descInd.pct*10)/10}%)</span><span>−${fp(x.descInd.monto)}</span></div>`:''}${x.dq>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#4A136B"><span>↳ Descuento del paquete</span><span>−${fp(x.dq)}</span></div>`:''}<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700"><span>Queda en</span><span>${fp(x.final)}${x.descPct>0?' ('+x.descPct+'% off en total)':''}</span></div></div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Elegí los servicios del paquete.</div>'}
+      ${R.items.map(x=>`<div style="padding:4px 0;border-bottom:1px solid var(--border)"><div style="display:flex;justify-content:space-between;font-size:13px"><span>${escH(x.svc.nombre)}</span><span>${fp(x.lista)}</span></div>${x.descInd?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#34d399"><span>↳ ${escH(x.descInd.label)} (−${Math.round(x.descInd.pct*10)/10}%)</span><span>−${fp(x.descInd.monto)}</span></div>`:''}${x.dq>0?`<div style="display:flex;justify-content:space-between;font-size:11px;color:#4A136B"><span>↳ Descuento del paquete (${R.pct}%)</span><span>−${fp(x.dq)}</span></div>`:''}<div style="display:flex;justify-content:space-between;font-size:12.5px;font-weight:700"><span>Queda en</span><span>${fp(x.final)}${x.descPct>0?' ('+x.descPct+'% off en total)':''}</span></div></div>`).join('')||'<div style="font-size:12px;color:var(--muted)">Elegí los servicios del paquete.</div>'}
       ${items.length?`<div style="display:flex;justify-content:space-between;align-items:baseline;margin-top:8px;padding-top:8px;border-top:1.5px solid var(--border2)"><span style="font-size:13px;font-weight:700">TOTAL</span><span style="font-size:22px;font-weight:900">${fp(R.total)}</span></div><div style="font-size:11px;color:var(--muted2)">Precio de lista ${fp(R.lista)} · ahorra ${fp(R.lista-R.total)} en total${!c&&items.length>=2?' · el total puede cambiar un poco al asignarlo a un cliente (tarjeta, referidos)':''}</div>`:''}
     </div>
     ${progresoPaqSinPlata(R.total)}
