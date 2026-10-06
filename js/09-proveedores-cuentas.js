@@ -255,7 +255,11 @@ function renderAdminCuentas(c){
 }
 function editarCuenta(id){
   const u=allUsers.find(x=>x.id===id); if(!u) return; const esPro=u.role==='profesional'||(u.role==='admin'&&!!u.tambienProf), esRec=u.role==='recepcionista', esAdm=u.role==='admin';
-  const btnClave=`<button class="btn btn-ghost" style="margin-top:10px" onclick="resetearClaveCuenta('${u.id}')">🔑 Resetear contraseña</button>`;
+  // Bloque de contraseña: deja claro qué botón usar (confusión de Ivo con Emanuel, 6/10/2026)
+  const btnClave=`<div class="card" style="margin:10px 0 12px"><div style="font-size:13px;font-weight:800;margin-bottom:4px">🔑 Contraseña</div>
+    <div style="font-size:11.5px;color:var(--muted2);margin-bottom:8px"><b>¿Se la olvidó o no puede entrar?</b> Usá <b>Resetear contraseña</b>: le ponés vos una clave nueva y se la pasás.</div>
+    <button class="btn btn-primary" onclick="resetearClaveCuenta('${u.id}')">🔑 Resetear contraseña</button>
+    ${profile&&profile.id!==u.id?(u.passReset?`<div style="margin-top:10px;font-size:11.5px;color:#fbbf24;font-weight:700">🔓 Habilitado: cuando entre con su clave de siempre, va a poder ponerse una nueva sin escribir la vieja. Se cierra solo apenas la cambie.</div><button class="btn btn-ghost" onclick="cancelarCambioPassword('${u.id}')" style="margin-top:6px">Cancelar habilitación</button>`:`<div style="margin-top:10px;font-size:11.5px;color:var(--muted2)"><b>¿Puede entrar pero quiere otra clave?</b> Habilitalo y la cambia desde el menú ☰. <span style="color:#f472b6;font-weight:700">No sirve si se olvidó la clave.</span></div><button class="btn btn-ghost" onclick="habilitarCambioPassword('${u.id}')" style="margin-top:6px">🔓 Habilitar cambio (sabe su clave actual)</button>`):''}</div>`;
   document.getElementById('registro-content').innerHTML=cabeceraModal('Editar cuenta')+btnClave+`
     <div style="font-size:11.5px;color:var(--muted2);margin:-4px 0 10px">Usuario: <b>@${escH(u.username||'')}</b> (no se cambia)</div>
     <div class="field"><label>Nombre</label><input id="ec-nombre" value="${escH(u.name)}"/></div>
@@ -272,13 +276,12 @@ function editarCuenta(id){
     <div class="field" style="margin-top:8px"><label>Monotributo (categoría / costo mensual)</label><input id="ec-mono" value="${escH(u.monotributo||'')}" placeholder="Ej: Categoría C, $45.000/mes"/></div>
     <div class="field" style="margin-top:8px"><label>Obra social</label><input id="ec-os" value="${escH(u.obraSocial||'')}" placeholder="Ej: OSDE, propia"/></div>`:''}
     <button class="btn btn-primary" onclick="guardarCuenta('${u.id}')" style="margin-top:14px">Guardar cambios</button>
-    ${profile&&profile.id!==u.id?(u.passReset?`<div class="card" style="margin-top:10px;border:1.5px solid #fbbf24;background:rgba(251,191,36,.08);font-size:12px;color:#fbbf24;font-weight:700">🔓 Habilitado: puede definir una contraseña nueva la próxima vez que entre. Se cierra solo apenas la cambie.</div><button class="btn btn-ghost" onclick="cancelarCambioPassword('${u.id}')" style="margin-top:8px">Cancelar habilitación</button>`:`<button class="btn btn-ghost" onclick="habilitarCambioPassword('${u.id}')" style="margin-top:8px">🔓 Habilitar cambio de contraseña</button>`):''}
     ${esAdm?'':`<button class="btn btn-ghost" onclick="darDeBaja('${u.id}')" style="margin-top:8px;color:#f472b6">🗄 Dar de baja</button>`}`;
   openModal('modal-registro');
 }
 async function habilitarCambioPassword(id){
   const u=allUsers.find(x=>x.id===id); if(!u) return;
-  if(await editarUsuario(id,{passReset:true})){ showToast('Habilitado: '+u.name+' puede definir una contraseña nueva la próxima vez que entre'); editarCuenta(id); }
+  if(await editarUsuario(id,{passReset:true})){ showToast('Habilitado: cuando '+u.name+' entre con su clave actual, va a poder ponerse una nueva'); editarCuenta(id); }
 }
 async function cancelarCambioPassword(id){
   const u=allUsers.find(x=>x.id===id); if(!u) return;
@@ -603,8 +606,8 @@ function htmlAseguradosPanel(){
 async function resetearClaveCuenta(uid){
   if(!profile||profile.role!=='admin'){ showToast('Solo el admin puede resetear claves'); return; }
   const u=allUsers.find(x=>x.id===uid); if(!u) return;
-  const r=await uiPrompt('Nueva contraseña para '+u.name,{msg:'La persona entra con esta clave y después la puede cambiar. Mínimo 4 caracteres.',type:'text',ok:'Resetear'});
-  const pw=(r||'').trim(); if(pw.length<4){ if(r!=null) showToast('Mínimo 4 caracteres'); return; }
+  const r=await uiPrompt('Nueva contraseña para '+u.name,{msg:'Sirve si se olvidó la clave. Entra con esta y después la puede cambiar desde el menú ☰. Mínimo 6 caracteres.',type:'text',ok:'Resetear'});
+  const pw=(r||'').trim(); if(pw.length<6){ if(r!=null) showToast('Mínimo 6 caracteres'); return; }
   // Slug real: Supabase creó la función como "dynamic-function" y el slug no se puede renombrar.
   const rr=await supaClient.from('luffy_roles').select('uid').eq('app_id',uid).maybeSingle();
   if(!rr.data){ showToast('Esa cuenta todavía no tiene usuario de acceso'); return; }

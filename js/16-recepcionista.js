@@ -402,10 +402,12 @@ function marcarCumple(id){
   if(c.contactado) showToast('+'+ptsDe('cumple',20)+' puntos ⭐');
 }
 
+// Todo el equipo activo (profesionales, recepción, encargado, admin) menos quien reporta (pedido de Ivo, 6/10/2026)
 function abrirReportarIncidente(){
+  const equipo=allUsers.filter(u=>u&&!u.baja&&(!profile||u.id!==profile.id)).sort((a,b)=>(a.name||'').localeCompare(b.name||''));
   document.getElementById('registro-content').innerHTML=cabeceraModal('⚠️ Reportar incidente')+
-    `<div style="font-size:12.5px;color:var(--muted2);margin-bottom:12px">¿Con qué profesional?</div>
-    <div style="display:flex;flex-wrap:wrap;gap:6px">${allUsers.filter(u=>esProf(u)).map(u=>`<button onclick="closeModal('modal-registro');reportarIncidente('${u.id}','${escH(u.name)}')" style="padding:9px 14px;border-radius:14px;border:1.5px solid rgba(244,114,182,.3);background:rgba(244,114,182,.06);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${u.emoji||'✂️'} ${escH(u.name)}</button>`).join('')}</div>`;
+    `<div style="font-size:12.5px;color:var(--muted2);margin-bottom:12px">¿Con quién del equipo?</div>
+    <div style="display:flex;flex-wrap:wrap;gap:6px">${equipo.map(u=>`<button onclick="closeModal('modal-registro');reportarIncidente('${u.id}','${escH(u.name)}')" style="padding:9px 14px;border-radius:14px;border:1.5px solid rgba(244,114,182,.3);background:rgba(244,114,182,.06);color:var(--text);font-family:var(--font);font-size:13px;font-weight:600;cursor:pointer">${u.emoji||(u.role==='recepcionista'?'📞':u.role==='admin'?'👑':'✂️')} ${escH(u.name)}</button>`).join('')||'<span style="font-size:12.5px;color:var(--muted)">No hay nadie más en el equipo.</span>'}</div>`;
   openModal('modal-registro');
 }
 async function reportarIncidente(profId, profName){

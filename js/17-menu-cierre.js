@@ -902,7 +902,7 @@ const GUIAS={
     {e:'🚫',t:'Clientes que deben',x:'Si un cliente se fue sin pagar, aparece en "Clientes que deben" con quién lo dejó y hace cuánto. Cuando pague, tocá Cobrar: suma a la quincena del profesional del día en que pagó.'},
     {e:'📋',t:'Tareas del día',x:'Tu lista de tareas (limpieza, caja, etc.). Tocá cada una para tildarla.'},
     {e:'💰',t:'Ventas',x:'Vendé productos con el botón "+ Venta": ganás la comisión de cada producto y el stock se descuenta solo. Ves lo vendido de hoy y tu comisión de la quincena.'},
-    {e:'🎂',t:'Cumpleaños e incidentes',x:'Te avisamos los cumpleaños de los próximos días para contactar a los clientes (suma puntos). Y si pasa algo con un profesional, lo reportás desde "Reportar incidente". Modo claro/oscuro en el menú ☰.'},
+    {e:'🎂',t:'Cumpleaños e incidentes',x:'Te avisamos los cumpleaños de los próximos días para contactar a los clientes (suma puntos). Y si pasa algo con alguien del equipo, lo reportás desde "Reportar incidente". Modo claro/oscuro en el menú ☰.'},
   ],
   encargado:[
     {e:'👋',t:'Bienvenido/a a Inda App',x:'Acá controlás el stock de los productos. Podés volver a ver estos consejos desde el menú ☰ → Guía rápida.'},
