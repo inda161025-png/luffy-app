@@ -722,7 +722,14 @@ function refreshRegistroTurno(){
   renderProdsCobro('cb-prods',color);
   renderSucCobro();
 }
+// Doble toque en "Registrar turno" creaba 2 turnos: mientras se guarda el primero, los demás toques se ignoran
+let __registroTurnoBusy=false;
 async function guardarRegistroTurno(){
+  if(__registroTurnoBusy) return;
+  __registroTurnoBusy=true;
+  try{ await guardarRegistroTurnoInner(); }finally{ __registroTurnoBusy=false; }
+}
+async function guardarRegistroTurnoInner(){
   const vis=serviciosVisibles();
   const elegidos=cobro.servicios.filter(id=>vis.some(s=>s.id===id));
   if(!elegidos.length){ showToast('Elegí qué le hiciste'); return; }

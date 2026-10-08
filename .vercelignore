@@ -1,0 +1,7 @@
+# Archivos internos que no tienen que quedar visibles en app.indabarber.com (pedido de Ivo, 8/10/2026)
+db
+negocio
+herramientas
+supabase
+.claude
+*.md

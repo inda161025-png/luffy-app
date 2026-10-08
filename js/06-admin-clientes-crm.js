@@ -680,10 +680,17 @@ function rubrosDesdeTexto(txt){ const out=[]; String(txt||'').split(/[;,\/]/).ma
 function abrirImportRubrosPrevios(){
   document.getElementById('registro-content').innerHTML=cabeceraModal('📚 Rubros previos de importados')+
     `<div style="font-size:12px;color:var(--muted2);line-height:1.6;margin-bottom:10px">Una fila por cliente: <b style="color:var(--text)">teléfono,rubros</b>. Los rubros van separados por ; (ej: <i>Barbería;Masajes</i>). Cruza por teléfono; si el teléfono es de más de un cliente, esa fila se saltea. Se suma a lo que ya tenga cargado, no lo reemplaza.</div>
-    <textarea id="rp-txt" rows="7" placeholder="1167444023,Barbería;Masajes" oninput="previewRubrosPrevios()" style="${inpCss};min-height:130px"></textarea>
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <label class="btn btn-ghost" style="flex:1;margin:0;padding:10px;font-size:12px;text-align:center;cursor:pointer">📂 Subir CSV<input type="file" accept=".csv,.tsv,.txt" style="display:none" onchange="importRubrosPreviosArchivo(this)"/></label>
+    </div>
+    <textarea id="rp-txt" rows="7" placeholder="O pegá acá: 1167444023,Barbería;Masajes" oninput="previewRubrosPrevios()" style="${inpCss};min-height:130px"></textarea>
     <div id="rp-prev" style="font-size:12px;color:var(--muted2);margin:10px 0"></div>
     <button id="rp-btn" class="btn btn-primary" onclick="confirmarRubrosPrevios()" disabled>Importar</button>`;
   openModal('modal-registro');
+}
+function importRubrosPreviosArchivo(inp){
+  const f=inp.files&&inp.files[0]; if(!f) return;
+  const rd=new FileReader(); rd.onload=()=>{ document.getElementById('rp-txt').value=String(rd.result||''); previewRubrosPrevios(); }; rd.readAsText(f,'utf-8');
 }
 function filasRubrosPrevios(txt){
   const rows=parseTabla(txt); const dataRows=rows.length&&/tel/i.test(rows[0].join(' '))?rows.slice(1):rows;
